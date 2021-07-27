@@ -8,6 +8,11 @@ menuconfig MAILBOX
 
 if MAILBOX
 
+config APPLE_MBOX
+	tristate "Apple RTKit Mailbox"
+	depends on ARM64
+	default ARCH_APPLE
+
 config ARM_MHU
 	tristate "ARM MHU Mailbox"
 	depends on ARM_AMBA
