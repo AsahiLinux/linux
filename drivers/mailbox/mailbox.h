@@ -6,5 +6,6 @@
 #define TXDONE_BY_IRQ	BIT(0) /* controller has remote RTR irq */
 #define TXDONE_BY_POLL	BIT(1) /* controller can read status of last TX */
 #define TXDONE_BY_ACK	BIT(2) /* S/W ACK received by Client ticks the TX */
+#define TXDONE_DIRECT	BIT(3) /* ACK received when ops->send_data was succesful */
 
 #endif /* __MAILBOX_H */

@@ -23,6 +23,8 @@
 static LIST_HEAD(mbox_cons);
 static DEFINE_MUTEX(con_mutex);
 
+static void tx_tick(struct mbox_chan *chan, int r);
+
 static int add_to_rbuf(struct mbox_chan *chan, void *mssg)
 {
 	int idx;
@@ -81,6 +83,12 @@ static void msg_submit(struct mbox_chan *chan)
 	}
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
+
+	/* check if the message has already been acked */
+	if (!err && (chan->txdone_method & TXDONE_DIRECT)) {
+		tx_tick(chan, 0);
+		return;
+	}
 
 	/* kick start the timer immediately to avoid delays */
 	if (!err && (chan->txdone_method & TXDONE_BY_POLL)) {
@@ -490,7 +498,15 @@ int mbox_controller_register(struct mbox_controller *mbox)
 	else /* It has to be ACK then */
 		txdone = TXDONE_BY_ACK;
 
-	if (txdone == TXDONE_BY_POLL) {
+	if (mbox->txdone_direct)
+		txdone |= TXDONE_DIRECT;
+
+	if ((txdone & TXDONE_DIRECT) && (txdone & TXDONE_BY_ACK)) {
+		dev_err(mbox->dev, "TXDONE_DIRECT and TXDONE_BY_ACK cannot be used together.\n");
+		return -EINVAL;
+	}
+
+	if (txdone & TXDONE_BY_POLL) {
 
 		if (!mbox->ops->last_tx_done) {
 			dev_err(mbox->dev, "last_tx_done method is absent\n");

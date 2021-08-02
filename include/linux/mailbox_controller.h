@@ -64,6 +64,11 @@ struct mbox_chan_ops {
  * @txdone_poll:	If the controller can read but not report the TX
  *			done. Ex, some register shows the TX status but
  *			no interrupt rises. Ignored if 'txdone_irq' is set.
+ * @txdone_direct:      Indicates that the API can assume that messages have
+ *                      been transmitted successfully when ops->submit_msg was
+ *                      successful. Must be used in conjunction with
+ *                      'txdone_irq' or 'txdone_poll' when the message could
+ *                      not be submitted directly.
  * @txpoll_period:	If 'txdone_poll' is in effect, the API polls for
  *			last TX's status after these many millisecs
  * @of_xlate:		Controller driver specific mapping of channel via DT
@@ -78,6 +83,7 @@ struct mbox_controller {
 	int num_chans;
 	bool txdone_irq;
 	bool txdone_poll;
+	bool txdone_direct;
 	unsigned txpoll_period;
 	struct mbox_chan *(*of_xlate)(struct mbox_controller *mbox,
 				      const struct of_phandle_args *sp);
