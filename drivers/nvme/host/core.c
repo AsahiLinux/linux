@@ -4050,6 +4050,8 @@ static int nvme_scan_ns_list(struct nvme_ctrl *ctrl)
 	u32 prev = 0;
 	int ret = 0, i;
 
+	if (ctrl->quirks & NVME_QUIRK_NO_SCAN_NS_LIST)
+		return -EOPNOTSUPP;
 	if (nvme_ctrl_limited_cns(ctrl))
 		return -EOPNOTSUPP;
 

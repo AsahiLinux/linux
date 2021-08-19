@@ -144,6 +144,13 @@ enum nvme_quirks {
 	 * encoding the generation sequence number.
 	 */
 	NVME_QUIRK_SKIP_CID_GEN			= (1 << 17),
+
+	/*
+	 * The controller does not properly handle SCAN NS LIST
+	 * commands.
+	 */
+	NVME_QUIRK_NO_SCAN_NS_LIST		= (1 << 18),
+
 };
 
 /*
