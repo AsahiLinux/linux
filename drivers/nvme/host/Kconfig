@@ -15,6 +15,22 @@ config BLK_DEV_NVME
 	  To compile this driver as a module, choose M here: the
 	  module will be called nvme.
 
+config BLK_DEV_NVME_APPLE
+	tristate "Apple ANS2 NVM Express block device"
+	depends on (ARCH_APPLE && BLOCK) && !COMPILE_TEST
+	select NVME_CORE
+	select APPLE_RTKIT
+	select APPLE_SART
+        default ARCH_APPLE
+	help
+	  The NVM Express driver is for drives found in Apple SoCs such
+	  as the M1. These SoCs require to establish communication with a
+	  co-processor called ANS before a NVM Express MMIO interface is
+	  exposed.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called nvme.
+
 config NVME_MULTIPATH
 	bool "NVMe multipath support"
 	depends on NVME_CORE
