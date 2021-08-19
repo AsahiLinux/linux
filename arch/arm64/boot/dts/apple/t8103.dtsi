@@ -338,5 +338,32 @@
 						<0 0 0 4 &port02 0 0 0 3>;
 			};
 		};
+		ans: mbox@277408000 {
+			compatible = "apple,t8103-asc-mailbox";
+			reg = <0x2 0x77408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 583 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 584 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 585 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 586 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
+		sart: sart@27bc50000 {
+			compatible = "apple,t8103-sart";
+			reg = <0x2 0x7bc50000 0x0 0x10000>;
+		};
+
+		ans2: nvme@27bcc0000 {
+			compatible = "apple,t8103-ans-nvme";
+			reg = <0x2 0x7bcc0000 0x0 0x40000>, <0x2 0x77400000 0x0 0x4000>;
+			reg-names = "nvme", "coproc";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 590 IRQ_TYPE_LEVEL_HIGH>;
+			mboxes = <&ans>;
+			apple,sart = <&sart>;
+		 };
 	};
 };
