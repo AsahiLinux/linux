@@ -346,6 +346,14 @@
 		clock-output-names = "clk_200m";
 	};
 
+	/* Pixel clock? frequency in Hz (compare: 4K@60 VGA clock 533.250 MHz) */
+	clk_disp0: clock-disp0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <533333328>;
+		clock-output-names = "clk_disp0";
+	};
+
 	/*
 	 * This is a fabulated representation of the input clock
 	 * to NCO since we don't know the true clock tree.
@@ -493,6 +501,77 @@
 					#size-cells = <0>;
 				};
 			};
+		};
+
+		disp0_dart: iommu@231304000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x31304000 0x0 0x4000>;
+			#iommu-cells = <5>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 445 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_disp0_cpu0>;
+			status = "disabled";
+		};
+
+		dcp_dart: iommu@23130c000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x3130c000 0x0 0x4000>;
+			#iommu-cells = <5>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 445 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_disp0_cpu0>;
+		};
+
+		dcp_mbox: mbox@231c08000 {
+			compatible = "apple,t8103-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x31c08000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 427 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 428 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 429 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 430 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_disp0_cpu0>;
+			resets = <&ps_disp0_cpu0>;
+		};
+
+		dcp: dcp@231c00000 {
+			compatible = "apple,t8103-dcp", "apple,dcp";
+			mboxes = <&dcp_mbox>;
+			mbox-names = "mbox";
+			iommus = <&dcp_dart 0 0x0 0x0 0x0 0xfc000000>;
+
+			reg-names = "coproc", "disp-0", "disp-1", "disp-2",
+				"disp-3", "disp-4";
+			reg = <0x2 0x31c00000 0x0 0x4000>,
+				<0x2 0x30000000 0x0 0x3e8000>,
+				<0x2 0x31320000 0x0 0x4000>,
+				<0x2 0x31344000 0x0 0x4000>,
+				<0x2 0x31800000 0x0 0x800000>,
+				<0x2 0x3b3d0000 0x0 0x4000>;
+			apple,bw-scratch = <&pmgr_dcp 0 5 0x14>;
+			apple,bw-doorbell = <&pmgr_dcp 1 6>;
+			power-domains = <&ps_disp0_cpu0>;
+			resets = <&ps_disp0_cpu0>;
+			clocks = <&clk_disp0>;
+			phandle = <&dcp>;
+			// required bus properties for 'piodma' subdevice
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			disp0_piodma: piodma {
+				iommus = <&disp0_dart 4 0x0 0x0 0x0 0xfc000000>;
+				phandle = <&disp0_piodma>;
+			};
+		};
+
+		display: display-subsystem {
+			compatible = "apple,display-subsystem";
+			iommus = <&disp0_dart 0 0x0 0x0 0x0 0xfc000000>;
+			/* generate phandle explicitly for use in loader */
+			phandle = <&display>;
 		};
 
 		sio_dart: iommu@235004000 {
@@ -730,6 +809,14 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x2 0x3b700000 0 0x14000>;
+		};
+
+		pmgr_dcp: power-management@23b738000 {
+			reg = <0x2 0x3b738000 0x0 0x1000>,
+				<0x2 0x3bc3c000 0x0 0x1000>;
+			reg-names = "dcp-bw-scratch", "dcp-bw-doorbell";
+			#apple,bw-scratch-cells = <3>;
+			#apple,bw-doorbell-cells = <2>;
 		};
 
 		cio_reset: reset-controller@23b784000 {
