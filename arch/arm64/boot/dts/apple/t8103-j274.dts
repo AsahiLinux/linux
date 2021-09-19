@@ -17,6 +17,7 @@
 
 	aliases {
 		serial0 = &serial0;
+		serial2 = &serial2;
 		ethernet0 = &ethernet0;
 	};
 
@@ -42,6 +43,10 @@
 };
 
 &serial0 {
+	status = "okay";
+};
+
+&serial2 {
 	status = "okay";
 };
 
