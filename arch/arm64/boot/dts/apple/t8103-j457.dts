@@ -22,6 +22,20 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j457", "apple,panel";
+		width-mm = <522>;
+		height-mm = <294>;
+		apple,max-brightness = <525>;
+	};
+};
+
+&framebuffer0 {
+	panel = <&panel>;
+	post-init-providers = <&panel>;
+};
+
 /*
  * Adjust pcie0's iommu-map to account for the disabled port01.
  */

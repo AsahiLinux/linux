@@ -12,6 +12,10 @@
 / {
 	aliases {
 		bluetooth0 = &bluetooth0;
+		dcp = &dcp;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
+		disp0-piodma = &disp0_piodma;
 		serial0 = &serial0;
 		serial2 = &serial2;
 		wifi0 = &wifi0;
@@ -29,9 +33,17 @@
 		framebuffer0: framebuffer@0 {
 			compatible = "apple,simple-framebuffer", "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
+			power-domains = <&ps_disp0_cpu0>;
 			/* Format properties will be added by loader */
 			status = "disabled";
 		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		/* To be filled by loader */
 	};
 
 	memory@800000000 {
