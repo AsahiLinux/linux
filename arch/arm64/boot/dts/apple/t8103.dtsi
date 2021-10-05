@@ -96,11 +96,11 @@
 			     <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	clk24: clock-24m {
+	clkref: clock-ref {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <24000000>;
-		clock-output-names = "clk24";
+		clock-output-names = "clkref";
 	};
 
 	soc {
@@ -121,7 +121,7 @@
 			 * TODO: figure out the clocking properly, there may
 			 * be a third selectable clock.
 			 */
-			clocks = <&clk24>, <&clk24>;
+			clocks = <&clkref>, <&clkref>;
 			clock-names = "uart", "clk_uart_baud0";
 			status = "disabled";
 		};
