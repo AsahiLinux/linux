@@ -2,3 +2,4 @@
 
 obj-$(CONFIG_APPLE_RTKIT) += apple-rtkit.o
 obj-$(CONFIG_APPLE_SART) += apple-sart.o
+obj-$(CONFIG_APPLE_PMGR_PWRSTATE) += apple-pmgr-pwrstate.o
