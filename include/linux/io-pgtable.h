@@ -136,6 +136,8 @@ struct io_pgtable_cfg {
 		struct {
 			u64 ttbr[4];
 			u32 n_ttbrs;
+			u32 paddr_shift;
+			u64 paddr_mask;
 		} apple_dart_cfg;
 	};
 };
