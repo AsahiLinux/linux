@@ -506,6 +506,9 @@ static int dwc3_usb_role_switch_set(struct usb_role_switch *sw,
 		break;
 	}
 
+	if (dwc->role_switch_reset_quirk && role == USB_ROLE_NONE)
+		mode = 0;
+
 	dwc3_set_mode(dwc, mode);
 	return 0;
 }
@@ -534,6 +537,10 @@ static enum usb_role dwc3_usb_role_switch_get(struct usb_role_switch *sw)
 			role = USB_ROLE_DEVICE;
 		break;
 	}
+
+	if (dwc->role_switch_reset_quirk && !dwc->current_dr_role)
+		role = USB_ROLE_NONE;
+
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	return role;
 }

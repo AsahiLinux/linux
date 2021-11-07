@@ -116,6 +116,8 @@ void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode)
 }
 
 static int dwc3_core_soft_reset(struct dwc3 *dwc);
+static void dwc3_core_exit(struct dwc3 *dwc);
+static int dwc3_core_init_for_resume(struct dwc3 *dwc);
 
 static void __dwc3_set_mode(struct work_struct *work)
 {
@@ -131,10 +133,11 @@ static void __dwc3_set_mode(struct work_struct *work)
 	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_OTG)
 		dwc3_otg_update(dwc, 0);
 
-	if (!dwc->desired_dr_role)
+	if (!dwc->desired_dr_role && !dwc->role_switch_reset_quirk)
 		goto out;
 
-	if (dwc->desired_dr_role == dwc->current_dr_role)
+	if (dwc->desired_dr_role == dwc->current_dr_role &&
+			!dwc->role_switch_reset_quirk)
 		goto out;
 
 	if (dwc->desired_dr_role == DWC3_GCTL_PRTCAP_OTG && dwc->edev)
@@ -157,6 +160,34 @@ static void __dwc3_set_mode(struct work_struct *work)
 		break;
 	default:
 		break;
+	}
+
+	if (dwc->role_switch_reset_quirk) {
+		if (dwc->current_dr_role) {
+			dwc->current_dr_role = 0;
+			dwc3_core_exit(dwc);
+		}
+
+		if (dwc->desired_dr_role) {
+			/*
+			 * the first call to __dwc3_set_mode comes from
+			 * dwc3_drd_init. In that case dwc3_core_init has been
+			 * called but dwc->current_dr_role is zero such that
+			 * we must not reinitialize the core again here.
+			 */
+			if (dwc->role_switch_reset_quirk_initialized) {
+				ret = dwc3_core_init_for_resume(dwc);
+				if (ret) {
+					dev_err(dwc->dev,
+					    "failed to reinitialize core\n");
+					goto out;
+				}
+			}
+
+			dwc->role_switch_reset_quirk_initialized = 1;
+		} else {
+			goto out;
+		}
 	}
 
 	/* For DRD host or device mode only */
@@ -1617,6 +1648,8 @@ static int dwc3_probe(struct platform_device *pdev)
 		else
 			dwc->num_clks = ret;
 
+		if (of_device_is_compatible(dev->of_node, "apple,dwc3"))
+			dwc->role_switch_reset_quirk = true;
 	}
 
 	ret = reset_control_deassert(dwc->reset);
@@ -1746,7 +1779,6 @@ static int dwc3_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
 static int dwc3_core_init_for_resume(struct dwc3 *dwc)
 {
 	int ret;
@@ -1773,6 +1805,7 @@ assert_reset:
 	return ret;
 }
 
+#ifdef CONFIG_PM
 static int dwc3_suspend_common(struct dwc3 *dwc, pm_message_t msg)
 {
 	unsigned long	flags;
