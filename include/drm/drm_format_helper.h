@@ -29,6 +29,10 @@ void drm_fb_xrgb8888_to_rgb888(void *dst, void *src, struct drm_framebuffer *fb,
 void drm_fb_xrgb8888_to_rgb888_dstclip(void __iomem *dst, unsigned int dst_pitch,
 				       void *vaddr, struct drm_framebuffer *fb,
 				       struct drm_rect *clip);
+void drm_fb_xrgb8888_to_xrgb2101010_dstclip(void __iomem *dst,
+					    unsigned int dst_pitch, void *vaddr,
+					    struct drm_framebuffer *fb,
+					    struct drm_rect *clip);
 void drm_fb_xrgb8888_to_gray8(u8 *dst, void *vaddr, struct drm_framebuffer *fb,
 			      struct drm_rect *clip);
 
