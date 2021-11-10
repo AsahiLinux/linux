@@ -21,6 +21,9 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 
+#define APPLE_SART_MAX_ENTRIES 16
+
+/* SARTv2 registers */
 #define APPLE_SART_CONFIG(idx) (0x00 + 4 * (idx))
 #define APPLE_SART_CONFIG_FLAGS GENMASK(31, 24)
 #define APPLE_SART_CONFIG_SIZE GENMASK(23, 0)
@@ -31,7 +34,21 @@
 #define APPLE_SART_PADDR(idx) (0x40 + 4 * (idx))
 #define APPLE_SART_PADDR_SHIFT 12
 
-#define APPLE_SART_MAX_ENTRIES 16
+/* SARTv3 registers */
+#define APPLE_SART3_CONFIG(idx) (0x00 + 4 * (idx))
+
+#define APPLE_SART3_PADDR(idx) (0x40 + 4 * (idx))
+#define APPLE_SART3_PADDR_SHIFT 12
+
+#define APPLE_SART3_SIZE(idx) (0x80 + 4 * (idx))
+#define APPLE_SART3_SIZE_SHIFT 12
+
+struct apple_sart_ops {
+	void (*get_entry)(struct apple_sart *sart, int index, u8 *flags, phys_addr_t *paddr,
+			  size_t *size);
+	void (*set_entry)(struct apple_sart *sart, int index, u8 flags, phys_addr_t paddr,
+			  size_t size);
+};
 
 /*
  * Private structure attached to the SART device struct as drvdata.
@@ -51,8 +68,57 @@ struct apple_sart {
 	struct clk_bulk_data *clks;
 	int num_clks;
 
+	const struct apple_sart_ops *ops;
+
 	unsigned long protected_entries;
 	unsigned long used_entries;
+};
+
+static void sart2_get_entry(struct apple_sart *sart, int index, u8 *flags, phys_addr_t *paddr,
+			    size_t *size)
+{
+	u32 cfg = readl_relaxed(sart->regs + APPLE_SART_CONFIG(index));
+	*flags = FIELD_GET(APPLE_SART_CONFIG_FLAGS, cfg);
+	*size = FIELD_GET(APPLE_SART_CONFIG_SIZE, cfg) << APPLE_SART_CONFIG_SIZE_SHIFT;
+	*paddr = readl_relaxed(sart->regs + APPLE_SART_PADDR(index)) << APPLE_SART_PADDR_SHIFT;
+}
+
+static void sart2_set_entry(struct apple_sart *sart, int index, u8 flags, phys_addr_t paddr,
+			    size_t size)
+{
+	u32 cfg = FIELD_PREP(APPLE_SART_CONFIG_FLAGS, flags);
+	cfg |= FIELD_PREP(APPLE_SART_CONFIG_SIZE, size >> APPLE_SART_CONFIG_SIZE_SHIFT);
+
+	writel_relaxed(paddr >>= APPLE_SART_PADDR_SHIFT, sart->regs + APPLE_SART_PADDR(index));
+	writel_relaxed(cfg, sart->regs + APPLE_SART_CONFIG(index));
+}
+
+static struct apple_sart_ops sart_ops_v2 = {
+	.get_entry = sart2_get_entry,
+	.set_entry = sart2_set_entry,
+};
+
+static void sart3_get_entry(struct apple_sart *sart, int index, u8 *flags, phys_addr_t *paddr,
+			    size_t *size)
+{
+	*flags = readl_relaxed(sart->regs + APPLE_SART3_CONFIG(index));
+	*size = (size_t)readl_relaxed(sart->regs + APPLE_SART3_SIZE(index))
+			<< APPLE_SART3_SIZE_SHIFT;
+	*paddr = (phys_addr_t)readl_relaxed(sart->regs + APPLE_SART_PADDR(index))
+			<< APPLE_SART_PADDR_SHIFT;
+}
+
+static void sart3_set_entry(struct apple_sart *sart, int index, u8 flags, phys_addr_t paddr,
+			    size_t size)
+{
+	writel_relaxed(paddr >>= APPLE_SART_PADDR_SHIFT, sart->regs + APPLE_SART_PADDR(index));
+	writel_relaxed(size >>= APPLE_SART3_SIZE_SHIFT, sart->regs + APPLE_SART3_SIZE(index));
+	writel_relaxed(flags, sart->regs + APPLE_SART3_CONFIG(index));
+}
+
+static struct apple_sart_ops sart_ops_v3 = {
+	.get_entry = sart3_get_entry,
+	.set_entry = sart3_set_entry,
 };
 
 static int apple_sart_probe(struct platform_device *pdev)
@@ -67,6 +133,7 @@ static int apple_sart_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, sart);
 
 	sart->dev = dev;
+	sart->ops = of_device_get_match_data(dev);
 
 	sart->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(sart->regs))
@@ -82,13 +149,11 @@ static int apple_sart_probe(struct platform_device *pdev)
 		return ret;
 
 	for (i = 0; i < APPLE_SART_MAX_ENTRIES; ++i) {
-		u32 cfg = readl_relaxed(sart->regs + APPLE_SART_CONFIG(i));
-		u8 flags = FIELD_GET(APPLE_SART_CONFIG_FLAGS, cfg);
-		size_t size = FIELD_GET(APPLE_SART_CONFIG_SIZE, cfg)
-			      << APPLE_SART_CONFIG_SIZE_SHIFT;
-		phys_addr_t paddr =
-			readl_relaxed(sart->regs + APPLE_SART_PADDR(i));
-		paddr <<= APPLE_SART_PADDR_SHIFT;
+		u8 flags;
+		size_t size;
+		phys_addr_t paddr;
+
+		sart->ops->get_entry(sart, i, &flags, &paddr, &size);
 
 		if (!flags)
 			continue;
@@ -152,26 +217,16 @@ int apple_sart_add_allowed_region(struct apple_sart *sart, phys_addr_t paddr,
 		"will add [paddr: 0x%llx, size: 0x%zx] to allowed regions\n",
 		paddr, size);
 
-	size >>= APPLE_SART_CONFIG_SIZE_SHIFT;
-	paddr >>= APPLE_SART_PADDR_SHIFT;
-
 	for (i = 0; i < APPLE_SART_MAX_ENTRIES; ++i) {
-		u32 config;
-
 		if (test_bit(i, &sart->protected_entries))
 			continue;
 		if (test_and_set_bit(i, &sart->used_entries))
 			continue;
 
-		config = FIELD_PREP(APPLE_SART_CONFIG_FLAGS,
-				    APPLE_SART_CONFIG_FLAGS_ALLOW);
-		config |= FIELD_PREP(APPLE_SART_CONFIG_SIZE, size);
+		sart->ops->set_entry(sart, i, APPLE_SART_CONFIG_FLAGS_ALLOW, paddr, size);
 
-		writel_relaxed(paddr, sart->regs + APPLE_SART_PADDR(i));
-		writel_relaxed(config, sart->regs + APPLE_SART_CONFIG(i));
-
-		dev_dbg(sart->dev, "wrote [0x%llx, 0x%x] to %02d\n", paddr,
-			config, i);
+		dev_dbg(sart->dev, "wrote [0x%llx, 0x%lx] to %02d\n", paddr,
+			size, i);
 		return 0;
 	}
 
@@ -211,21 +266,17 @@ int apple_sart_remove_allowed_region(struct apple_sart *sart, phys_addr_t paddr,
 	paddr >>= APPLE_SART_PADDR_SHIFT;
 
 	for (i = 0; i < APPLE_SART_MAX_ENTRIES; ++i) {
-		u32 config;
+		u8 eflags;
+		size_t esize;
+		phys_addr_t epaddr;
 
-		if (test_bit(i, &sart->protected_entries))
-			continue;
-		if (!test_bit(i, &sart->used_entries))
-			continue;
-
-		config = readl_relaxed(sart->regs + APPLE_SART_PADDR(i));
-		if (FIELD_GET(APPLE_SART_CONFIG_SIZE, config) != size)
-			continue;
-		if (readl_relaxed(sart->regs + APPLE_SART_PADDR(i)) != paddr)
+		sart->ops->get_entry(sart, i, &eflags, &epaddr, &esize);
+		
+		if (epaddr != paddr || esize != size)
 			continue;
 
-		writel_relaxed(0, sart->regs + APPLE_SART_CONFIG(i));
-		writel_relaxed(0, sart->regs + APPLE_SART_PADDR(i));
+		sart->ops->set_entry(sart, i, 0, 0, 0);
+
 		clear_bit(i, &sart->used_entries);
 		dev_dbg(sart->dev, "cleared entry %02d\n", i);
 		return 0;
@@ -246,13 +297,20 @@ static void apple_sart_shutdown(struct platform_device *pdev)
 	for (i = 0; i < APPLE_SART_MAX_ENTRIES; ++i) {
 		if (test_bit(i, &sart->protected_entries))
 			continue;
-		writel_relaxed(0, sart->regs + APPLE_SART_CONFIG(i));
-		writel_relaxed(0, sart->regs + APPLE_SART_PADDR(i));
+
+		sart->ops->set_entry(sart, i, 0, 0, 0);
 	}
 }
 
 static const struct of_device_id apple_sart_of_match[] = {
-	{ .compatible = "apple,t8103-sart", },
+	{
+		.compatible = "apple,t6000-sart",
+		.data = &sart_ops_v3,
+	},
+	{
+		.compatible = "apple,t8103-sart",
+		.data = &sart_ops_v2,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, apple_sart_of_match);
