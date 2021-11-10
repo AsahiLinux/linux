@@ -420,17 +420,17 @@ void drm_fb_xrgb8888_to_xrgb2101010_dstclip(void __iomem *dst,
 		return;
 
 	vaddr += clip_offset(clip, fb->pitches[0], sizeof(u32));
-	dst += clip_offset(clip, dst_pitch, sizeof(u16));
+	dst += clip_offset(clip, dst_pitch, sizeof(u32));
 	for (y = 0; y < lines; y++) {
 		drm_fb_xrgb8888_to_xrgb2101010_line(dbuf, vaddr, linepixels);
 		memcpy_toio(dst, dbuf, dst_len);
 		vaddr += fb->pitches[0];
-		dst += dst_len;
+		dst += dst_pitch;
 	}
 
 	kfree(dbuf);
 }
-EXPORT_SYMBOL(drm_fb_xrgb8888_to_rgb888_dstclip);
+EXPORT_SYMBOL(drm_fb_xrgb8888_to_xrgb2101010_dstclip);
 
 /**
  * drm_fb_xrgb8888_to_gray8 - Convert XRGB8888 to grayscale
