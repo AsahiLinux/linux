@@ -464,5 +464,33 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
+
+		ans2_mbox: mbox@38f408000 {
+			compatible = "apple,t8103-asc-mailbox";
+			reg = <0x3 0x8f408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1069 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 0 1070 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 0 1071 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 0 1072 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
+		sart: sart@393c50000 {
+			compatible = "apple,t6000-sart";
+			reg = <0x3 0x93c50000 0x0 0x10000>;
+		};
+
+		ans2: nvme@393cc0000 {
+			compatible = "apple,t8103-ans-nvme";
+			reg = <0x3 0x93cc0000 0x0 0x40000>, <0x3 0x8f400000 0x0 0x4000>;
+			reg-names = "nvme", "coproc";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1613 IRQ_TYPE_LEVEL_HIGH>;
+			mboxes = <&ans2_mbox>;
+			apple,sart = <&sart>;
+		};
 	};
 };
