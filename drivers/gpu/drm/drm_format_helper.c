@@ -366,12 +366,12 @@ void drm_fb_xrgb8888_to_rgb888_dstclip(void __iomem *dst, unsigned int dst_pitch
 		return;
 
 	vaddr += clip_offset(clip, fb->pitches[0], sizeof(u32));
-	dst += clip_offset(clip, dst_pitch, sizeof(u16));
+	dst += clip_offset(clip, dst_pitch, 3);
 	for (y = 0; y < lines; y++) {
 		drm_fb_xrgb8888_to_rgb888_line(dbuf, vaddr, linepixels);
 		memcpy_toio(dst, dbuf, dst_len);
 		vaddr += fb->pitches[0];
-		dst += dst_len;
+		dst += dst_pitch;
 	}
 
 	kfree(dbuf);
