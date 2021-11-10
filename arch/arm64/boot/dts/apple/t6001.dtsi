@@ -229,6 +229,37 @@
 				     <AIC_IRQ 0 573 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		ans2_mbox: mbox@38f408000 {
+			compatible = "apple,t6000-asc-mailbox", "apple,asc-mailbox";
+			reg = <0x3 0x8f408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1069 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 0 1070 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 0 1071 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 0 1072 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			power-domains = <&ps_ans2>;
+			#mbox-cells = <0>;
+		};
+
+		sart: sart@393c50000 {
+			compatible = "apple,t6000-sart";
+			reg = <0x3 0x93c50000 0x0 0x10000>;
+			power-domains = <&ps_ans2>;
+		};
+
+		ans2: nvme@393cc0000 {
+			compatible = "apple,t8103-ans-nvme";
+			reg = <0x3 0x93cc0000 0x0 0x40000>, <0x3 0x8f400000 0x0 0x4000>;
+			reg-names = "nvme", "coproc";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1613 IRQ_TYPE_LEVEL_HIGH>;
+			mboxes = <&ans2_mbox>;
+			apple,sart = <&sart>;
+			power-domains = <&ps_ans2>;
+		};
+
 		pinctrl_ap: pinctrl@39b028000 {
 			compatible = "apple,t8103-pinctrl", "apple,pinctrl";
 			reg = <0x3 0x9b028000 0x0 0x4000>;
