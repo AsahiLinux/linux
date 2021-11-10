@@ -2,6 +2,7 @@
 
 #include <linux/clk.h>
 #include <linux/of_clk.h>
+#include <linux/of_platform.h>
 #include <linux/platform_data/simplefb.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
@@ -896,6 +897,22 @@ static struct platform_driver simpledrm_platform_driver = {
 };
 
 module_platform_driver(simpledrm_platform_driver);
+
+static int __init simplefb_init(void)
+{
+	struct device_node *np;
+
+	if (IS_ENABLED(CONFIG_OF_ADDRESS) && of_chosen) {
+		for_each_child_of_node(of_chosen, np) {
+			if (of_device_is_compatible(np, "simple-framebuffer"))
+				of_platform_device_create(np, NULL, NULL);
+		}
+	}
+
+	return 0;
+}
+
+fs_initcall(simplefb_init);
 
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL v2");
