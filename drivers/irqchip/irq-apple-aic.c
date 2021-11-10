@@ -62,17 +62,18 @@
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 
 /*
- * AIC registers (MMIO)
+ * AIC v1 registers (MMIO)
  */
 
 #define AIC_INFO		0x0004
-#define AIC_INFO_NR_HW		GENMASK(15, 0)
+#define AIC_INFO_NR_IRQ		GENMASK(15, 0)
 
 #define AIC_CONFIG		0x0010
 
 #define AIC_WHOAMI		0x2000
 #define AIC_EVENT		0x2004
-#define AIC_EVENT_TYPE		GENMASK(31, 16)
+#define AIC_EVENT_GROUP		GENMASK(31, 24)
+#define AIC_EVENT_TYPE		GENMASK(23, 16)
 #define AIC_EVENT_NUM		GENMASK(15, 0)
 
 #define AIC_EVENT_TYPE_HW	1
@@ -101,12 +102,42 @@
 #define AIC_CPU_IPI_MASK_SET(cpu) (0x5024 + ((cpu) << 7))
 #define AIC_CPU_IPI_MASK_CLR(cpu) (0x5028 + ((cpu) << 7))
 
+/*
+ * AIC v2 registers (MMIO)
+ */
+
+#define AIC2_INFO		0x0004
+#define AIC2_INFO_NR_IRQ	GENMASK(15, 0)
+
+#define AIC2_INFO2		0x0008
+#define AIC2_INFO2_NR_GRP	GENMASK(15, 0)
+
+#define AIC2_CONFIG		0x0014
+#define AIC2_CONFIG_ENABLE	BIT(0)
+#define AIC2_CONFIG_PREFER_PCPU	BIT(28)
+
+#define AIC2_TIMEOUT		0x0028
+#define AIC2_CLUSTER_PRIO	0x0030
+#define AIC2_DELAY_GROUPS	0x0100
+
+#define AIC2_IRQ_CFG		0x2000
+#define AIC2_IRQ_CFG_TARGET	GENMASK(3, 0)
+#define AIC2_IRQ_CFG_DELAY_IDX	GENMASK(7, 5)
+#define AIC2_SW_SET		0x6000
+#define AIC2_SW_CLR		0x6200
+#define AIC2_MASK_SET		0x6400
+#define AIC2_MASK_CLR		0x6600
+#define AIC2_HW_STATE		0x6800
+
+#define AIC2_GROUP_SIZE		0x4a00
+
+#define AIC2_EVENT		0xc000
+
 #define MASK_REG(x)		(4 * ((x) >> 5))
 #define MASK_BIT(x)		BIT((x) & GENMASK(4, 0))
 
 /*
  * IMP-DEF sysregs that control FIQ sources
- * Note: sysreg-based IPIs are not supported yet.
  */
 
 /* Core PMC control register */
@@ -155,6 +186,10 @@
 #define SYS_IMP_APL_UPMSR_EL1		sys_reg(3, 7, 15, 6, 4)
 #define UPMSR_IACT			BIT(0)
 
+/* MPIDR fields */
+#define MPIDR_CPU			GENMASK(7, 0)
+#define MPIDR_CLUSTER			GENMASK(15, 8)
+
 #define AIC_NR_FIQ		4
 #define AIC_NR_SWIPI		32
 
@@ -173,12 +208,90 @@
 #define AIC_TMR_EL02_PHYS	AIC_TMR_GUEST_PHYS
 #define AIC_TMR_EL02_VIRT	AIC_TMR_GUEST_VIRT
 
+struct aic_info {
+	int version;
+
+	/* Register offsets */
+	u64 whoami;
+	u64 event;
+	u64 target_cpu;
+	u64 sw_set;
+	u64 sw_clr;
+	u64 mask_set;
+	u64 mask_clr;
+
+	u64 group_size;
+
+	/* Features */
+	bool fast_ipi;
+};
+
+static const struct aic_info aic1_info = {
+	.version	= 1,
+
+	.whoami		= AIC_WHOAMI,
+	.event		= AIC_EVENT,
+	.target_cpu	= AIC_TARGET_CPU,
+	.sw_set		= AIC_SW_SET,
+	.sw_clr		= AIC_SW_CLR,
+	.mask_set	= AIC_MASK_SET,
+	.mask_clr	= AIC_MASK_CLR,
+};
+
+static const struct aic_info aic1_fipi_info = {
+	.version	= 1,
+
+	.whoami		= AIC_WHOAMI,
+	.event		= AIC_EVENT,
+	.target_cpu	= AIC_TARGET_CPU,
+	.sw_set		= AIC_SW_SET,
+	.sw_clr		= AIC_SW_CLR,
+	.mask_set	= AIC_MASK_SET,
+	.mask_clr	= AIC_MASK_CLR,
+
+	.fast_ipi	= true,
+};
+
+static const struct aic_info aic2_info = {
+	.version	= 2,
+
+	.event		= AIC2_EVENT,
+	.sw_set		= AIC2_SW_SET,
+	.sw_clr		= AIC2_SW_CLR,
+	.mask_set	= AIC2_MASK_SET,
+	.mask_clr	= AIC2_MASK_CLR,
+	.group_size	= AIC2_GROUP_SIZE,
+
+	.fast_ipi	= true,
+};
+
+static const struct of_device_id aic_info_match[] = {
+	{
+		.compatible = "apple,t8103-aic",
+		.data = &aic1_fipi_info,
+	},
+	{
+		.compatible = "apple,aic",
+		.data = &aic1_info,
+	},
+	{
+		.compatible = "apple,aic2",
+		.data = &aic2_info,
+	},
+	{}
+};
+
 struct aic_irq_chip {
 	void __iomem *base;
 	struct irq_domain *hw_domain;
 	struct irq_domain *ipi_domain;
+
+	int nr_irq;
+	int nr_grp;
 	int nr_hw;
 	int ipi_hwirq;
+
+	struct aic_info info;
 };
 
 static DEFINE_PER_CPU(uint32_t, aic_fiq_unmasked);
@@ -206,18 +319,24 @@ static void aic_ic_write(struct aic_irq_chip *ic, u32 reg, u32 val)
 
 static void aic_irq_mask(struct irq_data *d)
 {
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	struct aic_irq_chip *ic = irq_data_get_irq_chip_data(d);
 
-	aic_ic_write(ic, AIC_MASK_SET + MASK_REG(irqd_to_hwirq(d)),
-		     MASK_BIT(irqd_to_hwirq(d)));
+	u32 off = (hwirq / ic->nr_irq) * ic->info.group_size;
+	u32 irq = hwirq % ic->nr_irq;
+
+	aic_ic_write(ic, off + ic->info.mask_set + MASK_REG(irq), MASK_BIT(irq));
 }
 
 static void aic_irq_unmask(struct irq_data *d)
 {
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	struct aic_irq_chip *ic = irq_data_get_irq_chip_data(d);
 
-	aic_ic_write(ic, AIC_MASK_CLR + MASK_REG(d->hwirq),
-		     MASK_BIT(irqd_to_hwirq(d)));
+	u32 off = (hwirq / ic->nr_irq) * ic->info.group_size;
+	u32 irq = hwirq % ic->nr_irq;
+
+	aic_ic_write(ic, off + ic->info.mask_clr + MASK_REG(irq), MASK_BIT(irq));
 }
 
 static void aic_irq_eoi(struct irq_data *d)
@@ -233,19 +352,20 @@ static void aic_irq_eoi(struct irq_data *d)
 static void __exception_irq_entry aic_handle_irq(struct pt_regs *regs)
 {
 	struct aic_irq_chip *ic = aic_irqc;
-	u32 event, type, irq;
+	u32 event, group, type, irq;
 
 	do {
 		/*
 		 * We cannot use a relaxed read here, as reads from DMA buffers
 		 * need to be ordered after the IRQ fires.
 		 */
-		event = readl(ic->base + AIC_EVENT);
+		event = readl(ic->base + ic->info.event);
+		group = FIELD_GET(AIC_EVENT_GROUP, event);
 		type = FIELD_GET(AIC_EVENT_TYPE, event);
 		irq = FIELD_GET(AIC_EVENT_NUM, event);
 
 		if (type == AIC_EVENT_TYPE_HW)
-			generic_handle_domain_irq(aic_irqc->hw_domain, irq);
+			generic_handle_domain_irq(aic_irqc->hw_domain, irq + ic->nr_irq * group);
 		else if (type == AIC_EVENT_TYPE_IPI && irq == 1)
 			aic_handle_ipi(regs);
 		else if (event != 0)
@@ -272,12 +392,15 @@ static int aic_irq_set_affinity(struct irq_data *d,
 	struct aic_irq_chip *ic = irq_data_get_irq_chip_data(d);
 	int cpu;
 
+	if (!ic->info.target_cpu)
+		return -EINVAL;
+
 	if (force)
 		cpu = cpumask_first(mask_val);
 	else
 		cpu = cpumask_any_and(mask_val, cpu_online_mask);
 
-	aic_ic_write(ic, AIC_TARGET_CPU + hwirq * 4, BIT(cpu));
+	aic_ic_write(ic, ic->info.target_cpu + hwirq * 4, BIT(cpu));
 	irq_data_update_effective_affinity(d, cpumask_of(cpu));
 
 	return IRQ_SET_MASK_OK;
@@ -298,6 +421,14 @@ static struct irq_chip aic_chip = {
 	.irq_unmask = aic_irq_unmask,
 	.irq_eoi = aic_irq_eoi,
 	.irq_set_affinity = aic_irq_set_affinity,
+	.irq_set_type = aic_irq_set_type,
+};
+
+static struct irq_chip aic2_chip = {
+	.name = "AIC2",
+	.irq_mask = aic_irq_mask,
+	.irq_unmask = aic_irq_unmask,
+	.irq_eoi = aic_irq_eoi,
 	.irq_set_type = aic_irq_set_type,
 };
 
@@ -387,8 +518,12 @@ static void __exception_irq_entry aic_handle_fiq(struct pt_regs *regs)
 	 */
 
 	if (read_sysreg_s(SYS_IMP_APL_IPI_SR_EL1) & IPI_SR_PENDING) {
-		pr_err_ratelimited("Fast IPI fired. Acking.\n");
-		write_sysreg_s(IPI_SR_PENDING, SYS_IMP_APL_IPI_SR_EL1);
+		if (aic_irqc->info.fast_ipi) {
+			aic_handle_ipi(regs);
+		} else {
+			pr_err_ratelimited("Fast IPI fired. Acking.\n");
+			write_sysreg_s(IPI_SR_PENDING, SYS_IMP_APL_IPI_SR_EL1);
+		}
 	}
 
 	if (TIMER_FIRING(read_sysreg(cntp_ctl_el0)))
@@ -457,9 +592,14 @@ static int aic_irq_domain_map(struct irq_domain *id, unsigned int irq,
 {
 	struct aic_irq_chip *ic = id->host_data;
 
+	struct irq_chip *chip = &aic_chip;
+
+	if (ic->info.version == 2)
+		chip = &aic2_chip;
+
 	if (hw < ic->nr_hw) {
-		irq_domain_set_info(id, irq, hw, &aic_chip, id->host_data,
-				    handle_fasteoi_irq, NULL, NULL);
+		irq_domain_set_info(id, irq, hw, chip, id->host_data,
+				handle_fasteoi_irq, NULL, NULL);
 		irqd_set_single_target(irq_desc_get_irq_data(irq_to_desc(irq)));
 	} else {
 		irq_set_percpu_devid(irq);
@@ -476,27 +616,40 @@ static int aic_irq_domain_translate(struct irq_domain *id,
 				    unsigned int *type)
 {
 	struct aic_irq_chip *ic = id->host_data;
+	u32 *args;
+	u32 group = 0;
 
-	if (fwspec->param_count != 3 || !is_of_node(fwspec->fwnode))
+	if (fwspec->param_count < 3 || fwspec->param_count > 4 || !is_of_node(fwspec->fwnode))
 		return -EINVAL;
+
+	args = &fwspec->param[1];
+
+	if (fwspec->param_count == 4) {
+		group = args[0];
+		args++;
+	}
 
 	switch (fwspec->param[0]) {
 	case AIC_IRQ:
-		if (fwspec->param[1] >= ic->nr_hw)
+		if (group >= ic->nr_grp)
 			return -EINVAL;
-		*hwirq = fwspec->param[1];
+		if (args[0] >= ic->nr_irq)
+			return -EINVAL;
+		*hwirq = args[0] + group * ic->nr_irq;
 		break;
 	case AIC_FIQ:
-		if (fwspec->param[1] >= AIC_NR_FIQ)
+		if (group != 0)
 			return -EINVAL;
-		*hwirq = ic->nr_hw + fwspec->param[1];
+		if (args[0] >= AIC_NR_FIQ)
+			return -EINVAL;
+		*hwirq = ic->nr_hw + args[0];
 
 		/*
 		 * In EL1 the non-redirected registers are the guest's,
 		 * not EL2's, so remap the hwirqs to match.
 		 */
 		if (!is_kernel_in_hyp_mode()) {
-			switch (fwspec->param[1]) {
+			switch (args[0]) {
 			case AIC_TMR_GUEST_PHYS:
 				*hwirq = ic->nr_hw + AIC_TMR_EL0_PHYS;
 				break;
@@ -515,7 +668,7 @@ static int aic_irq_domain_translate(struct irq_domain *id,
 		return -EINVAL;
 	}
 
-	*type = fwspec->param[2] & IRQ_TYPE_SENSE_MASK;
+	*type = args[1] & IRQ_TYPE_SENSE_MASK;
 
 	return 0;
 }
@@ -564,6 +717,21 @@ static const struct irq_domain_ops aic_irq_domain_ops = {
  * IPI irqchip
  */
 
+static void aic_ipi_send_fast(int cpu)
+{
+	u64 mpidr = cpu_logical_map(cpu);
+	u64 my_mpidr = cpu_logical_map(smp_processor_id());
+	u64 cluster = FIELD_GET(MPIDR_CLUSTER, mpidr);
+	u64 idx = FIELD_GET(MPIDR_CPU, mpidr);
+
+	if (FIELD_GET(MPIDR_CLUSTER, my_mpidr) == cluster)
+		write_sysreg_s(FIELD_PREP(IPI_RR_CPU, idx),
+			       SYS_IMP_APL_IPI_RR_LOCAL_EL1);
+	else
+		write_sysreg_s(FIELD_PREP(IPI_RR_CPU, idx) | FIELD_PREP(IPI_RR_CLUSTER, cluster),
+			       SYS_IMP_APL_IPI_RR_GLOBAL_EL1);
+}
+
 static void aic_ipi_mask(struct irq_data *d)
 {
 	u32 irq_bit = BIT(irqd_to_hwirq(d));
@@ -589,8 +757,12 @@ static void aic_ipi_unmask(struct irq_data *d)
 	 * If a pending vIPI was unmasked, raise a HW IPI to ourselves.
 	 * No barriers needed here since this is a self-IPI.
 	 */
-	if (atomic_read(this_cpu_ptr(&aic_vipi_flag)) & irq_bit)
-		aic_ic_write(ic, AIC_IPI_SEND, AIC_IPI_SEND_CPU(smp_processor_id()));
+	if (atomic_read(this_cpu_ptr(&aic_vipi_flag)) & irq_bit) {
+		if (ic->info.fast_ipi)
+			aic_ipi_send_fast(smp_processor_id());
+		else
+			aic_ic_write(ic, AIC_IPI_SEND, AIC_IPI_SEND_CPU(smp_processor_id()));
+	}
 }
 
 static void aic_ipi_send_mask(struct irq_data *d, const struct cpumask *mask)
@@ -618,8 +790,12 @@ static void aic_ipi_send_mask(struct irq_data *d, const struct cpumask *mask)
 		smp_mb__after_atomic();
 
 		if (!(pending & irq_bit) &&
-		    (atomic_read(per_cpu_ptr(&aic_vipi_enable, cpu)) & irq_bit))
-			send |= AIC_IPI_SEND_CPU(cpu);
+		    (atomic_read(per_cpu_ptr(&aic_vipi_enable, cpu)) & irq_bit)) {
+			if (ic->info.fast_ipi)
+				aic_ipi_send_fast(cpu);
+			else
+				send |= AIC_IPI_SEND_CPU(cpu);
+		}
 	}
 
 	/*
@@ -651,8 +827,16 @@ static void aic_handle_ipi(struct pt_regs *regs)
 	/*
 	 * Ack the IPI. We need to order this after the AIC event read, but
 	 * that is enforced by normal MMIO ordering guarantees.
+	 *
+	 * For the Fast IPI case, this needs to be ordered before the vIPI
+	 * handling below, so we need to isb();
 	 */
-	aic_ic_write(aic_irqc, AIC_IPI_ACK, AIC_IPI_OTHER);
+	if (aic_irqc->info.fast_ipi) {
+		write_sysreg_s(IPI_SR_PENDING, SYS_IMP_APL_IPI_SR_EL1);
+		isb();
+	} else {
+		aic_ic_write(aic_irqc, AIC_IPI_ACK, AIC_IPI_OTHER);
+	}
 
 	/*
 	 * The mask read does not need to be ordered. Only we can change
@@ -680,7 +864,8 @@ static void aic_handle_ipi(struct pt_regs *regs)
 	 * No ordering needed here; at worst this just changes the timing of
 	 * when the next IPI will be delivered.
 	 */
-	aic_ic_write(aic_irqc, AIC_IPI_MASK_CLR, AIC_IPI_OTHER);
+	if (!aic_irqc->info.fast_ipi)
+		aic_ic_write(aic_irqc, AIC_IPI_MASK_CLR, AIC_IPI_OTHER);
 }
 
 static int aic_ipi_alloc(struct irq_domain *d, unsigned int virq,
@@ -767,20 +952,26 @@ static int aic_init_cpu(unsigned int cpu)
 	/* Commit all of the above */
 	isb();
 
-	/*
-	 * Make sure the kernel's idea of logical CPU order is the same as AIC's
-	 * If we ever end up with a mismatch here, we will have to introduce
-	 * a mapping table similar to what other irqchip drivers do.
-	 */
-	WARN_ON(aic_ic_read(aic_irqc, AIC_WHOAMI) != smp_processor_id());
+	if (aic_irqc->info.whoami) {
+		/*
+		* Make sure the kernel's idea of logical CPU order is the same as AIC's
+		* If we ever end up with a mismatch here, we will have to introduce
+		* a mapping table similar to what other irqchip drivers do.
+		*/
+		WARN_ON(aic_ic_read(aic_irqc, aic_irqc->info.whoami) != smp_processor_id());
 
-	/*
-	 * Always keep IPIs unmasked at the hardware level (except auto-masking
-	 * by AIC during processing). We manage masks at the vIPI level.
-	 */
-	aic_ic_write(aic_irqc, AIC_IPI_ACK, AIC_IPI_SELF | AIC_IPI_OTHER);
-	aic_ic_write(aic_irqc, AIC_IPI_MASK_SET, AIC_IPI_SELF);
-	aic_ic_write(aic_irqc, AIC_IPI_MASK_CLR, AIC_IPI_OTHER);
+		/*
+		* Always keep IPIs unmasked at the hardware level (except auto-masking
+		* by AIC during processing). We manage masks at the vIPI level.
+		*/
+		aic_ic_write(aic_irqc, AIC_IPI_ACK, AIC_IPI_SELF | AIC_IPI_OTHER);
+		if (!aic_irqc->info.fast_ipi) {
+			aic_ic_write(aic_irqc, AIC_IPI_MASK_SET, AIC_IPI_SELF);
+			aic_ic_write(aic_irqc, AIC_IPI_MASK_CLR, AIC_IPI_OTHER);
+		} else {
+			aic_ic_write(aic_irqc, AIC_IPI_MASK_SET, AIC_IPI_SELF | AIC_IPI_OTHER);
+		}
+	}
 
 	/* Initialize the local mask state */
 	__this_cpu_write(aic_fiq_unmasked, 0);
@@ -796,10 +987,11 @@ static struct gic_kvm_info vgic_info __initdata = {
 
 static int __init aic_of_ic_init(struct device_node *node, struct device_node *parent)
 {
-	int i;
+	int i, grp;
+	u32 off;
 	void __iomem *regs;
-	u32 info;
 	struct aic_irq_chip *irqc;
+	const struct of_device_id *match;
 
 	regs = of_iomap(node, 0);
 	if (WARN_ON(!regs))
@@ -809,11 +1001,34 @@ static int __init aic_of_ic_init(struct device_node *node, struct device_node *p
 	if (!irqc)
 		return -ENOMEM;
 
-	aic_irqc = irqc;
 	irqc->base = regs;
 
-	info = aic_ic_read(irqc, AIC_INFO);
-	irqc->nr_hw = FIELD_GET(AIC_INFO_NR_HW, info);
+	match = of_match_node(aic_info_match, node);
+	if (!match)
+		return -ENODEV;
+
+	irqc->info = *(struct aic_info *)match->data;
+
+	aic_irqc = irqc;
+
+	switch (irqc->info.version) {
+	case 1: {
+		u32 info;
+		info = aic_ic_read(irqc, AIC_INFO);
+		irqc->nr_irq = FIELD_GET(AIC_INFO_NR_IRQ, info);
+		irqc->nr_grp = 1;
+		break;
+	}
+	case 2: {
+		u32 info, info2;
+		info = aic_ic_read(irqc, AIC2_INFO);
+		info2 = aic_ic_read(irqc, AIC2_INFO2);
+		irqc->nr_irq = FIELD_GET(AIC2_INFO_NR_IRQ, info);
+		irqc->nr_grp = FIELD_GET(AIC2_INFO2_NR_GRP, info2);
+		break;
+	}
+	}
+	irqc->nr_hw = irqc->nr_irq * irqc->nr_grp;
 
 	irqc->hw_domain = irq_domain_create_linear(of_node_to_fwnode(node),
 						   irqc->nr_hw + AIC_NR_FIQ,
@@ -836,15 +1051,29 @@ static int __init aic_of_ic_init(struct device_node *node, struct device_node *p
 	set_handle_irq(aic_handle_irq);
 	set_handle_fiq(aic_handle_fiq);
 
-	for (i = 0; i < BITS_TO_U32(irqc->nr_hw); i++)
-		aic_ic_write(irqc, AIC_MASK_SET + i * 4, U32_MAX);
-	for (i = 0; i < BITS_TO_U32(irqc->nr_hw); i++)
-		aic_ic_write(irqc, AIC_SW_CLR + i * 4, U32_MAX);
-	for (i = 0; i < irqc->nr_hw; i++)
-		aic_ic_write(irqc, AIC_TARGET_CPU + i * 4, 1);
+	off = 0;
+	for (grp = 0; grp < irqc->nr_grp; grp++) {
+		for (i = 0; i < BITS_TO_U32(irqc->nr_irq); i++)
+			aic_ic_write(irqc, off + irqc->info.mask_set + i * 4, U32_MAX);
+		for (i = 0; i < BITS_TO_U32(irqc->nr_irq); i++)
+			aic_ic_write(irqc, off + irqc->info.sw_clr + i * 4, U32_MAX);
+		if (irqc->info.target_cpu)
+			for (i = 0; i < irqc->nr_irq; i++)
+				aic_ic_write(irqc, off + irqc->info.target_cpu + i * 4, 1);
+		off += irqc->info.group_size;
+	}
+
+	if (irqc->info.version == 2) {
+		u32 config = aic_ic_read(irqc, AIC2_CONFIG);
+		config |= AIC2_CONFIG_ENABLE;
+		aic_ic_write(irqc, AIC2_CONFIG, config);
+	}
 
 	if (!is_kernel_in_hyp_mode())
 		pr_info("Kernel running in EL1, mapping interrupts");
+
+	if (irqc->info.fast_ipi)
+		pr_info("Using Fast IPIs");
 
 	cpuhp_setup_state(CPUHP_AP_IRQ_APPLE_AIC_STARTING,
 			  "irqchip/apple-aic/ipi:starting",
@@ -852,10 +1081,11 @@ static int __init aic_of_ic_init(struct device_node *node, struct device_node *p
 
 	vgic_set_kvm_info(&vgic_info);
 
-	pr_info("Initialized with %d IRQs, %d FIQs, %d vIPIs\n",
-		irqc->nr_hw, AIC_NR_FIQ, AIC_NR_SWIPI);
+	pr_info("Initialized with %d IRQs in %d group(s), %d FIQs, %d vIPIs",
+		irqc->nr_hw, irqc->nr_grp, AIC_NR_FIQ, AIC_NR_SWIPI);
 
 	return 0;
 }
 
-IRQCHIP_DECLARE(apple_m1_aic, "apple,aic", aic_of_ic_init);
+IRQCHIP_DECLARE(apple_aic, "apple,aic", aic_of_ic_init);
+IRQCHIP_DECLARE(apple_aic2, "apple,aic2", aic_of_ic_init);
