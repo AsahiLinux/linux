@@ -217,7 +217,7 @@
 		};
 
 		i2c0: i2c@39b040000 {
-			compatible = "apple,t8103-i2c";
+			compatible = "apple,t6000-i2c", "apple,i2c";
 			reg = <0x3 0x9b040000 0x0 0x4000>;
 			clocks = <&clkref>, <&clkref>;
 			clock-names = "gate", "ref";
@@ -405,7 +405,7 @@
 		};
 
 		dwc3_0: usb@702280000 {
-			compatible = "apple,t6000,dwc3", "apple,dwc3", "snps,dwc3";
+			compatible = "apple,t6000-dwc3", "apple,dwc3", "snps,dwc3";
 			reg = <0x7 0x02280000 0x0 0x100000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1190 IRQ_TYPE_LEVEL_HIGH>;
@@ -414,8 +414,6 @@
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_0_dart_0 0>, <&dwc3_0_dart_1 1>;
 			power-domains = <&ps_atc0_usb>;
-			#address-cells = <1>;
-			#size-cells = <0>;
 		};
 
 		dwc3_1_dart_0: iommu@b02f00000 {
@@ -437,7 +435,7 @@
 		};
 
 		dwc3_1: usb@b02280000 {
-			compatible = "apple,t6000,dwc3", "apple,dwc3", "snps,dwc3";
+			compatible = "apple,t6000-dwc3", "apple,dwc3", "snps,dwc3";
 			reg = <0xb 0x02280000 0x0 0x100000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1207 IRQ_TYPE_LEVEL_HIGH>;
@@ -446,8 +444,6 @@
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_1_dart_0 0>, <&dwc3_1_dart_1 1>;
 			power-domains = <&ps_atc1_usb>;
-			#address-cells = <1>;
-			#size-cells = <0>;
 		};
 
 		dwc3_2_dart_0: iommu@f02f00000 {
@@ -469,7 +465,7 @@
 		};
 
 		dwc3_2: usb@f02280000 {
-			compatible = "apple,t6000,dwc3", "apple,dwc3", "snps,dwc3";
+			compatible = "apple,t6000-dwc3", "apple,dwc3", "snps,dwc3";
 			reg = <0xf 0x02280000 0x0 0x100000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1224 IRQ_TYPE_LEVEL_HIGH>;
@@ -478,8 +474,6 @@
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_2_dart_0 0>, <&dwc3_2_dart_1 1>;
 			power-domains = <&ps_atc2_usb>;
-			#address-cells = <1>;
-			#size-cells = <0>;
 		};
 
 		dwc3_3_dart_0: iommu@1302f00000 {
@@ -501,7 +495,7 @@
 		};
 
 		dwc3_3: usb@1302280000 {
-			compatible = "apple,t6000,dwc3", "apple,dwc3", "snps,dwc3";
+			compatible = "apple,t6000-dwc3", "apple,dwc3", "snps,dwc3";
 			reg = <0x13 0x02280000 0x0 0x100000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1241 IRQ_TYPE_LEVEL_HIGH>;
@@ -510,8 +504,6 @@
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_3_dart_0 0>, <&dwc3_3_dart_1 1>;
 			power-domains = <&ps_atc3_usb>;
-			#address-cells = <1>;
-			#size-cells = <0>;
 		};
 
 		ans2_mbox: mbox@38f408000 {
