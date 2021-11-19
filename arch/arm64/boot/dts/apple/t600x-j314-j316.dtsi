@@ -134,7 +134,7 @@
 &port00 {
 	/* WLAN */
 	bus-range = <1 1>;
-	wifi0: pci@0,0 {
+	wifi0: ethernet@0,0 {
 		reg = <0x10000 0x0 0x0 0x0 0x0>;
 		/* To be filled by the loader */
 		local-mac-address = [00 10 18 00 00 10];
@@ -145,7 +145,7 @@
 	/* SD card reader */
 	bus-range = <2 2>;
 	max-link-speed = <1>;
-	sdhci0: pci@0,0 {
+	sdhci0: ethernet@0,0 {
 		reg = <0x20000 0x0 0x0 0x0 0x0>;
 		cd-inverted;
 		wp-inverted;
