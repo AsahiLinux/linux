@@ -127,11 +127,40 @@
 		ranges;
 		nonposted-mmio;
 
+		pmgr: power-management@28e080000 {
+			compatible = "apple,t6000-pmgr", "apple,pmgr", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x2 0x8e080000 0 0x4000>;
+		};
+
 		aic: interrupt-controller@28e100000 {
 			compatible = "apple,t6000-aic", "apple,aic2";
 			#interrupt-cells = <4>;
 			interrupt-controller;
 			reg = <0x2 0x8e100000 0x0 0x10000>;
+			power-domains = <&ps_aic>;
+		};
+
+		pmgr_east: power-management@28e580000 {
+			compatible = "apple,t6000-pmgr", "apple,pmgr", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x2 0x8e580000 0 0xc000>;
+		};
+
+		pmgr_south: power-management@28e680000 {
+			compatible = "apple,t6000-pmgr", "apple,pmgr", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x2 0x8e680000 0 0xc000>;
+		};
+
+		pmgr_mini: power-management@292280000 {
+			compatible = "apple,t6000-pmgr", "apple,pmgr", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x2 0x92280000 0 0x4000>;
 		};
 
 		serial0: serial@39b200000 {
@@ -146,6 +175,7 @@
 			 */
 			clocks = <&clkref>, <&clkref>;
 			clock-names = "uart", "clk_uart_baud0";
+			power-domains = <&ps_uart0>;
 			status = "disabled";
 		};
 
@@ -163,6 +193,7 @@
 			             <AIC_IRQ 0 433 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&clkref>;
+			power-domains = <&ps_gpio>;
 
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -194,6 +225,7 @@
 			interrupts = <AIC_IRQ 0 1119 4>;
 			pinctrl-0 = <&i2c0_pins>;
 			pinctrl-names = "default";
+			power-domains = <&ps_i2c0>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 		};
@@ -204,6 +236,7 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1271 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp_sys>;
 		};
 
 		pcie0_dart_1: dart@582008000 {
@@ -212,6 +245,7 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1274 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp_sys>;
 		};
 
 		pcie0_dart_2: dart@583008000 {
@@ -220,6 +254,7 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1277 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp_sys>;
 		};
 
 		pcie0_dart_3: dart@584008000 {
@@ -228,6 +263,7 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1280 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp_sys>;
 		};
 
 		pcie0: pcie@590000000 {
@@ -265,6 +301,7 @@
 			ranges = <0x43000000 0x5 0xa0000000 0x5 0xa0000000 0x0 0x20000000>,
 				 <0x02000000 0x0 0xc0000000 0x5 0xc0000000 0x0 0x40000000>;
 
+			power-domains = <&ps_apcie_gp_sys>;
 			pinctrl-0 = <&pcie_pins>;
 			pinctrl-names = "default";
 
@@ -354,6 +391,7 @@
 			reg = <0x7 0x02f00000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1194 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc0_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -362,6 +400,7 @@
 			reg = <0x7 0x02f80000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1194 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc0_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -374,6 +413,7 @@
 			usb-role-switch;
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_0_dart_0 0>, <&dwc3_0_dart_1 1>;
+			power-domains = <&ps_atc0_usb>;
 		};
 
 		dwc3_1_dart_0: iommu@b02f00000 {
@@ -381,6 +421,7 @@
 			reg = <0xb 0x02f00000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1211 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc1_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -389,6 +430,7 @@
 			reg = <0xb 0x02f80000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1211 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc1_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -401,6 +443,7 @@
 			usb-role-switch;
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_1_dart_0 0>, <&dwc3_1_dart_1 1>;
+			power-domains = <&ps_atc1_usb>;
 		};
 
 		dwc3_2_dart_0: iommu@f02f00000 {
@@ -408,6 +451,7 @@
 			reg = <0xf 0x02f00000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1228 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc2_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -416,6 +460,7 @@
 			reg = <0xf 0x02f80000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1228 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc2_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -428,6 +473,7 @@
 			usb-role-switch;
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_2_dart_0 0>, <&dwc3_2_dart_1 1>;
+			power-domains = <&ps_atc2_usb>;
 		};
 
 		dwc3_3_dart_0: iommu@1302f00000 {
@@ -435,6 +481,7 @@
 			reg = <0x13 0x02f00000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1245 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc3_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -443,6 +490,7 @@
 			reg = <0x13 0x02f80000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 0 1245 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc3_usb>;
 			#iommu-cells = <1>;
 		};
 
@@ -455,6 +503,7 @@
 			usb-role-switch;
 			role-switch-default-mode = "host";
 			iommus = <&dwc3_3_dart_0 0>, <&dwc3_3_dart_1 1>;
+			power-domains = <&ps_atc3_usb>;
 		};
 
 		ans2_mbox: mbox@38f408000 {
@@ -467,12 +516,14 @@
 				<AIC_IRQ 0 1072 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "send-empty", "send-not-empty",
 				"recv-empty", "recv-not-empty";
+			power-domains = <&ps_ans2>;
 			#mbox-cells = <0>;
 		};
 
 		sart: sart@393c50000 {
 			compatible = "apple,t6000-sart";
 			reg = <0x3 0x93c50000 0x0 0x10000>;
+			power-domains = <&ps_ans2>;
 		};
 
 		ans2: nvme@393cc0000 {
@@ -483,6 +534,9 @@
 			interrupts = <AIC_IRQ 0 1613 IRQ_TYPE_LEVEL_HIGH>;
 			mboxes = <&ans2_mbox>;
 			apple,sart = <&sart>;
+			power-domains = <&ps_ans2>;
 		};
 	};
 };
+
+#include "t6001-pmgr.dtsi"
