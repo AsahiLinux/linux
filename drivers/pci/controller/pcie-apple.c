@@ -30,6 +30,10 @@
 #include <linux/of_irq.h>
 #include <linux/pci-ecam.h>
 
+#include "../pci.h"
+/* Apple PCIe is based on DesignWare IP and shares some registers */
+#include "dwc/pcie-designware.h"
+
 #define CORE_RC_PHYIF_CTL		0x00024
 #define   CORE_RC_PHYIF_CTL_RUN		BIT(0)
 #define CORE_RC_PHYIF_STAT		0x00028
@@ -130,9 +134,13 @@
  */
 #define DOORBELL_ADDR		CONFIG_PCIE_APPLE_MSI_DOORBELL_ADDR
 
+/* The offset of the PCIe capabilities structure in bridge config space */
+#define PCIE_CAP_BASE		0x70
+
 struct apple_pcie {
 	struct mutex		lock;
 	struct device		*dev;
+	struct pci_config_window *cfg;
 	void __iomem            *base;
 	struct irq_domain	*domain;
 	unsigned long		*bitmap;
@@ -506,6 +514,48 @@ static u32 apple_pcie_rid2sid_write(struct apple_pcie_port *port,
 	return readl_relaxed(port->base + PORT_RID2SID(idx));
 }
 
+static inline void __iomem *bridge_reg(struct apple_pcie_port *port,
+						  int where)
+{
+	struct pci_config_window *cfg = port->pcie->cfg;
+
+	return cfg->win + PCIE_ECAM_OFFSET(0, PCI_DEVFN(port->idx, 0), where);
+}
+
+static void apple_pcie_unlock_dwc_regs(struct apple_pcie_port *port)
+{
+	rmw_set(PCIE_DBI_RO_WR_EN, bridge_reg(port,PCIE_MISC_CONTROL_1_OFF));
+}
+
+static void apple_pcie_lock_dwc_regs(struct apple_pcie_port *port)
+{
+	rmw_clear(PCIE_DBI_RO_WR_EN, bridge_reg(port, PCIE_MISC_CONTROL_1_OFF));
+}
+
+static int apple_pcie_link_configure_max_speed(struct apple_pcie_port *port)
+{
+	int max_gen;
+	u32 ctrl2;
+
+	max_gen = of_pci_get_max_link_speed(port->np);
+	if (max_gen < 0) {
+		dev_err(port->pcie->dev, "max link speed not specified\n");
+		return max_gen;
+	}
+
+	ctrl2 = readw_relaxed(bridge_reg(port, PCIE_CAP_BASE + PCI_EXP_LNKCTL2));
+	ctrl2 &= ~PCI_EXP_LNKCTL2_TLS;
+	ctrl2 |= FIELD_PREP(PCI_EXP_LNKCTL2_TLS, max_gen);
+	writew_relaxed(ctrl2, bridge_reg(port, PCIE_CAP_BASE + PCI_EXP_LNKCTL2));
+
+	apple_pcie_unlock_dwc_regs(port);
+	rmw_set(PORT_LOGIC_SPEED_CHANGE,
+		bridge_reg(port, PCIE_LINK_WIDTH_SPEED_CONTROL));
+	apple_pcie_lock_dwc_regs(port);
+
+	return 0;
+}
+
 static int apple_pcie_setup_port(struct apple_pcie *pcie,
 				 struct device_node *np)
 {
@@ -576,6 +626,8 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 
 	ret = apple_pcie_port_register_irqs(port);
 	WARN_ON(ret);
+
+	apple_pcie_link_configure_max_speed(port);
 
 	writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
 
@@ -762,6 +814,7 @@ static int apple_pcie_init(struct pci_config_window *cfg)
 		return -ENOMEM;
 
 	pcie->dev = dev;
+	pcie->cfg = cfg;
 
 	mutex_init(&pcie->lock);
 
