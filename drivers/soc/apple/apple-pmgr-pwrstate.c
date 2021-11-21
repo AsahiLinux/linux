@@ -79,7 +79,7 @@ static int apple_pmgr_ps_set(struct generic_pm_domain *genpd, u32 pstate, bool a
 
 	if (auto_enable) {
 		/* Not all devices implement this; this is a no-op where not implemented. */
-		reg &= APPLE_PMGR_FLAGS;
+		reg &= ~APPLE_PMGR_FLAGS;
 		reg |= APPLE_PMGR_AUTO_ENABLE;
 		regmap_write(ps->regmap, ps->offset, reg);
 	}
