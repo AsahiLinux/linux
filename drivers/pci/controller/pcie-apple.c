@@ -524,7 +524,7 @@ static inline void __iomem *bridge_reg(struct apple_pcie_port *port,
 
 static void apple_pcie_unlock_dwc_regs(struct apple_pcie_port *port)
 {
-	rmw_set(PCIE_DBI_RO_WR_EN, bridge_reg(port,PCIE_MISC_CONTROL_1_OFF));
+	rmw_set(PCIE_DBI_RO_WR_EN, bridge_reg(port, PCIE_MISC_CONTROL_1_OFF));
 }
 
 static void apple_pcie_lock_dwc_regs(struct apple_pcie_port *port)
