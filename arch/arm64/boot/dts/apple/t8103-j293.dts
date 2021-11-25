@@ -59,6 +59,27 @@
 	label = "USB-C Left-front";
 };
 
+&spi3 {
+	status = "okay";
+
+	hid-transport@0 {
+		compatible = "apple,spi-hid-transport";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		/*
+		 * Apple's ADT specifies 20us CS change delays, and the
+		 * SPI HID interface metadata specifies 45us. Using either
+		 * seems not to be reliable, but adding both works, so
+		 * best guess is they are cumulative.
+		 */
+		spi-cs-setup-delay-ns = <65000>;
+		spi-cs-hold-delay-ns = <65000>;
+		spi-cs-inactive-delay-ns = <250000>;
+		spien-gpios = <&pinctrl_ap 195 0>;
+		interrupts-extended = <&pinctrl_nub 13 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
 &i2c2 {
 	status = "okay";
 };
