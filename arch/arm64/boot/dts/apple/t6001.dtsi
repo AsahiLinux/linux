@@ -267,7 +267,7 @@
 		};
 
 		pcie0: pcie@590000000 {
-			compatible = "apple,t8103-pcie", "apple,pcie";
+			compatible = "apple,t6000-pcie", "apple,pcie";
 			device_type = "pci";
 
 			reg = <0x5 0x90000000 0x0 0x1000000>,
