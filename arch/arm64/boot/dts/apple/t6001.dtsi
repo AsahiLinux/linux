@@ -258,6 +258,31 @@
 					<APPLE_PINMUX(93, 1)>;
 			};
 
+			i2c1_pins: i2c1-pins {
+				pinmux = <APPLE_PINMUX(94, 1)>,
+					<APPLE_PINMUX(95, 1)>;
+			};
+
+			i2c2_pins: i2c2-pins {
+				pinmux = <APPLE_PINMUX(96, 1)>,
+					<APPLE_PINMUX(97, 1)>;
+			};
+
+			i2c3_pins: i2c3-pins {
+				pinmux = <APPLE_PINMUX(98, 1)>,
+					<APPLE_PINMUX(99, 1)>;
+			};
+
+			i2c4_pins: i2c4-pins {
+				pinmux = <APPLE_PINMUX(8, 1)>,
+					<APPLE_PINMUX(9, 1)>;
+			};
+
+			i2c5_pins: i2c5-pins {
+				pinmux = <APPLE_PINMUX(100, 1)>,
+					<APPLE_PINMUX(101, 1)>;
+			};
+
 			pcie_pins: pcie-pins {
 				pinmux = <APPLE_PINMUX(0, 1)>,
 					 <APPLE_PINMUX(1, 1)>,
@@ -277,6 +302,76 @@
 			power-domains = <&ps_i2c0>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
+		};
+
+		i2c1: i2c@39b044000 {
+			compatible = "apple,t6000-i2c", "apple,i2c";
+			reg = <0x3 0x9b044000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1120 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c1_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_i2c1>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@39b048000 {
+			compatible = "apple,t6000-i2c", "apple,i2c";
+			reg = <0x3 0x9b048000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1121 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c2_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_i2c2>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c3: i2c@39b04c000 {
+			compatible = "apple,t6000-i2c", "apple,i2c";
+			reg = <0x3 0x9b04c000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1122 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c3_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_i2c3>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@39b050000 {
+			compatible = "apple,t6000-i2c", "apple,i2c";
+			reg = <0x3 0x9b050000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1123 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c4_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_i2c4>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c5: i2c@39b054000 {
+			compatible = "apple,t6000-i2c", "apple,i2c";
+			reg = <0x3 0x9b054000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1124 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c5_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_i2c5>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
 		};
 
 		serial0: serial@39b200000 {
