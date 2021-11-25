@@ -219,10 +219,9 @@
 		i2c0: i2c@39b040000 {
 			compatible = "apple,t6000-i2c", "apple,i2c";
 			reg = <0x3 0x9b040000 0x0 0x4000>;
-			clocks = <&clkref>, <&clkref>;
-			clock-names = "gate", "ref";
+			clocks = <&clkref>;
 			interrupt-parent = <&aic>;
-			interrupts = <AIC_IRQ 0 1119 4>;
+			interrupts = <AIC_IRQ 0 1119 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-0 = <&i2c0_pins>;
 			pinctrl-names = "default";
 			power-domains = <&ps_i2c0>;
