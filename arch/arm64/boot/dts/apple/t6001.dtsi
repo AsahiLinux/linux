@@ -158,11 +158,75 @@
 			reg = <0x2 0x8e680000 0 0xc000>;
 		};
 
+		pinctrl_smc: pinctrl@290820000 {
+			compatible = "apple,t6000-pinctrl", "apple,pinctrl";
+			reg = <0x2 0x90820000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_smc 0 0 30>;
+			apple,npins = <30>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 743 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 744 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 745 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 746 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 747 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 748 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 749 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_nub: pinctrl@2921f0000 {
+			compatible = "apple,t6000-pinctrl", "apple,pinctrl";
+			reg = <0x2 0x921f0000 0x0 0x4000>;
+			power-domains = <&ps_nub_gpio>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_nub 0 0 16>;
+			apple,npins = <16>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 623 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 624 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 625 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 626 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 627 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 628 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 629 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		pmgr_mini: power-management@292280000 {
 			compatible = "apple,t6000-pmgr", "apple,pmgr", "syscon", "simple-mfd";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x2 0x92280000 0 0x4000>;
+		};
+
+		pinctrl_aop: pinctrl@293820000 {
+			compatible = "apple,t6000-pinctrl", "apple,pinctrl";
+			reg = <0x2 0x93820000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_aop 0 0 63>;
+			apple,npins = <63>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 567 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 568 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 569 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 570 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 571 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 572 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 0 573 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		pinctrl_ap: pinctrl@39b028000 {
