@@ -54,7 +54,6 @@
 
 		typec0: connector {
 			compatible = "usb-c-connector";
-			label = "USB-C Left Rear";
 			power-role = "dual";
 			data-role = "dual";
 
@@ -80,7 +79,6 @@
 
 		typec1: connector {
 			compatible = "usb-c-connector";
-			label = "USB-C Left Front";
 			power-role = "dual";
 			data-role = "dual";
 

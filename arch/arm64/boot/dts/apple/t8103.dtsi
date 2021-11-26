@@ -364,8 +364,8 @@
 			power-domains = <&ps_atc0_usb>;
 		};
 
-		dwc3_0: usb@382280000{
-			compatible = "snps,dwc3";
+		dwc3_0: usb@382280000 {
+			compatible = "apple,t8103-dwc3", "apple,dwc3", "snps,dwc3";
 			reg = <0x3 0x82280000 0x0 0x100000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 777 IRQ_TYPE_LEVEL_HIGH>;
@@ -392,8 +392,8 @@
 			power-domains = <&ps_atc1_usb>;
 		};
 
-		dwc3_1: usb@502280000{
-			compatible = "snps,dwc3";
+		dwc3_1: usb@b02280000 {
+			compatible = "apple,t8103-dwc3", "apple,dwc3", "snps,dwc3";
 			reg = <0x5 0x02280000 0x0 0x100000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 857 IRQ_TYPE_LEVEL_HIGH>;
