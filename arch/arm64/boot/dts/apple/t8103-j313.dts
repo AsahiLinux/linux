@@ -18,6 +18,18 @@
 };
 
 /*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Left-back";
+};
+
+&typec1 {
+	label = "USB-C Left-front";
+};
+
+/*
  * Remove unused PCIe ports and disable the associated DARTs.
  */
 
