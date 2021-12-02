@@ -208,6 +208,14 @@
 			reg = <0x2 0x92280000 0 0x4000>;
 		};
 
+		wdt: watchdog@2922b0000 {
+			compatible = "apple,t6000-wdt", "apple,wdt";
+			reg = <0x2 0x922b0000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 631 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		pinctrl_aop: pinctrl@293820000 {
 			compatible = "apple,t6000-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x93820000 0x0 0x4000>;
