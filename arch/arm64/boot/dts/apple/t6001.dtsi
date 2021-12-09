@@ -120,6 +120,13 @@
 		clock-output-names = "clkref";
 	};
 
+	clk_200m: clock-200m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+		clock-output-names = "clk_200m";
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -322,6 +329,13 @@
 					<APPLE_PINMUX(101, 1)>;
 			};
 
+			spi1_pins: spi1-pins {
+				pinmux = <APPLE_PINMUX(10, 1)>,
+					<APPLE_PINMUX(11, 1)>,
+					<APPLE_PINMUX(32, 1)>,
+					<APPLE_PINMUX(33, 1)>;
+			};
+
 			pcie_pins: pcie-pins {
 				pinmux = <APPLE_PINMUX(0, 1)>,
 					 <APPLE_PINMUX(1, 1)>,
@@ -410,6 +424,20 @@
 			power-domains = <&ps_i2c5>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		spi1: spi@39b104000 {
+			compatible = "apple,t6000-spi", "apple,spi";
+			reg = <0x3 0x9b104000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 0 1107 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&clk_200m>;
+			pinctrl-0 = <&spi1_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_spi1>;
 			status = "disabled";
 		};
 
