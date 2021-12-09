@@ -248,7 +248,7 @@ static void apple_spi_tx(struct apple_spi *spi, const void **tx_ptr, u32 *left,
 		return;
 
 	inuse = FIELD_GET(APPLE_SPI_FIFOSTAT_LEVEL_TX, reg_read(spi, APPLE_SPI_FIFOSTAT));
-	words = wrote = min_t(u32, *left, APPLE_SPI_FIFOSTAT_LEVEL_TX - inuse);
+	words = wrote = min_t(u32, *left, APPLE_SPI_FIFO_DEPTH - inuse);
 
 	if (!words)
 		return;
