@@ -79,6 +79,14 @@ config SPI_ALTERA_DFL
 	  Altera SPI master controller.  The SPI master is connected
 	  to a SPI slave to Avalon bridge in a Intel MAX BMC.
 
+config SPI_APPLE
+	tristate "Apple SoC SPI Controller platform driver"
+	depends on ARCH_APPLE || COMPILE_TEST
+	help
+	  This enables support for the SPI controller present on
+	  many Apple SoCs, including the t8103 (M1) and t600x
+	  (M1 Pro/Max).
+
 config SPI_AR934X
 	tristate "Qualcomm Atheros AR934X/QCA95XX SPI controller driver"
 	depends on ATH79 || COMPILE_TEST
