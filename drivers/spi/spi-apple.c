@@ -394,7 +394,6 @@ apple_spi_transfer_one(struct spi_controller *ctlr, struct spi_device *device,
 	 */
 	while (remaining_rx && retries--) {
 		apple_spi_rx(spi, &rx_ptr, &remaining_rx, bpw);
-		retries++;
 	}
 
 	if (remaining_tx)
