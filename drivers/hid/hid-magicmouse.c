@@ -62,6 +62,8 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 #define DOUBLE_REPORT_ID   0xf7
 #define USB_BATTERY_TIMEOUT_SEC 60
 
+#define MAX_CONTACTS 16
+
 /* These definitions are not precise, but they're close enough.  (Bits
  * 0x03 seem to indicate the aspect ratio of the touch, bits 0x70 seem
  * to be some kind of bit mask -- 0x20 may be a near-field reading,
@@ -143,8 +145,8 @@ struct magicmouse_sc {
 		u8 size;
 		bool scroll_x_active;
 		bool scroll_y_active;
-	} touches[16];
-	int tracking_ids[16];
+	} touches[MAX_CONTACTS];
+	int tracking_ids[MAX_CONTACTS];
 
 	struct hid_device *hdev;
 	struct delayed_work work;
@@ -646,7 +648,7 @@ static int magicmouse_setup_input(struct input_dev *input, struct hid_device *hd
 
 	__set_bit(EV_ABS, input->evbit);
 
-	error = input_mt_init_slots(input, 16, mt_flags);
+	error = input_mt_init_slots(input, MAX_CONTACTS, mt_flags);
 	if (error)
 		return error;
 	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 255 << 2,
