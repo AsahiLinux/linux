@@ -114,6 +114,13 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 #define TRACKPAD2_RES_Y \
 	((TRACKPAD2_MAX_Y - TRACKPAD2_MIN_Y) / (TRACKPAD2_DIMENSION_Y / 100))
 
+
+struct magicmouse_input_ops {
+	int (*raw_event)(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size);
+	int (*setup_input)(struct input_dev *input, struct hid_device *hdev);
+};
+
 /**
  * struct magicmouse_sc - Tracks Magic Mouse-specific data.
  * @input: Input device through which we report events.
@@ -127,6 +134,7 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
  * @hdev: Pointer to the underlying HID device.
  * @work: Workqueue to handle initialization retry for quirky devices.
  * @battery_timer: Timer for obtaining battery level information.
+ * @input_ops: Input ops based on device type.
  */
 struct magicmouse_sc {
 	struct input_dev *input;
@@ -151,6 +159,7 @@ struct magicmouse_sc {
 	struct hid_device *hdev;
 	struct delayed_work work;
 	struct timer_list battery_timer;
+	struct magicmouse_input_ops input_ops;
 };
 
 static int magicmouse_firm_touch(struct magicmouse_sc *msc)
@@ -389,6 +398,14 @@ static int __magicmouse_raw_event(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size, bool nested)
 {
 	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+
+	return msc->input_ops.raw_event(hdev, report, data, size);
+}
+
+static int magicmouse_raw_event_usb(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size)
+{
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
 	struct input_dev *input = msc->input;
 	int x = 0, y = 0, ii, clicks = 0, npoints;
 
@@ -569,7 +586,17 @@ static int magicmouse_event(struct hid_device *hdev, struct hid_field *field,
 	return 0;
 }
 
-static int magicmouse_setup_input(struct input_dev *input, struct hid_device *hdev)
+
+static int magicmouse_setup_input(struct input_dev *input,
+				  struct hid_device *hdev)
+{
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+
+	return msc->input_ops.setup_input(input, hdev);
+}
+
+static int magicmouse_setup_input_usb(struct input_dev *input,
+				      struct hid_device *hdev)
 {
 	int error;
 	int mt_flags = 0;
@@ -904,6 +931,9 @@ static int magicmouse_probe(struct hid_device *hdev,
 		hid_err(hdev, "can't alloc magicmouse descriptor\n");
 		return -ENOMEM;
 	}
+
+	msc->input_ops.raw_event = magicmouse_raw_event_usb;
+	msc->input_ops.setup_input = magicmouse_setup_input_usb;
 
 	msc->scroll_accel = SCROLL_ACCEL_DEFAULT;
 	msc->hdev = hdev;
