@@ -121,6 +121,7 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
  * @ntouches: Number of touches in most recent touch report.
  * @scroll_accel: Number of consecutive scroll motions.
  * @scroll_jiffies: Time of last scroll motion.
+ * @pos: multi touch position data of the last report.
  * @touches: Most recent data for a touch, indexed by tracking ID.
  * @tracking_ids: Mapping of current touch input data to @touches.
  * @hdev: Pointer to the underlying HID device.
@@ -135,9 +136,8 @@ struct magicmouse_sc {
 	int scroll_accel;
 	unsigned long scroll_jiffies;
 
+	struct input_mt_pos pos[MAX_CONTACTS];
 	struct {
-		short x;
-		short y;
 		short scroll_x;
 		short scroll_y;
 		short scroll_x_hr;
@@ -194,7 +194,7 @@ static void magicmouse_emit_buttons(struct magicmouse_sc *msc, int state)
 		} else if (last_state != 0) {
 			state = last_state;
 		} else if ((id = magicmouse_firm_touch(msc)) >= 0) {
-			int x = msc->touches[id].x;
+			int x = msc->pos[id].x;
 			if (x < middle_button_start)
 				state = 1;
 			else if (x > middle_button_stop)
@@ -258,8 +258,8 @@ static void magicmouse_emit_touch(struct magicmouse_sc *msc, int raw_id, u8 *tda
 
 	/* Store tracking ID and other fields. */
 	msc->tracking_ids[raw_id] = id;
-	msc->touches[id].x = x;
-	msc->touches[id].y = y;
+	msc->pos[id].x = x;
+	msc->pos[id].y = y;
 	msc->touches[id].size = size;
 
 	/* If requested, emulate a scroll wheel by detecting small
