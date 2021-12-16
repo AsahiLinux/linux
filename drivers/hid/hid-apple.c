@@ -482,6 +482,18 @@ static int hidinput_apple_event(struct hid_device *hid, struct input_dev *input,
 		asc->fn_on = !!value;
 
 	if (real_fnmode) {
+		switch (hid->bus) {
+		case BUS_SPI:
+			switch (hid->product) {
+				case SPI_DEVICE_ID_APPLE_MACBOOK_PRO13_2020:
+				table = macbookpro_dedicated_esc_fn_keys;
+				break;
+			default:
+				table = magic_keyboard_2021_and_2024_fn_keys;
+				break;
+			}
+			break;
+		default:
 		switch (hid->product) {
 		case USB_DEVICE_ID_APPLE_ALU_WIRELESS_ANSI:
 		case USB_DEVICE_ID_APPLE_ALU_WIRELESS_ISO:
@@ -529,6 +541,7 @@ static int hidinput_apple_event(struct hid_device *hid, struct input_dev *input,
 				table = powerbook_fn_keys;
 			else
 				table = apple_fn_keys;
+		}
 		}
 
 		trans = apple_find_translation(table, code);
@@ -957,6 +970,10 @@ static int apple_probe(struct hid_device *hdev,
 	struct apple_sc *asc;
 	int ret;
 
+	if (id->bus == BUS_SPI && id->vendor == SPI_VENDOR_ID_APPLE &&
+	    hdev->type != HID_TYPE_SPI_KEYBOARD)
+		return -ENODEV;
+
 	asc = devm_kzalloc(&hdev->dev, sizeof(*asc), GFP_KERNEL);
 	if (asc == NULL) {
 		hid_err(hdev, "can't alloc apple descriptor\n");
@@ -1214,6 +1231,8 @@ static const struct hid_device_id apple_devices[] = {
 		.driver_data = APPLE_NUMLOCK_EMULATION | APPLE_HAS_FN },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_GEYSER1_TP_ONLY),
 		.driver_data = APPLE_NUMLOCK_EMULATION | APPLE_HAS_FN },
+	{ HID_SPI_DEVICE(SPI_VENDOR_ID_APPLE, HID_ANY_ID),
+		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGIC_KEYBOARD_2021),
 		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK | APPLE_RDESC_BATTERY },
 	{ HID_BLUETOOTH_DEVICE(BT_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGIC_KEYBOARD_2021),
