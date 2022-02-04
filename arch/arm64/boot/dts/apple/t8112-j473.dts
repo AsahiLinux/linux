@@ -50,6 +50,7 @@
  */
 &port00 {
 	bus-range = <1 1>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
 	wifi0: wifi@0,0 {
 		compatible = "pci14e4,4434";
 		reg = <0x10000 0x0 0x0 0x0 0x0>;
@@ -70,6 +71,7 @@
 
 &port01 {
 	bus-range = <2 2>;
+	pwren-gpios = <&smc_gpio 24 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };
 
