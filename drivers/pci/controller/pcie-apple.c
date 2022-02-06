@@ -847,12 +847,36 @@ static const struct pci_ecam_ops apple_pcie_cfg_ecam_ops = {
 	}
 };
 
+static int apple_pcie_probe_port(struct device_node *np)
+{
+	struct gpio_desc *gd;
+
+	/* check whether the GPPIO pin exists but leave it as is */
+	gd = fwnode_gpiod_get_index(of_fwnode_handle(np), "reset", 0,
+				    GPIOD_ASIS, "PERST#");
+	if (IS_ERR(gd))
+		return PTR_ERR(gd);
+
+	gpiod_put(gd);
+	return 0;
+}
+
 static int apple_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct pci_host_bridge *bridge;
+	struct device_node *of_port;
 	struct apple_pcie *pcie;
 	int ret;
+
+	/* Check for probe dependencies for all ports first */
+	for_each_available_child_of_node(dev->of_node, of_port) {
+		ret = apple_pcie_probe_port(of_port);
+		if (ret) {
+			of_node_put(of_port);
+			return dev_err_probe(dev, ret, "Port %pOF probe fail\n", of_port);
+		}
+	}
 
 	bridge = devm_pci_alloc_host_bridge(dev, sizeof(*pcie));
 	if (!bridge)
