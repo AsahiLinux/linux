@@ -177,6 +177,7 @@
 &port00 {
 	/* WLAN */
 	bus-range = <1 1>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
 	wifi0: wifi@0,0 {
 		compatible = "pci14e4,4433";
 		reg = <0x10000 0x0 0x0 0x0 0x0>;
@@ -196,6 +197,7 @@
 &port01 {
 	/* SD card reader */
 	bus-range = <2 2>;
+	pwren-gpios = <&smc_gpio 26 GPIO_ACTIVE_HIGH>;
 	sdhci0: mmc@0,0 {
 		compatible = "pci17a0,9755";
 		reg = <0x20000 0x0 0x0 0x0 0x0>;
