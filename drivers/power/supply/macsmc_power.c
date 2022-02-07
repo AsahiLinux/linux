@@ -147,6 +147,9 @@ static int macsmc_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		val->strval = power->serial_number;
 		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = 1;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -176,6 +179,7 @@ static enum power_supply_property macsmc_battery_props[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
+	POWER_SUPPLY_PROP_PRESENT,
 };
 
 static const struct power_supply_desc macsmc_battery_desc = {
