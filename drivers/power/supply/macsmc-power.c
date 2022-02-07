@@ -572,6 +572,24 @@ static int macsmc_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_MANUFACTURE_DAY:
 		ret = macsmc_battery_get_date(&power->mfg_date[4], &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD:
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		if (power->has_chls) {
+			ret = apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16);
+			val->intval = vu16 & 0xff;
+			if (val->intval < CHLS_MIN_END_THRESHOLD || val->intval >= 100)
+				val->intval = 100;
+		} else if (power->has_chwa) {
+			flag = false;
+			ret = apple_smc_read_flag(power->smc, SMC_KEY(CHWA), &flag);
+			val->intval = flag ? CHWA_FIXED_END_THRESHOLD : 100;
+		} else {
+			return -EINVAL;
+		}
+		if (psp == POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD &&
+			ret >= 0 && val->intval < 100 && val->intval >= CHLS_MIN_END_THRESHOLD)
+			val->intval -= CHWA_CHLS_FIXED_START_OFFSET;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -588,6 +606,28 @@ static int macsmc_battery_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
 		return macsmc_battery_set_charge_behaviour(power, val->intval);
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD:
+		/*
+			* Ignore, we allow writes so userspace isn't confused but this is
+			* not configurable independently, it always is end - 5 or 100 depending
+			* on the end_threshold setting.
+			*/
+		return 0;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		if (power->has_chls) {
+			u16 kval = 0;
+			/* TODO: Make CHLS_FORCE_DISCHARGE configurable */
+			if (val->intval < CHLS_MIN_END_THRESHOLD)
+				kval = CHLS_FORCE_DISCHARGE | CHLS_MIN_END_THRESHOLD;
+			else if (val->intval < 100)
+				kval = CHLS_FORCE_DISCHARGE | (val->intval & 0xff);
+			return apple_smc_write_u16(power->smc, SMC_KEY(CHLS), kval);
+		} else if (power->has_chwa) {
+			return apple_smc_write_flag(power->smc, SMC_KEY(CHWA),
+							val->intval <= CHWA_PROP_WRITE_THRESHOLD);
+		} else {
+			return -EINVAL;
+		}
 	default:
 		return -EINVAL;
 	}
@@ -596,9 +636,14 @@ static int macsmc_battery_set_property(struct power_supply *psy,
 static int macsmc_battery_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
+	struct macsmc_power *power = power_supply_get_drvdata(psy);
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
 		return true;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD:
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		return power->has_chwa || power->has_chls;
 	default:
 		return false;
 	}
@@ -913,6 +958,11 @@ static int macsmc_power_probe(struct platform_device *pdev)
 			power->has_chwa = true;
 		else if (apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16) >= 0)
 			power->has_chls = true;
+
+		if (power->has_chwa || power->has_chls) {
+			props[nprops++] = POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD;
+			props[nprops++] = POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD;
+		}
 
 		if (nprops > MACSMC_MAX_BATT_PROPS)
 			return -ENOMEM;
