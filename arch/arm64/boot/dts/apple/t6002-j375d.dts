@@ -21,6 +21,11 @@
 	};
 };
 
+&sound {
+	compatible = "apple,j375-macaudio", "apple,macaudio";
+	model = "Mac Studio J375";
+};
+
 /* USB Type C */
 &i2c0 {
 	/* front-right */
