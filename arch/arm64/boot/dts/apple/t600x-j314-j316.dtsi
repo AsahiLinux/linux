@@ -20,6 +20,10 @@
 		atcphy2 = &atcphy2;
 		atcphy3 = &atcphy3;
 		bluetooth0 = &bluetooth0;
+		dcp = &dcp;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
+		disp0-piodma = &disp0_piodma;
 		serial0 = &serial0;
 		wifi0 = &wifi0;
 	};
@@ -36,6 +40,9 @@
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
 			status = "disabled";
+			panel = <&panel>;
+			post-init-providers = <&panel>;
+			power-domains = <&ps_disp0_cpu0>;
 		};
 	};
 
@@ -59,6 +66,12 @@
 
 &serial0 {
 	status = "okay";
+};
+
+&dcp {
+	panel: panel {
+		apple,max-brightness = <500>;
+	};
 };
 
 /* USB Type C */

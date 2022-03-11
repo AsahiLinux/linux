@@ -373,6 +373,12 @@
 		clock-output-names = "clk_200m";
 	};
 
+	clk_disp0: clock-disp0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <237333328>;
+		clock-output-names = "clk_disp0";
+	};
 	/*
 	 * This is a fabulated representation of the input clock
 	 * to NCO since we don't know the true clock tree.
