@@ -717,6 +717,7 @@
 		#reset-cells = <0>;
 		label = "apcie_gp";
 		power-domains = <&ps_apcie>;
+		apple,always-on; /* Breaks things if shut down */
 	};
 
 	ps_ans2: power-controller@3f0 {
