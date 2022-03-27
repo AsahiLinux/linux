@@ -1069,7 +1069,7 @@ static int atcphy_load_fuses(struct apple_atcphy *atcphy)
 	ret = nvmem_cell_read_variable_le_u32(
 		atcphy->dev, "cio3pll_dll_start_capcode_workaround",
 		&atcphy->fuses.cio3pll_dll_start_capcode[1]);
-	if (ret == ENOENT) {
+	if (ret == -ENOENT) {
 		atcphy->quirks.t8103_cio3pll_workaround = false;
 		goto success;
 	}
