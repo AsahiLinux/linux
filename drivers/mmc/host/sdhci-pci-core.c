@@ -2129,6 +2129,7 @@ static struct sdhci_pci_slot *sdhci_pci_probe_slot(
 	struct sdhci_host *host;
 	int ret, bar = first_bar + slotno;
 	size_t priv_size = chip->fixes ? chip->fixes->priv_size : 0;
+	u32 cd_debounce_delay_ms;
 
 	if (!(pci_resource_flags(pdev, bar) & IORESOURCE_MEM)) {
 		dev_err(&pdev->dev, "BAR %d is not iomem. Aborting.\n", bar);
@@ -2195,6 +2196,10 @@ static struct sdhci_pci_slot *sdhci_pci_probe_slot(
 	if (host->mmc->caps & MMC_CAP_CD_WAKE)
 		device_init_wakeup(&pdev->dev, true);
 
+	if (device_property_read_u32(&pdev->dev, "cd-debounce-delay-ms",
+				     &cd_debounce_delay_ms))
+		cd_debounce_delay_ms = 200;
+
 	if (slot->cd_idx >= 0) {
 		struct gpiod_lookup_table *cd_gpio_lookup_table;
 
@@ -2213,7 +2218,7 @@ static struct sdhci_pci_slot *sdhci_pci_probe_slot(
 			ret = mmc_gpiod_request_cd(host->mmc, NULL,
 						   slot->cd_idx,
 						   slot->cd_override_level,
-						   0);
+						   cd_debounce_delay_ms * 1000);
 		if (ret == -EPROBE_DEFER)
 			goto remove;
 
@@ -2225,7 +2230,8 @@ static struct sdhci_pci_slot *sdhci_pci_probe_slot(
 		/* Allow all OF systems to use a CD GPIO if provided */
 
 		ret = mmc_gpiod_request_cd(host->mmc, "cd", 0,
-					   slot->cd_override_level, 0);
+					   slot->cd_override_level,
+					   cd_debounce_delay_ms * 1000);
 		if (ret == -EPROBE_DEFER)
 			goto remove;
 		else if (ret == 0)
