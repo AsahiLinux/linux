@@ -61,6 +61,7 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 #define MOUSE2_REPORT_ID   0x12
 #define DOUBLE_REPORT_ID   0xf7
 #define SPI_REPORT_ID      0x02
+#define MTP_REPORT_ID      0x75
 #define USB_BATTERY_TIMEOUT_SEC 60
 
 #define MAX_CONTACTS 16
@@ -609,25 +610,32 @@ struct tp_finger {
 } __attribute__((packed, aligned(2)));
 
 /**
- * struct trackpad report
+ * struct vendor trackpad report
+ *
+ * @num_fingers:	the number of fingers being reported in @fingers
+ * @buttons:		same as HID buttons
+ */
+struct tp_header {
+	// HID vendor part, up to 1751 bytes
+	u8 unknown[22];
+	u8 num_fingers;
+	u8 buttons;
+	u8 unknown3[14];
+};
+
+/**
+ * struct standard HID mouse report
  *
  * @report_id:		reportid
  * @buttons:		HID Usage Buttons 3 1-bit reports
- * @num_fingers:	the number of fingers being reported in @fingers
- * @clicked:		same as @buttons
  */
-struct tp_header {
+struct tp_mouse_report {
 	// HID mouse report
 	u8 report_id;
 	u8 buttons;
 	u8 rel_x;
 	u8 rel_y;
 	u8 padding[4];
-	// HID vendor part, up to 1751 bytes
-	u8 unknown[22];
-	u8 num_fingers;
-	u8 clicked;
-	u8 unknown3[14];
 };
 
 static inline int le16_to_int(__le16 x)
@@ -657,7 +665,7 @@ static void report_finger_data(struct input_dev *input, int slot,
 	input_report_abs(input, ABS_MT_POSITION_Y, pos->y);
 }
 
-static int magicmouse_raw_event_spi(struct hid_device *hdev,
+static int magicmouse_raw_event_mtp(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
 	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
@@ -673,9 +681,6 @@ static int magicmouse_raw_event_spi(struct hid_device *hdev,
 	// hid_warn(hdev, "%s\n", __func__);
 	// print_hex_dump_debug("appleft ev: ", DUMP_PREFIX_OFFSET, 16, 1, data,
 	// 		     size, false);
-
-	if (data[0] != SPI_REPORT_ID)
-		return 0;
 
 	/* Expect 46 bytes of prefix, and N * 30 bytes of touch data. */
 	if (size < hdr_sz || ((size - hdr_sz) % touch_sz) != 0)
@@ -715,10 +720,24 @@ static int magicmouse_raw_event_spi(struct hid_device *hdev,
 	}
 
 	input_mt_sync_frame(input);
-	input_report_key(input, BTN_MOUSE, data[1] & 1);
+	input_report_key(input, BTN_MOUSE, tp_hdr->buttons & 1);
 
 	input_sync(input);
 	return 1;
+}
+
+static int magicmouse_raw_event_spi(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size)
+{
+	const size_t hdr_sz = sizeof(struct tp_mouse_report);
+
+	if (size < hdr_sz)
+		return 0;
+
+	if (data[0] != SPI_REPORT_ID)
+		return 0;
+
+	return magicmouse_raw_event_mtp(hdev, report, data + hdr_sz, size - hdr_sz);
 }
 
 static int magicmouse_event(struct hid_device *hdev, struct hid_field *field,
@@ -1163,7 +1182,7 @@ static int magicmouse_probe(struct hid_device *hdev,
 	struct hid_report *report;
 	int ret;
 
-	if (id->bus == BUS_SPI && id->vendor == SPI_VENDOR_ID_APPLE &&
+	if ((id->bus == BUS_SPI || id->bus == BUS_HOST) && id->vendor == SPI_VENDOR_ID_APPLE &&
 	    hdev->type != HID_TYPE_SPI_MOUSE)
 		return -ENODEV;
 
@@ -1175,7 +1194,10 @@ static int magicmouse_probe(struct hid_device *hdev,
 
 	// internal trackpad use a data format use input ops to avoid
 	// conflicts with the report ID.
-	if (id->vendor == SPI_VENDOR_ID_APPLE) {
+	if (id->bus == BUS_HOST) {
+		msc->input_ops.raw_event = magicmouse_raw_event_mtp;
+		msc->input_ops.setup_input = magicmouse_setup_input_spi;
+	} else if (id->bus == BUS_SPI) {
 		msc->input_ops.raw_event = magicmouse_raw_event_spi;
 		msc->input_ops.setup_input = magicmouse_setup_input_spi;
 	} else {
@@ -1253,6 +1275,9 @@ static int magicmouse_probe(struct hid_device *hdev,
 		break;
 	default:
 		switch (id->bus) {
+		case BUS_HOST:
+			report = hid_register_report(hdev, HID_INPUT_REPORT, MTP_REPORT_ID, 0);
+			break;
 		case BUS_SPI:
 			report = hid_register_report(hdev, HID_INPUT_REPORT, SPI_REPORT_ID, 0);
 			break;
@@ -1270,6 +1295,10 @@ static int magicmouse_probe(struct hid_device *hdev,
 		goto err_stop_hw;
 	}
 	report->size = 6;
+
+	/* MTP devices do not need the MT enable, this is handled by the MTP driver */
+	if (id->bus == BUS_HOST)
+		return 0;
 
 	/*
 	 * Some devices repond with 'invalid report id' when feature
@@ -1390,6 +1419,8 @@ static const struct hid_device_id magic_mice[] = {
 		USB_DEVICE_ID_APPLE_MAGICTRACKPAD2_USBC), .driver_data = 0 },
 	{ HID_SPI_DEVICE(SPI_VENDOR_ID_APPLE, HID_ANY_ID),
 	  .driver_data = 0 },
+	{ HID_DEVICE(BUS_HOST, HID_GROUP_ANY, HOST_VENDOR_ID_APPLE,
+                     HID_ANY_ID), .driver_data = 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, magic_mice);
