@@ -4,6 +4,15 @@ if ARCH_APPLE || COMPILE_TEST
 
 menu "Apple SoC drivers"
 
+config APPLE_DOCKCHANNEL
+	tristate "Apple DockChannel FIFO"
+	depends on ARCH_APPLE || COMPILE_TEST
+	help
+	  DockChannel is a simple FIFO used on Apple SoCs for debug and inter-processor
+	  communications.
+
+	  Say 'y' here if you have an Apple SoC.
+
 config APPLE_MAILBOX
 	tristate "Apple SoC mailboxes"
 	depends on PM
