@@ -114,3 +114,7 @@
 		};
 	};
 };
+
+&gpu {
+	apple,perf-base-pstate = <3>;
+};
