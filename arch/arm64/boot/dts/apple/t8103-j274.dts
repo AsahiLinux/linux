@@ -132,4 +132,8 @@
 	};
 };
 
+&gpu {
+	apple,perf-base-pstate = <3>;
+};
+
 #include "hwmon-mini.dtsi"

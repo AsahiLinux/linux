@@ -303,6 +303,50 @@
 #endif
 	};
 
+	gpu_opp: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <0>;
+			opp-microvolt = <400000>;
+			opp-microwatt = <0>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <396000000>;
+			opp-microvolt = <603000>;
+			opp-microwatt = <3714690>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <528000000>;
+			opp-microvolt = <640000>;
+			opp-microwatt = <5083260>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <720000000>;
+			opp-microvolt = <690000>;
+			opp-microwatt = <7429380>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <924000000>;
+			opp-microvolt = <784000>;
+			opp-microwatt = <11730600>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1128000000>;
+			opp-microvolt = <862000>;
+			opp-microwatt = <17009370>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1278000000>;
+			opp-microvolt = <931000>;
+			opp-microwatt = <19551000>;
+		};
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&aic>;
@@ -381,16 +425,16 @@
 			status = "disabled";
 		};
 
-		uat_handoff: uat-handoff {
-			status = "disabled";
+		uat_handoff: uat-handoff@10 {
+			reg = <0 0x10 0 0>;
 		};
 
-		uat_pagetables: uat-pagetables {
-			status = "disabled";
+		uat_pagetables: uat-pagetables@20 {
+			reg = <0 0x20 0 0>;
 		};
 
-		uat_ttbs: uat-ttbs {
-			status = "disabled";
+		uat_ttbs: uat-ttbs@30 {
+			reg = <0 0x30 0 0>;
 		};
 	};
 
@@ -405,7 +449,7 @@
 		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		gpu: gpu@206400000 {
-			compatible = "apple,agx-g13g";
+			compatible = "apple,agx-t8103", "apple,agx-g13g";
 			reg = <0x2 0x6400000 0 0x40000>,
 				<0x2 0x4000000 0 0x1000000>;
 			reg-names = "asc", "sgx";
@@ -417,6 +461,40 @@
 					      "hw-cal-a", "hw-cal-b", "globals";
 
 			apple,firmware-abi = <0 0 0>;
+
+			apple,firmware-version = <12 3 0>;
+			apple,firmware-compat = <12 3 0>;
+
+			operating-points-v2 = <&gpu_opp>;
+			apple,perf-base-pstate = <1>;
+			apple,min-sram-microvolt = <850000>;
+			apple,avg-power-filter-tc-ms = <1000>;
+			apple,avg-power-ki-only = <7.5>;
+			apple,avg-power-kp = <4.0>;
+			apple,avg-power-min-duty-cycle = <40>;
+			apple,avg-power-target-filter-tc = <125>;
+			apple,fast-die0-integral-gain = <200.0>;
+			apple,fast-die0-proportional-gain = <5.0>;
+			apple,perf-filter-drop-threshold = <0>;
+			apple,perf-filter-time-constant = <5>;
+			apple,perf-filter-time-constant2 = <50>;
+			apple,perf-integral-gain2 = <0.197392>;
+			apple,perf-integral-min-clamp = <0>;
+			apple,perf-proportional-gain2 = <6.853981>;
+			apple,perf-tgt-utilization = <85>;
+			apple,power-sample-period = <8>;
+			apple,power-zones = <30000 100 6875>;
+			apple,ppm-filter-time-constant-ms = <100>;
+			apple,ppm-ki = <91.5>;
+			apple,ppm-kp = <6.9>;
+			apple,pwr-filter-time-constant = <313>;
+			apple,pwr-integral-gain = <0.0202129>;
+			apple,pwr-integral-min-clamp = <0>;
+			apple,pwr-min-duty-cycle = <40>;
+			apple,pwr-proportional-gain = <5.2831855>;
+
+			apple,core-leak-coef = <1000.0>;
+			apple,sram-leak-coef = <45.0>;
 		};
 
 		agx_mbox: mbox@206408000 {
