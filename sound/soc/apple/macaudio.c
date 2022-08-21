@@ -626,7 +626,7 @@ static int macaudio_add_backend_dai_route(struct snd_soc_card *card, struct snd_
 	if (!is_speakers) {
 		r = &routes[nroutes++];
 		r->source = dai->stream[SNDRV_PCM_STREAM_CAPTURE].widget->name;
-		r->sink = "Headphone Capture";
+		r->sink = "Headset Capture";
 	}
 
 	ret = snd_soc_dapm_add_routes(&card->dapm, routes, nroutes);
@@ -639,7 +639,7 @@ static int macaudio_add_backend_dai_route(struct snd_soc_card *card, struct snd_
 static int macaudio_add_pin_routes(struct snd_soc_card *card, struct snd_soc_component *component,
 				   bool is_speakers)
 {
-	struct snd_soc_dapm_route routes[1];
+	struct snd_soc_dapm_route routes[2];
 	struct snd_soc_dapm_route *r;
 	int nroutes = 0;
 	char buf[32];
@@ -660,8 +660,10 @@ static int macaudio_add_pin_routes(struct snd_soc_card *card, struct snd_soc_com
 		r = &routes[nroutes++];
 		r->source = "Jack HP";
 		r->sink = "Headphone";
+		r = &routes[nroutes++];
+		r->source = "Headset Mic";
+		r->sink = "Jack HS";
 	}
-
 
 	ret = snd_soc_dapm_add_routes(&card->dapm, routes, nroutes);
 	if (ret)
@@ -813,7 +815,7 @@ static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("Speaker Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("Headphone Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_AIF_IN("Headphone Capture", NULL, 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("Headset Capture", NULL, 0, SND_SOC_NOPM, 0, 0),
 };
 
 static const struct snd_kcontrol_new macaudio_controls[] = {
@@ -840,7 +842,7 @@ static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
 	{ "Speaker (Static)", "Static", "Speaker Pin Demux" },
 
 	/* Capture paths */
-	{ "PCM0 RX", NULL, "Headphone Capture" },
+	{ "PCM0 RX", NULL, "Headset Capture" },
 };
 
 static const struct of_device_id macaudio_snd_device_id[]  = {
