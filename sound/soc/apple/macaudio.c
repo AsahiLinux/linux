@@ -769,6 +769,17 @@ static int macaudio_j375_fixup_controls(struct snd_soc_card *card)
 	return 0;
 }
 
+static int macaudio_j493_fixup_controls(struct snd_soc_card *card)
+{
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	if (ma->has_speakers) {
+		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
+	}
+
+	return 0;	
+}
+
 static int macaudio_fallback_fixup_controls(struct snd_soc_card *card)
 {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
@@ -860,6 +871,7 @@ static const struct of_device_id macaudio_snd_device_id[]  = {
 	{ .compatible = "apple,j274-macaudio", .data = macaudio_j274_fixup_controls },
 	{ .compatible = "apple,j314-macaudio", .data = macaudio_j314_fixup_controls },
 	{ .compatible = "apple,j375-macaudio", .data = macaudio_j375_fixup_controls },
+	{ .compatible = "apple,j493-macaudio", .data = macaudio_j493_fixup_controls },
 	{ .compatible = "apple,macaudio"},
 	{ }
 };
