@@ -577,11 +577,6 @@ static struct snd_soc_jack_pin macaudio_jack_pins[] = {
 		.pin = "Headset Mic",
 		.mask = SND_JACK_MICROPHONE,
 	},
-	{
-		.pin = "Speaker",
-		.mask = SND_JACK_HEADPHONE,
-		.invert = 1,
-	},
 };
 
 static int macaudio_probe(struct snd_soc_card *card)
@@ -655,7 +650,7 @@ static int macaudio_add_pin_routes(struct snd_soc_card *card, struct snd_soc_com
 			snprintf(buf, sizeof(buf) - 1, "%s OUT", component->name_prefix);
 			r->source = buf;
 		}
-		r->sink = "Speaker Pin Demux";
+		r->sink = "Speaker";
 	} else {
 		r = &routes[nroutes++];
 		r->source = "Jack HP";
@@ -814,16 +809,6 @@ SOC_ENUM_SINGLE_VIRT_DECL(macaudio_hp_mux_enum, macaudio_hp_mux_texts);
 static const struct snd_kcontrol_new macaudio_hp_mux =
 	SOC_DAPM_ENUM("Headphones Playback Mux", macaudio_hp_mux_enum);
 
-static const char *macaudio_spk_demux_texts[] = {
-	"Inverse Jack", "Static",
-};
-
-static SOC_ENUM_SINGLE_DECL(macaudio_spk_demux_enum,
-			    SND_SOC_NOPM, 0, macaudio_spk_demux_texts);
-
-static const struct snd_kcontrol_new macaudio_spk_demux =
-	SOC_DAPM_ENUM("Speaker Pin Demux", macaudio_spk_demux_enum);
-
 static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 	SND_SOC_DAPM_SPK("Speaker", NULL),
 	SND_SOC_DAPM_SPK("Speaker (Static)", NULL),
@@ -832,7 +817,6 @@ static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 
 	SND_SOC_DAPM_MUX("Speaker Playback Mux", SND_SOC_NOPM, 0, 0, &macaudio_spk_mux),
 	SND_SOC_DAPM_MUX("Headphone Playback Mux", SND_SOC_NOPM, 0, 0, &macaudio_hp_mux),
-	SND_SOC_DAPM_DEMUX("Speaker Pin Demux", SND_SOC_NOPM, 0, 0, &macaudio_spk_demux),
 
 	SND_SOC_DAPM_AIF_OUT("Speaker Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("Headphone Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
@@ -842,7 +826,6 @@ static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 
 static const struct snd_kcontrol_new macaudio_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Speaker"),
-	SOC_DAPM_PIN_SWITCH("Speaker (Static)"),
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
 };
@@ -859,9 +842,6 @@ static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
 	/*
 	 * Additional paths (to specific I2S ports) are added dynamically.
 	 */
-
-	{ "Speaker", "Inverse Jack", "Speaker Pin Demux" },
-	{ "Speaker (Static)", "Static", "Speaker Pin Demux" },
 
 	/* Capture paths */
 	{ "PCM0 RX", NULL, "Headset Capture" },
