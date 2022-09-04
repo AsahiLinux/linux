@@ -898,7 +898,7 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 	snd_soc_card_set_drvdata(card, data);
 
 	card->owner = THIS_MODULE;
-	card->driver_name = DRIVER_NAME;
+	card->driver_name = "macaudio";
 	card->dev = dev;
 	card->dapm_widgets = macaudio_snd_widgets;
 	card->num_dapm_widgets = ARRAY_SIZE(macaudio_snd_widgets);
