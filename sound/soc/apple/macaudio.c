@@ -730,8 +730,8 @@ static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 		CHECK(snd_soc_set_enum_kctl, "* ASI1 Sel", "Left");
 		CHECK(snd_soc_deactivate_kctl, "* ASI1 Sel", 0);
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
-		CHECK(snd_soc_set_enum_kctl, "* Tweeter HPF Corner Freq", "800 Hz");
-		CHECK(snd_soc_deactivate_kctl, "* Tweeter HPF Corner Freq", 0);
+		CHECK(snd_soc_set_enum_kctl, "* Tweeter HPF Corner Frequency", "800 Hz");
+		CHECK(snd_soc_deactivate_kctl, "* Tweeter HPF Corner Frequency", 0);
 
 		/*
 		 * The speaker amps suffer from spurious overcurrent
