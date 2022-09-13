@@ -67,9 +67,9 @@ struct macaudio_snd_data {
 	struct snd_pcm_hw_constraint_list speaker_nchans_list;
 };
 
-static bool void_warranty;
-module_param(void_warranty, bool, 0644);
-MODULE_PARM_DESC(void_warranty, "Do not bail if safety is not assured");
+static bool please_blow_up_my_speakers;
+module_param(please_blow_up_my_speakers, bool, 0644);
+MODULE_PARM_DESC(please_blow_up_my_speakers, "Allow unsafe or untested operating configurations");
 
 SND_SOC_DAILINK_DEFS(primary,
 	DAILINK_COMP_ARRAY(COMP_CPU("mca-pcm-0")), // CPU
@@ -703,7 +703,7 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 #define CHECK(call, pattern, value) \
 	{ \
 		int ret = call(card, pattern, value); \
-		if (ret < 1 && !void_warranty) { \
+		if (ret < 1 && !please_blow_up_my_speakers) { \
 			dev_err(card->dev, "%s on '%s': %d\n", #call, pattern, ret); \
 			return ret; \
 		} \
@@ -779,7 +779,7 @@ static int macaudio_fallback_fixup_controls(struct snd_soc_card *card)
 {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
-	if (ma->has_speakers && !void_warranty) {
+	if (ma->has_speakers && !please_blow_up_my_speakers) {
 		dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
 		return -EINVAL;
 	}
