@@ -727,6 +727,11 @@ static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
+		if (!please_blow_up_my_speakers) {
+			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
+			return -EINVAL;
+		}
+
 		CHECK(snd_soc_set_enum_kctl, "* ASI1 Sel", "Left");
 		CHECK(snd_soc_deactivate_kctl, "* ASI1 Sel", 0);
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
@@ -758,6 +763,11 @@ static int macaudio_j375_fixup_controls(struct snd_soc_card *card)
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
+		if (!please_blow_up_my_speakers) {
+			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
+			return -EINVAL;
+		}
+
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 14); // 20 set by macOS, this is 3 dB below
 	}
 
@@ -769,6 +779,11 @@ static int macaudio_j493_fixup_controls(struct snd_soc_card *card)
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
+		if (!please_blow_up_my_speakers) {
+			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
+			return -EINVAL;
+		}
+
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
 	}
 
