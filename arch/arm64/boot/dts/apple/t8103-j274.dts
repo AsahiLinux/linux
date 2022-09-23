@@ -73,7 +73,7 @@
 	status = "okay";
 
 	jack_codec: codec@48 {
-		compatible = "cirrus,cs42l83", "cirrus,cs42l42";
+		compatible = "cirrus,cs42l83";
 		reg = <0x48>;
 		reset-gpios = <&pinctrl_nub 11 GPIO_ACTIVE_HIGH>;
 		interrupt-parent = <&pinctrl_ap>;
