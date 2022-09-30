@@ -416,6 +416,14 @@
 		clock-output-names = "clk_disp0";
 	};
 
+	/* Pixel clock? frequency in Hz (compare: 4K@60 VGA clock 533.250 MHz) */
+	clk_dispext0: clock-dispext0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0";
+	};
+
 	/*
 	 * This is a fabulated representation of the input clock
 	 * to NCO since we don't know the true clock tree.
@@ -665,6 +673,7 @@
 
 		display: display-subsystem {
 			compatible = "apple,display-subsystem";
+			/* disp_dart0 must be 1st since it is locked */
 			iommus = <&disp0_dart 0 0x0 0x0 0x0 0xfc000000>;
 			/* generate phandle explicitly for use in loader */
 			phandle = <&display>;
@@ -1228,6 +1237,72 @@
 				     <AIC_IRQ 272 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 273 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 274 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		dispext0_dart: iommu@271304000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x71304000 0x0 0x4000>;
+			#iommu-cells = <5>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 481 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_dispext_cpu0>;
+			status = "disabled";
+		};
+
+		dcpext_dart: iommu@27130c000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x7130c000 0x0 0x4000>;
+			#iommu-cells = <5>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 481 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_dispext_cpu0>;
+			status = "disabled";
+		};
+
+		dcpext_mbox: mbox@271c08000 {
+			compatible = "apple,t8103-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x71c08000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 466 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 467 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 468 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 469 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+			"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_dispext_cpu0>;
+			resets = <&ps_dispext_cpu0>;
+			status = "disabled";
+		};
+
+		dcpext: dcp@271c00000 {
+			compatible = "apple,t8103-dcpext", "apple,dcpext";
+			mboxes = <&dcpext_mbox>;
+			mbox-names = "mbox";
+			iommus = <&dcpext_dart 0 0x0 0x0 0x0 0xfc000000>;
+			phandle = <&dcpext>;
+
+			reg-names = "coproc", "disp-0", "disp-1", "disp-2",
+			"disp-3", "disp-4";
+			reg = <0x2 0x71c00000 0x0 0x4000>,
+			      <0x2 0x70000000 0x0 0x118000>,
+			      <0x2 0x71320000 0x0 0x4000>,
+			      <0x2 0x71344000 0x0 0x4000>,
+			      <0x2 0x71800000 0x0 0x800000>,
+			      <0x2 0x3b3d0000 0x0 0x4000>;
+			apple,bw-scratch = <&pmgr_dcp 0 5 0x18>;
+			apple,bw-doorbell = <&pmgr_dcp 1 6>;
+			power-domains = <&ps_dispext_cpu0>;
+			resets = <&ps_dispext_cpu0>;
+			clocks = <&clk_dispext0>;
+			status = "disabled";
+			// required bus properties for 'piodma' subdevice
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			piodma {
+				iommus = <&dispext0_dart 4 0x0 0x0 0x0 0xfc000000>;
+			};
 		};
 
 		ans_mbox: mbox@277408000 {
