@@ -455,6 +455,29 @@ static int macaudio_dpcm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int macaudio_fe_hw_params(struct snd_pcm_substream *substream,
+				   struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct snd_soc_pcm_runtime *be;
+	struct snd_soc_dpcm *dpcm;
+
+	be = NULL;
+	for_each_dpcm_be(rtd, substream->stream, dpcm) {
+		be = dpcm->be;
+		break;
+	}
+
+	if (!be) {
+		dev_err(rtd->dev, "opening PCM device '%s' with no audio route configured (bad settings applied to the sound card)\n",
+				rtd->dai_link->name);
+		return -EINVAL;
+	}
+
+	return macaudio_dpcm_hw_params(substream, params);
+}
+
+
 static void macaudio_dpcm_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
@@ -473,7 +496,7 @@ static void macaudio_dpcm_shutdown(struct snd_pcm_substream *substream)
 
 static const struct snd_soc_ops macaudio_fe_ops = {
 	.shutdown	= macaudio_dpcm_shutdown,
-	.hw_params	= macaudio_dpcm_hw_params,
+	.hw_params	= macaudio_fe_hw_params,
 };
 
 static const struct snd_soc_ops macaudio_be_ops = {
