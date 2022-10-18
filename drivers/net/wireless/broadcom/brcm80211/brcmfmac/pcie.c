@@ -357,6 +357,8 @@ struct brcmf_pcie_console {
 struct brcmf_pcie_shared_info {
 	u32 tcm_base_address;
 	u32 flags;
+	u32 flags2;
+	u32 flags3;
 	struct brcmf_pcie_ringbuf *commonrings[BRCMF_NROF_COMMON_MSGRINGS];
 	struct brcmf_pcie_ringbuf *flowrings;
 	u16 max_rxbufpost;
@@ -1691,12 +1693,16 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 {
 	struct brcmf_bus *bus = dev_get_drvdata(&devinfo->pdev->dev);
 	struct brcmf_pcie_shared_info *shared;
+	u32 host_cap;
+	u32 host_cap2;
 	u32 addr;
 
 	shared = &devinfo->shared;
 	shared->tcm_base_address = sharedram_addr;
 
-	shared->flags = brcmf_pcie_read_tcm32(devinfo, sharedram_addr);
+	shared->flags = brcmf_pcie_read_tcm32(devinfo, sharedram_addr +
+	                                      BRCMF_SHARED_FLAGS_OFFSET);
+
 	shared->version = (u8)(shared->flags & BRCMF_PCIE_SHARED_VERSION_MASK);
 	brcmf_dbg(PCIE, "PCIe protocol version %d\n", shared->version);
 	if ((shared->version > BRCMF_PCIE_MAX_SHARED_VERSION) ||
@@ -1736,6 +1742,33 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 
 	brcmf_pcie_bus_console_init(devinfo);
 	brcmf_pcie_bus_console_read(devinfo, false);
+
+	/* Features added in revision 6 follow */
+	if (shared->version < 6)
+		return 0;
+
+	shared->flags2 = brcmf_pcie_read_tcm32(devinfo, sharedram_addr +
+	                                       BRCMF_SHARED_FLAGS2_OFFSET);
+	shared->flags3 = brcmf_pcie_read_tcm32(devinfo, sharedram_addr +
+	                                       BRCMF_SHARED_FLAGS3_OFFSET);
+
+	/* Update host support flags */
+	host_cap = shared->version;
+	host_cap2 = 0;
+
+	if (shared->flags & BRCMF_PCIE_SHARED_HOSTRDY_DB1)
+		host_cap |= BRCMF_HOSTCAP_H2D_ENABLE_HOSTRDY;
+
+	if (shared->flags & BRCMF_PCIE_SHARED_DAR)
+		host_cap |= BRCMF_HOSTCAP_H2D_DAR;
+
+	/* Disable DS: this is not currently properly supported */
+	host_cap |= BRCMF_HOSTCAP_DS_NO_OOB_DW;
+
+	brcmf_pcie_write_tcm32(devinfo, sharedram_addr +
+			       BRCMF_SHARED_HOST_CAP_OFFSET, host_cap);
+	brcmf_pcie_write_tcm32(devinfo, sharedram_addr +
+			       BRCMF_SHARED_HOST_CAP2_OFFSET, host_cap2);
 
 	return 0;
 }
