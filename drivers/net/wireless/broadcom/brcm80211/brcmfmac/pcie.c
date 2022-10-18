@@ -375,6 +375,7 @@ struct brcmf_pcie_shared_info {
 	void *ringupd;
 	dma_addr_t ringupd_dmahandle;
 	u8 version;
+	bool mb_via_ctl;
 };
 
 #define BRCMF_OTP_MAX_PARAM_LEN 16
@@ -824,6 +825,19 @@ brcmf_pcie_send_mb_data(struct brcmf_pciedev_info *devinfo, u32 htod_mb_data)
 	u32 i;
 
 	shared = &devinfo->shared;
+
+	if (shared->mb_via_ctl) {
+		struct pci_dev *pdev = devinfo->pdev;
+		struct brcmf_bus *bus = dev_get_drvdata(&pdev->dev);
+		int ret;
+
+		ret = brcmf_msgbuf_h2d_mb_write(bus->drvr, htod_mb_data);
+		if (ret < 0)
+			brcmf_err(bus, "Failed to send H2D mailbox data (%d)\n",
+				  ret);
+		return ret;
+	}
+
 	addr = shared->htod_mb_data_addr;
 	cur_htod_mb_data = brcmf_pcie_read_tcm32(devinfo, addr);
 
@@ -851,8 +865,29 @@ brcmf_pcie_send_mb_data(struct brcmf_pciedev_info *devinfo, u32 htod_mb_data)
 	return 0;
 }
 
+static void brcmf_pcie_handle_mb_data(struct brcmf_pciedev_info *devinfo, u32 data)
+{
+	brcmf_dbg(PCIE, "D2H_MB_DATA: 0x%04x\n", data);
+	if (data & BRCMF_D2H_DEV_DS_ENTER_REQ)  {
+		brcmf_dbg(PCIE, "D2H_MB_DATA: DEEP SLEEP REQ\n");
+		brcmf_pcie_send_mb_data(devinfo, BRCMF_H2D_HOST_DS_ACK);
+		brcmf_dbg(PCIE, "D2H_MB_DATA: sent DEEP SLEEP ACK\n");
+	}
+	if (data & BRCMF_D2H_DEV_DS_EXIT_NOTE)
+		brcmf_dbg(PCIE, "D2H_MB_DATA: DEEP SLEEP EXIT\n");
+	if (data & BRCMF_D2H_DEV_D3_ACK) {
+		brcmf_dbg(PCIE, "D2H_MB_DATA: D3 ACK\n");
+		devinfo->mbdata_completed = true;
+		wake_up(&devinfo->mbdata_resp_wait);
+	}
+	if (data & BRCMF_D2H_DEV_FWHALT) {
+		brcmf_dbg(PCIE, "D2H_MB_DATA: FW HALT\n");
+		brcmf_fw_crashed(&devinfo->pdev->dev);
+	}
+}
 
-static void brcmf_pcie_handle_mb_data(struct brcmf_pciedev_info *devinfo)
+
+static void brcmf_pcie_poll_mb_data(struct brcmf_pciedev_info *devinfo)
 {
 	struct brcmf_pcie_shared_info *shared;
 	u32 addr;
@@ -867,23 +902,16 @@ static void brcmf_pcie_handle_mb_data(struct brcmf_pciedev_info *devinfo)
 
 	brcmf_pcie_write_tcm32(devinfo, addr, 0);
 
-	brcmf_dbg(PCIE, "D2H_MB_DATA: 0x%04x\n", dtoh_mb_data);
-	if (dtoh_mb_data & BRCMF_D2H_DEV_DS_ENTER_REQ)  {
-		brcmf_dbg(PCIE, "D2H_MB_DATA: DEEP SLEEP REQ\n");
-		brcmf_pcie_send_mb_data(devinfo, BRCMF_H2D_HOST_DS_ACK);
-		brcmf_dbg(PCIE, "D2H_MB_DATA: sent DEEP SLEEP ACK\n");
-	}
-	if (dtoh_mb_data & BRCMF_D2H_DEV_DS_EXIT_NOTE)
-		brcmf_dbg(PCIE, "D2H_MB_DATA: DEEP SLEEP EXIT\n");
-	if (dtoh_mb_data & BRCMF_D2H_DEV_D3_ACK) {
-		brcmf_dbg(PCIE, "D2H_MB_DATA: D3 ACK\n");
-		devinfo->mbdata_completed = true;
-		wake_up(&devinfo->mbdata_resp_wait);
-	}
-	if (dtoh_mb_data & BRCMF_D2H_DEV_FWHALT) {
-		brcmf_dbg(PCIE, "D2H_MB_DATA: FW HALT\n");
-		brcmf_fw_crashed(&devinfo->pdev->dev);
-	}
+	brcmf_pcie_handle_mb_data(devinfo, dtoh_mb_data);
+}
+
+
+static void brcmf_pcie_d2h_mb_rx(struct device *dev, u32 data)
+{
+	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+	struct brcmf_pciedev *buspub = bus_if->bus_priv.pcie;
+
+	brcmf_pcie_handle_mb_data(buspub->devinfo, data);
 }
 
 
@@ -1013,7 +1041,7 @@ static irqreturn_t brcmf_pcie_isr_thread(int irq, void *arg)
 		brcmf_pcie_write_reg32(devinfo, devinfo->reginfo->mailboxint,
 				       status);
 		if (status & devinfo->reginfo->int_fn0)
-			brcmf_pcie_handle_mb_data(devinfo);
+			brcmf_pcie_poll_mb_data(devinfo);
 	}
 	if (devinfo->have_msi || status & devinfo->reginfo->int_d2h_db) {
 		if (devinfo->state == BRCMFMAC_PCIE_STATE_UP)
@@ -1662,6 +1690,7 @@ static const struct brcmf_bus_ops brcmf_pcie_bus_ops = {
 	.get_blob = brcmf_pcie_get_blob,
 	.reset = brcmf_pcie_reset,
 	.debugfs_create = brcmf_pcie_debugfs_create,
+	.d2h_mb_rx = brcmf_pcie_d2h_mb_rx,
 };
 
 
@@ -1751,6 +1780,10 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 	                                       BRCMF_SHARED_FLAGS2_OFFSET);
 	shared->flags3 = brcmf_pcie_read_tcm32(devinfo, sharedram_addr +
 	                                       BRCMF_SHARED_FLAGS3_OFFSET);
+
+	/* Check which mailbox mechanism to use */
+	if (!(shared->flags & BRCMF_PCIE_SHARED_USE_MAILBOX))
+		shared->mb_via_ctl = true;
 
 	/* Update host support flags */
 	host_cap = shared->version;
@@ -2779,10 +2812,11 @@ static int brcmf_pcie_pm_leave_D3(struct device *dev)
 	/* Check if device is still up and running, if so we are ready */
 	if (brcmf_pcie_read_reg32(devinfo, devinfo->reginfo->intmask) != 0) {
 		brcmf_dbg(PCIE, "Try to wakeup device....\n");
+		/* Set the device up, so we can write the MB data message in ring mode */
+		devinfo->state = BRCMFMAC_PCIE_STATE_UP;
 		if (brcmf_pcie_send_mb_data(devinfo, BRCMF_H2D_HOST_D0_INFORM))
 			goto cleanup;
 		brcmf_dbg(PCIE, "Hot resume, continue....\n");
-		devinfo->state = BRCMFMAC_PCIE_STATE_UP;
 		brcmf_pcie_select_core(devinfo, BCMA_CORE_PCIE2);
 		brcmf_bus_change_state(bus, BRCMF_BUS_UP);
 		brcmf_pcie_intr_enable(devinfo);
@@ -2792,6 +2826,7 @@ static int brcmf_pcie_pm_leave_D3(struct device *dev)
 	}
 
 cleanup:
+	devinfo->state = BRCMFMAC_PCIE_STATE_DOWN;
 	brcmf_chip_detach(devinfo->ci);
 	devinfo->ci = NULL;
 	pdev = devinfo->pdev;
