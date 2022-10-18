@@ -244,6 +244,19 @@ struct msgbuf_flowring_flush_resp {
 	__le32				rsvd0[3];
 };
 
+struct msgbuf_h2d_mailbox_data {
+	struct msgbuf_common_hdr	msg;
+	__le32				data;
+	__le32				rsvd0[7];
+};
+
+struct msgbuf_d2h_mailbox_data {
+	struct msgbuf_common_hdr	msg;
+	struct msgbuf_completion_hdr	compl_hdr;
+	__le32				data;
+	__le32				rsvd0[2];
+};
+
 struct brcmf_msgbuf_work_item {
 	struct list_head queue;
 	u32 flowid;
@@ -1346,6 +1359,16 @@ brcmf_msgbuf_process_flow_ring_delete_response(struct brcmf_msgbuf *msgbuf,
 }
 
 
+static void brcmf_msgbuf_process_d2h_mailbox_data(struct brcmf_msgbuf *msgbuf,
+						  void *buf)
+{
+	struct msgbuf_d2h_mailbox_data *d2h_mb_data = buf;
+	struct brcmf_pub *drvr = msgbuf->drvr;
+
+	brcmf_bus_d2h_mb_rx(drvr->bus_if, le32_to_cpu(d2h_mb_data->data));
+}
+
+
 static void brcmf_msgbuf_process_msgtype(struct brcmf_msgbuf *msgbuf, void *buf)
 {
 	struct brcmf_pub *drvr = msgbuf->drvr;
@@ -1387,6 +1410,10 @@ static void brcmf_msgbuf_process_msgtype(struct brcmf_msgbuf *msgbuf, void *buf)
 	case MSGBUF_TYPE_RX_CMPLT:
 		brcmf_dbg(MSGBUF, "MSGBUF_TYPE_RX_CMPLT\n");
 		brcmf_msgbuf_process_rx_complete(msgbuf, buf);
+		break;
+	case MSGBUF_TYPE_D2H_MAILBOX_DATA:
+		brcmf_dbg(MSGBUF, "MSGBUF_TYPE_D2H_MAILBOX_DATA\n");
+		brcmf_msgbuf_process_d2h_mailbox_data(msgbuf, buf);
 		break;
 	default:
 		bphy_err(drvr, "Unsupported msgtype %d\n", msg->msgtype);
@@ -1525,6 +1552,38 @@ void brcmf_msgbuf_delete_flowring(struct brcmf_pub *drvr, u16 flowid)
 		brcmf_msgbuf_remove_flowring(msgbuf, flowid);
 	}
 }
+
+
+int brcmf_msgbuf_h2d_mb_write(struct brcmf_pub *drvr, u32 data)
+{
+	struct brcmf_msgbuf *msgbuf = (struct brcmf_msgbuf *)drvr->proto->pd;
+	struct brcmf_commonring *commonring;
+	struct msgbuf_h2d_mailbox_data *request;
+	void *ret_ptr;
+	int err;
+
+	commonring = msgbuf->commonrings[BRCMF_H2D_MSGRING_CONTROL_SUBMIT];
+	brcmf_commonring_lock(commonring);
+	ret_ptr = brcmf_commonring_reserve_for_write(commonring);
+	if (!ret_ptr) {
+		bphy_err(drvr, "Failed to reserve space in commonring\n");
+		brcmf_commonring_unlock(commonring);
+		return -ENOMEM;
+	}
+
+	request = (struct msgbuf_h2d_mailbox_data *)ret_ptr;
+	request->msg.msgtype = MSGBUF_TYPE_H2D_MAILBOX_DATA;
+	request->msg.ifidx = -1;
+	request->msg.flags = 0;
+	request->msg.request_id = 0;
+	request->data = data;
+
+	err = brcmf_commonring_write_complete(commonring);
+	brcmf_commonring_unlock(commonring);
+
+	return err;
+}
+
 
 #ifdef DEBUG
 static int brcmf_msgbuf_stats_read(struct seq_file *seq, void *data)
