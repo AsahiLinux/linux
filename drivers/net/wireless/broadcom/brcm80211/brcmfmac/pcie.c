@@ -492,8 +492,6 @@ struct brcmf_pcie_reginfo {
 	u32 intmask;
 	u32 mailboxint;
 	u32 mailboxmask;
-	u32 h2d_mailbox_0;
-	u32 h2d_mailbox_1;
 	u32 int_d2h_db;
 	u32 int_fn0;
 };
@@ -502,8 +500,6 @@ static const struct brcmf_pcie_reginfo brcmf_reginfo_default = {
 	.intmask = BRCMF_PCIE_PCIE2REG_INTMASK,
 	.mailboxint = BRCMF_PCIE_PCIE2REG_MAILBOXINT,
 	.mailboxmask = BRCMF_PCIE_PCIE2REG_MAILBOXMASK,
-	.h2d_mailbox_0 = BRCMF_PCIE_PCIE2REG_H2D_MAILBOX_0,
-	.h2d_mailbox_1 = BRCMF_PCIE_PCIE2REG_H2D_MAILBOX_1,
 	.int_d2h_db = BRCMF_PCIE_MB_INT_D2H_DB,
 	.int_fn0 = BRCMF_PCIE_MB_INT_FN0,
 };
@@ -512,8 +508,6 @@ static const struct brcmf_pcie_reginfo brcmf_reginfo_64 = {
 	.intmask = BRCMF_PCIE_64_PCIE2REG_INTMASK,
 	.mailboxint = BRCMF_PCIE_64_PCIE2REG_MAILBOXINT,
 	.mailboxmask = BRCMF_PCIE_64_PCIE2REG_MAILBOXMASK,
-	.h2d_mailbox_0 = BRCMF_PCIE_64_PCIE2REG_H2D_MAILBOX_0,
-	.h2d_mailbox_1 = BRCMF_PCIE_64_PCIE2REG_H2D_MAILBOX_1,
 	.int_d2h_db = BRCMF_PCIE_64_MB_INT_D2H_DB,
 	.int_fn0 = 0,
 };
@@ -979,9 +973,12 @@ static void brcmf_pcie_intr_enable(struct brcmf_pciedev_info *devinfo)
 
 static void brcmf_pcie_hostready(struct brcmf_pciedev_info *devinfo)
 {
-	if (devinfo->shared.flags & BRCMF_PCIE_SHARED_HOSTRDY_DB1)
-		brcmf_pcie_write_reg32(devinfo,
-				       devinfo->reginfo->h2d_mailbox_1, 1);
+	if (devinfo->shared.flags & BRCMF_PCIE_SHARED_HOSTRDY_DB1) {
+		if (devinfo->shared.flags & BRCMF_PCIE_SHARED_DAR)
+			brcmf_pcie_write_reg32(devinfo, BRCMF_PCIE_64_PCIE2REG_H2D_MAILBOX_1, 1);
+		else
+			brcmf_pcie_write_reg32(devinfo, BRCMF_PCIE_PCIE2REG_H2D_MAILBOX_1, 1);
+	}
 }
 
 static irqreturn_t brcmf_pcie_quick_check_isr(int irq, void *arg)
@@ -1130,7 +1127,10 @@ static int brcmf_pcie_ring_mb_ring_bell(void *ctx)
 
 	brcmf_dbg(PCIE, "RING !\n");
 	/* Any arbitrary value will do, lets use 1 */
-	brcmf_pcie_write_reg32(devinfo, devinfo->reginfo->h2d_mailbox_0, 1);
+	if (devinfo->shared.flags & BRCMF_PCIE_SHARED_DAR)
+		brcmf_pcie_write_reg32(devinfo, BRCMF_PCIE_64_PCIE2REG_H2D_MAILBOX_0, 1);
+	else
+		brcmf_pcie_write_reg32(devinfo, BRCMF_PCIE_PCIE2REG_H2D_MAILBOX_0, 1);
 
 	return 0;
 }
