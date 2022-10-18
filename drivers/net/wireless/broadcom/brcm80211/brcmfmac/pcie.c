@@ -405,6 +405,7 @@ struct brcmf_pciedev_info {
 	wait_queue_head_t mbdata_resp_wait;
 	bool mbdata_completed;
 	bool irq_allocated;
+	bool have_msi;
 	bool wowl_enabled;
 	u8 dma_idx_sz;
 	void *idxbuf;
@@ -992,6 +993,11 @@ static irqreturn_t brcmf_pcie_quick_check_isr(int irq, void *arg)
 		brcmf_dbg(PCIE, "Enter\n");
 		return IRQ_WAKE_THREAD;
 	}
+
+	/* mailboxint is cleared by the firmware in MSI mode */
+	if (devinfo->have_msi)
+		return IRQ_WAKE_THREAD;
+
 	return IRQ_NONE;
 }
 
@@ -1009,12 +1015,12 @@ static irqreturn_t brcmf_pcie_isr_thread(int irq, void *arg)
 				       status);
 		if (status & devinfo->reginfo->int_fn0)
 			brcmf_pcie_handle_mb_data(devinfo);
-		if (status & devinfo->reginfo->int_d2h_db) {
-			if (devinfo->state == BRCMFMAC_PCIE_STATE_UP)
-				brcmf_proto_msgbuf_rx_trigger(
-							&devinfo->pdev->dev);
-		}
 	}
+	if (devinfo->have_msi || status & devinfo->reginfo->int_d2h_db) {
+		if (devinfo->state == BRCMFMAC_PCIE_STATE_UP)
+			brcmf_proto_msgbuf_rx_trigger(&devinfo->pdev->dev);
+	}
+
 	brcmf_pcie_bus_console_read(devinfo, false);
 	if (devinfo->state == BRCMFMAC_PCIE_STATE_UP)
 		brcmf_pcie_intr_enable(devinfo);
@@ -1032,7 +1038,10 @@ static int brcmf_pcie_request_irq(struct brcmf_pciedev_info *devinfo)
 
 	brcmf_dbg(PCIE, "Enter\n");
 
-	pci_enable_msi(pdev);
+	devinfo->have_msi = pci_enable_msi(pdev) >= 0;
+	if (devinfo->have_msi)
+		brcmf_dbg(PCIE, "MSI enabled\n");
+
 	if (request_threaded_irq(pdev->irq, brcmf_pcie_quick_check_isr,
 				 brcmf_pcie_isr_thread, IRQF_SHARED,
 				 "brcmf_pcie_intr", devinfo)) {
