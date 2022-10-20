@@ -407,10 +407,11 @@
 /*
  * ps_atc3_usb_aon power-domain is always-on to keep dwc3 working over suspend.
  * atc3 is used exclusively for the DP-to-HDMI so do not keep this always on.
+ * On t600x it is required to keep atc DP state over suspend.
  */
-&ps_atc3_usb_aon {
-	/delete-property/ apple,always-on;
-};
+// &ps_atc3_usb_aon {
+// 	/delete-property/ apple,always-on;
+// };
 
 /* ATC3 is used for DisplayPort -> HDMI only */
 &dwc3_3_dart_0 {
