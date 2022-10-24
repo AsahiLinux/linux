@@ -52,6 +52,7 @@ struct macaudio_snd_data {
 	int jack_plugin_state;
 
 	bool has_speakers;
+	unsigned int max_channels;
 
 	struct macaudio_link_props {
 		/* frontend props */
@@ -345,6 +346,10 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 		ncodecs_per_cpu = num_codecs / num_bes;
 		nchannels = num_codecs * (speakers ? 1 : 2);
 
+		/* Save the max number of channels on the platform */
+		if (nchannels > ma->max_channels)
+			ma->max_channels = nchannels;
+
 		/*
 		 * If there is a single speaker, assign two channels to it, because
 		 * it can do downmix.
@@ -455,6 +460,25 @@ static int macaudio_dpcm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int macaudio_fe_startup(struct snd_pcm_substream *substream)
+{
+
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
+	int ret;
+
+	/* The FEs must never have more channels than the hardware */
+	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
+					SNDRV_PCM_HW_PARAM_CHANNELS, 0, ma->max_channels);
+
+	if (ret < 0) {
+		dev_err(rtd->dev, "Failed to constrain FE %d! %d", rtd->dai_link->id, ret);
+		return ret;
+		}
+
+	return 0;
+}
+
 static int macaudio_fe_hw_params(struct snd_pcm_substream *substream,
 				   struct snd_pcm_hw_params *params)
 {
@@ -495,6 +519,7 @@ static void macaudio_dpcm_shutdown(struct snd_pcm_substream *substream)
 }
 
 static const struct snd_soc_ops macaudio_fe_ops = {
+	.startup	= macaudio_fe_startup,
 	.shutdown	= macaudio_dpcm_shutdown,
 	.hw_params	= macaudio_fe_hw_params,
 };
