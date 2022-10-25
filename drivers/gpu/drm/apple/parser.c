@@ -304,7 +304,7 @@ static u32 calculate_clock(struct dimension *horiz, struct dimension *vert)
 
 static int parse_mode(struct dcp_parse_ctx *handle,
 		      struct dcp_display_mode *out, s64 *score, int width_mm,
-		      int height_mm)
+		      int height_mm, unsigned notch_height)
 {
 	int ret = 0;
 	struct iterator it;
@@ -352,6 +352,9 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 	if (is_virtual)
 		return -EINVAL;
 
+	vert.active -= notch_height;
+	vert.sync_width += notch_height;
+
 	/* From here we must succeed. Start filling out the mode. */
 	*mode = (struct drm_display_mode) {
 		.type = DRM_MODE_TYPE_DRIVER,
@@ -382,7 +385,7 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 
 struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 					 unsigned int *count, int width_mm,
-					 int height_mm)
+					 int height_mm, unsigned notch_height)
 {
 	struct iterator it;
 	int ret;
@@ -404,7 +407,7 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 
 	for (; it.idx < it.len; ++it.idx) {
 		mode = &modes[*count];
-		ret = parse_mode(it.handle, mode, &score, width_mm, height_mm);
+		ret = parse_mode(it.handle, mode, &score, width_mm, height_mm, notch_height);
 
 		/* Errors for a single mode are recoverable -- just skip it. */
 		if (ret)

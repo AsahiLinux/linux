@@ -647,7 +647,8 @@ static bool dcpep_process_chunks(struct apple_dcp *dcp,
 
 	if (!strcmp(req->key, "TimingElements")) {
 		dcp->modes = enumerate_modes(&ctx, &dcp->nr_modes,
-					     dcp->width_mm, dcp->height_mm);
+					     dcp->width_mm, dcp->height_mm,
+					     dcp->notch_height);
 
 		if (IS_ERR(dcp->modes)) {
 			dev_warn(dcp->dev, "failed to parse modes\n");
@@ -1485,6 +1486,9 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 
 		req->swap.src_rect[l] = drm_to_dcp_rect(&src_rect);
 		req->swap.dst_rect[l] = drm_to_dcp_rect(&new_state->dst);
+
+		if (dcp->notch_height > 0)
+			req->swap.dst_rect[l].y += dcp->notch_height;
 
 		req->surf_iova[l] = drm_fb_dma_get_gem_addr(fb, new_state, 0);
 

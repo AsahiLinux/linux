@@ -67,6 +67,8 @@ struct dcp_fb_reference {
 	struct drm_framebuffer *fb;
 };
 
+#define MAX_NOTCH_HEIGHT 160
+
 /* TODO: move IOMFB members to its own struct */
 struct apple_dcp {
 	struct device *dev;
@@ -133,6 +135,8 @@ struct apple_dcp {
 
 	/* Attributes of the connected display */
 	int width_mm, height_mm;
+
+	unsigned notch_height;
 
 	/* Workqueue for sending vblank events when a dcp swap is not possible */
 	struct work_struct vblank_wq;

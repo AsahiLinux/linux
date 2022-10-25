@@ -25,7 +25,7 @@ struct dcp_display_mode {
 int parse(void *blob, size_t size, struct dcp_parse_ctx *ctx);
 struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 					 unsigned int *count, int width_mm,
-					 int height_mm);
+					 int height_mm, unsigned notch_height);
 int parse_display_attributes(struct dcp_parse_ctx *handle, int *width_mm,
 			     int *height_mm);
 

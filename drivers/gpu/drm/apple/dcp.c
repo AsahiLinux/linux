@@ -333,6 +333,13 @@ static int dcp_platform_probe(struct platform_device *pdev)
 		dev_warn(dev, "failed read 'apple,asc-dram-mask': %d\n", ret);
 	dev_dbg(dev, "'apple,asc-dram-mask': 0x%011llx\n", dcp->asc_dram_mask);
 
+	ret = of_property_read_u32(dev->of_node, "apple,notch-height",
+				   &dcp->notch_height);
+	if (dcp->notch_height > MAX_NOTCH_HEIGHT)
+		dcp->notch_height = MAX_NOTCH_HEIGHT;
+	if (dcp->notch_height > 0)
+		dev_info(dev, "Detected display with notch of %u pixel\n", dcp->notch_height);
+
 	bitmap_zero(dcp->memdesc_map, DCP_MAX_MAPPINGS);
 	// TDOD: mem_desc IDs start at 1, for simplicity just skip '0' entry
 	set_bit(0, dcp->memdesc_map);
