@@ -945,7 +945,7 @@ void dcp_poweroff(struct platform_device *pdev)
 
 	dcp_set_power_state(dcp, false, &power_req, complete_set_powerstate,
 			    poff_cookie);
-	ret = wait_for_completion_timeout(&cookie->done,
+	ret = wait_for_completion_timeout(&poff_cookie->done,
 					  msecs_to_jiffies(1000));
 
 	if (ret == 0)
