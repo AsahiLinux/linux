@@ -402,6 +402,11 @@ static int apple_platform_probe(struct platform_device *pdev)
 	if (nr_dcp < 1)
 		return -ENODEV;
 
+	// remove before registering our DRM device
+	ret = drm_aperture_remove_framebuffers(false, &apple_drm_driver);
+	if (ret)
+		return ret;
+
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 	if (ret)
 		return ret;
@@ -450,10 +455,6 @@ static int apple_platform_probe(struct platform_device *pdev)
 	}
 
 	drm_mode_config_reset(&apple->drm);
-
-	ret = drm_aperture_remove_framebuffers(false, &apple_drm_driver);
-	if (ret)
-		return ret;
 
 	ret = drm_dev_register(&apple->drm, 0);
 	if (ret)
