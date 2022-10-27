@@ -745,6 +745,36 @@ static int macaudio_j274_fixup_controls(struct snd_soc_card *card)
 	return 0;	
 }
 
+static int macaudio_j313_fixup_controls(struct snd_soc_card *card) {
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	if (ma->has_speakers) {
+		if (!please_blow_up_my_speakers) {
+			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
+			return -EINVAL;
+		}
+
+		CHECK(snd_soc_set_enum_kctl, "* ASI1 Sel", "Left");
+		CHECK(snd_soc_deactivate_kctl, "* ASI1 Sel", 0);
+
+		/* !!! This is copied from j274, not obtained by looking at
+		 *     what macOS sets.
+		 */
+		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 14);
+
+		/*
+		 * Since we don't set the right slots yet to avoid
+		 * driver conflict on the I2S bus sending ISENSE/VSENSE
+		 * samples from the codecs back to us, disable the
+		 * controls.
+		 */
+		CHECK(snd_soc_deactivate_kctl, "* VSENSE Switch", 0);
+		CHECK(snd_soc_deactivate_kctl, "* ISENSE Switch", 0);
+	}
+
+	return 0;
+}
+
 static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
@@ -887,6 +917,7 @@ static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
 
 static const struct of_device_id macaudio_snd_device_id[]  = {
 	{ .compatible = "apple,j274-macaudio", .data = macaudio_j274_fixup_controls },
+	{ .compatible = "apple,j313-macaudio", .data = macaudio_j313_fixup_controls },
 	{ .compatible = "apple,j314-macaudio", .data = macaudio_j314_fixup_controls },
 	{ .compatible = "apple,j375-macaudio", .data = macaudio_j375_fixup_controls },
 	{ .compatible = "apple,j413-macaudio", .data = macaudio_j314_fixup_controls },
