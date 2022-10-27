@@ -1438,6 +1438,7 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 	for_each_oldnew_plane_in_state(state, plane, old_state, new_state, plane_idx) {
 		struct drm_framebuffer *fb = new_state->fb;
 		struct drm_rect src_rect;
+		bool opaque = false;
 
 		/* skip planes not for this crtc */
 		if (old_state->crtc != crtc && new_state->crtc != crtc)
@@ -1477,6 +1478,9 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		req->surf_null[l] = false;
 		has_surface = 1;
 
+		if (fb->format->has_alpha ||
+		    new_state->plane->type == DRM_PLANE_TYPE_PRIMARY)
+		    opaque = true;
 		drm_rect_fp_to_int(&src_rect, &new_state->src);
 
 		req->swap.src_rect[l] = drm_to_dcp_rect(&src_rect);
@@ -1485,6 +1489,7 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		req->surf_iova[l] = drm_fb_dma_get_gem_addr(fb, new_state, 0);
 
 		req->surf[l] = (struct dcp_surface){
+			.opaque = opaque,
 			.format = drm_format_to_dcp(fb->format->format),
 			.xfer_func = 13,
 			.colorspace = 1,

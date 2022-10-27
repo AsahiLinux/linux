@@ -142,7 +142,7 @@ struct dcp_component_types {
 struct dcp_surface {
 	u8 is_tiled;
 	u8 unk_1;
-	u8 unk_2;
+	u8 opaque; /** ignore alpha, also required YUV overlays */
 	u32 plane_cnt;
 	u32 plane_cnt2;
 	u32 format; /* DCP fourcc */
