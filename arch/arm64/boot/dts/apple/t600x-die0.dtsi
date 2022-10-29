@@ -342,7 +342,6 @@
 		pinctrl-0 = <&spi1_pins>;
 		pinctrl-names = "default";
 		power-domains = <&ps_spi1>;
-		status = "disabled";
 	};
 
 	spi3: spi@39b10c000 {
