@@ -406,6 +406,13 @@
 		};
 	};
 
+	clk_200m: clock-200m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+		clock-output-names = "clk_200m";
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -623,6 +630,38 @@
 			status = "disabled";
 		};
 
+		spi1: spi@235104000 {
+			compatible = "apple,t8112-spi", "apple,spi";
+			reg = <0x2 0x35104000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 749 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_200m>;
+			pinctrl-0 = <&spi1_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_spi1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			flash@0 {
+				compatible = "jedec,spi-nor";
+				reg = <0x0>;
+				spi-max-frequency = <25000000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+
+					partition@700000 {
+						label = "nvram";
+						reg = <0x700000 0x20000>;
+					};
+				};
+			};
+		};
+
 		spi3: spi@23510c000 {
 			compatible = "apple,t8112-spi", "apple,spi";
 			reg = <0x2 0x3510c000 0x0 0x4000>;
@@ -748,6 +787,13 @@
 			i2c4_pins: i2c4-pins {
 				pinmux = <APPLE_PINMUX(131, 1)>,
 					 <APPLE_PINMUX(130, 1)>;
+			};
+
+			spi1_pins: spi1-pins {
+				pinmux = <APPLE_PINMUX(46, 1)>,
+					<APPLE_PINMUX(47, 1)>,
+					<APPLE_PINMUX(48, 1)>,
+					<APPLE_PINMUX(49, 1)>;
 			};
 
 			spi3_pins: spi3-pins {
