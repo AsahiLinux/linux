@@ -55,7 +55,9 @@
 };
 
 &dcp {
-	apple,connector-type = "eDP";
+	panel: panel {
+		apple,max-brightness = <500>;
+	};
 };
 
 /* USB Type C */

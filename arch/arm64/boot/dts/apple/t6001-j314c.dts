@@ -25,6 +25,10 @@
 	brcm,board-type = "apple,maldives";
 };
 
+&panel {
+	compatible = "apple,panel-j314", "apple,panel-mini-led", "apple,panel";
+};
+
 &sound {
 	model = "MacBook Pro J314";
 };
