@@ -19,7 +19,10 @@
 };
 
 &dcp {
-	apple,connector-type = "eDP";
+	panel: panel {
+		compatible = "apple,panel-j293", "apple,panel";
+		apple,max-brightness = <525>;
+	};
 };
 
 &wifi0 {
