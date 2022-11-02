@@ -213,3 +213,12 @@
 
 /delete-node/ &ps_disp0_cpu0_die1;
 /delete-node/ &ps_disp0_fe_die1;
+
+&gpu {
+	apple,avg-power-ki-only = <0.6375>;
+	apple,avg-power-kp = <0.58>;
+	apple,avg-power-target-filter-tc = <1>;
+	apple,perf-base-pstate = <3>;
+	apple,ppm-ki = <5.8>;
+	apple,ppm-kp = <0.355>;
+};
