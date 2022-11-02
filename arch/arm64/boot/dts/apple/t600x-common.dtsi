@@ -337,6 +337,50 @@
 		*/
 	};
 
+	gpu_opp: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <0>;
+			opp-microvolt = GPU_REPEAT(400000);
+			opp-microwatt = <0>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <388800000>;
+			opp-microvolt = GPU_REPEAT(634000);
+			opp-microwatt = <25011450>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <486000000>;
+			opp-microvolt = GPU_REPEAT(650000);
+			opp-microwatt = <31681170>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <648000000>;
+			opp-microvolt = GPU_REPEAT(668000);
+			opp-microwatt = <41685750>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <777600000>;
+			opp-microvolt = GPU_REPEAT(715000);
+			opp-microwatt = <56692620>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <972000000>;
+			opp-microvolt = GPU_REPEAT(778000);
+			opp-microwatt = <83371500>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1296000000>;
+			opp-microvolt = GPU_REPEAT(903000);
+			opp-microwatt = <166743000>;
+		};
+	};
+
 	pmu-e {
 		compatible = "apple,icestorm-pmu";
 		interrupt-parent = <&aic>;
@@ -406,16 +450,16 @@
 			status = "disabled";
 		};
 
-		uat_handoff: uat-handoff {
-			status = "disabled";
+		uat_handoff: uat-handoff@10 {
+			reg = <0 0x10 0 0>;
 		};
 
-		uat_pagetables: uat-pagetables {
-			status = "disabled";
+		uat_pagetables: uat-pagetables@20 {
+			reg = <0 0x20 0 0>;
 		};
 
-		uat_ttbs: uat-ttbs {
-			status = "disabled";
+		uat_ttbs: uat-ttbs@30 {
+			reg = <0 0x30 0 0>;
 		};
 	};
 };
