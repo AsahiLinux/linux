@@ -223,6 +223,7 @@ static int apple_smc_rtkit_get_key_info(void *cookie, smc_key key, struct apple_
 
 	ret = apple_smc_cmd(smc, SMC_MSG_GET_KEY_INFO, key, 0, 0, NULL);
 	if (ret >= 0 && info) {
+		memcpy_fromio(key_info, smc->shmem.iomem, sizeof(key_info));
 		info->size = key_info[0];
 		info->type_code = get_unaligned_be32(&key_info[1]);
 		info->flags = key_info[5];
