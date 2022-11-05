@@ -315,7 +315,7 @@ static const struct drm_crtc_helper_funcs apple_crtc_helper_funcs = {
 static int apple_probe_per_dcp(struct device *dev,
 			       struct drm_device *drm,
 			       struct platform_device *dcp,
-			       int num)
+			       int num, bool dcp_ext)
 {
 	struct apple_crtc *crtc;
 	struct apple_connector *connector;
@@ -346,6 +346,10 @@ static int apple_probe_per_dcp(struct device *dev,
 	connector = kzalloc(sizeof(*connector), GFP_KERNEL);
 	drm_connector_helper_add(&connector->base,
 				 &apple_connector_helper_funcs);
+
+	// HACK:
+	if (dcp_ext)
+		connector->base.fwnode = fwnode_handle_get(dcp->dev.fwnode);
 
 	ret = drm_connector_init(drm, &connector->base, &apple_connector_funcs,
 				 dcp_get_connector_type(dcp));
@@ -398,6 +402,7 @@ err:
 
 static const struct of_device_id apple_dcp_id_tbl[] = {
 	{ .compatible = "apple,dcp" },
+	{ .compatible = "apple,dcpext" },
 	{},
 };
 
@@ -410,10 +415,12 @@ static int apple_drm_init_dcp(struct device *dev)
 	int i, ret, num_dcp = 0;
 
 	for_each_matching_node(np, apple_dcp_id_tbl) {
+		bool dcp_ext;
 		if (!of_device_is_available(np)) {
 			of_node_put(np);
 			continue;
 		}
+		dcp_ext = of_device_is_compatible(np, "apple,dcpext");
 
 		dcp[num_dcp] = of_find_device_by_node(np);
 		of_node_put(np);
@@ -421,7 +428,7 @@ static int apple_drm_init_dcp(struct device *dev)
 			continue;
 
 		ret = apple_probe_per_dcp(dev, &apple->drm, dcp[num_dcp],
-					  num_dcp);
+					  num_dcp, dcp_ext);
 		if (ret)
 			continue;
 
