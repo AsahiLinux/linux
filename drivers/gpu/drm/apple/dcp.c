@@ -8,6 +8,7 @@
 #include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/gpio/consumer.h>
 #include <linux/iommu.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -115,6 +116,15 @@ static void dcp_recv_msg(void *cookie, u8 endpoint, u64 message)
 	switch (endpoint) {
 	case IOMFB_ENDPOINT:
 		return iomfb_recv_msg(dcp, message);
+	case SYSTEM_ENDPOINT:
+		afk_receive_message(dcp->systemep, message);
+		return;
+	case DISP0_ENDPOINT:
+		afk_receive_message(dcp->ibootep, message);
+		return;
+	case DPTX_ENDPOINT:
+		afk_receive_message(dcp->dptxep, message);
+		return;
 	default:
 		WARN(endpoint, "unknown DCP endpoint %hhu", endpoint);
 	}
@@ -194,7 +204,7 @@ void dcp_send_message(struct apple_dcp *dcp, u8 endpoint, u64 message)
 {
 	trace_dcp_send_msg(dcp, endpoint, message);
 	apple_rtkit_send_message(dcp->rtk, endpoint, message, NULL,
-				 false);
+				 true);
 }
 
 int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
@@ -243,6 +253,66 @@ int dcp_get_connector_type(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_GPL(dcp_get_connector_type);
 
+static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
+{
+	if (!dcp->phy) {
+		dev_warn(dcp->dev, "dcp_dptx_connect: missing phy\n");
+		return -ENODEV;
+	}
+
+	mutex_lock(&dcp->hpd_mutex);
+	if (!dcp->dptxport[port].enabled) {
+		dev_warn(dcp->dev, "dcp_dptx_connect: dptx service for port %d not enabled\n", port);
+		mutex_unlock(&dcp->hpd_mutex);
+		return -ENODEV;
+	}
+
+	if (dcp->dptxport[port].connected)
+		return 0;
+
+	dcp->dptxport[port].atcphy = dcp->phy;
+	dptxport_connect(dcp->dptxport[port].service, 0, dcp->dptx_phy, dcp->dptx_die);
+	dptxport_request_display(dcp->dptxport[port].service);
+	dcp->dptxport[port].connected = true;
+	mutex_unlock(&dcp->hpd_mutex);
+
+	return 0;
+}
+
+static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
+{
+	struct apple_connector *connector = dcp->connector;
+
+	mutex_lock(&dcp->hpd_mutex);
+	if (connector && connector->connected) {
+		dcp->valid_mode = false;
+		schedule_work(&connector->hotplug_wq);
+	}
+
+	if (dcp->dptxport[port].enabled && dcp->dptxport[port].connected) {
+		dptxport_release_display(dcp->dptxport[port].service);
+		dcp->dptxport[port].connected = false;
+	}
+	mutex_unlock(&dcp->hpd_mutex);
+
+	return 0;
+}
+
+static irqreturn_t dcp_dp2hdmi_hpd(int irq, void *data)
+{
+	struct apple_dcp *dcp = data;
+	bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+
+	dev_info(dcp->dev, "DP2HDMI HPD connected:%d\n", connected);
+
+	if (connected)
+		dcp_dptx_connect(dcp, 0);
+	else
+		dcp_dptx_disconnect(dcp, 0);
+
+	return IRQ_HANDLED;
+}
+
 void dcp_link(struct platform_device *pdev, struct apple_crtc *crtc,
 	      struct apple_connector *connector)
 {
@@ -261,6 +331,28 @@ int dcp_start(struct platform_device *pdev)
 	init_completion(&dcp->start_done);
 
 	/* start RTKit endpoints */
+	ret = systemep_init(dcp);
+	if (ret)
+		dev_warn(dcp->dev, "Failed to start system endpoint: %d", ret);
+
+	if (dcp->phy) {
+		if (dcp->fw_compat >= DCP_FIRMWARE_V_13_5) {
+			ret = ibootep_init(dcp);
+			if (ret)
+				dev_warn(dcp->dev,
+					 "Failed to start IBOOT endpoint: %d",
+					 ret);
+
+			ret = dptxep_init(dcp);
+			if (ret)
+				dev_warn(dcp->dev,
+					 "Failed to start DPTX endpoint: %d",
+					 ret);
+		} else
+			dev_warn(dcp->dev,
+				 "OS firmware incompatible with dptxport EP\n");
+	}
+
 	ret = iomfb_start_rtkit(dcp);
 	if (ret)
 		dev_err(dcp->dev, "Failed to start IOMFB endpoint: %d", ret);
@@ -268,6 +360,23 @@ int dcp_start(struct platform_device *pdev)
 	return ret;
 }
 EXPORT_SYMBOL(dcp_start);
+
+static int dcp_enable_dp2hdmi_hpd(struct apple_dcp *dcp)
+{
+	if (dcp->hdmi_hpd) {
+		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+		dev_info(dcp->dev, "%s: DP2HDMI HPD connected:%d\n", __func__, connected);
+
+		// necessary on j473/j474 but not on j314c
+		if (connected)
+			dcp_dptx_connect(dcp, 0);
+
+		if (dcp->hdmi_hpd_irq)
+			enable_irq(dcp->hdmi_hpd_irq);
+	}
+
+	return 0;
+}
 
 int dcp_wait_ready(struct platform_device *pdev, u64 timeout)
 {
@@ -277,7 +386,7 @@ int dcp_wait_ready(struct platform_device *pdev, u64 timeout)
 	if (dcp->crashed)
 		return -ENODEV;
 	if (dcp->active)
-		return 0;
+		return dcp_enable_dp2hdmi_hpd(dcp);
 	if (timeout <= 0)
 		return -ETIMEDOUT;
 
@@ -287,6 +396,9 @@ int dcp_wait_ready(struct platform_device *pdev, u64 timeout)
 
 	if (dcp->crashed)
 		return -ENODEV;
+
+	if (dcp->active)
+		dcp_enable_dp2hdmi_hpd(dcp);
 
 	return dcp->active ? 0 : -ETIMEDOUT;
 }
@@ -472,6 +584,17 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	if (IS_ERR(dcp->coproc_reg))
 		return PTR_ERR(dcp->coproc_reg);
 
+	of_property_read_u32(dev->of_node, "apple,dcp-index",
+					   &dcp->index);
+	of_property_read_u32(dev->of_node, "apple,dptx-phy",
+					   &dcp->dptx_phy);
+	of_property_read_u32(dev->of_node, "apple,dptx-die",
+					   &dcp->dptx_die);
+	if (dcp->index || dcp->dptx_phy || dcp->dptx_die)
+		dev_info(dev, "DCP index:%u dptx target phy: %u dptx die: %u\n",
+			 dcp->index, dcp->dptx_phy, dcp->dptx_die);
+	mutex_init(&dcp->hpd_mutex);
+
 	if (!show_notch)
 		ret = of_property_read_u32(dev->of_node, "apple,notch-height",
 					   &dcp->notch_height);
@@ -556,7 +679,6 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to boot RTKit: %d", ret);
-
 	return ret;
 }
 
@@ -567,6 +689,9 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 {
 	struct apple_dcp *dcp = dev_get_drvdata(dev);
+
+	if (dcp->hdmi_hpd_irq)
+		disable_irq(dcp->hdmi_hpd_irq);
 
 	if (dcp && dcp->shmem)
 		iomfb_shutdown(dcp);
@@ -592,6 +717,7 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	enum dcp_firmware_version fw_compat;
 	struct device *dev = &pdev->dev;
 	struct apple_dcp *dcp;
+	u32 mux_index;
 
 	fw_compat = dcp_check_firmware_version(dev);
 	if (fw_compat == DCP_FIRMWARE_UNKNOWN)
@@ -603,8 +729,70 @@ static int dcp_platform_probe(struct platform_device *pdev)
 
 	dcp->fw_compat = fw_compat;
 	dcp->dev = dev;
+	dcp->hw = *(struct apple_dcp_hw_data *)of_device_get_match_data(dev);
 
 	platform_set_drvdata(pdev, dcp);
+
+	dcp->phy = devm_phy_optional_get(dev, "dp-phy");
+	if (IS_ERR(dcp->phy)) {
+		dev_err(dev, "Failed to get dp-phy: %ld", PTR_ERR(dcp->phy));
+		return PTR_ERR(dcp->phy);
+	}
+	if (dcp->phy) {
+		int ret;
+		/*
+		 * Request DP2HDMI related GPIOs as optional for DP-altmode
+		 * compatibility. J180D misses a dp2hdmi-pwren GPIO in the
+		 * template ADT. TODO: check device ADT
+		 */
+		dcp->hdmi_hpd = devm_gpiod_get_optional(dev, "hdmi-hpd", GPIOD_IN);
+		if (IS_ERR(dcp->hdmi_hpd))
+			return PTR_ERR(dcp->hdmi_hpd);
+		if (dcp->hdmi_hpd) {
+			int irq = gpiod_to_irq(dcp->hdmi_hpd);
+			if (irq < 0) {
+				dev_err(dev, "failed to translate HDMI hpd GPIO to IRQ\n");
+				return irq;
+			}
+			dcp->hdmi_hpd_irq = irq;
+
+			ret = devm_request_threaded_irq(dev, dcp->hdmi_hpd_irq,
+						NULL, dcp_dp2hdmi_hpd,
+						IRQF_ONESHOT | IRQF_NO_AUTOEN |
+						IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+						"dp2hdmi-hpd-irq", dcp);
+			if (ret < 0) {
+				dev_err(dev, "failed to request HDMI hpd irq %d: %d",
+					irq, ret);
+				return ret;
+			}
+		}
+
+		/*
+		 * Power DP2HDMI on as it is required for the HPD irq.
+		 * TODO: check if one is sufficient for the hpd to save power
+		 *       on battery powered Macbooks.
+		 */
+		dcp->hdmi_pwren = devm_gpiod_get_optional(dev, "hdmi-pwren", GPIOD_OUT_HIGH);
+		if (IS_ERR(dcp->hdmi_pwren))
+			return PTR_ERR(dcp->hdmi_pwren);
+
+		dcp->dp2hdmi_pwren = devm_gpiod_get_optional(dev, "dp2hdmi-pwren", GPIOD_OUT_HIGH);
+		if (IS_ERR(dcp->dp2hdmi_pwren))
+			return PTR_ERR(dcp->dp2hdmi_pwren);
+
+		ret = of_property_read_u32(dev->of_node, "mux-index", &mux_index);
+		if (!ret) {
+			dcp->xbar = devm_mux_control_get(dev, "dp-xbar");
+			if (IS_ERR(dcp->xbar)) {
+				dev_err(dev, "Failed to get dp-xbar: %ld", PTR_ERR(dcp->xbar));
+				return PTR_ERR(dcp->xbar);
+			}
+			ret = mux_control_select(dcp->xbar, mux_index);
+			if (ret)
+				dev_warn(dev, "mux_control_select failed: %d\n", ret);
+		}
+	}
 
 	return component_add(&pdev->dev, &dcp_comp_ops);
 }
@@ -621,6 +809,10 @@ static void dcp_platform_shutdown(struct platform_device *pdev)
 
 static int dcp_platform_suspend(struct device *dev)
 {
+	struct apple_dcp *dcp = dev_get_drvdata(dev);
+
+	if (dcp->hdmi_hpd_irq)
+		disable_irq(dcp->hdmi_hpd_irq);
 	/*
 	 * Set the device as a wakeup device, which forces its power
 	 * domains to stay on. We need this as we do not support full
@@ -633,14 +825,39 @@ static int dcp_platform_suspend(struct device *dev)
 
 static int dcp_platform_resume(struct device *dev)
 {
+	struct apple_dcp *dcp = dev_get_drvdata(dev);
+
+	if (dcp->hdmi_hpd_irq)
+		enable_irq(dcp->hdmi_hpd_irq);
+
 	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(dcp_platform_pm_ops,
 				dcp_platform_suspend, dcp_platform_resume);
 
+
+static const struct apple_dcp_hw_data apple_dcp_hw_t6020 = {
+	.num_dptx_ports = 1,
+};
+
+static const struct apple_dcp_hw_data apple_dcp_hw_t8112 = {
+	.num_dptx_ports = 2,
+};
+
+static const struct apple_dcp_hw_data apple_dcp_hw_dcp = {
+	.num_dptx_ports = 0,
+};
+
+static const struct apple_dcp_hw_data apple_dcp_hw_dcpext = {
+	.num_dptx_ports = 2,
+};
+
 static const struct of_device_id of_match[] = {
-	{ .compatible = "apple,dcp" },
+	{ .compatible = "apple,t6020-dcp", .data = &apple_dcp_hw_t6020,  },
+	{ .compatible = "apple,t8112-dcp", .data = &apple_dcp_hw_t8112,  },
+	{ .compatible = "apple,dcp",       .data = &apple_dcp_hw_dcp,    },
+	{ .compatible = "apple,dcpext",    .data = &apple_dcp_hw_dcpext, },
 	{}
 };
 MODULE_DEVICE_TABLE(of, of_match);

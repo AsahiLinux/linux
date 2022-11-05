@@ -9,5 +9,6 @@ config DRM_APPLE
 	select DRM_KMS_DMA_HELPER
 	select DRM_GEM_DMA_HELPER
 	select VIDEOMODE_HELPERS
+	select MULTIPLEXER
 	help
 	  Say Y if you have an Apple Silicon chipset.

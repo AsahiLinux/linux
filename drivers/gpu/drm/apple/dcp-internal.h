@@ -7,9 +7,12 @@
 #include <linux/backlight.h>
 #include <linux/device.h>
 #include <linux/mutex.h>
+#include <linux/mux/consumer.h>
+#include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>
 
+#include "dptxep.h"
 #include "iomfb.h"
 #include "iomfb_v12_3.h"
 #include "iomfb_v13_3.h"
@@ -94,6 +97,10 @@ struct dcp_panel {
 	bool has_mini_led;
 };
 
+struct apple_dcp_hw_data {
+	u32 num_dptx_ports;
+};
+
 /* TODO: move IOMFB members to its own struct */
 struct apple_dcp {
 	struct device *dev;
@@ -102,6 +109,8 @@ struct apple_dcp {
 	struct apple_rtkit *rtk;
 	struct apple_crtc *crtc;
 	struct apple_connector *connector;
+
+	struct apple_dcp_hw_data hw;
 
 	/* firmware version and compatible firmware version */
 	enum dcp_firmware_version fw_compat;
@@ -126,6 +135,8 @@ struct apple_dcp {
 	/* Display registers mappable to the DCP */
 	struct resource *disp_registers[MAX_DISP_REGISTERS];
 	unsigned int nr_disp_registers;
+
+	u32 index;
 
 	/* Bitmap of memory descriptors used for mappings made by the DCP */
 	DECLARE_BITMAP(memdesc_map, DCP_MAX_MAPPINGS);
@@ -191,6 +202,29 @@ struct apple_dcp {
 
 	/* integrated panel if present */
 	struct dcp_panel panel;
+
+	struct apple_dcp_afkep *systemep;
+	struct completion systemep_done;
+
+	struct apple_dcp_afkep *ibootep;
+
+	struct apple_dcp_afkep *dptxep;
+
+	struct dptx_port dptxport[2];
+
+	/* these fields are output port specific */
+	struct phy *phy;
+	struct mux_control *xbar;
+
+	struct gpio_desc *hdmi_hpd;
+	struct gpio_desc *hdmi_pwren;
+	struct gpio_desc *dp2hdmi_pwren;
+
+	struct mutex hpd_mutex;
+
+	u32 dptx_phy;
+	u32 dptx_die;
+	int hdmi_hpd_irq;
 };
 
 int dcp_backlight_register(struct apple_dcp *dcp);

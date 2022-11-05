@@ -25,6 +25,11 @@ struct dcp_display_mode {
 	u32 timing_mode_id;
 };
 
+struct dimension {
+	s64 total, front_porch, sync_width, active;
+	s64 precise_sync_rate;
+};
+
 int parse(void *blob, size_t size, struct dcp_parse_ctx *ctx);
 struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 					 unsigned int *count, int width_mm,

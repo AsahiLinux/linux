@@ -8,6 +8,7 @@
 #define _TRACE_DCP_H
 
 #include "afk.h"
+#include "dptxep.h"
 #include "dcp-internal.h"
 #include "parser.h"
 
@@ -35,6 +36,43 @@
 			 { EPIC_CAT_NOTIFY, "notify" },       \
 			 { EPIC_CAT_REPLY, "reply" },         \
 			 { EPIC_CAT_COMMAND, "command" })
+
+#define show_dptxport_apcall(idx)                                              \
+	__print_symbolic(                                                     \
+		idx, { DPTX_APCALL_ACTIVATE, "activate" },                    \
+		{ DPTX_APCALL_DEACTIVATE, "deactivate" },                     \
+		{ DPTX_APCALL_GET_MAX_DRIVE_SETTINGS,                         \
+		  "get_max_drive_settings" },                                 \
+		{ DPTX_APCALL_SET_DRIVE_SETTINGS, "set_drive_settings" },     \
+		{ DPTX_APCALL_GET_DRIVE_SETTINGS, "get_drive_settings" },     \
+		{ DPTX_APCALL_WILL_CHANGE_LINKG_CONFIG,                       \
+		  "will_change_link_config" },                                \
+		{ DPTX_APCALL_DID_CHANGE_LINK_CONFIG,                         \
+		  "did_change_link_config" },                                 \
+		{ DPTX_APCALL_GET_MAX_LINK_RATE, "get_max_link_rate" },       \
+		{ DPTX_APCALL_GET_LINK_RATE, "get_link_rate" },               \
+		{ DPTX_APCALL_SET_LINK_RATE, "set_link_rate" },               \
+		{ DPTX_APCALL_GET_ACTIVE_LANE_COUNT,                          \
+		  "get_active_lane_count" },                                  \
+		{ DPTX_APCALL_SET_ACTIVE_LANE_COUNT,                          \
+		  "set_active_lane_count" },                                  \
+		{ DPTX_APCALL_GET_SUPPORTS_DOWN_SPREAD,                       \
+		  "get_supports_downspread" },                                \
+		{ DPTX_APCALL_GET_DOWN_SPREAD, "get_downspread" },            \
+		{ DPTX_APCALL_SET_DOWN_SPREAD, "set_downspread" },            \
+		{ DPTX_APCALL_GET_SUPPORTS_LANE_MAPPING,                      \
+		  "get_supports_lane_mapping" },                              \
+		{ DPTX_APCALL_SET_LANE_MAP, "set_lane_map" },                 \
+		{ DPTX_APCALL_GET_SUPPORTS_HPD, "get_supports_hpd" },         \
+		{ DPTX_APCALL_FORCE_HOTPLUG_DETECT, "force_hotplug_detect" }, \
+		{ DPTX_APCALL_INACTIVE_SINK_DETECTED,                         \
+		  "inactive_sink_detected" },                                 \
+		{ DPTX_APCALL_SET_TILED_DISPLAY_HINTS,                        \
+		  "set_tiled_display_hints" },                                \
+		{ DPTX_APCALL_DEVICE_NOT_RESPONDING,                          \
+		  "device_not_responding" },                                  \
+		{ DPTX_APCALL_DEVICE_BUSY_TIMEOUT, "device_busy_timeout" },   \
+		{ DPTX_APCALL_DEVICE_NOT_STARTED, "device_not_started" })
 
 TRACE_EVENT(dcp_recv_msg,
 	    TP_PROTO(struct apple_dcp *dcp, u8 endpoint, u64 message),
@@ -262,6 +300,108 @@ TRACE_EVENT(iomfb_swap_complete_intent_gated,
 		      __entry->height
 	    )
 );
+
+DECLARE_EVENT_CLASS(iomfb_parse_mode_template,
+	    TP_PROTO(s64 id, struct dimension *horiz, struct dimension *vert, s64 best_color_mode, bool is_virtual, s64 score),
+	    TP_ARGS(id, horiz, vert, best_color_mode, is_virtual, score),
+
+	    TP_STRUCT__entry(__field(s64, id)
+			     __field_struct(struct dimension, horiz)
+			     __field_struct(struct dimension, vert)
+			     __field(s64, best_color_mode)
+			     __field(bool, is_virtual)
+			     __field(s64, score)),
+
+	    TP_fast_assign(__entry->id = id;
+			   __entry->horiz = *horiz;
+			   __entry->vert = *vert;
+			   __entry->best_color_mode = best_color_mode;
+			   __entry->is_virtual = is_virtual;
+			   __entry->score = score;),
+
+	    TP_printk("id: %lld, best_color_mode: %lld, resolution:%lldx%lld virtual: %d, score: %lld",
+		      __entry->id, __entry->best_color_mode,
+		      __entry->horiz.active, __entry->vert.active,
+		      __entry->is_virtual, __entry->score));
+
+DEFINE_EVENT(iomfb_parse_mode_template, iomfb_parse_mode_success,
+	    TP_PROTO(s64 id, struct dimension *horiz, struct dimension *vert, s64 best_color_mode, bool is_virtual, s64 score),
+	    TP_ARGS(id, horiz, vert, best_color_mode, is_virtual, score));
+
+DEFINE_EVENT(iomfb_parse_mode_template, iomfb_parse_mode_fail,
+	    TP_PROTO(s64 id, struct dimension *horiz, struct dimension *vert, s64 best_color_mode, bool is_virtual, s64 score),
+	    TP_ARGS(id, horiz, vert, best_color_mode, is_virtual, score));
+
+TRACE_EVENT(dptxport_init, TP_PROTO(struct apple_dcp *dcp, u64 unit),
+	    TP_ARGS(dcp, unit),
+
+	    TP_STRUCT__entry(__string(devname, dev_name(dcp->dev))
+				     __field(u64, unit)),
+
+	    TP_fast_assign(__assign_str(devname);
+			   __entry->unit = unit;),
+
+	    TP_printk("%s: dptxport unit %lld initialized", __get_str(devname),
+		      __entry->unit));
+
+TRACE_EVENT(
+	dptxport_apcall,
+	TP_PROTO(struct dptx_port *dptx, int idx, size_t len),
+	TP_ARGS(dptx, idx, len),
+
+	TP_STRUCT__entry(__string(devname, dev_name(dptx->service->ep->dcp->dev))
+			__field(u32, unit) __field(int, idx) __field(size_t, len)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->unit = dptx->unit; __entry->idx = idx; __entry->len = len;),
+
+	TP_printk("%s: dptx%d: AP Call %d (%s) with len %lu", __get_str(devname),
+		  __entry->unit,
+		  __entry->idx, show_dptxport_apcall(__entry->idx), __entry->len));
+
+TRACE_EVENT(
+	dptxport_validate_connection,
+	TP_PROTO(struct dptx_port *dptx, u8 core, u8 atc, u8 die),
+	TP_ARGS(dptx, core, atc, die),
+
+	TP_STRUCT__entry(__string(devname, dev_name(dptx->service->ep->dcp->dev))
+			 __field(u32, unit) __field(u8, core) __field(u8, atc) __field(u8, die)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->unit = dptx->unit; __entry->core = core; __entry->atc = atc; __entry->die = die;),
+
+	TP_printk("%s: dptx%d: core %d, atc %d, die %d", __get_str(devname),
+		  __entry->unit, __entry->core, __entry->atc, __entry->die));
+
+TRACE_EVENT(
+	dptxport_connect,
+	TP_PROTO(struct dptx_port *dptx, u8 core, u8 atc, u8 die),
+	TP_ARGS(dptx, core, atc, die),
+
+	TP_STRUCT__entry(__string(devname, dev_name(dptx->service->ep->dcp->dev))
+			 __field(u32, unit) __field(u8, core) __field(u8, atc) __field(u8, die)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->unit = dptx->unit; __entry->core = core; __entry->atc = atc; __entry->die = die;),
+
+	TP_printk("%s: dptx%d: core %d, atc %d, die %d", __get_str(devname),
+		  __entry->unit, __entry->core, __entry->atc, __entry->die));
+
+TRACE_EVENT(
+	dptxport_call_set_link_rate,
+	TP_PROTO(struct dptx_port *dptx, u32 link_rate),
+	TP_ARGS(dptx, link_rate),
+
+	TP_STRUCT__entry(__string(devname, dev_name(dptx->service->ep->dcp->dev))
+			 __field(u32, unit)
+			 __field(u32, link_rate)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->unit = dptx->unit;
+		       __entry->link_rate = link_rate;),
+
+	TP_printk("%s: dptx%d: link rate 0x%x", __get_str(devname), __entry->unit,
+		  __entry->link_rate));
 
 TRACE_EVENT(iomfb_brightness,
 	    TP_PROTO(struct apple_dcp *dcp, u32 nits),
