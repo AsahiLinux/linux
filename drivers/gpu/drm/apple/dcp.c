@@ -397,6 +397,17 @@ out_unlock:
 	return ret;
 }
 
+int dcp_dptx_connect_oob(struct platform_device *pdev, u32 port)
+{
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+	int err = dcp_dptx_connect(dcp, port);
+	if (err < 0)
+		return err;
+	dptxport_set_hpd(dcp->dptxport[port].service, true);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dcp_dptx_connect_oob);
+
 static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 {
 	dev_info(dcp->dev, "%s(port=%d)\n", __func__, port);
@@ -410,6 +421,17 @@ static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 
 	return 0;
 }
+
+int dcp_dptx_disconnect_oob(struct platform_device *pdev, u32 port)
+{
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	if (dcp->dptxport[port].enabled)
+		dptxport_set_hpd(dcp->dptxport[port].service, false);
+
+	return dcp_dptx_disconnect(dcp, port);
+}
+EXPORT_SYMBOL_GPL(dcp_dptx_disconnect_oob);
 
 static irqreturn_t dcp_dp2hdmi_hpd(int irq, void *data)
 {

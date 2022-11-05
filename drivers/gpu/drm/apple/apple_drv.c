@@ -190,6 +190,22 @@ apple_connector_detect(struct drm_connector *connector, bool force)
 						  connector_status_disconnected;
 }
 
+static void apple_connector_oob_hotplug(struct drm_connector *connector,
+					enum drm_connector_status status)
+{
+	struct apple_connector *apple_connector = to_apple_connector(connector);
+
+	printk("#### oob_hotplug status:0x%x ####\n", (u32)status);
+
+	if (status == connector_status_connected)
+		dcp_dptx_connect_oob(apple_connector->dcp, 0);
+	else if (status == connector_status_disconnected)
+		dcp_dptx_disconnect_oob(apple_connector->dcp, 0);
+	else
+		dev_err(&apple_connector->dcp->dev, "unexpected connector status"
+			":0x%x in oob_hotplug event\n", (u32)status);
+}
+
 static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
 				     struct drm_atomic_state *state)
 {
@@ -278,6 +294,7 @@ static const struct drm_connector_funcs apple_connector_funcs = {
 	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 	.detect			= apple_connector_detect,
 	.debugfs_init		= apple_connector_debugfs_init,
+	.oob_hotplug_event	= apple_connector_oob_hotplug,
 };
 
 static const struct drm_connector_helper_funcs apple_connector_helper_funcs = {
