@@ -37,6 +37,21 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j415", "apple,panel";
+		width-mm = <327>;
+		height-mm = <211>;
+		adj-height-mm = <204>;
+		apple,max-brightness = <500>;
+	};
+};
+
+&framebuffer0 {
+	panel = <&panel>;
+	post-init-providers = <&panel>;
+};
+
 /*
  * Force the bus number assignments so that we can declare some of the
  * on-board devices and properties that are populated by the bootloader
