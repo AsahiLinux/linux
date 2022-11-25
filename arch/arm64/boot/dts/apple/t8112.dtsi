@@ -325,6 +325,60 @@
 #endif
 	};
 
+	gpu_opp: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <0>;
+			opp-microvolt = <400000>;
+			opp-microwatt = <0>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <444000000>;
+			opp-microvolt = <603000>;
+			opp-microwatt = <4295000>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <612000000>;
+			opp-microvolt = <675000>;
+			opp-microwatt = <6251000>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <808000000>;
+			opp-microvolt = <710000>;
+			opp-microwatt = <8625000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <968000000>;
+			opp-microvolt = <775000>;
+			opp-microwatt = <11948000>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1110000000>;
+			opp-microvolt = <820000>;
+			opp-microwatt = <15071000>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1236000000>;
+			opp-microvolt = <875000>;
+			opp-microwatt = <18891000>;
+		};
+		opp07 {
+			opp-hz = /bits/ 64 <1338000000>;
+			opp-microvolt = <915000>;
+			opp-microwatt = <21960000>;
+		};
+		opp08 {
+			opp-hz = /bits/ 64 <1398000000>;
+			opp-microvolt = <950000>;
+			opp-microwatt = <22800000>;
+		};
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&aic>;
@@ -396,16 +450,16 @@
 			status = "disabled";
 		};
 
-		uat_handoff: uat-handoff {
-			status = "disabled";
+		uat_handoff: uat-handoff@10 {
+			reg = <0 0x10 0 0>;
 		};
 
-		uat_pagetables: uat-pagetables {
-			status = "disabled";
+		uat_pagetables: uat-pagetables@20 {
+			reg = <0 0x20 0 0>;
 		};
 
-		uat_ttbs: uat-ttbs {
-			status = "disabled";
+		uat_ttbs: uat-ttbs@30 {
+			reg = <0 0x30 0 0>;
 		};
 	};
 
@@ -420,7 +474,7 @@
 		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		gpu: gpu@206400000 {
-			compatible = "apple,agx-g14g";
+			compatible = "apple,agx-t8112", "apple,agx-g14g";
 			reg = <0x2 0x6400000 0 0x40000>,
 				<0x2 0x4000000 0 0x1000000>;
 			reg-names = "asc", "sgx";
@@ -432,6 +486,37 @@
 					      "hw-cal-a", "hw-cal-b", "globals";
 
 			apple,firmware-abi = <0 0 0>;
+			apple,firmware-version = <12 4 0>;
+			apple,firmware-compat = <12 4 0>;
+
+			operating-points-v2 = <&gpu_opp>;
+			apple,perf-base-pstate = <1>;
+			apple,min-sram-microvolt = <780000>;
+			apple,avg-power-filter-tc-ms = <300>;
+			apple,avg-power-ki-only = <9.375>;
+			apple,avg-power-kp = <3.22>;
+			apple,avg-power-min-duty-cycle = <40>;
+			apple,avg-power-target-filter-tc = <1>;
+			apple,fast-die0-integral-gain = <200.0>;
+			apple,fast-die0-proportional-gain = <5.0>;
+			apple,perf-boost-ce-step = <50>;
+			apple,perf-boost-min-util = <90>;
+			apple,perf-filter-drop-threshold = <0>;
+			apple,perf-filter-time-constant = <5>;
+			apple,perf-filter-time-constant2 = <200>;
+			apple,perf-integral-gain = <5.94>;
+			apple,perf-integral-gain2 = <5.94>;
+			apple,perf-integral-min-clamp = <0>;
+			apple,perf-proportional-gain = <14.85>;
+			apple,perf-proportional-gain2 = <14.85>;
+			apple,perf-tgt-utilization = <85>;
+			apple,power-sample-period = <8>;
+			apple,ppm-filter-time-constant-ms = <34>;
+			apple,ppm-ki = <205.0>;
+			apple,ppm-kp = <0.75>;
+			apple,pwr-min-duty-cycle = <40>;
+			apple,core-leak-coef = <1920.0>;
+			apple,sram-leak-coef = <74.0>;
 		};
 
 		agx_mbox: mbox@206408000 {
