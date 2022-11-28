@@ -19,11 +19,16 @@
 
 	aliases {
 		ethernet0 = &ethernet0;
+		sio = &sio;
 	};
 };
 
 &dcp {
 	apple,connector-type = "HDMI-A";
+};
+
+&dpaudio0 {
+	status = "okay";
 };
 
 &bluetooth0 {
