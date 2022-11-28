@@ -92,6 +92,16 @@ config APPLE_ADMAC
 	help
 	  Enable support for Audio DMA Controller found on Apple Silicon SoCs.
 
+config APPLE_SIO
+	tristate "Apple SIO support"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on APPLE_RTKIT
+	depends on OF_ADDRESS
+	select DMA_ENGINE
+	help
+	  Enable support for the SIO coprocessor found on Apple Silicon SoCs
+	  where it provides DMA services.
+
 config ARM_DMA350
 	tristate "Arm DMA-350 support"
 	depends on ARM || ARM64 || COMPILE_TEST
