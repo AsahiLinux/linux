@@ -669,6 +669,17 @@
 				iommus = <&disp0_dart 4 0x0 0x0 0x0 0xfc000000>;
 				phandle = <&disp0_piodma>;
 			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					dcp_audio: endpoint {
+						remote-endpoint = <&dpaudio0_dcp>;
+					};
+				};
+			};
 		};
 
 		display: display-subsystem {
@@ -889,6 +900,32 @@
 			status = "disabled";
 		};
 
+		sio_mbox: mbox@236408000 {
+			compatible = "apple,t8103-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x36408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 640 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 641 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 642 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 643 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_sio>;
+		};
+
+		sio: sio@236400000 {
+			compatible = "apple,t8103-sio", "apple,sio";
+			reg = <0x2 0x36400000 0x0 0x8000>;
+			dma-channels = <128>;
+			#dma-cells = <1>;
+			mboxes = <&sio_mbox>;
+			iommus = <&sio_dart 0>;
+			power-domains = <&ps_sio_cpu>;
+			resets = <&ps_sio>; /* TODO: verify reset does something */
+			status = "disabled";
+		};
+
 		admac: dma-controller@238200000 {
 			compatible = "apple,t8103-admac", "apple,admac";
 			reg = <0x2 0x38200000 0x0 0x34000>;
@@ -901,6 +938,48 @@
 			iommus = <&sio_dart 2>;
 			power-domains = <&ps_sio_adma>;
 			resets = <&ps_audio_p>;
+		};
+
+		dpaudio0: audio-controller@238330000 {
+			compatible = "apple,t8103-dpaudio", "apple,dpaudio";
+			reg = <0x2 0x38330000 0x0 0x4000>;
+			dmas = <&sio 0x64>;
+			dma-names = "tx";
+			power-domains = <&ps_dpa0>;
+			reset-domains = <&ps_dpa0>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					dpaudio0_dcp: endpoint {
+						remote-endpoint = <&dcp_audio>;
+					};
+				};
+			};
+		};
+
+		dpaudio1: audio-controller@238334000 {
+			compatible = "apple,t8103-dpaudio", "apple,dpaudio";
+			reg = <0x2 0x38334000 0x0 0x4000>;
+			dmas = <&sio 0x66>;
+			dma-names = "tx";
+			power-domains = <&ps_dpa1>;
+			reset-domains = <&ps_dpa1>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					dpaudio1_dcp: endpoint {
+						remote-endpoint = <&dcpext_audio>;
+					};
+				};
+			};
 		};
 
 		mca: i2s@238400000 {
@@ -1302,6 +1381,17 @@
 
 			piodma {
 				iommus = <&dispext0_dart 4 0x0 0x0 0x0 0xfc000000>;
+			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					dcpext_audio: endpoint {
+						remote-endpoint = <&dpaudio1_dcp>;
+					};
+				};
 			};
 		};
 
