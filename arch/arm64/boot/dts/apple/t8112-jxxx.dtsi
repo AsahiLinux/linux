@@ -19,6 +19,8 @@
 		disp0-piodma = &disp0_piodma;
 		serial0 = &serial0;
 		serial2 = &serial2;
+		sio = &sio;
+
 		usb4-0-acio = &usb4_0_acio;
 		usb4-0-nhi = &usb4_0_nhi;
 		usb4-1-acio = &usb4_1_acio;
@@ -113,6 +115,11 @@
 			power-role = "dual";
 			data-role = "dual";
 
+#ifdef ENABLE_DCPEXT_TYPEC
+			/* hacks */
+			displayport = <&dcpext>;
+#endif
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -139,6 +146,53 @@
 		};
 	};
 };
+
+#ifdef ENABLE_DCPEXT_TYPEC
+/ {
+	aliases {
+		dcpext = &dcpext;
+	};
+};
+
+&display {
+	iommus = <&disp0_dart 0 0x0 0x0 0xf 0xffff0000>,
+		 <&dispext0_dart 0 0x0 0x0 0xf 0xffff0000>;
+};
+
+&dispext0_dart {
+	status = "okay";
+};
+
+&dcpext_dart {
+	status = "okay";
+};
+
+&dcpext_mbox {
+	status = "okay";
+};
+
+&dcpext {
+	status = "okay";
+	apple,connector-type = "DP";
+
+	/* hacks */
+	apple,dptx-phy = <1>;
+	phys = <&atcphy1 PHY_TYPE_DP>;
+	phy-names = "dp-phy";
+	mux-controls = <&atcphy1_xbar 0>;
+	mux-control-names = "dp-xbar";
+	mux-index = <2>;
+};
+
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
+        status = "okay";
+};
+
+&dpaudio1 {
+	status = "okay";
+};
+#endif
 
 /* USB controllers */
 &dwc3_0 {
