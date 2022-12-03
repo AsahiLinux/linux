@@ -96,6 +96,11 @@
 			power-role = "dual";
 			data-role = "dual";
 
+#ifdef ENABLE_DCPEXT_TYPEC
+			/* hacks */
+			displayport = <&dcpext>;
+#endif
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -115,6 +120,47 @@
 		};
 	};
 };
+
+#ifdef ENABLE_DCPEXT_TYPEC
+/ {
+	aliases {
+		dcpext = &dcpext;
+	};
+};
+
+&display {
+	iommus = <&disp0_dart 0>, <&dispext0_dart 0>;
+};
+
+&dispext0_dart {
+	status = "okay";
+};
+
+&dcpext_dart {
+	status = "okay";
+};
+
+&dcpext_mbox {
+	status = "okay";
+};
+
+&dcpext {
+	status = "okay";
+	apple,connector-type = "DP";
+
+	/* hacks */
+	apple,dptx-phy = <1>;
+	phys = <&atcphy1 PHY_TYPE_DP>;
+	phy-names = "dp-phy";
+	mux-controls = <&atcphy1_xbar 0>;
+	mux-control-names = "dp-xbar";
+	mux-index = <2>;
+};
+
+&dpaudio1 {
+	status = "okay";
+};
+#endif
 
 /* USB controllers */
 &dwc3_0 {
