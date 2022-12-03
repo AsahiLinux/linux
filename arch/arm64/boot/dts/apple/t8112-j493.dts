@@ -9,6 +9,8 @@
 
 /dts-v1/;
 
+#define ENABLE_DCPEXT_TYPEC
+
 #include "t8112.dtsi"
 #include "t8112-jxxx.dtsi"
 #include <dt-bindings/leds/common.h>
