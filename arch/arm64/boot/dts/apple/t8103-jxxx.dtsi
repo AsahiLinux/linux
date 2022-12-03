@@ -9,15 +9,21 @@
  * Copyright The Asahi Linux Contributors
  */
 
+#define ENABLE_DCPEXT_TYPEC
+
 / {
 	aliases {
 		bluetooth0 = &bluetooth0;
 		dcp = &dcp;
+#ifdef ENABLE_DCPEXT_TYPEC
+		dcpext = &dcpext;
+#endif
 		disp0 = &display;
 		disp0_piodma = &disp0_piodma;
 		disp0-piodma = &disp0_piodma;
 		serial0 = &serial0;
 		serial2 = &serial2;
+		sio = &sio;
 		wifi0 = &wifi0;
 		atcphy0 = &atcphy0;
 		atcphy1 = &atcphy1;
@@ -120,6 +126,11 @@
 			power-role = "dual";
 			data-role = "dual";
 
+#ifdef ENABLE_DCPEXT_TYPEC
+			/* hacks */
+			displayport = <&dcpext>;
+#endif
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -146,6 +157,42 @@
 		};
 	};
 };
+
+#ifdef ENABLE_DCPEXT_TYPEC
+&display {
+	iommus = <&disp0_dart 0 0x0 0x0 0x0 0xfc000000>,
+		 <&dispext0_dart 0 0x0 0x0 0x0 0xfc000000>;
+};
+
+&dispext0_dart {
+	status = "okay";
+};
+
+&dcpext_dart {
+	status = "okay";
+};
+
+&dcpext_mbox {
+	status = "okay";
+};
+
+&dcpext {
+	status = "okay";
+	apple,connector-type = "DP";
+
+	/* hacks */
+	apple,dptx-phy = <1>;
+	phys = <&atcphy1 PHY_TYPE_DP>;
+	phy-names = "dp-phy";
+	mux-controls = <&atcphy1_xbar 0>;
+	mux-control-names = "dp-xbar";
+	mux-index = <0>;
+};
+
+&dpaudio1 {
+	status = "okay";
+};
+#endif
 
 /* USB controllers */
 &dwc3_0 {
