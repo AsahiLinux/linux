@@ -376,6 +376,7 @@
 
 		orientation-switch;
 		mode-switch;
+		svid = <0xff01>, <0x8087>;
 		power-domains = <&DIE_NODE(ps_atc0_usb)>;
 	};
 
@@ -448,6 +449,7 @@
 
 		orientation-switch;
 		mode-switch;
+		svid = <0xff01>, <0x8087>;
 		power-domains = <&DIE_NODE(ps_atc1_usb)>;
 	};
 
@@ -520,6 +522,7 @@
 
 		orientation-switch;
 		mode-switch;
+		svid = <0xff01>, <0x8087>;
 		power-domains = <&DIE_NODE(ps_atc2_usb)>;
 	};
 
@@ -592,5 +595,6 @@
 
 		orientation-switch;
 		mode-switch;
+		svid = <0xff01>, <0x8087>;
 		power-domains = <&DIE_NODE(ps_atc3_usb)>;
 	};
