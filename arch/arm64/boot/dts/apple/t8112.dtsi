@@ -1313,6 +1313,7 @@
 
 			orientation-switch;
 			mode-switch;
+			svid = <0xff01>, <0x8087>;
 			power-domains = <&ps_atc0_usb>;
 		};
 
@@ -1383,6 +1384,7 @@
 
 			orientation-switch;
 			mode-switch;
+			svid = <0xff01>, <0x8087>;
 			power-domains = <&ps_atc1_usb>;
 		};
 
