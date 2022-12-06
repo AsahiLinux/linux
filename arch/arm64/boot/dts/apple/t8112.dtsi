@@ -1340,7 +1340,7 @@
 			power-domains = <&ps_atc1_usb>;
 		};
 
-		pcie0_dart: dart@681008000 {
+		pcie0_dart: iommu@681008000 {
 			compatible = "apple,t8112-dart", "apple,t8110-dart";
 			reg = <0x6 0x81008000 0x0 0x4000>;
 			#iommu-cells = <1>;
