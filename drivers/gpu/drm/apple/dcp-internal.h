@@ -19,7 +19,6 @@ struct apple_dcp;
 enum dcp_firmware_version {
 	DCP_FIRMWARE_UNKNOWN,
 	DCP_FIRMWARE_V_12_3,
-	DCP_FIRMWARE_V_12_4,
 };
 
 enum {
@@ -91,7 +90,7 @@ struct apple_dcp {
 	struct apple_connector *connector;
 
 	/* firmware version and compatible firmware version */
-	enum dcp_firmware_version fw_version, fw_compat;
+	enum dcp_firmware_version fw_compat;
 
 	/* Coprocessor control register */
 	void __iomem *coproc_reg;

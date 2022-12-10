@@ -3,8 +3,10 @@
 
 #include <linux/bitmap.h>
 #include <linux/clk.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/of_device.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
@@ -301,31 +303,70 @@ static int dcp_get_disp_regs(struct apple_dcp *dcp)
 	return 0;
 }
 
-static enum dcp_firmware_version dcp_get_firmware_version(struct device *dev,
-							  const char *name)
+#define DCP_FW_VERSION_MIN_LEN	3
+#define DCP_FW_VERSION_MAX_LEN	5
+#define DCP_FW_VERSION_STR_LEN	(DCP_FW_VERSION_MAX_LEN * 4)
+
+static int dcp_read_fw_version(struct device *dev, const char *name,
+			       char *version_str)
 {
-	u32 fw_version[3];
+	u32 ver[DCP_FW_VERSION_MAX_LEN];
+	int len_str;
+	int len;
+
+	len = of_property_read_variable_u32_array(dev->of_node, name, ver,
+						  DCP_FW_VERSION_MIN_LEN,
+						  DCP_FW_VERSION_MAX_LEN);
+
+	switch (len) {
+	case 3:
+		len_str = scnprintf(version_str, DCP_FW_VERSION_STR_LEN,
+				    "%d.%d.%d", ver[0], ver[1], ver[2]);
+		break;
+	case 4:
+		len_str = scnprintf(version_str, DCP_FW_VERSION_STR_LEN,
+				    "%d.%d.%d.%d", ver[0], ver[1], ver[2],
+				    ver[3]);
+		break;
+	case 5:
+		len_str = scnprintf(version_str, DCP_FW_VERSION_STR_LEN,
+				    "%d.%d.%d.%d.%d", ver[0], ver[1], ver[2],
+				    ver[3], ver[4]);
+		break;
+	default:
+		len_str = strscpy(version_str, "UNKNOWN",
+				  DCP_FW_VERSION_STR_LEN);
+		if (len >= 0)
+			len = -EOVERFLOW;
+		break;
+	}
+
+	if (len_str >= DCP_FW_VERSION_STR_LEN)
+		dev_warn(dev, "'%s' truncated: '%s'\n", name, version_str);
+
+	return len;
+}
+
+static enum dcp_firmware_version dcp_check_firmware_version(struct device *dev)
+{
+	char compat_str[DCP_FW_VERSION_STR_LEN];
+	char fw_str[DCP_FW_VERSION_STR_LEN];
 	int ret;
 
-	ret = of_property_read_u32_array(dev->of_node, name, fw_version, 3);
-	if (ret != 0) {
-		dev_warn(dev, "Could not read '%s': %d\n", name, ret);
+	/* firmware version is just informative */
+	dcp_read_fw_version(dev, "apple,firmware-version", fw_str);
+
+	ret = dcp_read_fw_version(dev, "apple,firmware-compat", compat_str);
+	if (ret < 0) {
+		dev_err(dev, "Could not read 'apple,firmware-compat': %d\n", ret);
 		return DCP_FIRMWARE_UNKNOWN;
 	}
 
-	if (fw_version[0] == 12) {
-		switch (fw_version[1]) {
-		case 3:
-			return DCP_FIRMWARE_V_12_3;
-		case 4:
-			return DCP_FIRMWARE_V_12_4;
-		default:
-			break;
-		}
-	}
+	if (strncmp(compat_str, "12.3.0", sizeof(compat_str)) == 0)
+		return DCP_FIRMWARE_V_12_3;
 
-	dev_err(dev, "'%s' %u.%u.%u is not supported\n", name, fw_version[0],
-		fw_version[1], fw_version[2]);
+	dev_err(dev, "DCP firmware-compat %s (FW: %s) is not supported\n",
+		compat_str, fw_str);
 
 	return DCP_FIRMWARE_UNKNOWN;
 }
@@ -335,15 +376,11 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *panel_np;
 	struct apple_dcp *dcp;
-	enum dcp_firmware_version fw_version, fw_compat;
+	enum dcp_firmware_version fw_compat;
 	u32 cpu_ctrl;
 	int ret;
 
-	fw_version = dcp_get_firmware_version(dev, "apple,firmware-version");
-	if (fw_version == DCP_FIRMWARE_UNKNOWN)
-		return -ENODEV;
-
-	fw_compat = dcp_get_firmware_version(dev, "apple,firmware-compat");
+	fw_compat = dcp_check_firmware_version(dev);
 	if (fw_compat == DCP_FIRMWARE_UNKNOWN)
 		return -ENODEV;
 
@@ -351,7 +388,6 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	if (!dcp)
 		return -ENOMEM;
 
-	dcp->fw_version = fw_version;
 	dcp->fw_compat = fw_compat;
 
 	platform_set_drvdata(pdev, dcp);
