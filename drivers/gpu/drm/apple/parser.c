@@ -169,7 +169,8 @@ struct iterator {
 	u32 idx, len;
 };
 
-int iterator_begin(struct dcp_parse_ctx *handle, struct iterator *it, bool dict)
+static int iterator_begin(struct dcp_parse_ctx *handle, struct iterator *it,
+			  bool dict)
 {
 	struct dcp_parse_tag *tag;
 	enum dcp_parse_type type = dict ? DCP_TYPE_DICTIONARY : DCP_TYPE_ARRAY;
