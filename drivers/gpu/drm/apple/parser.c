@@ -343,6 +343,8 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 
 		if (IS_ERR(key))
 			ret = PTR_ERR(key);
+		else if (is_virtual)
+			skip(it.handle);
 		else if (!strcmp(key, "HorizontalAttributes"))
 			ret = parse_dimension(it.handle, &horiz);
 		else if (!strcmp(key, "VerticalAttributes"))
