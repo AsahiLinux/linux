@@ -248,6 +248,16 @@ static int parse_dimension(struct dcp_parse_ctx *handle, struct dimension *dim)
 	return 0;
 }
 
+struct color_mode {
+	s64 colorimetry;
+	s64 depth;
+	s64 dynamic_range;
+	s64 eotf;
+	s64 id;
+	s64 pixel_encoding;
+	s64 score;
+};
+
 static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *best_id)
 {
 	struct iterator outer_it;
@@ -258,17 +268,30 @@ static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *best_id)
 
 	dcp_parse_foreach_in_array(handle, outer_it) {
 		struct iterator it;
-		s64 score = -1, id = -1;
+		bool is_virtual = true;
+		struct color_mode cmode;
 
 		dcp_parse_foreach_in_dict(handle, it) {
 			char *key = parse_string(it.handle);
 
 			if (IS_ERR(key))
 				ret = PTR_ERR(key);
-			else if (!strcmp(key, "Score"))
-				ret = parse_int(it.handle, &score);
+			else if (!strcmp(key, "Colorimetry"))
+				ret = parse_int(it.handle, &cmode.colorimetry);
+			else if (!strcmp(key, "Depth"))
+				ret = parse_int(it.handle, &cmode.depth);
+			else if (!strcmp(key, "DynamicRange"))
+				ret = parse_int(it.handle, &cmode.dynamic_range);
+			else if (!strcmp(key, "EOTF"))
+				ret = parse_int(it.handle, &cmode.eotf);
 			else if (!strcmp(key, "ID"))
-				ret = parse_int(it.handle, &id);
+				ret = parse_int(it.handle, &cmode.id);
+			else if (!strcmp(key, "IsVirtual"))
+				ret = parse_bool(it.handle, &is_virtual);
+			else if (!strcmp(key, "PixelEncoding"))
+				ret = parse_int(it.handle, &cmode.pixel_encoding);
+			else if (!strcmp(key, "Score"))
+				ret = parse_int(it.handle, &cmode.score);
 			else
 				skip(it.handle);
 
@@ -276,13 +299,13 @@ static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *best_id)
 				return ret;
 		}
 
-		/* Skip partial entries */
-		if (score < 0 || id < 0)
+		/* Skip virtual or partial entries */
+		if (is_virtual || cmode.score < 0 || cmode.id < 0)
 			continue;
 
-		if (score > best_score) {
-			best_score = score;
-			*best_id = id;
+		if (cmode.score > best_score) {
+			best_score = cmode.score;
+			*best_id = cmode.id;
 		}
 	}
 
