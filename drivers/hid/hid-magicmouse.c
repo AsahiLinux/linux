@@ -1361,7 +1361,7 @@ static int magicmouse_reset_resume(struct hid_device *hdev)
 	 * enable report.  Only the HID_TYPE_USBMOUSE interface accepts it, and
 	 * it must be deferred. Sending it inline here is too early.
 	 */
-	if (msc && hdev->type == HID_TYPE_USBMOUSE)
+	if (msc && (hdev->type == HID_TYPE_USBMOUSE || hdev->bus == BUS_SPI))
 		schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
 
 	return 0;
