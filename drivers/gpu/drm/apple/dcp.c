@@ -5,6 +5,7 @@
 #include <linux/clk.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/of_device.h>
@@ -33,6 +34,10 @@
 #define APPLE_DCP_COPROC_CPU_CONTROL_RUN BIT(4)
 
 #define DCP_BOOT_TIMEOUT msecs_to_jiffies(1000)
+
+static bool show_notch;
+module_param(show_notch, bool, 0644);
+MODULE_PARM_DESC(show_notch, "Use the full display height and shows the notch");
 
 /* HACK: moved here to avoid circular dependency between apple_drv and dcp */
 void dcp_drm_crtc_vblank(struct apple_crtc *crtc)
@@ -403,8 +408,10 @@ static int dcp_platform_probe(struct platform_device *pdev)
 
 	of_platform_default_populate(dev->of_node, NULL, dev);
 
-	ret = of_property_read_u32(dev->of_node, "apple,notch-height",
-				   &dcp->notch_height);
+	if (!show_notch)
+		ret = of_property_read_u32(dev->of_node, "apple,notch-height",
+					   &dcp->notch_height);
+
 	if (dcp->notch_height > MAX_NOTCH_HEIGHT)
 		dcp->notch_height = MAX_NOTCH_HEIGHT;
 	if (dcp->notch_height > 0)
