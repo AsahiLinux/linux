@@ -131,8 +131,8 @@ static const struct drm_plane_funcs apple_plane_funcs = {
  * advertise formats without alpha.
  */
 static const u32 dcp_formats[] = {
-	// DRM_FORMAT_XRGB2101010,
-	// DRM_FORMAT_ARGB2101010,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XBGR8888,
