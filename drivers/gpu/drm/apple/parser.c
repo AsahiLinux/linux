@@ -6,7 +6,9 @@
 #include <linux/math.h>
 #include <linux/string.h>
 #include <linux/slab.h>
+
 #include "parser.h"
+#include "trace.h"
 
 #define DCP_PARSE_HEADER 0xd3
 
@@ -303,6 +305,11 @@ static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *best_id)
 		if (is_virtual || cmode.score < 0 || cmode.id < 0)
 			continue;
 
+		trace_iomfb_color_mode(handle->dcp, cmode.id, cmode.score,
+				       cmode.depth, cmode.colorimetry,
+				       cmode.eotf, cmode.dynamic_range,
+				       cmode.pixel_encoding);
+
 		if (cmode.score > best_score) {
 			best_score = cmode.score;
 			*best_id = cmode.id;
@@ -418,6 +425,10 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 
 	out->timing_mode_id = id;
 	out->color_mode_id = best_color_mode;
+
+	trace_iomfb_timing_mode(handle->dcp, id, *score, horiz.active,
+				vert.active, vert.precise_sync_rate,
+				best_color_mode);
 
 	return 0;
 }

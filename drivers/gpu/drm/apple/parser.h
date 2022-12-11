@@ -7,7 +7,10 @@
 /* For mode parsing */
 #include <drm/drm_modes.h>
 
+struct apple_dcp;
+
 struct dcp_parse_ctx {
+	struct apple_dcp *dcp;
 	void *blob;
 	u32 pos, len;
 };

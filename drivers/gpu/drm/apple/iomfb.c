@@ -755,6 +755,9 @@ static bool dcpep_process_chunks(struct apple_dcp *dcp,
 		return false;
 	}
 
+	/* used just as opaque pointer for tracing */
+	ctx.dcp = dcp;
+
 	ret = parse(dcp->chunks.data, dcp->chunks.length, &ctx);
 
 	if (ret) {
