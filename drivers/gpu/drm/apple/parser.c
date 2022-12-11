@@ -260,13 +260,14 @@ struct color_mode {
 	s64 score;
 };
 
-static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *best_id)
+static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *preferred_id)
 {
 	struct iterator outer_it;
 	int ret = 0;
-	s64 best_score = -1;
+	s64 best_score = -1, best_score_sdr = -1;
+	s64 best_id = -1, best_id_sdr = -1;
 
-	*best_id = -1;
+	*preferred_id = -1;
 
 	dcp_parse_foreach_in_array(handle, outer_it) {
 		struct iterator it;
@@ -310,11 +311,24 @@ static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *best_id)
 				       cmode.eotf, cmode.dynamic_range,
 				       cmode.pixel_encoding);
 
-		if (cmode.score > best_score) {
-			best_score = cmode.score;
-			*best_id = cmode.id;
+		if (cmode.eotf == 0 && cmode.dynamic_range == 0) {
+			if (cmode.score > best_score_sdr) {
+				best_score_sdr = cmode.score;
+				best_id_sdr = cmode.id;
+			}
+		} else {
+			if (cmode.score > best_score) {
+				best_score = cmode.score;
+				best_id = cmode.id;
+			}
 		}
 	}
+
+	/* prefer SDR color modes as long as HDR is not supported */
+	if (best_score_sdr >= 0)
+		*preferred_id = best_id_sdr;
+	else if (best_score >= 0)
+		*preferred_id = best_id;
 
 	return 0;
 }
