@@ -181,6 +181,7 @@ const struct dcp_method_entry dcp_methods[dcpep_num_methods] = {
 	DCP_METHOD("A410", dcpep_set_display_device),
 	DCP_METHOD("A411", dcpep_is_main_display),
 	DCP_METHOD("A412", dcpep_set_digital_out_mode),
+	DCP_METHOD("A426", iomfbep_get_color_remap_mode),
 	DCP_METHOD("A439", dcpep_set_parameter_dcp),
 	DCP_METHOD("A443", dcpep_create_default_fb),
 	DCP_METHOD("A447", dcpep_enable_disable_video_power_savings),
@@ -261,9 +262,20 @@ static void dcp_push(struct apple_dcp *dcp, bool oob, enum dcpep_method method,
 			 cb, cookie);                                         \
 	}
 
+#define IOMFB_THUNK_INOUT(name, T_in, T_out)                                      \
+	static void iomfb_ ## name(struct apple_dcp *dcp, bool oob, T_in *data,   \
+			 dcp_callback_t cb, void *cookie)                         \
+	{                                                                         \
+		dcp_push(dcp, oob, iomfbep_ ## name, sizeof(T_in), sizeof(T_out), \
+			 data,  cb, cookie);                                      \
+	}
+
 DCP_THUNK_OUT(iomfb_a131_pmu_service_matched, iomfbep_a131_pmu_service_matched, u32);
 DCP_THUNK_OUT(iomfb_a132_backlight_service_matched, iomfbep_a132_backlight_service_matched, u32);
 DCP_THUNK_OUT(iomfb_a358_vi_set_temperature_hint, iomfbep_a358_vi_set_temperature_hint, u32);
+
+IOMFB_THUNK_INOUT(get_color_remap_mode, struct iomfb_get_color_remap_mode_req,
+		struct iomfb_get_color_remap_mode_resp);
 
 DCP_THUNK_INOUT(dcp_swap_submit, dcpep_swap_submit, struct dcp_swap_submit_req,
 		struct dcp_swap_submit_resp);
@@ -1825,9 +1837,14 @@ static void init_1(struct apple_dcp *dcp, void *out, void *cookie)
 
 static void dcp_started(struct apple_dcp *dcp, void *data, void *cookie)
 {
+	struct iomfb_get_color_remap_mode_req color_remap =
+		(struct iomfb_get_color_remap_mode_req){
+			.mode = 6,
+		};
+
 	dev_info(dcp->dev, "DCP booted\n");
 
-	init_1(dcp, data, cookie);
+	iomfb_get_color_remap_mode(dcp, false, &color_remap, init_1, cookie);
 }
 
 void iomfb_recv_msg(struct apple_dcp *dcp, u64 message)
