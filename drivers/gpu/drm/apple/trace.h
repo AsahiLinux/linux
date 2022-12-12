@@ -171,9 +171,6 @@ TRACE_EVENT(iomfb_brightness,
 	    )
 );
 
-/*
- * this mapping is an educted guess based on a list of strings in the DCP FW
- */
 #define show_eotf(eotf)					\
 	__print_symbolic(eotf, { 0, "SDR gamma"},	\
 			       { 1, "HDR gamma"},	\
@@ -181,9 +178,6 @@ TRACE_EVENT(iomfb_brightness,
 			       { 3, "BT.2100 (HLG)"},	\
 			       { 4, "unexpected"})
 
-/*
- * this mapping is an educted guess based on a list of strings in the DCP FW
- */
 #define show_encoding(enc)							\
 	__print_symbolic(enc, { 0, "RGB"},					\
 			      { 1, "YUV 4:2:0"},				\
@@ -202,37 +196,35 @@ TRACE_EVENT(iomfb_brightness,
 			      {14, "GRGB as YCbCr422 (Even line red)"},		\
 			      {15, "unexpected"})
 
-/*
- * this mapping is an educted guess based on a list of strings in the DCP FW
- * main concern is that DCP reports a RGB encoding with "BT.2020 (c)" although
- * it reports at the same time "'SupportsBT2020cYCC': 0,"
- */
 #define show_colorimetry(col)					\
-	__print_symbolic(col, { 0, "Default RGB"},		\
-			      { 1, "BT.601"},			\
-			      { 2, "BT.701"},			\
-			      { 3, "xvYCC601"},			\
-			      { 4, "xvYCC709"},			\
-			      { 5, "sYCC601"},			\
-			      { 6, "DolbyVision VSVDB"},	\
-			      { 7, "sRGB"},			\
-			      { 8, "AdobeYCC601"},		\
-			      { 9, "AdobeRGB"},			\
-			      {10, "BT.2020 (c)"},		\
-			      {11, "BT.2020 (nc)"},		\
-			      {12, "BT.2020 (RGB)"},		\
-			      {13, "DCI-P3 (D65)"},		\
-			      {14, "DCI-P3 (Theater)"},		\
-			      {15, "scRGB"},			\
-			      {16, "scRGBfixed"},		\
+	__print_symbolic(col, { 0, "SMPTE 170M/BT.601"},	\
+			      { 1, "BT.701"},			\
+			      { 2, "xvYCC601"},			\
+			      { 3, "xvYCC709"},			\
+			      { 4, "sYCC601"},			\
+			      { 5, "AdobeYCC601"},		\
+			      { 6, "BT.2020 (c)"},		\
+			      { 7, "BT.2020 (nc)"},		\
+			      { 8, "DolbyVision VSVDB"},	\
+			      { 9, "BT.2020 (RGB)"},		\
+			      {10, "sRGB"},			\
+			      {11, "scRGB"},			\
+			      {12, "scRGBfixed"},		\
+			      {13, "AdobeRGB"},			\
+			      {14, "DCI-P3 (D65)"},		\
+			      {15, "DCI-P3 (Theater)"},		\
+			      {16, "Default RGB"},		\
 			      {17, "unexpected"})
+
+#define show_range(range)				\
+	__print_symbolic(range, { 0, "Full"},		\
+				{ 1, "Limited"},	\
+				{ 2, "unexpected"})
 
 TRACE_EVENT(iomfb_color_mode,
 	    TP_PROTO(struct apple_dcp *dcp, u32 id, u32 score, u32 depth,
-		     u32 colorimetry, u32 eotf, u32 dynamic_range,
-		     u32 pixel_enc),
-	    TP_ARGS(dcp, id, score, depth, colorimetry, eotf, dynamic_range,
-		    pixel_enc),
+		     u32 colorimetry, u32 eotf, u32 range, u32 pixel_enc),
+	    TP_ARGS(dcp, id, score, depth, colorimetry, eotf, range, pixel_enc),
 	    TP_STRUCT__entry(
 			     __field(u64, dcp)
 			     __field(u32, id)
@@ -240,7 +232,7 @@ TRACE_EVENT(iomfb_color_mode,
 			     __field(u32, depth)
 			     __field(u32, colorimetry)
 			     __field(u32, eotf)
-			     __field(u32, dynamic_range)
+			     __field(u32, range)
 			     __field(u32, pixel_enc)
 	    ),
 	    TP_fast_assign(
@@ -250,17 +242,17 @@ TRACE_EVENT(iomfb_color_mode,
 			   __entry->depth = depth;
 			   __entry->colorimetry = min_t(u32, colorimetry, 17U);
 			   __entry->eotf = min_t(u32, eotf, 4U);
-			   __entry->dynamic_range = dynamic_range;
+			   __entry->range = min_t(u32, range, 2U);
 			   __entry->pixel_enc = min_t(u32, pixel_enc, 15U);
 	    ),
-	    TP_printk("dcp=%llx, id=%u, score=%u,  depth=%u, colorimetry=%s, eotf=%s, dyn_range=%u, pixel_enc=%s",
+	    TP_printk("dcp=%llx, id=%u, score=%u,  depth=%u, colorimetry=%s, eotf=%s, range=%s, pixel_enc=%s",
 		      __entry->dcp,
 		      __entry->id,
 		      __entry->score,
 		      __entry->depth,
 		      show_colorimetry(__entry->colorimetry),
 		      show_eotf(__entry->eotf),
-		      __entry->dynamic_range,
+		      show_range(__entry->range),
 		      show_encoding(__entry->pixel_enc)
 	    )
 );
