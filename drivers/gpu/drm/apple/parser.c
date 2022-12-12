@@ -311,7 +311,7 @@ static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *preferred_id)
 				       cmode.eotf, cmode.dynamic_range,
 				       cmode.pixel_encoding);
 
-		if (cmode.eotf == 0 && cmode.dynamic_range == 0) {
+		if (cmode.eotf == 0) {
 			if (cmode.score > best_score_sdr) {
 				best_score_sdr = cmode.score;
 				best_id_sdr = cmode.id;
