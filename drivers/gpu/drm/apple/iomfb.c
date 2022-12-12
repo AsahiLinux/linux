@@ -1503,7 +1503,7 @@ static u8 drm_format_to_colorspace(u32 drm)
 
 	case DRM_FORMAT_ARGB2101010:
 	case DRM_FORMAT_XRGB2101010:
-		return 12;
+		return 2;
 	}
 
 	return 1;
