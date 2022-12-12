@@ -1293,7 +1293,6 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(disp0_fe);
 		power-domains = <&DIE_NODE(ps_afnc2_lw0)>;
-		apple,always-on; /* TODO: figure out if we can enable PM here */
 	};
 
 	DIE_NODE(ps_disp0_cpu0): power-controller@350 {
@@ -1303,7 +1302,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(disp0_cpu0);
 		power-domains = <&DIE_NODE(ps_disp0_fe)>;
-		apple,always-on; /* TODO: figure out if we can enable PM here */
+		apple,always-on;
 		apple,min-state = <4>;
 	};
 

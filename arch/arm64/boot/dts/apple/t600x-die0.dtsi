@@ -178,6 +178,7 @@
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_IRQ 0 821 IRQ_TYPE_LEVEL_HIGH>;
 		status = "disabled";
+		power-domains = <&ps_disp0_cpu0>;
 	};
 
 	dcp_dart: iommu@38b30c000 {
@@ -186,6 +187,7 @@
 		#iommu-cells = <1>;
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_IRQ 0 821 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_disp0_cpu0>;
 	};
 
 	dcp_mbox: mbox@38bc08000 {

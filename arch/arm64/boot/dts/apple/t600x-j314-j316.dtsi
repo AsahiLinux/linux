@@ -38,6 +38,7 @@
 			/* Format properties will be added by loader */
 			backlight = <&backlight>;
 			status = "disabled";
+			power-domains = <&ps_disp0_cpu0>;
 		};
 	};
 
