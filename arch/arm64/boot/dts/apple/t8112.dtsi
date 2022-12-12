@@ -544,6 +544,7 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 553 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_disp0_cpu0>;
 			status = "disabled";
 		};
 
@@ -553,6 +554,7 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 553 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_disp0_cpu0>;
 		};
 
 		dcp_mbox: mbox@231c08000 {
