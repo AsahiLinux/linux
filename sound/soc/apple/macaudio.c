@@ -527,7 +527,7 @@ static int macaudio_fe_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (!be) {
-		dev_err(rtd->dev, "opening PCM device '%s' with no audio route configured (bad settings applied to the sound card)\n",
+		dev_err(rtd->dev, "opening PCM device '%s' with no audio route configured by the user\n",
 				rtd->dai_link->name);
 		return -EINVAL;
 	}
