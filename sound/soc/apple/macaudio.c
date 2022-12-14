@@ -57,6 +57,7 @@ struct macaudio_snd_data {
 	struct macaudio_link_props {
 		/* frontend props */
 		unsigned int bclk_ratio;
+		bool is_sense;
 
 		/* backend props */
 		bool is_speakers;
@@ -79,6 +80,11 @@ SND_SOC_DAILINK_DEFS(primary,
 
 SND_SOC_DAILINK_DEFS(secondary,
 	DAILINK_COMP_ARRAY(COMP_CPU("mca-pcm-1")), // CPU
+	DAILINK_COMP_ARRAY(COMP_DUMMY()), // CODEC
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+
+SND_SOC_DAILINK_DEFS(sense,
+	DAILINK_COMP_ARRAY(COMP_CPU("mca-pcm-2")), // CPU
 	DAILINK_COMP_ARRAY(COMP_DUMMY()), // CODEC
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
@@ -105,6 +111,17 @@ static struct snd_soc_dai_link macaudio_fe_links[] = {
 		.dpcm_merged_format = 1,
 		.dai_fmt = MACAUDIO_DAI_FMT,
 		SND_SOC_DAILINK_REG(secondary),
+	},
+	{
+		.name = "Speaker Sense",
+		.stream_name = "Speaker Sense",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.dai_fmt = (SND_SOC_DAIFMT_I2S | \
+					SND_SOC_DAIFMT_CBP_CFP | \
+					SND_SOC_DAIFMT_GATED | \
+					SND_SOC_DAIFMT_IB_IF),
+		SND_SOC_DAILINK_REG(sense),
 	},
 };
 
@@ -133,6 +150,9 @@ static struct macaudio_link_props macaudio_fe_link_props[] = {
 		 * those fancy speaker arrays.
 		 */
 		.bclk_ratio = 256,
+	},
+	{
+		.is_sense = 1,
 	}
 };
 
@@ -626,6 +646,9 @@ static int macaudio_fe_init(struct snd_soc_pcm_runtime *rtd)
 	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
 	int nslots = props->bclk_ratio / MACAUDIO_SLOTWIDTH;
 
+	if (props->is_sense)
+		return snd_soc_dai_set_tdm_slot(snd_soc_rtd_to_cpu(rtd, 0), 0, 0xffff, 16, 16);
+
 	return snd_soc_dai_set_tdm_slot(snd_soc_rtd_to_cpu(rtd, 0), (1 << nslots) - 1,
 					(1 << nslots) - 1, nslots, MACAUDIO_SLOTWIDTH);
 }
@@ -684,6 +707,13 @@ static int macaudio_add_backend_dai_route(struct snd_soc_card *card, struct snd_
 		r = &routes[nroutes++];
 		r->source = dai->stream[SNDRV_PCM_STREAM_CAPTURE].widget->name;
 		r->sink = "Headset Capture";
+	}
+
+	/* If speakers, add sense capture path */
+	if (is_speakers) {
+		r = &routes[nroutes++];
+		r->source = dai->stream[SNDRV_PCM_STREAM_CAPTURE].widget->name;
+		r->sink = "Speaker Sense Capture";
 	}
 
 	ret = snd_soc_dapm_add_routes(&card->dapm, routes, nroutes);
@@ -929,6 +959,7 @@ static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("Headphone Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_AIF_IN("Headset Capture", NULL, 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("Speaker Sense Capture", NULL, 0, SND_SOC_NOPM, 0, 0),
 };
 
 static const struct snd_kcontrol_new macaudio_controls[] = {
@@ -952,6 +983,9 @@ static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
 
 	/* Capture paths */
 	{ "PCM0 RX", NULL, "Headset Capture" },
+
+	/* Sense paths */
+	{ "PCM2 RX", NULL, "Speaker Sense Capture" },
 };
 
 static const struct of_device_id macaudio_snd_device_id[]  = {
