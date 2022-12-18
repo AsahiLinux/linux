@@ -72,25 +72,19 @@ static int tas2770_codec_suspend(struct snd_soc_component *component)
 	struct tas2770_priv *tas2770 = snd_soc_component_get_drvdata(component);
 	int ret = 0;
 
+	ret = snd_soc_component_update_bits(component, TAS2770_PWR_CTRL,
+					    TAS2770_PWR_CTRL_MASK,
+					    TAS2770_PWR_CTRL_SHUTDOWN);
+	if (ret < 0)
+		return ret;
+
+	if (tas2770->sdz_gpio)
+		gpiod_set_value_cansleep(tas2770->sdz_gpio, 0);
+
 	regcache_cache_only(tas2770->regmap, true);
 	regcache_mark_dirty(tas2770->regmap);
 
-	if (tas2770->sdz_gpio) {
-		gpiod_set_value_cansleep(tas2770->sdz_gpio, 0);
-	} else {
-		ret = snd_soc_component_update_bits(component, TAS2770_PWR_CTRL,
-						    TAS2770_PWR_CTRL_MASK,
-						    TAS2770_PWR_CTRL_SHUTDOWN);
-		if (ret < 0) {
-			regcache_cache_only(tas2770->regmap, false);
-			regcache_sync(tas2770->regmap);
-			return ret;
-		}
-
-		ret = 0;
-	}
-
-	return ret;
+	return 0;
 }
 
 static int tas2770_codec_resume(struct snd_soc_component *component)
@@ -101,15 +95,19 @@ static int tas2770_codec_resume(struct snd_soc_component *component)
 	if (tas2770->sdz_gpio) {
 		gpiod_set_value_cansleep(tas2770->sdz_gpio, 1);
 		usleep_range(1000, 2000);
-	} else {
-		ret = tas2770_update_pwr_ctrl(tas2770);
-		if (ret < 0)
-			return ret;
 	}
 
 	regcache_cache_only(tas2770->regmap, false);
 
-	return regcache_sync(tas2770->regmap);
+	ret = regcache_sync(tas2770->regmap);
+	if (ret < 0)
+		return ret;
+
+	ret = tas2770_update_pwr_ctrl(tas2770);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 #else
 #define tas2770_codec_suspend NULL
