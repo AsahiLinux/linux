@@ -164,14 +164,17 @@ static int tas2764_codec_resume(struct snd_soc_component *component)
 		usleep_range(1000, 2000);
 	}
 
-	ret = tas2764_update_pwr_ctrl(tas2764);
+	regcache_cache_only(tas2764->regmap, false);
 
+	ret = regcache_sync(tas2764->regmap);
 	if (ret < 0)
 		return ret;
 
-	regcache_cache_only(tas2764->regmap, false);
+	ret = tas2764_update_pwr_ctrl(tas2764);
+	if (ret < 0)
+		return ret;
 
-	return regcache_sync(tas2764->regmap);
+	return 0;
 }
 #else
 #define tas2764_codec_suspend NULL
