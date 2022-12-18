@@ -78,9 +78,6 @@ static int tas2770_codec_suspend(struct snd_soc_component *component)
 	if (ret < 0)
 		return ret;
 
-	if (tas2770->sdz_gpio)
-		gpiod_set_value_cansleep(tas2770->sdz_gpio, 0);
-
 	regcache_cache_only(tas2770->regmap, true);
 	regcache_mark_dirty(tas2770->regmap);
 
@@ -91,11 +88,6 @@ static int tas2770_codec_resume(struct snd_soc_component *component)
 {
 	struct tas2770_priv *tas2770 = snd_soc_component_get_drvdata(component);
 	int ret;
-
-	if (tas2770->sdz_gpio) {
-		gpiod_set_value_cansleep(tas2770->sdz_gpio, 1);
-		usleep_range(1000, 2000);
-	}
 
 	regcache_cache_only(tas2770->regmap, false);
 
@@ -619,6 +611,38 @@ static const struct regmap_config tas2770_i2c_regmap = {
 	.max_register = 1 * 128,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int tas2770_i2c_suspend(struct device *dev)
+{
+	struct tas2770_priv *tas2770;
+
+	tas2770 = dev_get_drvdata(dev);
+
+	if (tas2770->sdz_gpio)
+		gpiod_set_value_cansleep(tas2770->sdz_gpio, 0);
+
+	return 0;
+}
+
+static int tas2770_i2c_resume(struct device *dev)
+{
+	struct tas2770_priv *tas2770;
+
+	tas2770 = dev_get_drvdata(dev);
+
+	if (tas2770->sdz_gpio) {
+		gpiod_set_value_cansleep(tas2770->sdz_gpio, 1);
+		usleep_range(1000, 2000);
+	}
+
+	return 0;
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static const struct dev_pm_ops tas2770_i2c_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(tas2770_i2c_suspend, tas2770_i2c_resume)
+};
+
 static int tas2770_parse_dt(struct device *dev, struct tas2770_priv *tas2770)
 {
 	int rc = 0;
@@ -717,6 +741,7 @@ static struct i2c_driver tas2770_i2c_driver = {
 	.driver = {
 		.name   = "tas2770",
 		.of_match_table = of_match_ptr(tas2770_of_match),
+		.pm = &tas2770_i2c_pm_ops,
 	},
 	.probe_new  = tas2770_i2c_probe,
 	.id_table   = tas2770_i2c_id,
