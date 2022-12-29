@@ -570,12 +570,12 @@
 			clocks = <&clk_disp0>;
 			apple,asc-dram-mask = <0xf 0x00000000>;
 			apple,piodma-mapper = <&disp0_piodma>;
+			phandle = <&dcp>;
 		};
 
 		display: display-subsystem {
 			compatible = "apple,display-subsystem";
 			iommus = <&disp0_dart 0>;
-			apple,coprocessors = <&dcp>;
 			/* generate phandle explicitly for use in loader */
 			phandle = <&display>;
 		};
