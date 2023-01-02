@@ -974,6 +974,12 @@ struct apple_rtkit *devm_apple_rtkit_init(struct device *dev, void *cookie,
 }
 EXPORT_SYMBOL_GPL(devm_apple_rtkit_init);
 
+void devm_apple_rtkit_free(struct device *dev, struct apple_rtkit *rtk)
+{
+	devm_release_action(dev, apple_rtkit_free_wrapper, rtk);
+}
+EXPORT_SYMBOL_GPL(devm_apple_rtkit_free);
+
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("Sven Peter <sven@svenpeter.dev>");
 MODULE_DESCRIPTION("Apple RTKit driver");
