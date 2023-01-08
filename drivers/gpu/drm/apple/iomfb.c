@@ -1331,9 +1331,14 @@ bool (*const dcpep_cb_handlers[DCPEP_MAX_CB])(struct apple_dcp *, int, void *,
 	[576] = trampoline_hotplug,
 	[577] = trampoline_nop, /* powerstate_notify */
 	[582] = trampoline_true, /* create_default_fb_surface */
+	[584] = trampoline_nop, /* IOMobileFramebufferAP::clear_default_surface */
+	[588] = trampoline_nop, /* resize_default_fb_surface_gated */
 	[589] = trampoline_swap_complete,
 	[591] = trampoline_swap_complete_intent_gated,
 	[593] = trampoline_enable_backlight_message_ap_gated,
+	[594] = trampoline_nop, /* IOMobileFramebufferAP::setSystemConsoleMode */
+	[596] = trampoline_false, /* IOMobileFramebufferAP::isDFBAllocated */
+	[597] = trampoline_false, /* IOMobileFramebufferAP::preserveContents */
 	[598] = trampoline_nop, /* find_swap_function_gated */
 };
 
