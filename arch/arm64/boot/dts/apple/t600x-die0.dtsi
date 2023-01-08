@@ -219,6 +219,7 @@
 			<0x3 0x8b800000 0x0 0x800000>,
 			<0x2 0x8e3d0000 0x0 0x4000>;
 		power-domains = <&ps_disp0_cpu0>;
+		resets = <&ps_disp0_cpu0>;
 		clocks = <&clk_disp0>;
 		apple,asc-dram-mask = <0x1f0 0x00000000>;
 		apple,piodma-mapper = <&disp0_piodma>;
