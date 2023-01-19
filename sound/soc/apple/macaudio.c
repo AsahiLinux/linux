@@ -499,7 +499,11 @@ static int macaudio_fe_startup(struct snd_pcm_substream *substream)
 
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
+	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
 	int ret;
+
+	if (props->is_sense)
+		return 0;
 
 	/* The FEs must never have more channels than the hardware */
 	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
