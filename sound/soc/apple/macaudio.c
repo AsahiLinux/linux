@@ -206,12 +206,14 @@ static int macaudio_parse_of_be_dai_link(struct macaudio_snd_data *ma,
 	for_each_link_codecs(link, i, comp) {
 		ret = macaudio_parse_of_component(codec, codec_base + i, comp);
 		if (ret)
-			return ret;
+			return dev_err_probe(ma->card.dev, ret, "parsing CODEC DAI of link '%s' at %pOF\n",
+					     link->name, codec);
 	}
 
 	ret = macaudio_parse_of_component(cpu, be_index, link->cpus);
 	if (ret)
-		return ret;
+		return dev_err_probe(ma->card.dev, ret, "parsing CPU DAI of link '%s' at %pOF\n",
+				     link->name, codec);
 
 	link->name = link->cpus[0].dai_name;
 
@@ -232,7 +234,7 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 	ret = snd_soc_of_parse_card_name(card, "model");
 	if (ret) {
-		dev_err(dev, "Error parsing card name: %d\n", ret);
+		dev_err_probe(dev, ret, "parsing card name\n");
 		return ret;
 	}
 
@@ -245,8 +247,8 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 		cpu = of_get_child_by_name(np, "cpu");
 		if (!cpu) {
-			dev_err(dev, "missing CPU DAI node at %pOF\n", np);
-			ret = -EINVAL;
+			ret = dev_err_probe(dev, -EINVAL,
+				"missing CPU DAI node at %pOF\n", np);
 			goto err_free;
 		}
 
@@ -254,8 +256,8 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 						"#sound-dai-cells");
 
 		if (num_cpus <= 0) {
-			dev_err(card->dev, "missing sound-dai property at %pOF\n", cpu);
-			ret = -EINVAL;
+			ret = dev_err_probe(card->dev, -EINVAL,
+				"missing sound-dai property at %pOF\n", cpu);
 			goto err_free;
 		}
 		of_node_put(cpu);
@@ -296,9 +298,11 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 		ret = of_property_read_string(np, "link-name", &link_name);
 		if (ret) {
-			dev_err(card->dev, "missing link name\n");
+			dev_err_probe(card->dev, ret, "missing link name\n");
 			goto err_free;
 		}
+
+		dev_dbg(ma->card.dev, "parsing link '%s'\n", link_name);
 
 		speakers = !strcmp(link_name, "Speaker")
 			   || !strcmp(link_name, "Speakers");
@@ -309,31 +313,34 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 		codec = of_get_child_by_name(np, "codec");
 
 		if (!codec || !cpu) {
-			dev_err(dev, "missing DAI specifications for '%s'\n", link_name);
-			ret = -EINVAL;
+			ret = dev_err_probe(dev, -EINVAL,
+				"missing DAI specifications for '%s'\n", link_name);
 			goto err_free;
 		}
 
 		num_bes = of_count_phandle_with_args(cpu, "sound-dai",
 						     "#sound-dai-cells");
 		if (num_bes <= 0) {
-			dev_err(card->dev, "missing sound-dai property at %pOF\n", cpu);
-			ret = -EINVAL;
+			ret = dev_err_probe(card->dev, -EINVAL,
+				"missing sound-dai property at %pOF\n", cpu);
 			goto err_free;
 		}
 
 		num_codecs = of_count_phandle_with_args(codec, "sound-dai",
 							"#sound-dai-cells");
 		if (num_codecs <= 0) {
-			dev_err(card->dev, "missing sound-dai property at %pOF\n", codec);
-			ret = -EINVAL;
+			ret = dev_err_probe(card->dev, -EINVAL,
+				"missing sound-dai property at %pOF\n", codec);
 			goto err_free;
 		}
 
+		dev_dbg(ma->card.dev, "link '%s': %d CPUs %d CODECs\n",
+			link_name, num_bes, num_codecs);
+
 		if (num_codecs % num_bes != 0) {
-			dev_err(card->dev, "bad combination of CODEC (%d) and CPU (%d) number at %pOF\n",
+			ret = dev_err_probe(card->dev, -EINVAL,
+				"bad combination of CODEC (%d) and CPU (%d) number at %pOF\n",
 				num_codecs, num_bes, np);
-			ret = -EINVAL;
 			goto err_free;
 		}
 
@@ -363,6 +370,13 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 		right_mask = left_mask << 1;
 
 		for (be_index = 0; be_index < num_bes; be_index++) {
+			/*
+			 * Set initial link name to be overwritten by a BE-specific
+			 * name later so that we can use at least use the provisional
+			 * name in error messages.
+			 */
+			link->name = link_name;
+
 			ret = macaudio_parse_of_be_dai_link(ma, link, be_index,
 							    ncodecs_per_cpu, cpu, codec);
 			if (ret)
@@ -994,7 +1008,7 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 
 	ret = macaudio_parse_of(data);
 	if (ret)
-		return dev_err_probe(&pdev->dev, ret, "failed OF parsing\n");
+		return ret;
 
 	for_each_card_prelinks(card, i, link) {
 		if (link->no_pcm) {
