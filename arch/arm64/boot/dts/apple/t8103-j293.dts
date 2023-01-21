@@ -28,6 +28,10 @@
 			default-state = "keep";
 		};
 	};
+
+	aliases {
+		touchbar0 = &touchbar0;
+	};
 };
 
 &dcp {
@@ -57,6 +61,26 @@
 
 &typec1 {
 	label = "USB-C Left-front";
+};
+
+&spi0 {
+	status = "okay";
+
+	touchbar0: touchbar@0 {
+		compatible = "apple,j293-touchbar",
+			"apple,z2-touchbar", "apple,z2-multitouch";
+		reg = <0>;
+		spi-max-frequency = <11500000>;
+		spi-cs-setup-delay-ns = <2000>;
+		spi-cs-hold-delay-ns = <2000>;
+		reset-gpios = <&pinctrl_ap 139 GPIO_ACTIVE_LOW>;
+		cs-gpios = <&pinctrl_ap 109 0>;
+		interrupts-extended = <&pinctrl_ap 194 IRQ_TYPE_EDGE_FALLING>;
+		firmware-name = "apple/dfrmtfw-j293.bin";
+		touchscreen-size-x = <23045>;
+		touchscreen-size-y = <640>;
+		label = "MacBookPro17,1 Touch Bar";
+	};
 };
 
 &spi3 {
