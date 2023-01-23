@@ -45,6 +45,15 @@
 				 SND_SOC_DAIFMT_IB_IF)
 #define MACAUDIO_JACK_MASK	(SND_JACK_HEADSET | SND_JACK_HEADPHONE)
 #define MACAUDIO_SLOTWIDTH	32
+/*
+ * Maximum BCLK frequency
+ *
+ * Codec maximums:
+ *  CS42L42  26.0 MHz
+ *  TAS2770  27.1 MHz
+ *  TAS2764  24.576 MHz
+ */
+#define MACAUDIO_MAX_BCLK_FREQ	24576000
 
 struct macaudio_snd_data {
 	struct snd_soc_card card;
@@ -500,19 +509,23 @@ static int macaudio_fe_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
 	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
-	int ret;
+	int max_rate, ret;
 
 	if (props->is_sense)
 		return 0;
 
-	/* The FEs must never have more channels than the hardware */
 	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
-					SNDRV_PCM_HW_PARAM_CHANNELS, 0, ma->max_channels);
-
-	if (ret < 0) {
-		dev_err(rtd->dev, "Failed to constrain FE %d! %d", rtd->dai_link->id, ret);
+					   SNDRV_PCM_HW_PARAM_CHANNELS,
+					   0, ma->max_channels);
+	if (ret < 0)
 		return ret;
-		}
+
+	max_rate = MACAUDIO_MAX_BCLK_FREQ / props->bclk_ratio;
+	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
+					   SNDRV_PCM_HW_PARAM_RATE,
+					   0, max_rate);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
