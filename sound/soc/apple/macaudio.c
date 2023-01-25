@@ -73,6 +73,9 @@ struct macaudio_snd_data {
 		bool is_headphones;
 		unsigned int tdm_mask;
 	} *link_props;
+
+	bool speakers_streaming;
+	struct snd_kcontrol *speakers_streaming_kctl;
 };
 
 static bool please_blow_up_my_speakers;
@@ -566,6 +569,36 @@ static void macaudio_dpcm_shutdown(struct snd_pcm_substream *substream)
 	}
 }
 
+static int macaudio_be_prepare(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
+	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
+
+	if (props->is_speakers) {
+		ma->speakers_streaming = true;
+		snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
+			       &ma->speakers_streaming_kctl->id);
+	}
+
+	return 0;
+}
+
+static int macaudio_be_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
+	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
+
+	if (props->is_speakers) {
+		ma->speakers_streaming = false;
+		snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
+			       &ma->speakers_streaming_kctl->id);
+	}
+
+	return 0;
+}
+
 static const struct snd_soc_ops macaudio_fe_ops = {
 	.startup	= macaudio_fe_startup,
 	.shutdown	= macaudio_dpcm_shutdown,
@@ -573,6 +606,8 @@ static const struct snd_soc_ops macaudio_fe_ops = {
 };
 
 static const struct snd_soc_ops macaudio_be_ops = {
+	.prepare	= macaudio_be_prepare,
+	.hw_free	= macaudio_be_hw_free,
 	.shutdown	= macaudio_dpcm_shutdown,
 	.hw_params	= macaudio_dpcm_hw_params,
 };
@@ -803,6 +838,8 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 		}
 	}
 
+	ma->speakers_streaming_kctl = snd_soc_card_get_kcontrol(card, "Speakers Up Indicator");
+
 	return 0;
 }
 
@@ -976,10 +1013,42 @@ static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("Speaker Sense Capture", NULL, 0, SND_SOC_NOPM, 0, 0),
 };
 
+static int macaudio_sss_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+
+	return 0;
+}
+
+static int macaudio_sss_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *uvalue)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	/*
+	 * TODO: Check if any locking is in order here. I would
+	 * assume there is some ALSA-level lock, but DAPM implementations
+	 * of kcontrol ops do explicit locking, so look into it.
+	 */
+	uvalue->value.integer.value[0] = ma->speakers_streaming;
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new macaudio_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Speaker"),
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			SNDRV_CTL_ELEM_ACCESS_VOLATILE,
+		.name = "Speakers Up Indicator",
+		.info = macaudio_sss_info, .get = macaudio_sss_get,
+	},
 };
 
 static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
