@@ -1,0 +1,150 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple Mac mini (M2, 2023)
+ *
+ * target-type: J473
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t8112.dtsi"
+#include "t8112-jxxx.dtsi"
+
+/ {
+	compatible = "apple,j473", "apple,t8112", "apple,arm-platform";
+	model = "Apple Mac mini (M3, 2023)";
+
+	aliases {
+		ethernet0 = &ethernet0;
+	};
+};
+
+/*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Back-left";
+};
+
+&typec1 {
+	label = "USB-C Back-right";
+};
+
+/*
+ * Force the bus number assignments so that we can declare some of the
+ * on-board devices and properties that are populated by the bootloader
+ * (such as MAC addresses).
+ */
+&port00 {
+	bus-range = <1 1>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
+	wifi0: wifi@0,0 {
+		compatible = "pci14e4,4433";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 10];
+		apple,antenna-sku = "XX";
+	brcm,board-type = "apple,miyake";
+	};
+
+	bluetooth0: network@0,1 {
+		compatible = "pci14e4,5f71";
+		reg = <0x10100 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-bd-address = [00 00 00 00 00 00];
+	brcm,board-type = "apple,miyake";
+	};
+};
+
+&port01 {
+	bus-range = <2 2>;
+	pwren-gpios = <&smc_gpio 24 GPIO_ACTIVE_HIGH>;
+};
+
+&port02 {
+	bus-range = <3 3>;
+	ethernet0: ethernet@0,0 {
+		reg = <0x30000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 00];
+	};
+};
+
+&pcie1_dart {
+	status = "okay";
+};
+
+&pcie2_dart {
+	status = "okay";
+};
+
+/*
+ * Remove unused PCIe port
+ */
+
+/delete-node/ &port03;
+
+&i2c1 {
+	status = "okay";
+
+	speaker_amp: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		shutdown-gpios = <&pinctrl_ap 88 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	jack_codec: codec@48 {
+		compatible = "cirrus,cs42l83";
+		reg = <0x48>;
+		reset-gpios = <&pinctrl_nub 12 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <149 IRQ_TYPE_LEVEL_LOW>;
+		#sound-dai-cells = <0>;
+		cirrus,ts-inv = <1>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+/ {
+	sound {
+		compatible = "apple,j274-macaudio", "apple,macaudio";
+		model = "Mac mini J274";
+
+		dai-link@0 {
+			link-name = "Speaker";
+
+			cpu {
+				sound-dai = <&mca 0>;
+			};
+			codec {
+				sound-dai = <&speaker_amp>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+
+	};
+};
+
+&gpu {
+	// apple,perf-base-pstate = <3>;
+};
