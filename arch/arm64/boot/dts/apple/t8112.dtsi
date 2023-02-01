@@ -845,8 +845,10 @@
 			};
 
 			pcie_pins: pcie-pins {
-				pinmux = <APPLE_PINMUX(162, 1)>;
-				// TODO: 3 more CLKREQs
+				pinmux = <APPLE_PINMUX(162, 1)>,
+					 <APPLE_PINMUX(163, 1)>,
+					 <APPLE_PINMUX(164, 1)>;
+				// TODO: 1 more CLKREQs
 			};
 		};
 
@@ -1400,6 +1402,36 @@
 			power-domains = <&ps_apcie_gp>;
 		};
 
+		pcie1_dart: iommu@682008000 {
+			compatible = "apple,t8112-dart", "apple,t8110-dart";
+			reg = <0x6 0x82008000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 785 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+			status = "disabled";
+		};
+
+		pcie2_dart: iommu@683008000 {
+			compatible = "apple,t8112-dart", "apple,t8110-dart";
+			reg = <0x6 0x83008000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 788 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+			status = "disabled";
+		};
+
+		pcie3_dart: iommu@684008000 {
+			compatible = "apple,t8112-dart", "apple,t8110-dart";
+			reg = <0x6 0x84008000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 791 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+			status = "disabled";
+		};
+
 		pcie0: pcie@690000000 {
 			compatible = "apple,t8112-pcie", "apple,pcie";
 			device_type = "pci";
@@ -1423,9 +1455,9 @@
 			msi-ranges = <&aic AIC_IRQ 793 IRQ_TYPE_EDGE_RISING 32>;
 
 			iommu-map = <0x100 &pcie0_dart 0 1>,
-				    <0x200 &pcie0_dart 1 1>,
-				    <0x300 &pcie0_dart 2 1>,
-				    <0x400 &pcie0_dart 3 1>;
+				    <0x200 &pcie1_dart 1 1>,
+				    <0x300 &pcie2_dart 2 1>,
+				    <0x400 &pcie3_dart 3 1>;
 			iommu-map-mask = <0xff00>;
 
 			bus-range = <0 4>;
@@ -1457,11 +1489,10 @@
 						<0 0 0 4 &port00 0 0 0 3>;
 			};
 
-			/* TODO: GPIOs unknown */
 			port01: pci@1,0 {
 				device_type = "pci";
 				reg = <0x800 0x0 0x0 0x0 0x0>;
-				//reset-gpios = <&pinctrl_ap 153 GPIO_ACTIVE_LOW>;
+				reset-gpios = <&pinctrl_ap 167 GPIO_ACTIVE_LOW>;
 
 				#address-cells = <3>;
 				#size-cells = <2>;
@@ -1480,7 +1511,7 @@
 			port02: pci@2,0 {
 				device_type = "pci";
 				reg = <0x1000 0x0 0x0 0x0 0x0>;
-				//reset-gpios = <&pinctrl_ap 33 GPIO_ACTIVE_LOW>;
+				reset-gpios = <&pinctrl_ap 168 GPIO_ACTIVE_LOW>;
 
 				#address-cells = <3>;
 				#size-cells = <2>;
@@ -1496,6 +1527,7 @@
 						<0 0 0 4 &port02 0 0 0 3>;
 			};
 
+			/* TODO: GPIO unknown */
 			port03: pci@3,0 {
 				device_type = "pci";
 				reg = <0x1800 0x0 0x0 0x0 0x0>;

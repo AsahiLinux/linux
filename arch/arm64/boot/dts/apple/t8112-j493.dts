@@ -71,7 +71,7 @@
 };
 
 /*
- * Remove unused PCIe ports and disable the associated DARTs.
+ * Remove unused PCIe ports
  */
 
 /delete-node/ &port01;
