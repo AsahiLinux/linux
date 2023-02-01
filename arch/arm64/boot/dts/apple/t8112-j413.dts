@@ -209,9 +209,35 @@
 	backlight = <&backlight>;
 };
 
+&mtp {
+	status = "okay";
+};
+&mtp_mbox{
+	status = "okay";
+};
+&mtp_dart {
+	status = "okay";
+};
+&mtp_dockchannel {
+	status = "okay";
+};
 &mtp_hid {
 	multi-touch {
+		apple,afe-reset-gpios = <&smc_gpio 8 GPIO_ACTIVE_LOW>;
 		firmware-name = "apple/tpmtfw-j413.bin";
+	};
+
+	keyboard {
+	};
+
+	stm {
+		apple,stm-reset-gpios = <&smc_gpio 24 GPIO_ACTIVE_LOW>;
+	};
+
+	actuator {
+	};
+
+	tp_accel {
 	};
 };
 
