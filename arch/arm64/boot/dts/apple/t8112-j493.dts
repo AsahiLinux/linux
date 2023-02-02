@@ -24,6 +24,7 @@
 	 */
 	aliases {
 		bluetooth0 = &bluetooth0;
+		keyboard = &keyboard;
 		touchbar0 = &touchbar0;
 		wifi0 = &wifi0;
 	};
@@ -145,6 +146,41 @@
 		touchscreen-size-x = <23045>;
 		touchscreen-size-y = <640>;
 		touchscreen-inverted-y;
+	};
+};
+
+&mtp {
+	status = "okay";
+};
+&mtp_mbox {
+	status = "okay";
+};
+&mtp_dart {
+	status = "okay";
+};
+&mtp_dockchannel {
+	status = "okay";
+};
+&mtp_hid {
+	apple,afe-reset-gpios = <&smc_gpio 8 GPIO_ACTIVE_LOW>;
+	apple,stm-reset-gpios = <&smc_gpio 24 GPIO_ACTIVE_LOW>;
+
+	multi-touch {
+		firmware-name = "apple/tpmtfw-j493.bin";
+	};
+
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+
+	actuator {
+	};
+
+	tp_accel {
 	};
 };
 
