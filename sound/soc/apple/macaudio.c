@@ -924,8 +924,10 @@ static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 		 * samples from the codecs back to us, disable the
 		 * controls.
 		 */
+#if 0
 		CHECK(snd_soc_deactivate_kctl, "* VSENSE Switch", 0);
 		CHECK(snd_soc_deactivate_kctl, "* ISENSE Switch", 0);
+#endif
 	}
 
 	return 0;
