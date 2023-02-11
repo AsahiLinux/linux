@@ -21,6 +21,7 @@
 #include "dma-mapping.c"
 #include "dma-resv.c"
 #include "drm.c"
+#include "drm_syncobj.c"
 #include "err.c"
 #include "fs.c"
 #include "io.c"
