@@ -64,6 +64,7 @@
 #endif
 #include "drm.c"
 #include "drm_gpuvm.c"
+#include "drm_syncobj.c"
 #include "err.c"
 #include "fs.c"
 #include "fwctl.c"
