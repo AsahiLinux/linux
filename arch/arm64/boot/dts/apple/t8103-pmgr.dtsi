@@ -234,7 +234,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "sio_cpu";
-		power-domains = <&ps_sio>;
+		power-domains = <&ps_sio &ps_uart_p &ps_spi_p &ps_dpa0>;
 	};
 
 	ps_fpwm0: power-controller@1d8 {
