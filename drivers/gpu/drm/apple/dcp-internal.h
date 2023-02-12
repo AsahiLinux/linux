@@ -17,6 +17,7 @@
 #define DCP_MAX_PLANES 2
 
 struct apple_dcp;
+struct apple_dcp_afkep;
 
 enum dcp_firmware_version {
 	DCP_FIRMWARE_UNKNOWN,

@@ -26,6 +26,7 @@
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
+#include "afk.h"
 #include "dcp.h"
 #include "dcp-internal.h"
 #include "iomfb.h"
