@@ -7,7 +7,9 @@
 #if !defined(_TRACE_DCP_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_DCP_H
 
+#include "afk.h"
 #include "dcp-internal.h"
+#include "parser.h"
 
 #include <linux/stringify.h>
 #include <linux/types.h>
@@ -22,6 +24,17 @@
 			 { HDCP_ENDPOINT, "hdcp" },                \
 			 { REMOTE_ALLOC_ENDPOINT, "remotealloc" }, \
 			 { IOMFB_ENDPOINT, "iomfb" })
+#define print_epic_type(etype)                                  \
+	__print_symbolic(etype, { EPIC_TYPE_NOTIFY, "notify" }, \
+			 { EPIC_TYPE_COMMAND, "command" },      \
+			 { EPIC_TYPE_REPLY, "reply" },          \
+			 { EPIC_TYPE_NOTIFY_ACK, "notify-ack" })
+
+#define print_epic_category(ecat)                             \
+	__print_symbolic(ecat, { EPIC_CAT_REPORT, "report" }, \
+			 { EPIC_CAT_NOTIFY, "notify" },       \
+			 { EPIC_CAT_REPLY, "reply" },         \
+			 { EPIC_CAT_COMMAND, "command" })
 
 TRACE_EVENT(dcp_recv_msg,
 	    TP_PROTO(struct apple_dcp *dcp, u8 endpoint, u64 message),
@@ -54,6 +67,103 @@ TRACE_EVENT(dcp_send_msg,
 	    TP_printk("%s: endpoint 0x%x (%s): will send message 0x%016llx",
 		      __get_str(devname), __entry->endpoint,
 		      show_dcp_endpoint(__entry->endpoint), __entry->message));
+
+TRACE_EVENT(
+	afk_getbuf, TP_PROTO(struct apple_dcp_afkep *ep, u16 size, u16 tag),
+	TP_ARGS(ep, size, tag),
+
+	TP_STRUCT__entry(__string(devname, dev_name(ep->dcp->dev))
+				 __field(u8, endpoint) __field(u16, size)
+					 __field(u16, tag)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->endpoint = ep->endpoint; __entry->size = size;
+		       __entry->tag = tag;),
+
+	TP_printk(
+		"%s: endpoint 0x%x (%s): get buffer with size 0x%x and tag 0x%x",
+		__get_str(devname), __entry->endpoint,
+		show_dcp_endpoint(__entry->endpoint), __entry->size,
+		__entry->tag));
+
+DECLARE_EVENT_CLASS(afk_rwptr_template,
+	    TP_PROTO(struct apple_dcp_afkep *ep, u32 rptr, u32 wptr),
+	    TP_ARGS(ep, rptr, wptr),
+
+	    TP_STRUCT__entry(__string(devname, dev_name(ep->dcp->dev))
+				     __field(u8, endpoint) __field(u32, rptr)
+					     __field(u32, wptr)),
+
+	    TP_fast_assign(__assign_str(devname);
+			   __entry->endpoint = ep->endpoint;
+			   __entry->rptr = rptr; __entry->wptr = wptr;),
+
+	    TP_printk("%s: endpoint 0x%x (%s): rptr 0x%x, wptr 0x%x",
+		      __get_str(devname), __entry->endpoint,
+		      show_dcp_endpoint(__entry->endpoint), __entry->rptr,
+		      __entry->wptr));
+
+DEFINE_EVENT(afk_rwptr_template, afk_recv_rwptr_pre,
+	TP_PROTO(struct apple_dcp_afkep *ep, u32 rptr, u32 wptr),
+	TP_ARGS(ep, rptr, wptr));
+DEFINE_EVENT(afk_rwptr_template, afk_recv_rwptr_post,
+	TP_PROTO(struct apple_dcp_afkep *ep, u32 rptr, u32 wptr),
+	TP_ARGS(ep, rptr, wptr));
+DEFINE_EVENT(afk_rwptr_template, afk_send_rwptr_pre,
+	TP_PROTO(struct apple_dcp_afkep *ep, u32 rptr, u32 wptr),
+	TP_ARGS(ep, rptr, wptr));
+DEFINE_EVENT(afk_rwptr_template, afk_send_rwptr_post,
+	TP_PROTO(struct apple_dcp_afkep *ep, u32 rptr, u32 wptr),
+	TP_ARGS(ep, rptr, wptr));
+
+TRACE_EVENT(
+	afk_recv_qe,
+	TP_PROTO(struct apple_dcp_afkep *ep, u32 rptr, u32 magic, u32 size),
+	TP_ARGS(ep, rptr, magic, size),
+
+	TP_STRUCT__entry(__string(devname, dev_name(ep->dcp->dev))
+				 __field(u8, endpoint) __field(u32, rptr)
+					 __field(u32, magic)
+						 __field(u32, size)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->endpoint = ep->endpoint; __entry->rptr = rptr;
+		       __entry->magic = magic; __entry->size = size;),
+
+	TP_printk("%s: endpoint 0x%x (%s): QE rptr 0x%x, magic 0x%x, size 0x%x",
+		  __get_str(devname), __entry->endpoint,
+		  show_dcp_endpoint(__entry->endpoint), __entry->rptr,
+		  __entry->magic, __entry->size));
+
+TRACE_EVENT(
+	afk_recv_handle,
+	TP_PROTO(struct apple_dcp_afkep *ep, u32 channel, u32 type,
+		 u32 data_size, struct epic_hdr *ehdr,
+		 struct epic_sub_hdr *eshdr),
+	TP_ARGS(ep, channel, type, data_size, ehdr, eshdr),
+
+	TP_STRUCT__entry(__string(devname, dev_name(ep->dcp->dev)) __field(
+		u8, endpoint) __field(u32, channel) __field(u32, type)
+				 __field(u32, data_size) __field(u8, category)
+					 __field(u16, subtype)
+						 __field(u16, tag)),
+
+	TP_fast_assign(__assign_str(devname);
+		       __entry->endpoint = ep->endpoint;
+		       __entry->channel = channel; __entry->type = type;
+		       __entry->data_size = data_size;
+		       __entry->category = eshdr->category,
+		       __entry->subtype = le16_to_cpu(eshdr->type),
+		       __entry->tag = le16_to_cpu(eshdr->tag)),
+
+	TP_printk(
+		"%s: endpoint 0x%x (%s): channel 0x%x, type 0x%x (%s), data_size 0x%x, category: 0x%x (%s), subtype: 0x%x, seq: 0x%x",
+		__get_str(devname), __entry->endpoint,
+		show_dcp_endpoint(__entry->endpoint), __entry->channel,
+		__entry->type, print_epic_type(__entry->type),
+		__entry->data_size, __entry->category,
+		print_epic_category(__entry->category), __entry->subtype,
+		__entry->tag));
 
 TRACE_EVENT(iomfb_callback,
 	    TP_PROTO(struct apple_dcp *dcp, int tag, const char *name),

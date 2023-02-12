@@ -31,7 +31,8 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 					 int height_mm, unsigned notch_height);
 int parse_display_attributes(struct dcp_parse_ctx *handle, int *width_mm,
 			     int *height_mm);
-
+int parse_epic_service_init(struct dcp_parse_ctx *handle, const char **name,
+			    const char **class, s64 *unit);
 
 struct dcp_sound_format_mask {
 	u64 formats;			/* SNDRV_PCM_FMTBIT_* */
