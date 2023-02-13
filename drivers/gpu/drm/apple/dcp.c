@@ -11,6 +11,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/iommu.h>
 #include <linux/jiffies.h>
+#include <linux/kconfig.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -44,6 +45,10 @@
 static bool show_notch;
 module_param(show_notch, bool, 0644);
 MODULE_PARM_DESC(show_notch, "Use the full display height and shows the notch");
+
+static bool noaudio;
+module_param(noaudio, bool, 0644);
+MODULE_PARM_DESC(noaudio, "Skip audio support");
 
 /* HACK: moved here to avoid circular dependency between apple_drv and dcp */
 void dcp_drm_crtc_vblank(struct apple_crtc *crtc)
@@ -118,6 +123,9 @@ static void dcp_recv_msg(void *cookie, u8 endpoint, u64 message)
 	switch (endpoint) {
 	case IOMFB_ENDPOINT:
 		return iomfb_recv_msg(dcp, message);
+	case AV_ENDPOINT:
+		afk_receive_message(dcp->avep, message);
+		return;
 	case SYSTEM_ENDPOINT:
 		afk_receive_message(dcp->systemep, message);
 		return;
@@ -362,6 +370,14 @@ int dcp_start(struct platform_device *pdev)
 	ret = systemep_init(dcp);
 	if (ret)
 		dev_warn(dcp->dev, "Failed to start system endpoint: %d\n", ret);
+
+#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
+	if (!noaudio) {
+		ret = avep_init(dcp);
+		if (ret)
+			dev_warn(dcp->dev, "Failed to start AV endpoint: %d", ret);
+	}
+#endif
 
 	if (dcp->phy && dcp->fw_compat >= DCP_FIRMWARE_V_13_5) {
 		ret = ibootep_init(dcp);

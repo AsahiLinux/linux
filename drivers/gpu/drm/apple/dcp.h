@@ -60,4 +60,6 @@ void iomfb_recv_msg(struct apple_dcp *dcp, u64 message);
 int systemep_init(struct apple_dcp *dcp);
 int dptxep_init(struct apple_dcp *dcp);
 int ibootep_init(struct apple_dcp *dcp);
+int avep_init(struct apple_dcp *dcp);
+
 #endif
