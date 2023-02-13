@@ -5,6 +5,7 @@ CFLAGS_trace.o = -I$(src)
 appledrm-y := apple_drv.o
 
 apple_dcp-y := afk.o dcp.o dcp_backlight.o dptxep.o iomfb.o parser.o systemep.o
+apple_dcp-$(CONFIG_DRM_APPLE_AUDIO) += av.o
 apple_dcp-y += connector.o
 apple_dcp-y += ibootep.o
 apple_dcp-y += iomfb_v12_3.o
