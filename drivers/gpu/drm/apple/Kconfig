@@ -20,3 +20,8 @@ config DRM_APPLE_AUDIO
 	depends on DRM_APPLE
 	depends on SND
 	select SND_PCM
+
+config DRM_APPLE_DEBUG
+	bool "Enable additional driver debugging"
+	depends on DRM_APPLE
+	depends on EXPERT # only for developers

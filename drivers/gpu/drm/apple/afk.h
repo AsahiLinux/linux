@@ -8,6 +8,7 @@
 #define _DRM_APPLE_DCP_AFK_H
 
 #include <linux/completion.h>
+#include <linux/kconfig.h>
 #include <linux/types.h>
 
 #include "dcp.h"
@@ -47,6 +48,11 @@ struct apple_epic_service {
 	bool enabled;
 
 	void *cookie;
+
+    struct {
+        struct dentry *entry;
+        u8 *scratch;
+    } debugfs;
 };
 
 enum epic_subtype;
@@ -174,6 +180,8 @@ struct apple_dcp_afkep {
 	const struct apple_epic_service_ops *ops;
 	struct apple_epic_service services[AFK_MAX_CHANNEL];
 	u32 num_channels;
+
+	struct dentry *debugfs_entry;
 };
 
 struct apple_dcp_afkep *afk_init(struct apple_dcp *dcp, u32 endpoint,

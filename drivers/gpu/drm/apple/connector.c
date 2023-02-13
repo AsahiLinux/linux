@@ -3,6 +3,7 @@
  * Copyright (C) The Asahi Linux Contributors
  */
 
+#include "linux/err.h"
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/seq_file.h>
@@ -77,6 +78,25 @@ CONNECTOR_DEBUGFS_ENTRY(timing, DCP_CHUNK_TIMING_ELELMENTS);
 CONNECTOR_DEBUGFS_ENTRY(display_attribs, DCP_CHUNK_DISPLAY_ATTRIBUTES);
 CONNECTOR_DEBUGFS_ENTRY(transport, DCP_CHUNK_TRANSPORT);
 
+static void dcp_afk_debugfs_root(struct platform_device *pdev, int ep, struct dentry *root)
+{
+#if IS_ENABLED(CONFIG_DRM_APPLE_DEBUG)
+	struct dentry *entry = NULL;
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	switch (ep) {
+	case AV_ENDPOINT:
+		entry = debugfs_create_dir("avep", root);
+		break;
+	default:
+		break;
+	}
+
+	if (!IS_ERR_OR_NULL(entry))
+		dcp->ep_debugfs[ep - 0x20] = entry;
+#endif
+}
+
 void apple_connector_debugfs_init(struct drm_connector *connector, struct dentry *root)
 {
 	struct apple_connector *apple_con = to_apple_connector(connector);
@@ -89,6 +109,15 @@ void apple_connector_debugfs_init(struct drm_connector *connector, struct dentry
                             &chunk_display_attribs_fops);
         debugfs_create_file("Transport", 0444, root, apple_con,
                             &chunk_transport_fops);
+
+	switch (connector->connector_type) {
+	case DRM_MODE_CONNECTOR_DisplayPort:
+	case DRM_MODE_CONNECTOR_HDMIA:
+		dcp_afk_debugfs_root(apple_con->dcp, AV_ENDPOINT, root);
+		break;
+	default:
+		break;
+	}
 }
 EXPORT_SYMBOL(apple_connector_debugfs_init);
 

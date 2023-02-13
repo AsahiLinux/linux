@@ -2,7 +2,9 @@
 /* Copyright 2022 Sven Peter <sven@svenpeter.dev> */
 
 #include <linux/bitfield.h>
+#include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/kconfig.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -181,6 +183,18 @@ static void afk_init_rxtx(struct apple_dcp_afkep *ep, u64 message,
 		afk_send(ep, FIELD_PREP(RBEP_TYPE, RBEP_START));
 }
 
+#if IS_ENABLED(CONFIG_DRM_APPLE_DEBUG)
+static void afk_populate_service_debugfs(struct apple_epic_service *srv);
+static void afk_remove_service_debugfs(struct apple_epic_service *srv);
+#else
+static void afk_populate_service_debugfs(struct apple_epic_service *srv)
+{
+}
+static void afk_remove_service_debugfs(struct apple_epic_service *srv)
+{
+}
+#endif
+
 static const struct apple_epic_service_ops *
 afk_match_service(struct apple_dcp_afkep *ep, const char *name)
 {
@@ -284,6 +298,9 @@ static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
 	ops->init(&ep->services[ch_idx], epic_name, epic_class, epic_unit);
 	dev_info(ep->dcp->dev, "AFK[ep:%02x]: new service %s on channel %d\n",
 		 ep->endpoint, service_name, channel);
+
+	afk_populate_service_debugfs(&ep->services[ch_idx]);
+
 free:
 	kfree(epic_name);
 	kfree(epic_class);
@@ -301,6 +318,8 @@ static void afk_recv_handle_teardown(struct apple_dcp_afkep *ep, u32 channel)
 			 ep->endpoint, channel);
 		return;
 	}
+
+	afk_remove_service_debugfs(service);
 
 	// TODO: think through what locking is necessary
 	spin_lock_irqsave(&service->lock, flags);
@@ -989,3 +1008,145 @@ out:
 	kfree(bfr);
 	return ret;
 }
+
+#if IS_ENABLED(CONFIG_DRM_APPLE_DEBUG)
+
+#define AFK_DEBUGFS_MAX_REPLY 8192
+
+static ssize_t service_call_write_file(struct file *file, const char __user *user_buf,
+				       size_t count, loff_t *ppos)
+{
+	struct apple_epic_service *srv = file->private_data;
+	void *buf;
+	int ret;
+	struct {
+		u32 group;
+		u32 command;
+	} call_info;
+
+	if (count < sizeof(call_info))
+		return -EINVAL;
+	if (!srv->debugfs.scratch) {
+		srv->debugfs.scratch = \
+			devm_kzalloc(srv->ep->dcp->dev, AFK_DEBUGFS_MAX_REPLY, GFP_KERNEL);
+		if (!srv->debugfs.scratch)
+			return -ENOMEM;
+	}
+
+	ret = copy_from_user(&call_info, user_buf, sizeof(call_info));
+	if (ret == sizeof(call_info))
+		return -EFAULT;
+	user_buf += sizeof(call_info);
+	count -= sizeof(call_info);
+
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	ret = copy_from_user(buf, user_buf, count);
+	if (ret == count) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	memset(srv->debugfs.scratch, 0, AFK_DEBUGFS_MAX_REPLY);
+	dma_mb();
+
+	ret = afk_service_call(srv, call_info.group, call_info.command, buf, count, 0,
+			       srv->debugfs.scratch, AFK_DEBUGFS_MAX_REPLY, 0);
+	kfree(buf);
+
+	if (ret < 0)
+		return ret;
+
+	return count + sizeof(call_info);
+}
+
+static ssize_t service_call_read_file(struct file *file, char __user *user_buf,
+				      size_t count, loff_t *ppos)
+{
+	struct apple_epic_service *srv = file->private_data;
+
+	if (!srv->debugfs.scratch)
+		return -EINVAL;
+
+	return simple_read_from_buffer(user_buf, count, ppos,
+				       srv->debugfs.scratch, AFK_DEBUGFS_MAX_REPLY);
+}
+
+static const struct file_operations service_call_fops = {
+	.open = simple_open,
+	.write = service_call_write_file,
+	.read = service_call_read_file,
+};
+
+static ssize_t service_raw_call_write_file(struct file *file, const char __user *user_buf,
+					   size_t count, loff_t *ppos)
+{
+	struct apple_epic_service *srv = file->private_data;
+	u32 retcode;
+	int ret;
+
+	if (!srv->debugfs.scratch) {
+		srv->debugfs.scratch = \
+			devm_kzalloc(srv->ep->dcp->dev, AFK_DEBUGFS_MAX_REPLY, GFP_KERNEL);
+		if (!srv->debugfs.scratch)
+			return -ENOMEM;
+	}
+
+	memset(srv->debugfs.scratch, 0, AFK_DEBUGFS_MAX_REPLY);
+	ret = copy_from_user(srv->debugfs.scratch, user_buf, count);
+	if (ret == count)
+		return -EFAULT;
+
+	ret = afk_send_command(srv, EPIC_SUBTYPE_STD_SERVICE, srv->debugfs.scratch, count,
+			       srv->debugfs.scratch, AFK_DEBUGFS_MAX_REPLY, &retcode);
+	if (ret < 0)
+		return ret;
+	if (retcode)
+		return -EINVAL;
+
+	return count;
+}
+
+static ssize_t service_raw_call_read_file(struct file *file, char __user *user_buf,
+					  size_t count, loff_t *ppos)
+{
+	struct apple_epic_service *srv = file->private_data;
+
+	if (!srv->debugfs.scratch)
+		return -EINVAL;
+
+	return simple_read_from_buffer(user_buf, count, ppos,
+				       srv->debugfs.scratch, AFK_DEBUGFS_MAX_REPLY);
+}
+
+static const struct file_operations service_raw_call_fops = {
+	.open = simple_open,
+	.write = service_raw_call_write_file,
+	.read = service_raw_call_read_file,
+};
+
+static void afk_populate_service_debugfs(struct apple_epic_service *srv)
+{
+	if (!srv->ep->debugfs_entry || !srv->ops)
+		return;
+
+	if (strcmp(srv->ops->name, "DCPAVAudioInterface") == 0) {
+		srv->debugfs.entry = debugfs_create_dir(srv->ops->name,
+							srv->ep->debugfs_entry);
+		debugfs_create_file("call", 0600, srv->debugfs.entry, srv,
+				&service_call_fops);
+		debugfs_create_file("raw_call", 0600, srv->debugfs.entry, srv,
+				&service_raw_call_fops);
+	}
+}
+
+static void afk_remove_service_debugfs(struct apple_epic_service *srv)
+{
+	if (srv->debugfs.entry) {
+		debugfs_remove_recursive(srv->debugfs.entry);
+		srv->debugfs.entry = NULL;
+	}
+}
+
+#endif
