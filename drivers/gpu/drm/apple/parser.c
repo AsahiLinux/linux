@@ -243,6 +243,9 @@ static int parse_dimension(struct dcp_parse_ctx *handle, struct dimension *dim)
 		else
 			skip(it.handle);
 
+		if (!IS_ERR_OR_NULL(key))
+			kfree(key);
+
 		if (ret)
 			return ret;
 	}
@@ -297,6 +300,9 @@ static int parse_color_modes(struct dcp_parse_ctx *handle, s64 *preferred_id)
 				ret = parse_int(it.handle, &cmode.score);
 			else
 				skip(it.handle);
+
+			if (!IS_ERR_OR_NULL(key))
+				kfree(key);
 
 			if (ret)
 				return ret;
@@ -380,6 +386,9 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 			ret = parse_int(it.handle, score);
 		else
 			skip(it.handle);
+
+		if (!IS_ERR_OR_NULL(key))
+			kfree(key);
 
 		if (ret)
 			return ret;
@@ -510,6 +519,9 @@ int parse_display_attributes(struct dcp_parse_ctx *handle, int *width_mm,
 			ret = parse_int(it.handle, &height_cm);
 		else
 			skip(it.handle);
+
+		if (!IS_ERR_OR_NULL(key))
+			kfree(key);
 
 		if (ret)
 			return ret;
