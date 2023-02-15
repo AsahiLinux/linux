@@ -291,6 +291,29 @@ TRACE_EVENT(iomfb_timing_mode,
 	    )
 );
 
+TRACE_EVENT(avep_sound_mode,
+	    TP_PROTO(struct apple_dcp *dcp, u32 rates, u64 formats, unsigned int nchans),
+	    TP_ARGS(dcp, rates, formats, nchans),
+	    TP_STRUCT__entry(
+			     __field(u64, dcp)
+			     __field(u32, rates)
+			     __field(u64, formats)
+			     __field(unsigned int, nchans)
+	    ),
+	    TP_fast_assign(
+			   __entry->dcp = (u64)dcp;
+			   __entry->rates = rates;
+			   __entry->formats = formats;
+			   __entry->nchans = nchans;
+	    ),
+	    TP_printk("dcp=%llx, rates=%#x, formats=%#llx, nchans=%#x",
+		      __entry->dcp,
+		      __entry->rates,
+		      __entry->formats,
+		      __entry->nchans
+	    )
+);
+
 #endif /* _TRACE_DCP_H */
 
 /* This part must be outside protection */
