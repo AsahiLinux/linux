@@ -117,6 +117,39 @@ static int skip(struct dcp_parse_ctx *handle)
 	}
 }
 
+static int skip_pair(struct dcp_parse_ctx *handle)
+{
+	int ret;
+
+	ret = skip(handle);
+	if (ret)
+		return ret;
+
+	return skip(handle);
+}
+
+static bool consume_string(struct dcp_parse_ctx *ctx, const char *specimen)
+{
+	struct dcp_parse_tag *tag;
+	const char *key;
+	ctx->pos = round_up(ctx->pos, 4);
+
+	if (ctx->pos + sizeof(*tag) + strlen(specimen) - 1 > ctx->len)
+		return false;
+	tag = ctx->blob + ctx->pos;
+	key = ctx->blob + ctx->pos + sizeof(*tag);
+	if (tag->padding)
+		return false;
+
+	if (tag->type != DCP_TYPE_STRING ||
+	    tag->size != strlen(specimen) ||
+	    strncmp(key, specimen, tag->size))
+		return false;
+
+	skip(ctx);
+	return true;
+}
+
 /* Caller must free the result */
 static char *parse_string(struct dcp_parse_ctx *handle)
 {
