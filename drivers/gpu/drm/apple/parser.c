@@ -229,7 +229,7 @@ static int parse_dimension(struct dcp_parse_ctx *handle, struct dimension *dim)
 		char *key = parse_string(it.handle);
 
 		if (IS_ERR(key))
-			ret = PTR_ERR(handle);
+			ret = PTR_ERR(key);
 		else if (!strcmp(key, "Active"))
 			ret = parse_int(it.handle, &dim->active);
 		else if (!strcmp(key, "Total"))
