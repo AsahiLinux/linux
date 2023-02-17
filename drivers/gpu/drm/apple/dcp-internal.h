@@ -11,6 +11,8 @@
 #include <linux/scatterlist.h>
 
 #include "iomfb.h"
+#include "iomfb_v12_3.h"
+#include "iomfb_v13_2.h"
 
 #define DCP_MAX_PLANES 2
 
@@ -19,6 +21,7 @@ struct apple_dcp;
 enum dcp_firmware_version {
 	DCP_FIRMWARE_UNKNOWN,
 	DCP_FIRMWARE_V_12_3,
+	DCP_FIRMWARE_V_13_2,
 };
 
 enum {
@@ -134,11 +137,17 @@ struct apple_dcp {
 	struct dcp_channel ch_cmd, ch_oobcmd;
 	struct dcp_channel ch_cb, ch_oobcb, ch_async;
 
+	/* iomfb EP callback handlers */
+	const iomfb_cb_handler *cb_handlers;
+
 	/* Active chunked transfer. There can only be one at a time. */
 	struct dcp_chunks chunks;
 
 	/* Queued swap. Owned by the DCP to avoid per-swap memory allocation */
-	struct dcp_swap_submit_req swap;
+	union {
+		struct dcp_swap_submit_req_v12_3 v12_3;
+		struct dcp_swap_submit_req_v13_2 v13_2;
+	} swap;
 
 	/* Current display mode */
 	bool valid_mode;
