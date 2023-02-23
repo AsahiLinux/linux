@@ -199,6 +199,26 @@ static int parse_bool(struct dcp_parse_ctx *handle, bool *b)
 	return 0;
 }
 
+static int parse_blob(struct dcp_parse_ctx *handle, size_t size, u8 **blob)
+{
+	struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_BLOB);
+	u8 *out;
+
+	if (IS_ERR(tag))
+		return PTR_ERR(tag);
+
+	if (tag->size < size)
+		return -EINVAL;
+
+	out = parse_bytes(handle, tag->size);
+
+	if (IS_ERR(out))
+		return PTR_ERR(out);
+
+	*blob = out;
+	return 0;
+}
+
 struct iterator {
 	struct dcp_parse_ctx *handle;
 	u32 idx, len;
