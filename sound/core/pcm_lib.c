@@ -1149,6 +1149,43 @@ static int snd_interval_step(struct snd_interval *i, unsigned int step)
 	return changed;
 }
 
+/**
+ * snd_interval_rate_bits - refine the rate interval from a rate bitmask
+ * @i: the rate interval to refine
+ * @mask: the rate bitmask
+ *
+ * Refines the interval value, assumed to be the sample rate, according to
+ * a bitmask of available rates (an ORed combination of SNDRV_PCM_RATE_*).
+ *
+ * Return: Positive if the value is changed, zero if it's not changed, or a
+ * negative error code.
+ */
+int snd_interval_rate_bits(struct snd_interval *i, unsigned int mask)
+{
+	unsigned int k;
+	struct snd_interval mask_range;
+
+	if (!mask)
+		return -EINVAL;
+
+	snd_interval_any(&mask_range);
+	mask_range.min = UINT_MAX;
+	mask_range.max = 0;
+	for (k = 0; k < snd_pcm_known_rates.count; k++) {
+		unsigned int rate = snd_pcm_known_rates.list[k];
+		if (!(mask & (1 << k)))
+			continue;
+
+		if (rate > mask_range.max)
+			mask_range.max = rate;
+
+		if (rate < mask_range.min)
+			mask_range.min = rate;
+	}
+	return snd_interval_refine(i, &mask_range);
+}
+EXPORT_SYMBOL(snd_interval_rate_bits);
+
 /* Info constraints helpers */
 
 /**
