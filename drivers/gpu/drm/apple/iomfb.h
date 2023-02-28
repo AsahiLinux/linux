@@ -211,7 +211,6 @@ enum dcpep_method {
 	dcpep_flush_supports_power,
 	dcpep_set_power_state,
 	dcpep_first_client_open,
-	dcpep_update_notify_clients_dcp,
 	dcpep_set_parameter_dcp,
 	dcpep_enable_disable_video_power_savings,
 	dcpep_is_main_display,
@@ -393,23 +392,6 @@ struct dcp_set_dcpav_prop_chunk_req {
 
 struct dcp_set_dcpav_prop_end_req {
 	char key[0x40];
-} __packed;
-
-struct dcp_update_notify_clients_dcp {
-	u32 client_0;
-	u32 client_1;
-	u32 client_2;
-	u32 client_3;
-	u32 client_4;
-	u32 client_5;
-	u32 client_6;
-	u32 client_7;
-	u32 client_8;
-	u32 client_9;
-	u32 client_a;
-	u32 client_b;
-	u32 client_c;
-	u32 client_d;
 } __packed;
 
 struct dcp_set_parameter_dcp {
