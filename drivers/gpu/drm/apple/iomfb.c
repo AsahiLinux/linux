@@ -171,7 +171,6 @@ static u8 dcp_pop_depth(u8 *depth)
 const struct dcp_method_entry dcp_methods[dcpep_num_methods] = {
 	DCP_METHOD("A000", dcpep_late_init_signal),
 	DCP_METHOD("A029", dcpep_setup_video_limits),
-	DCP_METHOD("A034", dcpep_update_notify_clients_dcp),
 	DCP_METHOD("A131", iomfbep_a131_pmu_service_matched),
 	DCP_METHOD("A132", iomfbep_a132_backlight_service_matched),
 	DCP_METHOD("A357", dcpep_set_create_dfb),
@@ -305,10 +304,6 @@ DCP_THUNK_OUT(dcp_start_signal, dcpep_start_signal, u32);
 DCP_THUNK_VOID(dcp_setup_video_limits, dcpep_setup_video_limits);
 DCP_THUNK_VOID(dcp_set_create_dfb, dcpep_set_create_dfb);
 DCP_THUNK_VOID(dcp_first_client_open, dcpep_first_client_open);
-
-__attribute__((unused))
-DCP_THUNK_IN(dcp_update_notify_clients_dcp, dcpep_update_notify_clients_dcp,
-	     struct dcp_update_notify_clients_dcp);
 
 DCP_THUNK_INOUT(dcp_set_parameter_dcp, dcpep_set_parameter_dcp,
 		struct dcp_set_parameter_dcp, u32);
