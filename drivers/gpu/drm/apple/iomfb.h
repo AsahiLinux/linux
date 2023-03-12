@@ -160,6 +160,7 @@ enum dcpep_method {
 	iomfbep_a358_vi_set_temperature_hint,
 	iomfbep_get_color_remap_mode,
 	iomfbep_last_client_close,
+	iomfbep_set_matrix,
 	dcpep_num_methods
 };
 
@@ -348,6 +349,17 @@ struct iomfb_last_client_close_req {
 
 struct iomfb_last_client_close_resp {
 	u32 unkint;
+} __packed;
+
+struct iomfb_set_matrix_req {
+	u32 location;
+	u64 matrix[9];
+	u8 matrix_null;
+	u8 padding[3];
+} __packed;
+
+struct iomfb_set_matrix_resp {
+	u32 ret;
 } __packed;
 
 #endif
