@@ -55,6 +55,7 @@ DCP_THUNK_OUT(iomfb_a131_pmu_service_matched, iomfbep_a131_pmu_service_matched, 
 DCP_THUNK_OUT(iomfb_a132_backlight_service_matched, iomfbep_a132_backlight_service_matched, u32);
 DCP_THUNK_OUT(iomfb_a358_vi_set_temperature_hint, iomfbep_a358_vi_set_temperature_hint, u32);
 
+IOMFB_THUNK_INOUT(set_matrix);
 IOMFB_THUNK_INOUT(get_color_remap_mode);
 IOMFB_THUNK_INOUT(last_client_close);
 
@@ -1285,7 +1286,15 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		dcp->brightness.update = false;
 	}
 
-	do_swap(dcp, NULL, NULL);
+	if (crtc_state->color_mgmt_changed && crtc_state->ctm) {
+		struct drm_color_ctm *ctm = (struct drm_color_ctm *)crtc_state->ctm->data;
+		struct iomfb_set_matrix_req mat = {
+			.location = 9,
+		};
+		memcpy(mat.matrix, ctm->matrix, sizeof(mat.matrix));
+		iomfb_set_matrix(dcp, false, &mat, do_swap, NULL);
+	} else
+		do_swap(dcp, NULL, NULL);
 }
 
 static void res_is_main_display(struct apple_dcp *dcp, void *out, void *cookie)
