@@ -181,6 +181,7 @@ const struct dcp_method_entry dcp_methods[dcpep_num_methods] = {
 	DCP_METHOD("A410", dcpep_set_display_device),
 	DCP_METHOD("A411", dcpep_is_main_display),
 	DCP_METHOD("A412", dcpep_set_digital_out_mode),
+	DCP_METHOD("A422", iomfbep_set_matrix),
 	DCP_METHOD("A426", iomfbep_get_color_remap_mode),
 	DCP_METHOD("A439", dcpep_set_parameter_dcp),
 	DCP_METHOD("A443", dcpep_create_default_fb),
@@ -277,6 +278,7 @@ DCP_THUNK_OUT(iomfb_a131_pmu_service_matched, iomfbep_a131_pmu_service_matched, 
 DCP_THUNK_OUT(iomfb_a132_backlight_service_matched, iomfbep_a132_backlight_service_matched, u32);
 DCP_THUNK_OUT(iomfb_a358_vi_set_temperature_hint, iomfbep_a358_vi_set_temperature_hint, u32);
 
+IOMFB_THUNK_INOUT(set_matrix);
 IOMFB_THUNK_INOUT(get_color_remap_mode);
 
 DCP_THUNK_INOUT(dcp_swap_submit, dcpep_swap_submit, struct dcp_swap_submit_req,
@@ -1792,7 +1794,24 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		dcp->brightness.update = false;
 	}
 
-	do_swap(dcp, NULL, NULL);
+	if (crtc_state->color_mgmt_changed && crtc_state->ctm) {
+		struct iomfb_set_matrix_req mat;
+		struct drm_color_ctm *ctm = (struct drm_color_ctm *)crtc_state->ctm->data;
+
+		mat.unk_u32 = 9;
+		mat.r[0] = ctm->matrix[0];
+		mat.r[1] = ctm->matrix[1];
+		mat.r[2] = ctm->matrix[2];
+		mat.g[0] = ctm->matrix[3];
+		mat.g[1] = ctm->matrix[4];
+		mat.g[2] = ctm->matrix[5];
+		mat.b[0] = ctm->matrix[6];
+		mat.b[1] = ctm->matrix[7];
+		mat.b[2] = ctm->matrix[8];
+
+		iomfb_set_matrix(dcp, false, &mat, do_swap, NULL);
+	} else
+		do_swap(dcp, NULL, NULL);
 }
 EXPORT_SYMBOL_GPL(dcp_flush);
 
