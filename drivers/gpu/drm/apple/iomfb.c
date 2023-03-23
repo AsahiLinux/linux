@@ -412,7 +412,6 @@ u32 drm_format_to_dcp(u32 drm)
 	case DRM_FORMAT_ABGR8888:
 		return fourcc_code('A', 'B', 'G', 'R');
 
-	case DRM_FORMAT_ARGB2101010:
 	case DRM_FORMAT_XRGB2101010:
 		return fourcc_code('r', '0', '3', 'w');
 	}
