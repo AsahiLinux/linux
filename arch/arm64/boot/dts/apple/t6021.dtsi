@@ -16,6 +16,13 @@
 
 #include "multi-die-cpp.h"
 
+#ifndef GPU_REPEAT
+# define GPU_REPEAT(x) <x x x x>
+#endif
+#ifndef GPU_DIE_REPEAT
+# define GPU_DIE_REPEAT(x) <x>
+#endif
+
 #include "t602x-common.dtsi"
 
 / {
@@ -65,7 +72,14 @@
 };
 
 &gpu {
-	compatible = "apple,agx-g14c", "apple,agx-g14s";
+	compatible = "apple,agx-t6021", "apple,agx-g14x", "apple,agx-g14c", "apple,agx-g14s";
+
+	apple,avg-power-filter-tc-ms = <300>;
+	apple,avg-power-ki-only = <1.5125>;
+	apple,avg-power-kp = <0.38>;
+	apple,fast-die0-integral-gain = <700.0>;
+	apple,ppm-filter-time-constant-ms = <34>;
+	apple,ppm-ki = <18.0>;
 };
 
 #include "hwmon-common.dtsi"

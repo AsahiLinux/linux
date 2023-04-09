@@ -31,6 +31,12 @@
 		reg-names = "fabric-ps", "dcs-ps";
 	};
 
+	pmgr_dcp: power-management@28e3d0000 {
+		reg = <0x2 0x8e3d0000 0x0 0x4000>;
+		reg-names = "dcp-fw-pmgr";
+		#apple,bw-scratch-cells = <3>;
+	};
+
 	nub_spmi0: spmi@29e114000 {
 		compatible = "apple,t6020-spmi", "apple,t8103-spmi";
 		reg = <0x2 0x9e114000 0x0 0x100>;
@@ -125,9 +131,9 @@
 		smc_reboot: reboot {
 			compatible = "apple,smc-reboot";
 			nvmem-cells = <&shutdown_flag>, <&boot_stage>,
-				<&boot_error_count>, <&panic_count>;
+				<&boot_error_count>, <&panic_count>, <&pm_setting>;
 			nvmem-cell-names = "shutdown_flag", "boot_stage",
-				"boot_error_count", "panic_count";
+				"boot_error_count", "panic_count", "pm_setting";
 		};
 
 		smc_hwmon: hwmon {
@@ -160,6 +166,73 @@
 				<AIC_IRQ 0 855 IRQ_TYPE_LEVEL_HIGH>,
 				<AIC_IRQ 0 856 IRQ_TYPE_LEVEL_HIGH>,
 				<AIC_IRQ 0 857 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	disp0_dart: iommu@389304000 {
+		compatible = "apple,t6020-dart", "apple,t8110-dart";
+		reg = <0x3 0x89304000 0x0 0x4000>;
+		#iommu-cells = <5>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 911 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+		power-domains = <&ps_disp0_cpu0>;
+	};
+
+	dcp_dart: iommu@38930c000 {
+		compatible = "apple,t6020-dart", "apple,t8110-dart";
+		reg = <0x3 0x8930c000 0x0 0x4000>;
+		#iommu-cells = <5>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 911 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_disp0_cpu0>;
+	};
+
+	dcp_mbox: mbox@389c08000 {
+		compatible = "apple,t6020-asc-mailbox", "apple,asc-mailbox-v4";
+		reg = <0x3 0x89c08000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 932 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 933 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 934 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 935 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "send-empty", "send-not-empty",
+			"recv-empty", "recv-not-empty";
+		#mbox-cells = <0>;
+		power-domains = <&ps_disp0_cpu0>;
+	};
+
+	dcp: dcp@389c00000 {
+		compatible = "apple,t6020-dcp", "apple,dcp";
+		mboxes = <&dcp_mbox>;
+		mbox-names = "mbox";
+		iommus = <&dcp_dart 5 0x100 0x0 0x10 0x0>;
+
+		reg-names = "coproc", "disp-0", "disp-1", "disp-2", "disp-3";
+		reg = <0x3 0x89c00000 0x0 0x4000>, // check?
+			<0x3 0x88000000 0x0 0x61c000>,
+			<0x3 0x89320000 0x0 0x4000>,
+			<0x3 0x89344000 0x0 0x4000>,
+			<0x3 0x89800000 0x0 0x800000>;
+		apple,bw-scratch = <&pmgr_dcp 0 4 0x1208>;
+		power-domains = <&ps_disp0_cpu0>;
+		resets = <&ps_disp0_cpu0>;
+		clocks = <&clk_disp0>;
+		phandle = <&dcp>;
+		// required bus properties for 'piodma' subdevice
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		disp0_piodma: piodma {
+			iommus = <&disp0_dart 4 0x100 0x0 0x10 0x0>;
+			phandle = <&disp0_piodma>;
+		};
+	};
+
+	display: display-subsystem {
+		compatible = "apple,display-subsystem";
+		iommus = <&disp0_dart 0 0x100 0x0 0x10 0x0>;
+		/* generate phandle explicitly for use in loader */
+		phandle = <&display>;
 	};
 
 	sio_dart: iommu@39b008000 {
@@ -406,6 +479,14 @@
 		reg = <0x4 0x6400000 0 0x40000>,
 			<0x4 0x4000000 0 0x1000000>;
 		reg-names = "asc", "sgx";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 1127 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 1128 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 1129 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 1130 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 1147 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 1149 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 1142 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&agx_mbox>;
 		power-domains = <&ps_gfx>;
 		memory-region = <&uat_ttbs>, <&uat_pagetables>, <&uat_handoff>,
@@ -414,6 +495,55 @@
 				      "hw-cal-a", "hw-cal-b", "globals";
 
 		apple,firmware-abi = <0 0 0>;
+		apple,firmware-version = <0 0 0>;
+		apple,firmware-compat = <0 0 0>;
+
+		operating-points-v2 = <&gpu_opp>;
+		apple,cs-opp = <&gpu_cs_opp>;
+		apple,afr-opp = <&gpu_afr_opp>;
+
+		apple,min-sram-microvolt = <790000>;
+		apple,csafr-min-sram-microvolt = <812000>;
+		apple,perf-base-pstate = <1>;
+
+		apple,avg-power-min-duty-cycle = <40>;
+		apple,avg-power-target-filter-tc = <1>;
+		apple,fast-die0-proportional-gain = <34.0>;
+		apple,perf-boost-ce-step = <50>;
+		apple,perf-boost-min-util = <90>;
+		apple,perf-filter-drop-threshold = <0>;
+		apple,perf-filter-time-constant = <5>;
+		apple,perf-filter-time-constant2 = <200>;
+		apple,perf-integral-gain = <1.62>;
+		apple,perf-integral-gain2 = <1.62>;
+		apple,perf-integral-min-clamp = <0>;
+		apple,perf-proportional-gain2 = <5.4>;
+		apple,perf-proportional-gain = <5.4>;
+		apple,perf-tgt-utilization = <85>;
+		apple,power-sample-period = <8>;
+		apple,ppm-filter-time-constant-ms = <34>;
+		apple,ppm-ki = <18.0>;
+		apple,ppm-kp = <0.1>;
+		apple,pwr-filter-time-constant = <313>;
+		apple,pwr-integral-gain = <0.0202129>;
+		apple,pwr-integral-min-clamp = <0>;
+		apple,pwr-min-duty-cycle = <40>;
+		apple,pwr-proportional-gain = <5.2831855>;
+		apple,pwr-sample-period-aic-clks = <200000>;
+		apple,se-engagement-criteria = <700>;
+		apple,se-filter-time-constant = <9>;
+		apple,se-filter-time-constant-1 = <3>;
+		apple,se-inactive-threshold = <2500>;
+		apple,se-ki = <-50.0>;
+		apple,se-ki-1 = <-100.0>;
+		apple,se-kp = <-5.0>;
+		apple,se-kp-1 = <-10.0>;
+		apple,se-reset-criteria = <50>;
+
+		apple,core-leak-coef = GPU_REPEAT(1200.0);
+		apple,sram-leak-coef = GPU_REPEAT(20.0);
+		apple,cs-leak-coef = GPU_DIE_REPEAT(400.0);
+		apple,afr-leak-coef = GPU_DIE_REPEAT(200.0);
 	};
 
 	agx_mbox: mbox@406408000 {
@@ -472,6 +602,8 @@
 		power-domains = <&ps_apcie_gp_sys>;
 		pinctrl-0 = <&pcie_pins>;
 		pinctrl-names = "default";
+
+		dma-coherent;
 
 		port00: pci@0,0 {
 			device_type = "pci";

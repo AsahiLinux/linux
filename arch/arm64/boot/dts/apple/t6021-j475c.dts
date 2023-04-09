@@ -29,11 +29,41 @@
 
 /* enable PCIe port01 with SDHCI */
 &port01 {
+	pwren-gpios = <&smc_gpio 22 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };
 
 &pcie0_dart_1 {
 	status = "okay";
+};
+
+&pinctrl_ap {
+	usb_hub_oe-hog {
+		gpio-hog;
+		gpios = <231 0>;
+		input;
+		line-name = "usb-hub-oe";
+	};
+
+	usb_hub_rst-hog {
+		gpio-hog;
+		gpios = <232 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "usb-hub-rst";
+	};
+};
+
+&sound {
+	compatible = "apple,j475-macaudio", "apple,j375-macaudio", "apple,macaudio";
+	model = "Mac Studio J475";
+};
+
+&gpu {
+	apple,idleoff-standby-timer = <3000>;
+	apple,perf-base-pstate = <5>;
+	apple,perf-boost-ce-step = <100>;
+	apple,perf-boost-min-util = <75>;
+	apple,perf-tgt-utilization = <70>;
 };
 
 #include "hwmon-fan-dual.dtsi"

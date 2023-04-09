@@ -387,6 +387,134 @@
 		};
 	};
 
+	gpu_opp: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <0>;
+			opp-microvolt = GPU_REPEAT(400000);
+			opp-microwatt = <0>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <444000000>;
+			opp-microvolt = GPU_REPEAT(637000);
+			opp-microwatt = <4295000>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <612000000>;
+			opp-microvolt = GPU_REPEAT(656000);
+			opp-microwatt = <6251000>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <808000000>;
+			opp-microvolt = GPU_REPEAT(687000);
+			opp-microwatt = <8625000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <968000000>;
+			opp-microvolt = GPU_REPEAT(725000);
+			opp-microwatt = <11948000>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1110000000>;
+			opp-microvolt = GPU_REPEAT(790000);
+			opp-microwatt = <15071000>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1236000000>;
+			opp-microvolt = GPU_REPEAT(843000);
+			opp-microwatt = <18891000>;
+		};
+		opp07 {
+			opp-hz = /bits/ 64 <1338000000>;
+			opp-microvolt = GPU_REPEAT(887000);
+			opp-microwatt = <21960000>;
+		};
+		opp08 {
+			opp-hz = /bits/ 64 <1398000000>;
+			opp-microvolt = GPU_REPEAT(918000);
+			opp-microwatt = <22800000>;
+		};
+	};
+
+	gpu_cs_opp: opp-table-gpu-cs {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <24>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <444000000>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <612000000>;
+			opp-microvolt = GPU_DIE_REPEAT(678000);
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <808000000>;
+			opp-microvolt = GPU_DIE_REPEAT(737000);
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <1024000000>;
+			opp-microvolt = GPU_DIE_REPEAT(815000);
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1140000000>;
+			opp-microvolt = GPU_DIE_REPEAT(862000);
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1236000000>;
+			opp-microvolt = GPU_DIE_REPEAT(893000);
+		};
+	};
+
+	gpu_afr_opp: opp-table-gpu-afr {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <24>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <552000000>;
+			opp-microvolt = GPU_DIE_REPEAT(678000);
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <760000000>;
+			opp-microvolt = GPU_DIE_REPEAT(737000);
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <980000000>;
+			opp-microvolt = GPU_DIE_REPEAT(815000);
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1098000000>;
+			opp-microvolt = GPU_DIE_REPEAT(862000);
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1200000000>;
+			opp-microvolt = GPU_DIE_REPEAT(893000);
+		};
+	};
+
 	pmu-e {
 		compatible = "apple,blizzard-pmu";
 		interrupt-parent = <&aic>;
@@ -423,6 +551,13 @@
 		clock-output-names = "clk_200m";
 	};
 
+	clk_disp0: clock-disp0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <257142848>; /* TODO: check */
+		clock-output-names = "clk_disp0";
+	};
+
 	/*
 	 * This is a fabulated representation of the input clock
 	 * to NCO since we don't know the true clock tree.
@@ -450,16 +585,16 @@
 			status = "disabled";
 		};
 
-		uat_handoff: uat-handoff {
-			status = "disabled";
+		uat_handoff: uat-handoff@10 {
+			reg = <0 0x10 0 0>;
 		};
 
-		uat_pagetables: uat-pagetables {
-			status = "disabled";
+		uat_pagetables: uat-pagetables@20 {
+			reg = <0 0x20 0 0>;
 		};
 
-		uat_ttbs: uat-ttbs {
-			status = "disabled";
+		uat_ttbs: uat-ttbs@30 {
+			reg = <0 0x30 0 0>;
 		};
 	};
 };

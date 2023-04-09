@@ -46,4 +46,26 @@
 			<0x300 &pcie0_dart_3 1 1>;
 };
 
+&port02 {
+	bus-range = <2 2>;
+};
+
+&ethernet0 {
+	reg = <0x20000 0x0 0x0 0x0 0x0>;
+};
+
+&port03 {
+	bus-range = <3 3>;
+};
+
+&sound {
+	compatible = "apple,j474-macaudio", "apple,j473-macaudio", "apple,macaudio";
+	model = "Mac mini J474";
+};
+
+&gpu {
+	/* Apple does not do this, but they probably should */
+	apple,perf-base-pstate = <3>;
+};
+
 #include "hwmon-mini.dtsi"

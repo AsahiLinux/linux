@@ -447,6 +447,7 @@
 		power-domains = <&DIE_NODE(ps_dispext0_sys)>;
 	};
 
+	/* PMP is only present on die 0 of the M2 Ultra */
 	DIE_NODE(ps_pmp): power-controller@2c8 {
 		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
 		reg = <0x2c8 4>;
@@ -1449,6 +1450,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(dptx_phy_ps);
+		apple,always-on;
 		power-domains = <&DIE_NODE(ps_sio)>;
 	};
 
@@ -1853,6 +1855,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_cpu);
 		/* power-domains = <&DIE_NODE(ps_isp_sys)>; */
+		apple,force-disable;
 	};
 
 	DIE_NODE(ps_isp_fe): power-controller@4008 {

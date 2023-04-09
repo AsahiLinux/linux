@@ -9,6 +9,19 @@
  * Copyright The Asahi Linux Contributors
  */
 
+/* disable unused display node */
+
+&display {
+	status = "disabled";
+	iommus = <>; /* <&dispext0_dart_die1 0>; */
+};
+
+/* delete missing dcp0/disp0 */
+/delete-node/ &disp0_dart;
+/delete-node/ &dcp_dart;
+/delete-node/ &dcp_mbox;
+/delete-node/ &dcp;
+
 /* delete power-domains for missing disp0 / disp0_die1 */
 /delete-node/ &ps_disp0_cpu0;
 /delete-node/ &ps_disp0_fe;
