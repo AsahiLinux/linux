@@ -21,6 +21,11 @@
 	power-domains = <&ps_dispext0_cpu0>, <&ps_dptx_phy_ps>;
 };
 
+/* disable dcp until it is supported */
+&dcp {
+	status = "disabled";
+};
+
 &hpm0 {
 	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
 };
@@ -35,4 +40,24 @@
 
 &hpm3 {
 	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+};
+
+/* PCIe devices */
+&port00 {
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
+};
+
+&port03 {
+	/* USB xHCI */
+	pwren-gpios = <&smc_gpio 19 GPIO_ACTIVE_HIGH>;
+};
+
+&speaker {
+	shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&jack_codec {
+	reset-gpios = <&pinctrl_nub 8 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 59 IRQ_TYPE_LEVEL_LOW>;
 };

@@ -275,6 +275,7 @@
 	clock-frequency = <1068000000>;
 };
 
+#ifndef NO_SPI_TRACKPAD
 &spi3 {
 	status = "okay";
 
@@ -295,6 +296,7 @@
 		interrupts-extended = <&pinctrl_nub 6 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
+#endif
 
 /* PCIe devices */
 &port00 {
@@ -321,6 +323,7 @@
 	/* SD card reader */
 	bus-range = <2 2>;
 	pwren-gpios = <&smc_gpio 26 GPIO_ACTIVE_HIGH>;
+	status = "okay";
 	sdhci0: mmc@0,0 {
 		compatible = "pci17a0,9755";
 		reg = <0x20000 0x0 0x0 0x0 0x0>;
@@ -330,6 +333,10 @@
 };
 
 &fpwm0 {
+	status = "okay";
+};
+
+&pcie0_dart_1 {
 	status = "okay";
 };
 
