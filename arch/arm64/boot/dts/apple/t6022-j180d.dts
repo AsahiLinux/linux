@@ -521,6 +521,82 @@
 	};
 };
 
+/* Audio */
+&i2c1 {
+	status = "okay";
+
+	speaker_tweeter: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Tweeter";
+		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	speaker_woofer: codec@39 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x39>;
+		shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Woofer";
+		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 8 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupts-extended = <&pinctrl_ap 59 IRQ_TYPE_LEVEL_LOW>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+&nco_clkref {
+	clock-frequency = <1068000000>;
+};
+
+/ {
+	sound: sound {
+		compatible = "apple,j180-macaudio", "apple,macaudio";
+		model = "Mac Pro J180";
+
+		dai-link@0 {
+			link-name = "Speakers";
+			/*
+			* DANGER ZONE: You can blow your speakers!
+			*
+			* The drivers are not ready, and unless you are careful
+			* to attenuate the audio stream, you run the risk of
+			* blowing your speakers.
+			*/
+			status = "disabled";
+			cpu {
+				sound-dai = <&mca 0>;
+			};
+			codec {
+				sound-dai = <&speaker_woofer>, <&speaker_tweeter>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
 /*
  * Delete unused PCIe nodes, the Mac Pro uses slightly different PCIe
  * controllers with a single port connected to a PM40100 PCIe switch
