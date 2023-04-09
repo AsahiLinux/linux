@@ -495,7 +495,7 @@ static void afk_recv_handle(struct apple_dcp_afkep *ep, u32 channel, u32 type,
 	service = afk_epic_find_service(ep, channel);
 
 	if (!service) {
-		if (type != EPIC_TYPE_NOTIFY) {
+		if (type != EPIC_TYPE_NOTIFY && type != EPIC_TYPE_REPLY) {
 			dev_err(ep->dcp->dev,
 				"AFK[ep:%02x]: expected notify but got 0x%x on channel %d\n",
 				ep->endpoint, type, channel);
@@ -807,12 +807,15 @@ int afk_send_epic(struct apple_dcp_afkep *ep, u32 channel, u16 tag,
 	eshdr = ep->txbfr.buf + wptr;
 	memset(eshdr, 0, sizeof(*eshdr));
 	eshdr->length = cpu_to_le32(payload_len);
-	eshdr->version = 3;
+	eshdr->version = 4;
 	eshdr->category = ecat;
 	eshdr->type = cpu_to_le16(stype);
 	eshdr->timestamp = cpu_to_le64(0);
 	eshdr->tag = cpu_to_le16(tag);
-	eshdr->inline_len = cpu_to_le32(0);
+	if (ecat == EPIC_CAT_REPLY)
+		eshdr->inline_len = cpu_to_le32(payload_len - 4);
+	else
+		eshdr->inline_len = cpu_to_le32(0);
 	wptr += sizeof(*eshdr);
 
 	memcpy(ep->txbfr.buf + wptr, payload, payload_len);
