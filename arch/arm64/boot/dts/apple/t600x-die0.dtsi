@@ -345,10 +345,10 @@
 			    "tx2a", "rx2a", "tx2b", "rx2b",
 			    "tx3a", "rx3a", "tx3b", "rx3b";
 		interrupt-parent = <&aic>;
-		interrupts = <AIC_IRQ 0 1112 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts = <AIC_IRQ 0 1111 IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_IRQ 0 1112 IRQ_TYPE_LEVEL_HIGH>,
 			     <AIC_IRQ 0 1113 IRQ_TYPE_LEVEL_HIGH>,
-			     <AIC_IRQ 0 1114 IRQ_TYPE_LEVEL_HIGH>,
-			     <AIC_IRQ 0 1115 IRQ_TYPE_LEVEL_HIGH>;
+			     <AIC_IRQ 0 1114 IRQ_TYPE_LEVEL_HIGH>;
 		power-domains = <&ps_audio_p>, <&ps_mca0>, <&ps_mca1>,
 				<&ps_mca2>, <&ps_mca3>;
 		resets = <&ps_audio_p>;
