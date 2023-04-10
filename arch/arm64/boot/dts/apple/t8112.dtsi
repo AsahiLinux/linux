@@ -1206,6 +1206,7 @@
 			interrupts = <AIC_IRQ 850 IRQ_TYPE_LEVEL_HIGH>;
 
 			ranges = <0 0x2 0x4eb28000 0x20000>;
+			nonposted-mmio;
 			#address-cells = <1>;
 			#size-cells = <1>;
 

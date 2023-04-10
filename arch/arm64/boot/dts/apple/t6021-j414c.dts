@@ -36,3 +36,7 @@
 	compatible = "apple,j414-macaudio", "apple,j314-macaudio", "apple,macaudio";
 	model = "MacBook Pro J414";
 };
+
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j414c.bin";
+};

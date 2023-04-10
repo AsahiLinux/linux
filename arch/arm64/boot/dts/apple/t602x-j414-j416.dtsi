@@ -89,3 +89,45 @@
 &port01 {
 	pwren-gpios = <&smc_gpio 22 GPIO_ACTIVE_HIGH>;
 };
+
+&ps_mtp_fabric {
+	status = "okay";
+};
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	apple,afe-reset-gpios = <&smc_gpio 25 GPIO_ACTIVE_LOW>;
+	apple,stm-reset-gpios = <&smc_gpio 26 GPIO_ACTIVE_LOW>;
+
+	mtp_mt: multi-touch {
+	};
+
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+
+	actuator {
+	};
+
+	tp_accel {
+	};
+};
