@@ -408,6 +408,8 @@
 
 		ranges;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		gpu: gpu@206400000 {
 			compatible = "apple,agx-g14g";

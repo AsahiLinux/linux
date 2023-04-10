@@ -236,6 +236,8 @@
 			 <0x5 0x80000000 0x5 0x80000000 0x1 0x80000000>,
 			 <0x7 0x0 0x7 0x0 0xf 0x80000000>;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
@@ -247,6 +249,8 @@
 		ranges = <0x2 0x0 0x22 0x0 0x4 0x0>,
 			 <0x7 0x0 0x27 0x0 0xf 0x80000000>;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
