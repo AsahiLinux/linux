@@ -977,6 +977,16 @@ dcpep_cb_swap_complete_intent_gated(struct apple_dcp *dcp,
 		info->width, info->height);
 }
 
+static struct dcpep_get_tiling_state_resp
+dcpep_cb_get_tiling_state(struct apple_dcp *dcp,
+			  struct dcpep_get_tiling_state_req *req)
+{
+	return (struct dcpep_get_tiling_state_resp){
+		.value = 0,
+		.ret = 1,
+	};
+}
+
 TRAMPOLINE_VOID(trampoline_nop, dcpep_cb_nop);
 TRAMPOLINE_OUT(trampoline_true, dcpep_cb_true, u8);
 TRAMPOLINE_OUT(trampoline_false, dcpep_cb_false, u8);
@@ -1022,6 +1032,8 @@ TRAMPOLINE_IN(trampoline_enable_backlight_message_ap_gated,
 	      iomfbep_cb_enable_backlight_message_ap_gated, u8);
 TRAMPOLINE_IN(trampoline_pr_publish, iomfb_cb_pr_publish,
 	      struct iomfb_property);
+TRAMPOLINE_INOUT(trampoline_get_tiling_state, dcpep_cb_get_tiling_state,
+		 struct dcpep_get_tiling_state_req, struct dcpep_get_tiling_state_resp);
 
 /*
  * Callback for swap requests. If a swap failed, we'll never get a swap
