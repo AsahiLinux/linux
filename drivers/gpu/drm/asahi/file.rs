@@ -662,7 +662,8 @@ impl File {
             .into();
 
         let id = gpu.ids().submission.next();
-        mod_dev_dbg!(
+        cls_dev_dbg!(
+            FileSubmit,
             device,
             "[File {} Queue {}]: IOCTL: submit (submission ID: {})\n",
             file.inner().id,
@@ -670,7 +671,8 @@ impl File {
             id
         );
 
-        mod_dev_dbg!(
+        cls_dev_dbg!(
+            FileSubmit,
             device,
             "[File {} Queue {}]: IOCTL: submit({}): Parsing in_syncs\n",
             file.inner().id,
@@ -678,7 +680,8 @@ impl File {
             id
         );
         let in_syncs = SyncItem::parse_array(file, data.in_syncs, data.in_sync_count, false)?;
-        mod_dev_dbg!(
+        cls_dev_dbg!(
+            FileSubmit,
             device,
             "[File {} Queue {}]: IOCTL: submit({}): Parsing out_syncs\n",
             file.inner().id,
@@ -688,7 +691,8 @@ impl File {
         let out_syncs = SyncItem::parse_array(file, data.out_syncs, data.out_sync_count, true)?;
 
         let result_buf = if data.result_handle != 0 {
-            mod_dev_dbg!(
+            cls_dev_dbg!(
+                FileSubmit,
                 device,
                 "[File {} Queue {}]: IOCTL: submit({}): Looking up result_handle {}\n",
                 file.inner().id,
@@ -701,7 +705,8 @@ impl File {
             None
         };
 
-        mod_dev_dbg!(
+        cls_dev_dbg!(
+            FileSubmit,
             device,
             "[File {} Queue {}]: IOCTL: submit({}): Parsing commands\n",
             file.inner().id,
