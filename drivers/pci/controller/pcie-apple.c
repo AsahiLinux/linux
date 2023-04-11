@@ -652,7 +652,7 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 
 	snprintf(name, sizeof(name), "phy%d", port->idx);
 	port->phy = devm_platform_ioremap_resource_byname(platform, name);
-	if (IS_ERR(port->base))
+	if (IS_ERR(port->phy))
 		port->phy = pcie->base + CORE_PHY_DEFAULT_BASE(port->idx);
 
 	rmw_set(PORT_APPCLK_EN, port->base + PORT_APPCLK);
