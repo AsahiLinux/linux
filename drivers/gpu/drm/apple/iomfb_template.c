@@ -35,6 +35,7 @@
 /* Register defines used in bandwidth setup structure */
 #define REG_SCRATCH (0x14)
 #define REG_SCRATCH_T600X (0x988)
+#define REG_SCRATCH_T602X (0x1208)
 #define REG_DOORBELL (0x0)
 #define REG_DOORBELL_BIT (2)
 
@@ -636,7 +637,7 @@ static bool dcpep_cb_boot_1(struct apple_dcp *dcp, int tag, void *out, void *in)
 
 static struct dcp_rt_bandwidth dcpep_cb_rt_bandwidth(struct apple_dcp *dcp)
 {
-	if (dcp->disp_registers[5] && dcp->disp_registers[6])
+	if (dcp->disp_registers[5] && dcp->disp_registers[6]) {
 		return (struct dcp_rt_bandwidth){
 			.reg_scratch =
 				dcp->disp_registers[5]->start + REG_SCRATCH,
@@ -646,19 +647,24 @@ static struct dcp_rt_bandwidth dcpep_cb_rt_bandwidth(struct apple_dcp *dcp)
 
 			.padding[3] = 0x4, // XXX: required by 11.x firmware
 		};
-	else if (dcp->disp_registers[4])
+	} else if (dcp->disp_registers[4]) {
+		u32 offset = REG_SCRATCH_T600X;
+		if (of_device_is_compatible(dcp->dev->of_node, "apple,t6020-dcp"))
+			offset = REG_SCRATCH_T602X;
+
 		return (struct dcp_rt_bandwidth){
 			.reg_scratch = dcp->disp_registers[4]->start +
-				       REG_SCRATCH_T600X,
+				       offset,
 			.reg_doorbell = 0,
 			.doorbell_bit = 0,
 		};
-	else
+	} else {
 		return (struct dcp_rt_bandwidth){
 			.reg_scratch = 0,
 			.reg_doorbell = 0,
 			.doorbell_bit = 0,
 		};
+	}
 }
 
 /* Callback to get the current time as milliseconds since the UNIX epoch */
