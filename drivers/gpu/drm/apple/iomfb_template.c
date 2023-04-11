@@ -412,6 +412,7 @@ static struct dcp_map_physical_resp
 dcpep_cb_map_physical(struct apple_dcp *dcp, struct dcp_map_physical_req *req)
 {
 	int size = ALIGN(req->size, 4096);
+	dma_addr_t dva;
 	u32 id;
 
 	if (!is_disp_register(dcp, req->paddr, req->paddr + size - 1)) {
@@ -425,11 +426,13 @@ dcpep_cb_map_physical(struct apple_dcp *dcp, struct dcp_map_physical_req *req)
 	dcp->memdesc[id].size = size;
 	dcp->memdesc[id].reg = req->paddr;
 
+	dva = dma_map_resource(dcp->dev, req->paddr, size, DMA_BIDIRECTIONAL, 0);
+	WARN_ON(dva == DMA_MAPPING_ERROR);
+
 	return (struct dcp_map_physical_resp){
 		.dva_size = size,
 		.mem_desc_id = id,
-		.dva = dma_map_resource(dcp->dev, req->paddr, size,
-					DMA_BIDIRECTIONAL, 0),
+		.dva = dva,
 	};
 }
 
