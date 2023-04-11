@@ -362,4 +362,17 @@ struct iomfb_set_matrix_resp {
 	u32 ret;
 } __packed;
 
+struct dcpep_get_tiling_state_req {
+	u32 event;
+	u32 param;
+	u32 value;
+	u8 value_null;
+	u8 padding[3];
+} __packed;
+
+struct dcpep_get_tiling_state_resp {
+	u32 value;
+	u32 ret;
+} __packed;
+
 #endif
