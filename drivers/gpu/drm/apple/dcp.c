@@ -419,7 +419,7 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	u32 cpu_ctrl;
 	int ret;
 
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(36));
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(42));
 	if (ret)
 		return ret;
 
