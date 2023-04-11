@@ -46,6 +46,16 @@
 	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
 };
 
+&port01 {
+	/*
+	 * TODO: do not enable port without device. This works around a Linux
+	 * bug which results in mismatched iommus on gaps in PCI(e) ports / bus
+	 * numbers.
+	 */
+	bus-range = <2 2>;
+	status = "okay";
+};
+
 &port02 {
 	/* 10 Gbit Ethernet */
 	bus-range = <3 3>;
