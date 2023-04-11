@@ -109,3 +109,37 @@
 	tp_accel {
 	};
 };
+
+/* enable ISP power-domains */
+
+&ps_isp_sys {
+	status = "okay";
+};
+
+&ps_isp_cpu {
+	status = "okay";
+};
+
+&ps_isp_fe {
+	status = "okay";
+};
+
+&ps_dprx {
+	status = "okay";
+};
+
+&ps_isp_vis {
+	status = "okay";
+};
+
+&ps_isp_be {
+	status = "okay";
+};
+
+&ps_isp_raw {
+	status = "okay";
+};
+
+&ps_isp_clr {
+	status = "okay";
+};

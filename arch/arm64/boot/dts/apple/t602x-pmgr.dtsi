@@ -1231,6 +1231,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_sys);
 		power-domains = <&DIE_NODE(ps_afnc2_lw1)>;
+		status = "disabled"; /* appears to be fused-off on j474s */
 	};
 
 	DIE_NODE(ps_disp0_fe): power-controller@1d0 {
@@ -1846,6 +1847,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_cpu);
 		power-domains = <&DIE_NODE(ps_isp_sys)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_isp_fe): power-controller@4008 {
@@ -1855,6 +1857,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_fe);
 		power-domains = <&DIE_NODE(ps_isp_sys)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_dprx): power-controller@4010 {
@@ -1864,6 +1867,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(dprx);
 		power-domains = <&DIE_NODE(ps_isp_sys)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_isp_vis): power-controller@4018 {
@@ -1873,6 +1877,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_vis);
 		power-domains = <&DIE_NODE(ps_isp_fe)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_isp_be): power-controller@4020 {
@@ -1882,6 +1887,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_be);
 		power-domains = <&DIE_NODE(ps_isp_fe)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_isp_raw): power-controller@4028 {
@@ -1891,6 +1897,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_raw);
 		power-domains = <&DIE_NODE(ps_isp_fe)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_isp_clr): power-controller@4030 {
@@ -1900,6 +1907,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(isp_clr);
 		power-domains = <&DIE_NODE(ps_isp_be)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(ps_venc_dma): power-controller@8000 {
