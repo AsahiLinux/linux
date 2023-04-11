@@ -57,7 +57,7 @@ typedef void (*dcp_callback_t)(struct apple_dcp *, void *, void *);
  */
 
 #define TRAMPOLINE_VOID(func, handler)                                        \
-	static bool func(struct apple_dcp *dcp, int tag, void *out, void *in) \
+	static bool __maybe_unused func(struct apple_dcp *dcp, int tag, void *out, void *in) \
 	{                                                                     \
 		trace_iomfb_callback(dcp, tag, #handler);                     \
 		handler(dcp);                                                 \
@@ -67,7 +67,7 @@ typedef void (*dcp_callback_t)(struct apple_dcp *, void *, void *);
 #define TRAMPOLINE_IN(func, handler, T_in)                                    \
 	typedef void (*callback_##handler)(struct apple_dcp *, T_in *);       \
                                                                               \
-	static bool func(struct apple_dcp *dcp, int tag, void *out, void *in) \
+	static bool __maybe_unused func(struct apple_dcp *dcp, int tag, void *out, void *in) \
 	{                                                                     \
 		callback_##handler cb = handler;                              \
                                                                               \
@@ -79,7 +79,7 @@ typedef void (*dcp_callback_t)(struct apple_dcp *, void *, void *);
 #define TRAMPOLINE_INOUT(func, handler, T_in, T_out)                          \
 	typedef T_out (*callback_##handler)(struct apple_dcp *, T_in *);      \
                                                                               \
-	static bool func(struct apple_dcp *dcp, int tag, void *out, void *in) \
+	static bool __maybe_unused func(struct apple_dcp *dcp, int tag, void *out, void *in) \
 	{                                                                     \
 		T_out *typed_out = out;                                       \
 		callback_##handler cb = handler;                              \
@@ -90,7 +90,7 @@ typedef void (*dcp_callback_t)(struct apple_dcp *, void *, void *);
 	}
 
 #define TRAMPOLINE_OUT(func, handler, T_out)                                  \
-	static bool func(struct apple_dcp *dcp, int tag, void *out, void *in) \
+	static bool __maybe_unused func(struct apple_dcp *dcp, int tag, void *out, void *in) \
 	{                                                                     \
 		T_out *typed_out = out;                                       \
                                                                               \
