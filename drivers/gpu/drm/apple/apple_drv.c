@@ -461,7 +461,7 @@ static int apple_drm_init(struct device *dev)
 	resource_size_t fb_size;
 	int ret;
 
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(36));
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(42));
 	if (ret)
 		return ret;
 

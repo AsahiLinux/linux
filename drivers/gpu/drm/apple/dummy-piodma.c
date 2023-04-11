@@ -26,7 +26,7 @@ static const struct component_ops dcp_piodma_comp_ops = {
 };
 static int dcp_piodma_probe(struct platform_device *pdev)
 {
-	int ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(36));
+	int ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(42));
 	if (ret)
 		return ret;
 
