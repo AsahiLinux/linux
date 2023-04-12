@@ -41,6 +41,16 @@
 	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
 };
 
+&wifi0 {
+	compatible = "pci14e4,4434";
+	brcm,board-type = "apple,tasmania";
+};
+
+&bluetooth0 {
+	compatible = "pci14e4,5f72";
+	brcm,board-type = "apple,tasmania";
+};
+
 /* PCIe devices */
 &port00 {
 	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
