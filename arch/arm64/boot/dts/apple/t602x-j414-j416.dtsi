@@ -69,6 +69,14 @@
 	interrupts-extended = <&pinctrl_ap 59 IRQ_TYPE_LEVEL_LOW>;
 };
 
+&wifi0 {
+	compatible = "pci14e4,4434";
+};
+
+&bluetooth0 {
+	compatible = "pci14e4,5f72";
+};
+
 &port01 {
 	pwren-gpios = <&smc_gpio 22 GPIO_ACTIVE_HIGH>;
 };
