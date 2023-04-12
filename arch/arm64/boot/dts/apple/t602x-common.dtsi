@@ -450,7 +450,7 @@
 	};
 
 	pmu-e {
-		compatible = "apple,blizard-pmu";
+		compatible = "apple,blizzard-pmu";
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_FIQ 0 AIC_CPU_PMU_E IRQ_TYPE_LEVEL_HIGH>;
 	};
