@@ -403,8 +403,8 @@ static enum dcp_firmware_version dcp_check_firmware_version(struct device *dev)
 
 	if (strncmp(compat_str, "12.3.0", sizeof(compat_str)) == 0)
 		return DCP_FIRMWARE_V_12_3;
-	if (strncmp(compat_str, "13.2.0", sizeof(compat_str)) == 0)
-		return DCP_FIRMWARE_V_13_2;
+	if (strncmp(compat_str, "13.3.0", sizeof(compat_str)) == 0)
+		return DCP_FIRMWARE_V_13_3;
 
 	dev_err(dev, "DCP firmware-compat %s (FW: %s) is not supported\n",
 		compat_str, fw_str);
