@@ -48,6 +48,7 @@ struct DCP_FW_NAME(dcp_swap) {
 	u8 unk_2f3[0x2d];
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
 	u8 unk_320[0x13f];
+	u64 unk_1;
 #endif
 } __packed;
 

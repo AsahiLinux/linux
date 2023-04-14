@@ -136,6 +136,20 @@ struct dcp_rt_bandwidth {
 	u32 padding[7];
 } __packed;
 
+struct frame_sync_props {
+	u8 unk[28];
+};
+
+struct dcp_set_frame_sync_props_req {
+	struct frame_sync_props props;
+	u8 frame_sync_props_null;
+	u8 padding[3];
+} __packed;
+
+struct dcp_set_frame_sync_props_resp {
+	struct frame_sync_props props;
+} __packed;
+
 /* Method calls */
 
 enum dcpep_method {
