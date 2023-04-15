@@ -469,6 +469,14 @@ static int apple_drm_init(struct device *dev)
 	if (ret)
 		return ret;
 
+	fb_size = fb_r.end - fb_r.start + 1;
+	ret = aperture_remove_conflicting_devices(fb_r.start, fb_size,
+						  apple_drm_driver.name);
+	if (ret) {
+		dev_err(dev, "Failed remove fb: %d\n", ret);
+		goto err_unbind;
+	}
+
 	apple = devm_drm_dev_alloc(dev, &apple_drm_driver,
 				   struct apple_drm_private, drm);
 	if (IS_ERR(apple))
@@ -479,15 +487,6 @@ static int apple_drm_init(struct device *dev)
 	ret = component_bind_all(dev, apple);
 	if (ret)
 		return ret;
-
-	fb_size = fb_r.end - fb_r.start + 1;
-	ret = aperture_remove_conflicting_devices(fb_r.start, fb_size,
-						  apple_drm_driver.name);
-
-	if (ret) {
-		dev_err(dev, "Failed remove fb: %d\n", ret);
-		goto err_unbind;
-	}
 
 	ret = drmm_mode_config_init(&apple->drm);
 	if (ret)
