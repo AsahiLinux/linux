@@ -550,16 +550,13 @@ static u32 apple_pcie_rid2sid_write(struct apple_pcie_port *port,
 	return readl_relaxed(port_rid2sid_addr(port, idx));
 }
 
-static int apple_pcie_setup_port(struct apple_pcie *pcie,
+static int apple_pcie_setup_link(struct apple_pcie *pcie,
+				 struct apple_pcie_port *port,
 				 struct device_node *np)
 {
-	struct platform_device *platform = to_platform_device(pcie->dev);
-	struct apple_pcie_port *port;
 	struct gpio_desc *reset, *pwren = NULL;
-	struct resource *res;
-	char name[16];
-	u32 stat, idx;
-	int ret, i;
+	u32 stat;
+	int ret;
 
 	reset = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "reset",
 				      GPIOD_OUT_HIGH, "PERST#");
@@ -574,41 +571,6 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 		else
 			return PTR_ERR(pwren);
 	}
-
-	port = devm_kzalloc(pcie->dev, sizeof(*port), GFP_KERNEL);
-	if (!port)
-		return -ENOMEM;
-
-	port->sid_map = devm_bitmap_zalloc(pcie->dev, pcie->hw->max_rid2sid, GFP_KERNEL);
-	if (!port->sid_map)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_index(np, "reg", 0, &idx);
-	if (ret)
-		return ret;
-
-	/* Use the first reg entry to work out the port index */
-	port->idx = idx >> 11;
-	port->pcie = pcie;
-	port->np = np;
-
-	raw_spin_lock_init(&port->lock);
-
-	snprintf(name, sizeof(name), "port%d", port->idx);
-	res = platform_get_resource_byname(platform, IORESOURCE_MEM, name);
-	if (!res)
-		res = platform_get_resource(platform, IORESOURCE_MEM, port->idx + 2);
-
-	port->base = devm_ioremap_resource(&platform->dev, res);
-	if (IS_ERR(port->base))
-		return PTR_ERR(port->base);
-
-	snprintf(name, sizeof(name), "phy%d", port->idx);
-	res = platform_get_resource_byname(platform, IORESOURCE_MEM, name);
-	if (res)
-		port->phy = devm_ioremap_resource(&platform->dev, res);
-	else
-		port->phy = pcie->base + CORE_PHY_DEFAULT_BASE(port->idx);
 
 	rmw_set(PORT_APPCLK_EN, port->base + PORT_APPCLK);
 
@@ -645,6 +607,62 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 		return ret;
 	}
 
+	return 0;
+}
+
+static int apple_pcie_setup_port(struct apple_pcie *pcie,
+				 struct device_node *np)
+{
+	struct platform_device *platform = to_platform_device(pcie->dev);
+	struct apple_pcie_port *port;
+	struct resource *res;
+	char name[16];
+	u32 link_stat, idx;
+	int ret, i;
+
+	port = devm_kzalloc(pcie->dev, sizeof(*port), GFP_KERNEL);
+	if (!port)
+		return -ENOMEM;
+
+	port->sid_map = devm_bitmap_zalloc(pcie->dev, pcie->hw->max_rid2sid, GFP_KERNEL);
+	if (!port->sid_map)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_index(np, "reg", 0, &idx);
+	if (ret)
+		return ret;
+
+	/* Use the first reg entry to work out the port index */
+	port->idx = idx >> 11;
+	port->pcie = pcie;
+	port->np = np;
+
+	raw_spin_lock_init(&port->lock);
+
+	snprintf(name, sizeof(name), "port%d", port->idx);
+	res = platform_get_resource_byname(platform, IORESOURCE_MEM, name);
+	if (!res)
+		res = platform_get_resource(platform, IORESOURCE_MEM, port->idx + 2);
+
+	port->base = devm_ioremap_resource(&platform->dev, res);
+	if (IS_ERR(port->base))
+		return PTR_ERR(port->base);
+
+	snprintf(name, sizeof(name), "phy%d", port->idx);
+	res = platform_get_resource_byname(platform, IORESOURCE_MEM, name);
+	if (res)
+		port->phy = devm_ioremap_resource(&platform->dev, res);
+	else
+		port->phy = pcie->base + CORE_PHY_DEFAULT_BASE(port->idx);
+
+	/* link might be already brought up by u-boot, skip setup then */
+	link_stat = readl_relaxed(port->base + PORT_LINKSTS);
+	if (!(link_stat & PORT_LINKSTS_UP)) {
+		ret = apple_pcie_setup_link(pcie, port, np);
+		if (ret)
+			return ret;
+	}
+
 	if (pcie->hw->port_refclk)
 		rmw_clear(PORT_REFCLK_CGDIS, port->base + pcie->hw->port_refclk);
 	else
@@ -676,6 +694,10 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 	ret = apple_pcie_port_register_irqs(port);
 	WARN_ON(ret);
 
+	if (link_stat & PORT_LINKSTS_UP)
+		return 0;
+
+	/* start link training */
 	writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
 
 	if (!wait_for_completion_timeout(&pcie->event, HZ / 10))
