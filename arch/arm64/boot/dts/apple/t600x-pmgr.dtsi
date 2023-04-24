@@ -1387,12 +1387,6 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(ans2);
-		/*
-		 * The ADT makes ps_apcie_st[1]_sys depend on ps_ans2 instead,
-		 * but we'd rather have a single power domain for the downstream
-		 * device to depend on, so use this node as the child.
-		 * This makes more sense anyway (since ANS2 uses APCIE_ST).
-		 */
 		power-domains = <&DIE_NODE(ps_afnc2_lw0)>;
 	};
 
