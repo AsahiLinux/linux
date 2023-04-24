@@ -584,6 +584,26 @@ static void dcp_platform_shutdown(struct platform_device *pdev)
 	component_del(&pdev->dev, &dcp_comp_ops);
 }
 
+static __maybe_unused int dcp_platform_suspend(struct device *dev)
+{
+	/*
+	 * Set the device as a wakeup device, which forces its power
+	 * domains to stay on. We need this as we do not support full
+	 * shutdown properly yet.
+	 */
+	device_set_wakeup_path(dev);
+
+	return 0;
+}
+
+static __maybe_unused int dcp_platform_resume(struct device *dev)
+{
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(dcp_platform_pm_ops,
+			 dcp_platform_suspend, dcp_platform_resume);
+
 static const struct of_device_id of_match[] = {
 	{ .compatible = "apple,dcp" },
 	{}
@@ -597,6 +617,7 @@ static struct platform_driver apple_platform_driver = {
 	.driver	= {
 		.name = "apple-dcp",
 		.of_match_table	= of_match,
+		.pm = pm_sleep_ptr(&dcp_platform_pm_ops),
 	},
 };
 
