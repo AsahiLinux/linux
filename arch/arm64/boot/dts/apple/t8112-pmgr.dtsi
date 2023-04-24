@@ -672,7 +672,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "disp0_fe";
-		power-domains = <&ps_disp0_sys>;
+		power-domains = <&ps_disp0_sys>, <&ps_pmp>;
 		apple,always-on; /* TODO: figure out if we can enable PM here */
 	};
 
@@ -691,7 +691,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "dispext_fe";
-		power-domains = <&ps_dispext_sys>;
+		power-domains = <&ps_dispext_sys>, <&ps_pmp>;
 	};
 
 	ps_dispext_cpu0: power-controller@3c8 {
@@ -773,7 +773,6 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "pmp";
-		apple,always-on;
 	};
 
 	ps_pms_sram: power-controller@418 {
