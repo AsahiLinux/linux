@@ -1877,6 +1877,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(msg);
+		apple,always-on; /* Core AON device? */
 	};
 
 	DIE_NODE(ps_nub_gpio): power-controller@80 {
