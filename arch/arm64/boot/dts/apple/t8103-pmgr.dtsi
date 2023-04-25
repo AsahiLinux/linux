@@ -1101,6 +1101,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "msg";
+		apple,always-on; /* Core AON device? */
 	};
 
 	ps_atc0_usb_aon: power-controller@88 {
