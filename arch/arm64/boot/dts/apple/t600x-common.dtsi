@@ -315,7 +315,6 @@
 			opp-level = <12>;
 			clock-latency-ns = <56000>;
 		};
-		/* Not available until CPU deep sleep is implemented
 		opp13 {
 			opp-hz = /bits/ 64 <3132000000>;
 			opp-level = <13>;
@@ -334,7 +333,6 @@
 			clock-latency-ns = <56000>;
 			turbo-mode;
 		};
-		*/
 	};
 
 	gpu_opp: opp-table-gpu {
