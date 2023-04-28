@@ -52,6 +52,8 @@
 		{ DPTX_APCALL_GET_MAX_LINK_RATE, "get_max_link_rate" },       \
 		{ DPTX_APCALL_GET_LINK_RATE, "get_link_rate" },               \
 		{ DPTX_APCALL_SET_LINK_RATE, "set_link_rate" },               \
+		{ DPTX_APCALL_GET_MAX_LANE_COUNT,                             \
+		  "get_max_lane_count" },                                     \
 		{ DPTX_APCALL_GET_ACTIVE_LANE_COUNT,                          \
 		  "get_active_lane_count" },                                  \
 		{ DPTX_APCALL_SET_ACTIVE_LANE_COUNT,                          \

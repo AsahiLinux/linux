@@ -29,6 +29,13 @@ struct dptxport_apcall_link_rate {
 	u8 _unk1[12];
 } __attribute__((packed));
 
+struct dptxport_apcall_lane_count {
+	__le32 retcode;
+	u8 _unk0[12];
+	__le64 lane_count;
+	u8 _unk1[8];
+} __attribute__((packed));
+
 struct dptxport_apcall_get_support {
 	__le32 retcode;
 	u8 _unk0[12];
@@ -154,6 +161,20 @@ static int dptxport_call_get_max_link_rate(struct apple_epic_service *service,
 
 	reply->retcode = cpu_to_le32(0);
 	reply->link_rate = cpu_to_le32(LINK_RATE_HBR3);
+
+	return 0;
+}
+
+static int dptxport_call_get_max_lane_count(struct apple_epic_service *service,
+					   void *reply_, size_t reply_size)
+{
+	struct dptxport_apcall_lane_count *reply = reply_;
+
+	if (reply_size < sizeof(*reply))
+		return -EINVAL;
+
+	reply->retcode = cpu_to_le32(0);
+	reply->lane_count = cpu_to_le64(4);
 
 	return 0;
 }
@@ -311,6 +332,8 @@ static int dptxport_call(struct apple_epic_service *service, u32 idx,
 	case DPTX_APCALL_SET_LINK_RATE:
 		return dptxport_call_set_link_rate(service, data, data_size,
 						   reply, reply_size);
+	case DPTX_APCALL_GET_MAX_LANE_COUNT:
+		return dptxport_call_get_max_lane_count(service, reply, reply_size);
 	case DPTX_APCALL_GET_SUPPORTS_HPD:
 		return dptxport_call_get_supports_hpd(service, reply,
 						      reply_size);
