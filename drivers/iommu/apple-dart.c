@@ -750,9 +750,9 @@ static struct iommu_device *apple_dart_probe_device(struct device *dev)
 		return ERR_PTR(-ENODEV);
 
 	for_each_stream_map(i, cfg, stream_map)
-		device_link_add(
-			dev, stream_map->dart->dev,
-			DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_SUPPLIER);
+		device_link_add(dev, stream_map->dart->dev,
+			DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_SUPPLIER |
+			DL_FLAG_RPM_ACTIVE);
 
 	return &cfg->stream_maps[0].dart->iommu;
 }
