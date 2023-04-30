@@ -59,6 +59,7 @@ DCP_THUNK_OUT(iomfb_a358_vi_set_temperature_hint, iomfbep_a358_vi_set_temperatur
 IOMFB_THUNK_INOUT(set_matrix);
 IOMFB_THUNK_INOUT(get_color_remap_mode);
 IOMFB_THUNK_INOUT(last_client_close);
+IOMFB_THUNK_INOUT(abort_swaps_dcp);
 
 DCP_THUNK_INOUT(dcp_swap_submit, dcpep_swap_submit,
 		struct DCP_FW_NAME(dcp_swap_submit_req),
@@ -859,10 +860,21 @@ static void last_client_closed_poff(struct apple_dcp *dcp, void *out, void *cook
 			    cookie);
 }
 
+static void aborted_swaps_dcp_poff(struct apple_dcp *dcp, void *out, void *cookie)
+{
+	struct iomfb_last_client_close_req last_client_req = {};
+	iomfb_last_client_close(dcp, false, &last_client_req,
+				last_client_closed_poff, cookie);
+}
+
 void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 {
 	int ret, swap_id;
-	struct iomfb_last_client_close_req last_client_req = {};
+	struct iomfb_abort_swaps_dcp_req abort_req = {
+		.client = {
+			.flag2 = 1,
+		},
+	};
 	struct dcp_swap_cookie *cookie;
 	struct dcp_wait_cookie *poff_cookie;
 	struct dcp_swap_start_req swap_req = { 0 };
@@ -927,8 +939,8 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 	/* increase refcount to ensure the receiver has a reference */
 	kref_get(&poff_cookie->refcount);
 
-	iomfb_last_client_close(dcp, false, &last_client_req,
-				last_client_closed_poff, poff_cookie);
+	iomfb_abort_swaps_dcp(dcp, false, &abort_req,
+				aborted_swaps_dcp_poff, poff_cookie);
 	ret = wait_for_completion_timeout(&poff_cookie->done,
 					  msecs_to_jiffies(1000));
 
@@ -953,10 +965,20 @@ static void last_client_closed_sleep(struct apple_dcp *dcp, void *out, void *coo
 	dcp_set_power_state(dcp, false, &power_req, complete_set_powerstate, cookie);
 }
 
+static void aborted_swaps_dcp_sleep(struct apple_dcp *dcp, void *out, void *cookie)
+{
+	struct iomfb_last_client_close_req req = { 0 };
+	iomfb_last_client_close(dcp, false, &req, last_client_closed_sleep, cookie);
+}
+
 void DCP_FW_NAME(iomfb_sleep)(struct apple_dcp *dcp)
 {
 	int ret;
-	struct iomfb_last_client_close_req req = {};
+	struct iomfb_abort_swaps_dcp_req req = {
+		.client = {
+			.flag2 = 1,
+		},
+	};
 
 	struct dcp_wait_cookie *cookie;
 
@@ -968,7 +990,7 @@ void DCP_FW_NAME(iomfb_sleep)(struct apple_dcp *dcp)
 	/* increase refcount to ensure the receiver has a reference */
 	kref_get(&cookie->refcount);
 
-	iomfb_last_client_close(dcp, false, &req, last_client_closed_sleep,
+	iomfb_abort_swaps_dcp(dcp, false, &req, aborted_swaps_dcp_sleep,
 				cookie);
 	ret = wait_for_completion_timeout(&cookie->done,
 					  msecs_to_jiffies(1000));
