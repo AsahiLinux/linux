@@ -876,9 +876,11 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 	 * subsequent update on poweron an actual change and restore the
 	 * brightness.
 	 */
-	swap->swap.bl_unk = 1;
-	swap->swap.bl_value = 0;
-	swap->swap.bl_power = 0;
+	if (dcp_has_panel(dcp)) {
+		swap->swap.bl_unk = 1;
+		swap->swap.bl_value = 0;
+		swap->swap.bl_power = 0;
+	}
 
 	for (int l = 0; l < SWAP_SURFACES; l++)
 		swap->surf_null[l] = true;
@@ -1324,7 +1326,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 	req->swap.swap_completed = req->swap.swap_enabled;
 
 	/* update brightness if changed */
-	if (dcp->brightness.update) {
+	if (dcp_has_panel(dcp) && dcp->brightness.update) {
 		req->swap.bl_unk = 1;
 		req->swap.bl_value = dcp->brightness.dac;
 		req->swap.bl_power = 0x40;
