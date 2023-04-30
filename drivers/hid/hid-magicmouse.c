@@ -61,6 +61,7 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 #define MOUSE2_REPORT_ID   0x12
 #define DOUBLE_REPORT_ID   0xf7
 #define SPI_REPORT_ID      0x02
+#define SPI_RESET_REPORT_ID 0x60
 #define MTP_REPORT_ID      0x75
 #define USB_BATTERY_TIMEOUT_SEC 60
 
@@ -175,6 +176,50 @@ struct magicmouse_sc {
 	struct timer_list battery_timer;
 	struct magicmouse_input_ops input_ops;
 };
+
+static int magicmouse_enable_multitouch(struct hid_device *hdev);
+
+static int magicmouse_open(struct input_dev *dev)
+{
+	struct hid_device *hdev = input_get_drvdata(dev);
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+	int ret;
+
+	ret = hid_hw_open(hdev);
+	if (ret)
+		return ret;
+
+	/*
+	 * Some devices repond with 'invalid report id' when feature
+	 * report switching it into multitouch mode is sent to it.
+	 *
+	 * This results in -EIO from the _raw low-level transport callback,
+	 * but there seems to be no other way of switching the mode.
+	 * Thus the super-ugly hacky success check below.
+	 */
+	ret = magicmouse_enable_multitouch(hdev);
+	if (ret != -EIO && ret < 0) {
+		hid_err(hdev, "unable to request touch data (%d)\n", ret);
+		return ret;
+	}
+	if (ret == -EIO && (hdev->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2 ||
+			    hdev->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2_USBC)) {
+		schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
+	}
+
+	/*
+	 * MT enable is usually not required after the first time, so don't
+	 * consider it fatal.
+	 */
+	return 0;
+}
+
+static void magicmouse_close(struct input_dev *dev)
+{
+	struct hid_device *hdev = input_get_drvdata(dev);
+
+	hid_hw_close(hdev);
+}
 
 static int magicmouse_firm_touch(struct magicmouse_sc *msc)
 {
@@ -729,12 +774,19 @@ static int magicmouse_raw_event_mtp(struct hid_device *hdev,
 static int magicmouse_raw_event_spi(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
 	const size_t hdr_sz = sizeof(struct tp_mouse_report);
 
-	if (size < hdr_sz)
+	if (!size)
 		return 0;
 
-	if (data[0] != SPI_REPORT_ID)
+	if (data[0] == SPI_RESET_REPORT_ID) {
+		hid_info(hdev, "Touch controller was reset, re-enabling touch mode\n");
+		schedule_delayed_work(&msc->work, msecs_to_jiffies(10));
+		return 1;
+	}
+
+	if (data[0] != SPI_REPORT_ID || size < hdr_sz)
 		return 0;
 
 	return magicmouse_raw_event_mtp(hdev, report, data + hdr_sz, size - hdr_sz);
@@ -934,10 +986,17 @@ static int magicmouse_setup_input_usb(struct input_dev *input,
 	 */
 	__clear_bit(EV_REP, input->evbit);
 
+	/*
+	 * This isn't strictly speaking needed for USB, but enabling MT on
+	 * device open is probably more robust than only doing it once on probe
+	 * even if USB devices are not known to suffer from the SPI reset issue.
+	 */
+	input->open = magicmouse_open;
+	input->close = magicmouse_close;
 	return 0;
 }
 
-static int magicmouse_setup_input_spi(struct input_dev *input,
+static int magicmouse_setup_input_mtp(struct input_dev *input,
 				      struct hid_device *hdev)
 {
 	int error;
@@ -1010,6 +1069,25 @@ static int magicmouse_setup_input_spi(struct input_dev *input,
 	return 0;
 }
 
+static int magicmouse_setup_input_spi(struct input_dev *input,
+				      struct hid_device *hdev)
+{
+	int ret = magicmouse_setup_input_mtp(input, hdev);
+	if (ret)
+		return ret;
+
+	/*
+	 * Override the default input->open function to send the MT
+	 * enable every time the device is opened. This ensures it works
+	 * even if we missed a reset event due to the device being closed.
+	 * input->close is overridden for symmetry.
+	 */
+	input->open = magicmouse_open;
+	input->close = magicmouse_close;
+
+	return 0;
+}
+
 static int magicmouse_input_mapping(struct hid_device *hdev,
 		struct hid_input *hi, struct hid_field *field,
 		struct hid_usage *usage, unsigned long **bit, int *max)
@@ -1076,7 +1154,7 @@ static int magicmouse_enable_multitouch(struct hid_device *hdev)
 			feature_size = sizeof(feature_mt_trackpad2_bt);
 			feature = feature_mt_trackpad2_bt;
 			break;
-		default: /* USB_VENDOR_ID_APPLE || SPI_VENDOR_ID_APPLE */
+		default:  /* USB_VENDOR_ID_APPLE || SPI_VENDOR_ID_APPLE */
 			feature_size = sizeof(feature_mt_trackpad2_usb);
 			feature = feature_mt_trackpad2_usb;
 		}
@@ -1196,7 +1274,7 @@ static int magicmouse_probe(struct hid_device *hdev,
 	// conflicts with the report ID.
 	if (id->bus == BUS_HOST) {
 		msc->input_ops.raw_event = magicmouse_raw_event_mtp;
-		msc->input_ops.setup_input = magicmouse_setup_input_spi;
+		msc->input_ops.setup_input = magicmouse_setup_input_mtp;
 	} else if (id->bus == BUS_SPI) {
 		msc->input_ops.raw_event = magicmouse_raw_event_spi;
 		msc->input_ops.setup_input = magicmouse_setup_input_spi;
@@ -1300,22 +1378,10 @@ static int magicmouse_probe(struct hid_device *hdev,
 	if (id->bus == BUS_HOST)
 		return 0;
 
-	/*
-	 * Some devices repond with 'invalid report id' when feature
-	 * report switching it into multitouch mode is sent to it.
-	 *
-	 * This results in -EIO from the _raw low-level transport callback,
-	 * but there seems to be no other way of switching the mode.
-	 * Thus the super-ugly hacky success check below.
-	 */
-	ret = magicmouse_enable_multitouch(hdev);
-	if (ret != -EIO && ret < 0) {
-		hid_err(hdev, "unable to request touch data (%d)\n", ret);
-		goto err_stop_hw;
-	}
-	if (ret == -EIO && (id->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2 ||
-			    id->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2_USBC)) {
-		schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
+	/* SPI devices need to watch for reset events to re-send the MT enable */
+	if (id->bus == BUS_SPI) {
+		report = hid_register_report(hdev, HID_INPUT_REPORT, SPI_RESET_REPORT_ID, 0);
+		report->size = 2;
 	}
 
 	/*
