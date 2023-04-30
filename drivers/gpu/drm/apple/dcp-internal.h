@@ -195,5 +195,6 @@ struct apple_dcp {
 };
 
 int dcp_backlight_register(struct apple_dcp *dcp);
+bool dcp_has_panel(struct apple_dcp *dcp);
 
 #endif /* __APPLE_DCP_INTERNAL_H__ */

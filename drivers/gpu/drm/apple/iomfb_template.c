@@ -183,6 +183,12 @@ static bool iomfbep_cb_match_backlight_service(struct apple_dcp *dcp, int tag, v
 {
 	trace_iomfb_callback(dcp, tag, __func__);
 
+	if (!dcp_has_panel(dcp)) {
+		u8 *succ = out;
+		*succ = true;
+		return true;
+	}
+
 	iomfb_a132_backlight_service_matched(dcp, false, complete_backlight_service_matched, out);
 
 	// return false for deferred ACK
@@ -194,11 +200,13 @@ static void iomfb_cb_pr_publish(struct apple_dcp *dcp, struct iomfb_property *pr
 	switch (prop->id) {
 	case IOMFB_PROPERTY_NITS:
 	{
-		dcp->brightness.nits = prop->value / dcp->brightness.scale;
-		/* notify backlight device of the initial brightness */
-		if (!dcp->brightness.bl_dev && dcp->brightness.maximum > 0)
-			schedule_work(&dcp->bl_register_wq);
-		trace_iomfb_brightness(dcp, prop->value);
+		if (dcp_has_panel(dcp)) {
+			dcp->brightness.nits = prop->value / dcp->brightness.scale;
+			/* notify backlight device of the initial brightness */
+			if (!dcp->brightness.bl_dev && dcp->brightness.maximum > 0)
+				schedule_work(&dcp->bl_register_wq);
+			trace_iomfb_brightness(dcp, prop->value);
+		}
 		break;
 	}
 	default:
@@ -1003,6 +1011,11 @@ dcpep_cb_get_tiling_state(struct apple_dcp *dcp,
 	};
 }
 
+static u8 dcpep_cb_create_backlight_service(struct apple_dcp *dcp)
+{
+	return dcp_has_panel(dcp);
+}
+
 TRAMPOLINE_VOID(trampoline_nop, dcpep_cb_nop);
 TRAMPOLINE_OUT(trampoline_true, dcpep_cb_true, u8);
 TRAMPOLINE_OUT(trampoline_false, dcpep_cb_false, u8);
@@ -1053,6 +1066,7 @@ TRAMPOLINE_IN(trampoline_pr_publish, iomfb_cb_pr_publish,
 	      struct iomfb_property);
 TRAMPOLINE_INOUT(trampoline_get_tiling_state, dcpep_cb_get_tiling_state,
 		 struct dcpep_get_tiling_state_req, struct dcpep_get_tiling_state_resp);
+TRAMPOLINE_OUT(trampoline_create_backlight_service, dcpep_cb_create_backlight_service, u8);
 
 /*
  * Callback for swap requests. If a swap failed, we'll never get a swap
