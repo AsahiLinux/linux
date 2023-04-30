@@ -98,6 +98,7 @@ static int apple_dpxbar_set(struct mux_control *mux, int state)
 	unsigned long flags;
 	unsigned int mux_state;
 	unsigned int dispext_bit;
+	unsigned int dispext_bit_en;
 	unsigned int atc_bit;
 	bool enable;
 	int ret = 0;
@@ -113,6 +114,7 @@ static int apple_dpxbar_set(struct mux_control *mux, int state)
 		enable = false;
 	} else if (state >= 0 && state < 9) {
 		dispext_bit = 1 << state;
+		dispext_bit_en = 1 << (2 * state);
 		mux_state = state;
 		enable = true;
 	} else {
@@ -169,11 +171,12 @@ static int apple_dpxbar_set(struct mux_control *mux, int state)
 
 	if (dpxbar->selected_dispext[index] >= 0) {
 		u32 prev_dispext_bit = 1 << dpxbar->selected_dispext[index];
+		u32 prev_dispext_bit_en = 1 << (2 * dpxbar->selected_dispext[index]);
 
 		dpxbar_set32(dpxbar, FIFO_WR_N_CLK_EN, prev_dispext_bit);
 		dpxbar_set32(dpxbar, FIFO_RD_N_CLK_EN, prev_dispext_bit);
 		dpxbar_clear32(dpxbar, FIFO_WR_UNK_EN, prev_dispext_bit);
-		dpxbar_clear32(dpxbar, FIFO_RD_UNK_EN, prev_dispext_bit);
+		dpxbar_clear32(dpxbar, FIFO_RD_UNK_EN, prev_dispext_bit_en);
 		dpxbar_clear32(dpxbar, FIFO_WR_DPTX_CLK_EN, prev_dispext_bit);
 		dpxbar_clear32(dpxbar, FIFO_RD_PCLK1_EN, prev_dispext_bit);
 		dpxbar_clear32(dpxbar, CROSSBAR_DISPEXT_EN, prev_dispext_bit);
@@ -188,7 +191,7 @@ static int apple_dpxbar_set(struct mux_control *mux, int state)
 		dpxbar_clear32(dpxbar, FIFO_RD_N_CLK_EN, dispext_bit);
 		dpxbar_clear32(dpxbar, OUT_N_CLK_EN, atc_bit);
 		dpxbar_set32(dpxbar, FIFO_WR_UNK_EN, dispext_bit);
-		dpxbar_set32(dpxbar, FIFO_RD_UNK_EN, dispext_bit);
+		dpxbar_set32(dpxbar, FIFO_RD_UNK_EN, dispext_bit_en);
 		dpxbar_set32(dpxbar, OUT_UNK_EN, atc_bit);
 		dpxbar_set32(dpxbar, FIFO_WR_DPTX_CLK_EN, dispext_bit);
 		dpxbar_set32(dpxbar, FIFO_RD_PCLK1_EN, dispext_bit);
