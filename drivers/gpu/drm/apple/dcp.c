@@ -85,6 +85,11 @@ void dcp_set_dimensions(struct apple_dcp *dcp)
 	}
 }
 
+bool dcp_has_panel(struct apple_dcp *dcp)
+{
+	return dcp->panel.width_mm > 0;
+}
+
 /*
  * Helper to send a DRM vblank event. We do not know how call swap_submit_dcp
  * without surfaces. To avoid timeouts in drm_atomic_helper_wait_for_vblanks
