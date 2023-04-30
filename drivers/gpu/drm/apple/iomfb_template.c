@@ -1276,12 +1276,12 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 
 		dev_dbg(dcp->dev, "%s - wait for modeset", __func__);
 		ret = wait_for_completion_timeout(&cookie->done,
-						  msecs_to_jiffies(500));
+						  msecs_to_jiffies(2500));
 
 		kref_put(&cookie->refcount, release_wait_cookie);
 
 		if (ret == 0) {
-			dev_dbg(dcp->dev, "set_digital_out_mode 200 ms");
+			dev_info(dcp->dev, "set_digital_out_mode timed out");
 			schedule_work(&dcp->vblank_wq);
 			return;
 		} else if (ret > 0) {
