@@ -269,6 +269,11 @@ const static struct apple_dpxbar_hw apple_dpxbar_hw_t8103 = {
 	.tunable = 0,
 };
 
+const static struct apple_dpxbar_hw apple_dpxbar_hw_t8112 = {
+	.n_ufp = 4,
+	.tunable = 4278196325,
+};
+
 const static struct apple_dpxbar_hw apple_dpxbar_hw_t6000 = {
 	.n_ufp = 9,
 	.tunable = 5,
@@ -281,7 +286,7 @@ static const struct of_device_id apple_dpxbar_ids[] = {
 	},
 	{
 		.compatible = "apple,t8112-display-crossbar",
-		.data = &apple_dpxbar_hw_t8103,
+		.data = &apple_dpxbar_hw_t8112,
 	},
 	{
 		.compatible = "apple,t6000-display-crossbar",
