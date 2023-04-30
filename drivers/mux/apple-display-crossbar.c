@@ -252,7 +252,9 @@ static int apple_dpxbar_probe(struct platform_device *pdev)
 	if (IS_ERR(dpxbar->regs))
 		return PTR_ERR(dpxbar->regs);
 
+	readl(dpxbar->regs + UNK_TUNABLE);
 	writel(hw->tunable, dpxbar->regs + UNK_TUNABLE);
+	readl(dpxbar->regs + UNK_TUNABLE);
 
 	for (unsigned int i = 0; i < MUX_MAX; ++i) {
 		mux_chip->mux[i].states = hw->n_ufp;
