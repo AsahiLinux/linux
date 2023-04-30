@@ -189,6 +189,7 @@ enum dcpep_method {
 	iomfbep_a358_vi_set_temperature_hint,
 	iomfbep_get_color_remap_mode,
 	iomfbep_last_client_close,
+	iomfbep_abort_swaps_dcp,
 	iomfbep_set_matrix,
 	dcpep_num_methods
 };
@@ -378,6 +379,25 @@ struct iomfb_last_client_close_req {
 
 struct iomfb_last_client_close_resp {
 	u32 unkint;
+} __packed;
+
+struct io_user_client {
+	u64 addr;
+	u32 unk;
+	u8 flag1;
+	u8 flag2;
+	u8 pad[2];
+} __packed;
+
+struct iomfb_abort_swaps_dcp_req {
+	struct io_user_client client;
+	u8 client_null;
+	u8 pad[3];
+} __packed;
+
+struct iomfb_abort_swaps_dcp_resp {
+	struct io_user_client client;
+	u32 ret;
 } __packed;
 
 struct iomfb_set_matrix_req {
