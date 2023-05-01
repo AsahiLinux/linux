@@ -415,13 +415,6 @@
 		clock-output-names = "nco_ref";
 	};
 
-	clk_120m: clock-120m {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <120000000>;
-		clock-output-names = "clk_120m";
-	};
-
 	/* Pixel clock? frequency in Hz (compare: 4K@60 VGA clock 533.250 MHz) */
 	clk_disp0: clock-disp0 {
 		compatible = "fixed-clock";
@@ -738,7 +731,7 @@
 			reg = <0x2 0x3510c000 0x0 0x4000>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 751 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_120m>;
+			clocks = <&clkref>;
 			pinctrl-0 = <&spi3_pins>;
 			pinctrl-names = "default";
 			power-domains = <&ps_spi3>;
@@ -914,10 +907,10 @@
 			};
 
 			spi3_pins: spi3-pins {
-				pinmux = <APPLE_PINMUX(46, 1)>,
-					<APPLE_PINMUX(47, 1)>,
-					<APPLE_PINMUX(48, 1)>,
-					<APPLE_PINMUX(49, 1)>;
+				pinmux = <APPLE_PINMUX(93, 1)>,
+					<APPLE_PINMUX(94, 1)>,
+					<APPLE_PINMUX(95, 1)>,
+					<APPLE_PINMUX(96, 1)>;
 			};
 
 			pcie_pins: pcie-pins {
