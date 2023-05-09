@@ -74,8 +74,8 @@ struct macaudio_snd_data {
 		unsigned int tdm_mask;
 	} *link_props;
 
-	bool speakers_streaming;
-	struct snd_kcontrol *speakers_streaming_kctl;
+	int speaker_sample_rate;
+	struct snd_kcontrol *speaker_sample_rate_kctl;
 };
 
 static bool please_blow_up_my_speakers;
@@ -483,9 +483,36 @@ static int macaudio_dpcm_hw_params(struct snd_pcm_substream *substream,
 				   struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
+	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
 	int bclk_ratio = macaudio_get_runtime_bclk_ratio(substream);
 	int i;
+
+	if (props->is_sense) {
+		rate->min = rate->max = cpu_dai->symmetric_rate;
+		return 0;
+	}
+
+	/* Speakers BE */
+	if (props->is_speakers) {
+		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			/* Sense PCM: keep the existing BE rate (0 if not already running) */
+			rate->min = rate->max = cpu_dai->symmetric_rate;
+
+			return 0;
+		} else {
+			/*
+			 * Set the sense PCM rate control to inform userspace of the
+			 * new sample rate.
+			 */
+			ma->speaker_sample_rate = params_rate(params);
+			snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
+				       &ma->speaker_sample_rate_kctl->id);
+		}
+	}
 
 	if (bclk_ratio) {
 		struct snd_soc_dai *dai;
@@ -511,8 +538,14 @@ static int macaudio_fe_startup(struct snd_pcm_substream *substream)
 	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
 	int max_rate, ret;
 
-	if (props->is_sense)
+	if (props->is_sense) {
+		/*
+		 * Sense stream will not return data while playback is inactive,
+		 * so do not time out.
+		 */
+		substream->wait_time = MAX_SCHEDULE_TIMEOUT;
 		return 0;
+	}
 
 	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
 					   SNDRV_PCM_HW_PARAM_CHANNELS,
@@ -569,31 +602,28 @@ static void macaudio_dpcm_shutdown(struct snd_pcm_substream *substream)
 	}
 }
 
-static int macaudio_be_prepare(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
-	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
-
-	if (props->is_speakers) {
-		ma->speakers_streaming = true;
-		snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
-			       &ma->speakers_streaming_kctl->id);
-	}
-
-	return 0;
-}
-
 static int macaudio_be_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
 	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
+	struct snd_soc_dai *dai;
+	int i;
 
-	if (props->is_speakers) {
-		ma->speakers_streaming = false;
+	if (props->is_speakers && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		/*
+		 * Clear the DAI rates, so the next open can change the sample rate.
+		 * This won't happen automatically if the sense PCM is open.
+		 */
+		for_each_rtd_dais(rtd, i, dai) {
+			dai->symmetric_rate = 0;
+		}
+
+		/* Notify userspace that the speakers are closed */
+		ma->speaker_sample_rate = 0;
 		snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
-			       &ma->speakers_streaming_kctl->id);
+			       &ma->speaker_sample_rate_kctl->id);
+
 	}
 
 	return 0;
@@ -606,7 +636,6 @@ static const struct snd_soc_ops macaudio_fe_ops = {
 };
 
 static const struct snd_soc_ops macaudio_be_ops = {
-	.prepare	= macaudio_be_prepare,
 	.hw_free	= macaudio_be_hw_free,
 	.shutdown	= macaudio_dpcm_shutdown,
 	.hw_params	= macaudio_dpcm_hw_params,
@@ -838,7 +867,7 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 		}
 	}
 
-	ma->speakers_streaming_kctl = snd_soc_card_get_kcontrol(card, "Speakers Up Indicator");
+	ma->speaker_sample_rate_kctl = snd_soc_card_get_kcontrol(card, "Speaker Sample Rate");
 
 	return 0;
 }
@@ -1017,10 +1046,10 @@ static const struct snd_soc_dapm_widget macaudio_snd_widgets[] = {
 
 static int macaudio_sss_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
 	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
+	uinfo->value.integer.max = 192000;
 
 	return 0;
 }
@@ -1035,7 +1064,7 @@ static int macaudio_sss_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 	 * assume there is some ALSA-level lock, but DAPM implementations
 	 * of kcontrol ops do explicit locking, so look into it.
 	 */
-	uvalue->value.integer.value[0] = ma->speakers_streaming;
+	uvalue->value.integer.value[0] = ma->speaker_sample_rate;
 
 	return 0;
 }
@@ -1048,7 +1077,7 @@ static const struct snd_kcontrol_new macaudio_controls[] = {
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
 			SNDRV_CTL_ELEM_ACCESS_VOLATILE,
-		.name = "Speakers Up Indicator",
+		.name = "Speaker Sample Rate",
 		.info = macaudio_sss_info, .get = macaudio_sss_get,
 	},
 };
