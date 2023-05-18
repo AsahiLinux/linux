@@ -700,11 +700,18 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 
 	link_stat = readl_relaxed(port->base + PORT_LINKSTS);
 	if (!(link_stat & PORT_LINKSTS_UP)) {
+		unsigned long timeout, left;
 		/* start link training */
 		writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
 
-		if (!wait_for_completion_timeout(&pcie->event, link_up_timeout * HZ / 1000))
+		timeout = link_up_timeout * HZ / 1000;
+		left = wait_for_completion_timeout(&pcie->event, timeout);
+		if (!left)
 			dev_warn(pcie->dev, "%pOF link didn't come up\n", np);
+		else
+			dev_info(pcie->dev, "%pOF link up after %ldms\n", np,
+				 (timeout - left) * 1000 / HZ);
+
 	}
 
 	return 0;
