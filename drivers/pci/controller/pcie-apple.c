@@ -698,14 +698,14 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 	ret = apple_pcie_port_register_irqs(port);
 	WARN_ON(ret);
 
-	if (link_stat & PORT_LINKSTS_UP)
-		return 0;
+	link_stat = readl_relaxed(port->base + PORT_LINKSTS);
+	if (!(link_stat & PORT_LINKSTS_UP)) {
+		/* start link training */
+		writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
 
-	/* start link training */
-	writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
-
-	if (!wait_for_completion_timeout(&pcie->event, link_up_timeout * HZ / 1000))
-		dev_warn(pcie->dev, "%pOF link didn't come up\n", np);
+		if (!wait_for_completion_timeout(&pcie->event, link_up_timeout * HZ / 1000))
+			dev_warn(pcie->dev, "%pOF link didn't come up\n", np);
+	}
 
 	return 0;
 }
