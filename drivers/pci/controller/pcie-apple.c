@@ -33,6 +33,10 @@
 
 #include "pci-host-common.h"
 
+static int link_up_timeout = 500;
+module_param(link_up_timeout, int, 0644);
+MODULE_PARM_DESC(link_up_timeout, "PCIe link training timeout in milliseconds");
+
 /* T8103 (original M1) and related SoCs */
 #define CORE_RC_PHYIF_CTL		0x00024
 #define   CORE_RC_PHYIF_CTL_RUN		BIT(0)
@@ -700,7 +704,7 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 	/* start link training */
 	writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
 
-	if (!wait_for_completion_timeout(&pcie->event, HZ / 10))
+	if (!wait_for_completion_timeout(&pcie->event, link_up_timeout * HZ / 1000))
 		dev_warn(pcie->dev, "%pOF link didn't come up\n", np);
 
 	return 0;
