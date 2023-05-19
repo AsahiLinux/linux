@@ -778,10 +778,10 @@ macro_rules! stack_try_pin_init {
 // module `macros` inside of `macros.rs`.
 #[macro_export]
 macro_rules! pin_init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
-        $crate::try_pin_init!($(&$this in)? $t $(::<$($generics),*>)? {
+        $crate::try_pin_init!($(&$this in)? $t $(::$p)* $(::<$($generics),*>)? {
             $($fields)*
         }? ::core::convert::Infallible)
     };
@@ -829,12 +829,12 @@ macro_rules! pin_init {
 // module `macros` inside of `macros.rs`.
 #[macro_export]
 macro_rules! try_pin_init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }? $err:ty) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)? ),
+            @typ($t $(::$p)* $(::<$($generics),*>)? ),
             @fields($($fields)*),
             @error($err),
             @data(PinData, use_data),
@@ -885,10 +885,10 @@ macro_rules! try_pin_init {
 // module `macros` inside of `macros.rs`.
 #[macro_export]
 macro_rules! init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
-        $crate::try_init!($(&$this in)? $t $(::<$($generics),*>)? {
+        $crate::try_init!($(&$this in)? $t $(::$p)* $(::<$($generics),*>)? {
             $($fields)*
         }? ::core::convert::Infallible)
     }
@@ -934,12 +934,12 @@ macro_rules! init {
 // module `macros` inside of `macros.rs`.
 #[macro_export]
 macro_rules! try_init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }? $err:ty) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)?),
+            @typ($t $(::$p)* $(::<$($generics),*>)?),
             @fields($($fields)*),
             @error($err),
             @data(InitData, /*no use_data*/),
