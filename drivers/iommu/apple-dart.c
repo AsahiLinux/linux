@@ -818,24 +818,15 @@ static struct iommu_device *apple_dart_probe_device(struct device *dev)
 {
 	struct apple_dart_master_cfg *cfg = dev_iommu_priv_get(dev);
 	struct apple_dart_stream_map *stream_map;
-	u32 dl_flags = DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_SUPPLIER;
 	int i;
 
 	if (!cfg)
 		return ERR_PTR(-ENODEV);
 
-	/*
-	 * Runtime PM behaves strangely with PCIe devices, pm_runtime_enabled()
-	 * returns true here although the devices do not support runtime PM.
-	 * This seems to confuse the PM core and DART is runtime suspended while
-	 * the device is in use. The dart_hw_reset() in the resume path ends up
-	 * breaking PCIe devices eventually.
-	 */
-	if (dev_is_pci(dev))
-		dl_flags |= DL_FLAG_RPM_ACTIVE;
-
 	for_each_stream_map(i, cfg, stream_map)
-		device_link_add(dev, stream_map->dart->dev, dl_flags);
+		device_link_add(dev, stream_map->dart->dev,
+			DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_SUPPLIER |
+			DL_FLAG_RPM_ACTIVE);
 
 	return &cfg->stream_maps[0].dart->iommu;
 }

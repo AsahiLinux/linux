@@ -111,6 +111,12 @@
 };
 
 / {
+	dmic: audio-codec {
+		compatible = "dmic-codec";
+		wakeup-delay-ms = <50>;
+		#sound-dai-cells = <0>;
+	};
+
 	sound {
 		compatible = "apple,j456-macaudio", "apple,macaudio";
 		model = "iMac J456";
@@ -123,6 +129,17 @@
 			};
 			codec {
 				sound-dai = <&jack_codec>;
+			};
+		};
+
+		dai-link@2 {
+			link-name = "Internal Mic";
+
+			cpu {
+				sound-dai = <&aop_leapshim 6>, <&aop_leapshim 7>, <&aop_leapshim 9>;
+			};
+			codec {
+				sound-dai = <&dmic>;
 			};
 		};
 	};

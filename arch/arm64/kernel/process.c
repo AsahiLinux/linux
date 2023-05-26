@@ -375,8 +375,10 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
 		if (system_supports_tpidr2())
 			p->thread.tpidr2_el0 = read_sysreg_s(SYS_TPIDR2_EL0);
 
+#ifdef CONFIG_ARM64_ACTLR_STATE
 		if (system_has_actlr_state())
 			p->thread.actlr = read_sysreg(actlr_el1);
+#endif
 
 		if (stack_start) {
 			if (is_compat_thread(task_thread_info(p)))
@@ -529,8 +531,10 @@ static void actlr_thread_switch(struct task_struct *next)
 	if (!system_has_actlr_state())
 		return;
 
+#ifdef CONFIG_ARM64_ACTLR_STATE
 	current->thread.actlr = read_sysreg(actlr_el1);
 	write_sysreg(next->thread.actlr, actlr_el1);
+#endif
 }
 
 #ifdef CONFIG_ARM64_MEMORY_MODEL_CONTROL
@@ -565,6 +569,19 @@ int arch_prctl_mem_model_set(struct task_struct *t, unsigned long val)
 		return 0;
 	}
 
+	if (val == PR_SET_MEM_MODEL_DEFAULT)
+		return 0;
+
+	return -EINVAL;
+}
+#else
+int arch_prctl_mem_model_get(struct task_struct *t)
+{
+	return PR_SET_MEM_MODEL_DEFAULT;
+}
+
+int arch_prctl_mem_model_set(struct task_struct *t, unsigned long val)
+{
 	if (val == PR_SET_MEM_MODEL_DEFAULT)
 		return 0;
 

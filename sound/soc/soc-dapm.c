@@ -4560,7 +4560,7 @@ static void soc_dapm_dai_stream_event(struct snd_soc_dai *dai, int stream,
 void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 {
 	struct snd_soc_pcm_runtime *rtd;
-	struct snd_soc_dai *codec_dai;
+	struct snd_soc_dai *codec_dai, *cpu_dai;
 	int i;
 
 	/* for each BE DAI link... */
@@ -4580,6 +4580,10 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 			for_each_rtd_codec_dais(rtd, i, codec_dai)
 				dapm_connect_dai_pair(card, rtd, codec_dai,
 						      asoc_rtd_to_cpu(rtd, i));
+		} else if (rtd->dai_link->num_codecs == 1) {
+			for_each_rtd_cpu_dais(rtd, i, cpu_dai)
+				dapm_connect_dai_pair(card, rtd, asoc_rtd_to_codec(rtd, 0),
+						      			cpu_dai);
 		} else {
 			dev_err(card->dev,
 				"N cpus to M codecs link is not supported yet\n");

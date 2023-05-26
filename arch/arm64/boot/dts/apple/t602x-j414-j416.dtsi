@@ -15,6 +15,7 @@
  */
 
 #define NO_SPI_TRACKPAD
+#define NO_INTERNAL_MIC
 #include "t600x-j314-j316.dtsi"
 
 &nvram {

@@ -67,6 +67,14 @@ config COMMON_CLK_APPLE_NCO
 	  found on Apple SoCs such as t8103 (M1). The blocks are typically
 	  generators of audio clocks.
 
+config COMMON_CLK_APPLE_CLKDIV
+	tristate "Clock driver for Apple SoC CLKDIVs"
+	depends on ARCH_APPLE || COMPILE_TEST
+	default ARCH_APPLE
+	help
+		This driver supports clock divider registers (CLKDIV registers) on
+		Apple SoCs such as the t8103 (M1).
+
 config COMMON_CLK_MAX77686
 	tristate "Clock driver for Maxim 77620/77686/77802 MFD"
 	depends on MFD_MAX77686 || MFD_MAX77620 || COMPILE_TEST

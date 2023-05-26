@@ -2002,4 +2002,235 @@
 		label = DIE_LABEL(atc3_usb);
 		power-domains = <&DIE_NODE(ps_atc3_usb_aon)>, <&DIE_NODE(ps_atc3_common)>;
 	};
+
+	DIE_NODE(ps_aop_filter): power-controller@4000 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4000 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_filter);
+	};
+
+	DIE_NODE(ps_aop_gpio): power-controller@4008 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4008 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_gpio);
+		power-domains = <&DIE_NODE(ps_aop_filter)>;
+	};
+
+	DIE_NODE(ps_aop_base): power-controller@4010 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4010 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_base);
+		power-domains = <&DIE_NODE(ps_aop_filter)>;
+	};
+
+	DIE_NODE(ps_aop_fr): power-controller@4018 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4018 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_fr);
+		power-domains = <&DIE_NODE(ps_aop_filter)>;
+	};
+
+	DIE_NODE(ps_aop_leap_clk): power-controller@4020 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4020 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_leap_clk);
+		power-domains = <&DIE_NODE(ps_aop_filter)>;
+	};
+
+	DIE_NODE(ps_aop_shim): power-controller@4028 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4028 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_shim);
+		power-domains = <&DIE_NODE(ps_aop_base)>;
+	};
+
+	DIE_NODE(ps_aop_scm): power-controller@4030 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4030 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_scm);
+		power-domains = <&DIE_NODE(ps_aop_base)>, <&DIE_NODE(ps_aop_fr)>;
+	};
+
+	DIE_NODE(ps_aop_adma0): power-controller@4038 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4038 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_adma0);
+		power-domains = <&DIE_NODE(ps_aop_base)>;
+	};
+
+	DIE_NODE(ps_aop_cpu): power-controller@4040 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4040 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_cpu);
+		power-domains = <&DIE_NODE(ps_aop_base)>;
+	};
+
+	DIE_NODE(ps_aop_i2cm0): power-controller@4048 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4048 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_i2cm0);
+		power-domains = <&DIE_NODE(ps_aop_fr)>;
+	};
+
+	DIE_NODE(ps_aop_i2cm1): power-controller@4050 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4050 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_i2cm1);
+		power-domains = <&DIE_NODE(ps_aop_fr)>;
+	};
+
+	DIE_NODE(ps_aop_mca0): power-controller@4058 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4058 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_mca0);
+		power-domains = <&DIE_NODE(ps_aop_fr)>, <&DIE_NODE(ps_aop_shim)>;
+	};
+
+	DIE_NODE(ps_aop_mca1): power-controller@4060 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4060 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_mca1);
+		power-domains = <&DIE_NODE(ps_aop_fr)>, <&DIE_NODE(ps_aop_shim)>;
+	};
+
+	DIE_NODE(ps_aop_spi0): power-controller@4068 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4068 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_spi0);
+		power-domains = <&DIE_NODE(ps_aop_fr)>;
+	};
+
+	DIE_NODE(ps_aop_spmi0): power-controller@4070 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4070 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_spmi0);
+		power-domains = <&DIE_NODE(ps_aop_fr)>;
+	};
+
+	DIE_NODE(ps_aop_spmi1): power-controller@4078 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4078 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_spmi1);
+		power-domains = <&DIE_NODE(ps_aop_fr)>;
+	};
+
+	DIE_NODE(ps_aop_leap): power-controller@4080 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4080 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_leap);
+		power-domains = <&DIE_NODE(ps_aop_leap_clk)>;
+	};
+
+	DIE_NODE(ps_aop_audio_shim): power-controller@4088 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4088 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_audio_shim);
+		power-domains = <&DIE_NODE(ps_aop_leap_clk)>;
+	};
+
+	DIE_NODE(ps_aop_audio_adma0): power-controller@4090 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4090 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_audio_adma0);
+		power-domains = <&DIE_NODE(ps_aop_leap_clk)>;
+	};
+
+	DIE_NODE(ps_aop_uart0): power-controller@4098 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4098 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_uart0);
+		power-domains = <&DIE_NODE(ps_aop_shim)>;
+	};
+
+	DIE_NODE(ps_aop_uart1): power-controller@40a0 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x40a0 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_uart1);
+		power-domains = <&DIE_NODE(ps_aop_shim)>;
+	};
+
+	DIE_NODE(ps_aop_uart2): power-controller@40a8 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x40a8 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_uart2);
+		power-domains = <&DIE_NODE(ps_aop_shim)>;
+	};
+
+	DIE_NODE(ps_aop_pdmc_lpd): power-controller@40b0 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x40b0 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_pdmc_lpd);
+		power-domains = <&ps_aop_shim>;
+	};
+
+	DIE_NODE(ps_aop_sram): power-controller@40b8 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x40b8 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_sram);
+		power-domains = <&DIE_NODE(ps_aop_scm)>, <&DIE_NODE(ps_aop_cpu)>;
+	};
+
+	DIE_NODE(ps_aop_pdm0_ref): power-controller@40c0 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x40c0 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_pdm0_ref);
+	};
+
+	DIE_NODE(ps_aop_pdm1_ref): power-controller@40c8 {
+		compatible = "apple,t6000-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x40c8 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = DIE_LABEL(aop_pdm1_ref);
+	};
 };

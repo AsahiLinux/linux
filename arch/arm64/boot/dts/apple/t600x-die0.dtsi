@@ -93,6 +93,13 @@
 				<AIC_IRQ 0 749 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	aop_pdmclk: clock@292240314 {
+		compatible = "apple,clkdiv";
+		reg = <0x2 0x92240314 0x0 0x4>;
+		clocks = <&clkref>;
+		#clock-cells = <0>;
+	};
+
 	wdt: watchdog@2922b0000 {
 		compatible = "apple,t6000-wdt", "apple,wdt";
 		reg = <0x2 0x922b0000 0x0 0x4000>;
@@ -174,6 +181,56 @@
 			};
 
 		};
+	};
+
+	aop_dart: iommu@293808000 {
+		compatible = "apple,t6000-dart", "apple,dart";
+		reg = <0x2 0x93808000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 597 IRQ_TYPE_LEVEL_HIGH>;
+		#iommu-cells = <1>;
+		power-domains = <&ps_aop_filter>;
+	};
+
+	aop_admac_audio: dma-controller@293980000 {
+		compatible = "apple,t6000-admac", "apple,admac";
+		reg = <0x2 0x93980000 0x0 0x34000>;
+		dma-channels = <16>;
+		interrupts-extended = <0>,
+				      <0>,
+				      <&aic AIC_IRQ 0 600 IRQ_TYPE_LEVEL_HIGH>,
+				      <0>;
+		#dma-cells = <1>;
+		iommus = <&aop_dart 7>;
+		power-domains = <&ps_aop_audio_adma0>;
+	};
+
+	aop_leap: dsp@294000000 {
+		compatible = "apple,t6000-leap", "apple,leap";
+		reg = <0x2 0x94000000 0x0 0x1000000>;
+
+		power-domains = <&ps_aop_leap>;
+		resets = <&ps_aop_leap>;
+	};
+
+	aop_leapshim: leapshim@295000000 {
+		compatible = "apple,t6000-leapshim", "apple,leapshim";
+		reg = <0x2 0x95000000 0x0 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clocks = <&aop_pdmclk>;
+		clock-names = "Internal Mic clk_pdm"; // TODO: needs an ASoC patch to drop the prefix
+
+		#sound-dai-cells = <1>;
+
+		dmas = <&aop_admac_audio 0>, <&aop_admac_audio 1>;
+		dma-names = "tx0", "rx0";
+
+		assigned-clocks = <&aop_pdmclk>;
+		assigned-clock-rates = <2400000>;
+
+		sound-name-prefix = "Internal Mic";
 	};
 
 	disp0_piodma: mapper@38a000000 {

@@ -816,7 +816,7 @@ static irqreturn_t cs42l84_irq_thread(int irq, void *data)
 	int i;
 
 	mutex_lock(&cs42l84->irq_lock);
-	/* Read sticky registers to clear interurpt */
+	/* Read sticky registers to clear interrupt */
 	for (i = 0; i < ARRAY_SIZE(stickies); i++) {
 		regmap_read(cs42l84->regmap, irq_params_table[i].status_addr,
 				&(stickies[i]));

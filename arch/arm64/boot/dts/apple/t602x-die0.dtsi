@@ -34,6 +34,13 @@
 		reg-names = "fabric-ps", "dcs-ps";
 	};
 
+	aop_pdmclk: clock@29e240314 {
+		compatible = "apple,clkdiv";
+		reg = <0x2 0x9e240314 0x0 0x4>;
+		clocks = <&clkref>;
+		#clock-cells = <0>;
+	};
+
 	wdt: watchdog@29e2c4000 {
 		compatible = "apple,t6020-wdt", "apple,wdt";
 		reg = <0x2 0x9e2c4000 0x0 0x4000>;
@@ -178,6 +185,56 @@
 				<AIC_IRQ 0 856 IRQ_TYPE_LEVEL_HIGH>,
 				<AIC_IRQ 0 857 IRQ_TYPE_LEVEL_HIGH>;
 	};
+
+#if 0
+	aop_dart: iommu@2a6808000 {
+		compatible = "apple,t8110-dart", "apple,dart";
+		reg = <0x2 0xa6808000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 628 IRQ_TYPE_LEVEL_HIGH>;
+		#iommu-cells = <1>;
+		power-domains = <&ps_aop_filter>;
+	};
+
+	aop_admac_audio: dma-controller@2a6980000 {
+		compatible = "apple,t6020-admac", "apple,admac";
+		reg = <0x2 0xa6980000 0x0 0x34000>;
+		dma-channels = <16>;
+		interrupts-extended = <0>,
+				      <0>,
+				      <&aic AIC_IRQ 0 631 IRQ_TYPE_LEVEL_HIGH>,
+				      <0>;
+		#dma-cells = <1>;
+		iommus = <&aop_dart 7>;
+		power-domains = <&ps_aop_audio_adma0>;
+	};
+
+	aop_leap: dsp@2a7000000 {
+		compatible = "apple,t6020-leap", "apple,leap";
+		reg = <0x2 0xa7000000 0x0 0x1000000>;
+
+		power-domains = <&ps_aop_leap>;
+		resets = <&ps_aop_leap>;
+	};
+
+	aop_leapshim: leapshim@2a8000000 {
+		compatible = "apple,t6020-leapshim";
+		reg = <0x2 0xa8000000 0x0 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clocks = <&aop_pdmclk>;
+		clock-names = "clk_pdm";
+
+		#sound-dai-cells = <1>;
+
+		dmas = <&aop_admac_audio 0>, <&aop_admac_audio 1>;
+		dma-names = "tx0", "rx0";
+
+		assigned-clocks = <&aop_pdmclk>;
+		assigned-clock-rates = <2400000>;
+	};
+#endif
 
 	mtp: mtp@2a9400000 {
 		compatible = "apple,t6020-mtp", "apple,t6020-rtk-helper-asc4", "apple,mtp", "apple,rtk-helper-asc4";

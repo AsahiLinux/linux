@@ -988,11 +988,18 @@
 				     <AIC_IRQ 336 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		aop_pdmclk: clock@23d240310 {
+			compatible = "apple,clkdiv";
+			reg = <0x2 0x3d240310 0x0 0x4>;
+			clocks = <&clkref>;
+			#clock-cells = <0>;
+		};
+
 		pmgr_mini: power-management@23d280000 {
 			compatible = "apple,t8103-pmgr", "apple,pmgr", "syscon", "simple-mfd";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			reg = <0x2 0x3d280000 0 0x4000>;
+			reg = <0x2 0x3d280000 0 0x8000>;
 		};
 
 		wdt: watchdog@23d2b0000 {
@@ -1062,9 +1069,19 @@
 				     <AIC_IRQ 397 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		aop_dart: iommu@24a808000 {
+			compatible = "apple,t8103-dart", "apple,dart";
+			reg = <0x2 0x4a808000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 300 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_aop_filter>;
+		};
+
 		pinctrl_aop: pinctrl@24a820000 {
 			compatible = "apple,t8103-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x4a820000 0x0 0x4000>;
+			power-domains = <&ps_aop_gpio>;
 
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -1081,6 +1098,42 @@
 				     <AIC_IRQ 272 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 273 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 274 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		aop_admac_audio: dma-controller@24a980000 {
+			compatible = "apple,t8103-admac", "apple,admac";
+			reg = <0x2 0x4a980000 0x0 0x34000>;
+			dma-channels = <16>;
+			interrupts-extended = <0>,
+					      <0>,
+					      <&aic AIC_IRQ 321 IRQ_TYPE_LEVEL_HIGH>,
+					      <0>;
+			#dma-cells = <1>;
+			iommus = <&aop_dart 7>;
+			power-domains = <&ps_aop_audio_adma0>;
+			//resets = <&ps_audio_p>; // TODO
+		};
+
+		aop_leap: dsp@24b000000 {
+			compatible = "apple,t8103-leap", "apple,leap";
+			reg = <0x2 0x4b000000 0x0 0x1000000>;
+			power-domains = <&ps_aop_leap>;
+			resets = <&ps_aop_leap>;
+		};
+
+		aop_leapshim: leapshim@24c000000 {
+			compatible = "apple,t8103-leapshim", "apple,leapshim";
+			reg = <0x2 0x4c000000 0x0 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&aop_pdmclk>;
+			clock-names = "Internal Mic clk_pdm"; // TODO: needs an ASoC patch to drop the prefix
+			#sound-dai-cells = <1>;
+			dmas = <&aop_admac_audio 0>, <&aop_admac_audio 1>;
+			dma-names = "tx0", "rx0";
+			assigned-clocks = <&aop_pdmclk>;
+			assigned-clock-rates = <2400000>;
+			sound-name-prefix = "Internal Mic";
 		};
 
 		ans_mbox: mbox@277408000 {

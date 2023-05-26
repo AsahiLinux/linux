@@ -426,6 +426,12 @@
 		default-on;
 	};
 
+	dmic: audio-codec {
+		compatible = "dmic-codec";
+		wakeup-delay-ms = <50>;
+		#sound-dai-cells = <0>;
+	};
+
 	sound: sound {
 		compatible = "apple,j314-macaudio", "apple,macaudio";
 
@@ -464,5 +470,18 @@
 				sound-dai = <&jack_codec>;
 			};
 		};
+
+#ifndef NO_INTERNAL_MIC /* for t602x models, where support isn't ready */
+		dai-link@2 {
+			link-name = "Internal Mic";
+
+			cpu {
+				sound-dai = <&aop_leapshim 6>, <&aop_leapshim 7>, <&aop_leapshim 9>;
+			};
+			codec {
+				sound-dai = <&dmic>;
+			};
+		};
+#endif
 	};
 };

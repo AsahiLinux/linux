@@ -408,13 +408,10 @@ static int apple_drm_init_dcp(struct device *dev)
 	int i, ret, num_dcp = 0;
 
 	for_each_matching_node(np, apple_dcp_id_tbl) {
-		if (!of_device_is_available(np)) {
-			of_node_put(np);
+		if (!of_device_is_available(np))
 			continue;
-		}
 
 		dcp[num_dcp] = of_find_device_by_node(np);
-		of_node_put(np);
 		if (!dcp[num_dcp])
 			continue;
 

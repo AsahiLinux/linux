@@ -1028,6 +1028,14 @@
 				     <AIC_IRQ 377 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		// TODO: find address (will be in vicinity)
+		aop_pdmclk: clock@23d240310 {
+			compatible = "apple,clkdiv";
+			reg = <0x2 0x3d240310 0x0 0x4>;
+			clocks = <&clkref>;
+			#clock-cells = <0>;
+		};
+
 		pmgr_mini: power-management@23d280000 {
 			compatible = "apple,t8112-pmgr", "apple,pmgr", "syscon", "simple-mfd";
 			#address-cells = <1>;
@@ -1200,9 +1208,19 @@
 				     <AIC_IRQ 496 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		aop_dart: iommu@24a808000 {
+			compatible = "apple,t8110-dart", "apple,dart";
+			reg = <0x2 0x4a808000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 338 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_aop_filter>;
+		};
+
 		pinctrl_aop: pinctrl@24a820000 {
 			compatible = "apple,t8112-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x4a820000 0x0 0x4000>;
+			power-domains = <&ps_aop_gpio>;
 
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -1219,6 +1237,45 @@
 				     <AIC_IRQ 305 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 306 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 307 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		aop_admac_audio: dma-controller@24a980000 {
+			compatible = "apple,t8112-admac", "apple,admac";
+			reg = <0x2 0x4a980000 0x0 0x34000>;
+			dma-channels = <16>;
+			interrupts-extended = <0>,
+					      <0>,
+					      <&aic AIC_IRQ 359 IRQ_TYPE_LEVEL_HIGH>,
+					      <0>;
+			#dma-cells = <1>;
+			iommus = <&aop_dart 7>;
+			power-domains = <&ps_aop_audio_adma0>;
+		};
+
+		aop_leap: dsp@24b000000 {
+			compatible = "apple,t8112-leap", "apple,leap";
+			reg = <0x2 0x4b000000 0x0 0x1000000>;
+
+			power-domains = <&ps_aop_leap>;
+			resets = <&ps_aop_leap>;
+		};
+
+		aop_leapshim: leapshim@24c000000 {
+			compatible = "apple,t8112-leapshim";
+			reg = <0x2 0x4c000000 0x0 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			clocks = <&aop_pdmclk>;
+			clock-names = "clk_pdm";
+
+			#sound-dai-cells = <1>;
+
+			dmas = <&aop_admac_audio 0>, <&aop_admac_audio 1>;
+			dma-names = "tx0", "rx0";
+
+			assigned-clocks = <&aop_pdmclk>;
+			assigned-clock-rates = <2400000>;
 		};
 
 		mtp: mtp@24e400000 {
