@@ -61,6 +61,7 @@
 #include <linux/poll.h>
 #include <linux/property.h>
 #include <linux/refcount.h>
+#include <linux/siphash.h>
 #include <linux/sched.h>
 #include <linux/security.h>
 #include <linux/slab.h>
