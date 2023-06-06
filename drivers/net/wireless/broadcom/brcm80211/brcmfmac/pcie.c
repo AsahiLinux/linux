@@ -408,6 +408,7 @@ struct brcmf_pciedev_info {
 	wait_queue_head_t mbdata_resp_wait;
 	bool mbdata_completed;
 	bool irq_allocated;
+	bool irq_ready;
 	bool have_msi;
 	bool wowl_enabled;
 	u8 dma_idx_sz;
@@ -991,6 +992,8 @@ static void brcmf_pcie_bus_console_read(struct brcmf_pciedev_info *devinfo,
 static void brcmf_pcie_intr_disable(struct brcmf_pciedev_info *devinfo)
 {
 	brcmf_pcie_write_reg32(devinfo, devinfo->reginfo->mailboxmask, 0);
+
+	devinfo->irq_ready = false;
 }
 
 
@@ -999,6 +1002,8 @@ static void brcmf_pcie_intr_enable(struct brcmf_pciedev_info *devinfo)
 	brcmf_pcie_write_reg32(devinfo, devinfo->reginfo->mailboxmask,
 			       devinfo->reginfo->int_d2h_db |
 			       devinfo->reginfo->int_fn0);
+
+	devinfo->irq_ready = true;
 }
 
 static void brcmf_pcie_hostready(struct brcmf_pciedev_info *devinfo)
@@ -1044,7 +1049,7 @@ static irqreturn_t brcmf_pcie_isr_thread(int irq, void *arg)
 			brcmf_pcie_poll_mb_data(devinfo);
 	}
 	if (devinfo->have_msi || status & devinfo->reginfo->int_d2h_db) {
-		if (devinfo->state == BRCMFMAC_PCIE_STATE_UP)
+		if (devinfo->state == BRCMFMAC_PCIE_STATE_UP && devinfo->irq_ready)
 			brcmf_proto_msgbuf_rx_trigger(&devinfo->pdev->dev);
 	}
 
