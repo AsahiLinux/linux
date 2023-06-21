@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only OR MIT
+
+config DRM_ACCEL_ANE
+	tristate "Apple Neural Engine driver"
+	depends on DRM_ACCEL
+	depends on (ARM64 && ARCH_APPLE)
+	help
+	  Say Y if you have an Apple Silicon chipset.

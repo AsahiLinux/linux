@@ -598,3 +598,29 @@
 		svid = <0xff01>, <0x8087>;
 		power-domains = <&DIE_NODE(ps_atc3_usb)>;
 	};
+
+	DIE_NODE(ane_dart): iommu@285800000 {
+		compatible = "apple,t6000-dart";
+		reg = <0x2 0x085800000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 771 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_ane_sys)>;
+	};
+
+	DIE_NODE(ane): ane@284000000 {
+		compatible = "apple,t6000-ane";
+		iommus = <&DIE_NODE(ane_dart) 0>;
+		reg-names = "engine", "dart0", "dart1", "dart2";
+		reg = <0x2 0x85c04000 0x0 0x24000>,
+			<0x2 0x85800000 0x0 0x4000>,
+			<0x2 0x85810000 0x0 0x4000>,
+			<0x2 0x85820000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupt-names = "ane", "dart";
+		interrupts = <AIC_IRQ DIE_NO 770 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ DIE_NO 771 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_ane_set1)>,
+			<&DIE_NODE(ps_ane_set2)>, <&DIE_NODE(ps_ane_set3)>,
+			<&DIE_NODE(ps_ane_set4)>, <&DIE_NODE(ps_ane_set5)>;
+	};

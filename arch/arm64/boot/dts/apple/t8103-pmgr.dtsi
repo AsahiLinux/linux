@@ -841,6 +841,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "ane_sys";
+		apple,always-on; /* hack */
 	};
 
 	ps_atc0_common: power-controller@420 {
@@ -992,6 +993,60 @@
 		#reset-cells = <0>;
 		label = "ane_sys_cpu";
 		power-domains = <&ps_ane_sys>;
+	};
+
+	ps_ane_base: power-controller@c008 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc008 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_base";
+		power-domains = <&ps_ane_sys_cpu>;
+	};
+
+	ps_ane_set1: power-controller@c010 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc010 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set1";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set2: power-controller@c018 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc018 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set2";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set3: power-controller@c020 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc020 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set3";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set4: power-controller@c028 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc028 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set4";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set5: power-controller@c030 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc030 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set5";
+		power-domains = <&ps_ane_base>;
 	};
 
 	ps_disp0_cpu0: power-controller@10018 {

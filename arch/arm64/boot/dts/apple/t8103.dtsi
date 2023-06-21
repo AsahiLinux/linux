@@ -583,6 +583,31 @@
 			phandle = <&display>;
 		};
 
+		ane_dart: iommu@26b800000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x6b800000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 417 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_ane_sys>;
+		};
+
+		ane: ane@26a000000 {
+			compatible = "apple,t8103-ane";
+			iommus = <&ane_dart 0>;
+			reg-names = "engine", "dart0", "dart1", "dart2";
+			reg = <0x2 0x6bc04000 0x0 0x24000>,
+				<0x2 0x6b800000 0x0 0x4000>,
+				<0x2 0x6b810000 0x0 0x4000>,
+				<0x2 0x6b820000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupt-names = "ane", "dart";
+			interrupts = <AIC_IRQ 416 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 417 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_ane_set1>, <&ps_ane_set2>,
+				<&ps_ane_set3>, <&ps_ane_set4>, <&ps_ane_set5>;
+		};
+
 		sio_dart: iommu@235004000 {
 			compatible = "apple,t8103-dart";
 			reg = <0x2 0x35004000 0x0 0x4000>;
