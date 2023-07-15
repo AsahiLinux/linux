@@ -558,26 +558,6 @@ const struct component_master_ops apple_drm_ops = {
 	.unbind	= apple_drm_unbind,
 };
 
-static const struct of_device_id apple_component_id_tbl[] = {
-	{ .compatible = "apple,dcp-piodma" },
-	{},
-};
-
-static int add_display_components(struct device *dev,
-				  struct component_match **matchptr)
-{
-	struct device_node *np;
-
-	for_each_matching_node(np, apple_component_id_tbl) {
-		if (of_device_is_available(np))
-			drm_of_component_match_add(dev, matchptr,
-						   component_compare_of, np);
-		of_node_put(np);
-	}
-
-	return 0;
-}
-
 static int add_dcp_components(struct device *dev,
 			      struct component_match **matchptr)
 {
@@ -601,9 +581,6 @@ static int apple_platform_probe(struct platform_device *pdev)
 	struct device *mdev = &pdev->dev;
 	struct component_match *match = NULL;
 	int num_dcp;
-
-	/* add PIODMA mapper components */
-	add_display_components(mdev, &match);
 
 	/* add DCP components, handle less than 1 as probe error */
 	num_dcp = add_dcp_components(mdev, &match);

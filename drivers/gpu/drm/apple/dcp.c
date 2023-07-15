@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/slab.h>
 #include <linux/soc/apple/rtkit.h>
 #include <linux/string.h>
@@ -316,17 +317,39 @@ out_unlock:
 	mutex_unlock(&dcp->bl_register_mutex);
 }
 
-static struct platform_device *dcp_get_dev(struct device *dev, const char *name)
+static int dcp_create_piodma_iommu_dev(struct apple_dcp *dcp)
 {
-	struct platform_device *pdev;
-	struct device_node *node = of_parse_phandle(dev->of_node, name, 0);
+	int ret;
+	struct device_node *node = of_get_child_by_name(dcp->dev->of_node, "piodma");
 
 	if (!node)
-		return NULL;
+		return dev_err_probe(dcp->dev, -ENODEV,
+				     "Failed to get piodma child DT node\n");
 
-	pdev = of_find_device_by_node(node);
+	dcp->piodma = of_platform_device_create(node, NULL, dcp->dev);
+	if (!dcp->piodma) {
+		of_node_put(node);
+		return dev_err_probe(dcp->dev, -ENODEV, "Failed to create piodma pdev for %pOF\n", node);
+	}
+
+	ret = dma_set_mask_and_coherent(&dcp->piodma->dev, DMA_BIT_MASK(42));
+	if (ret)
+		goto err_destroy_pdev;
+
+	ret = of_dma_configure(&dcp->piodma->dev, node, true);
+	if (ret) {
+		ret = dev_err_probe(dcp->dev, ret,
+			"Failed to configure IOMMU child DMA\n");
+		goto err_destroy_pdev;
+	}
 	of_node_put(node);
-	return pdev;
+
+	return 0;
+
+err_destroy_pdev:
+	of_node_put(node);
+	of_platform_device_destroy(&dcp->piodma->dev, NULL);
+	return ret;
 }
 
 static int dcp_get_disp_regs(struct apple_dcp *dcp)
@@ -432,8 +455,6 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	if (IS_ERR(dcp->coproc_reg))
 		return PTR_ERR(dcp->coproc_reg);
 
-	of_platform_default_populate(dev->of_node, NULL, dev);
-
 	if (!show_notch)
 		ret = of_property_read_u32(dev->of_node, "apple,notch-height",
 					   &dcp->notch_height);
@@ -479,16 +500,10 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	else
 		dcp->connector_type = DRM_MODE_CONNECTOR_Unknown;
 
-	/*
-	 * Components do not ensure the bind order of sub components but
-	 * the piodma device is only used for its iommu. The iommu is fully
-	 * initialized by the time dcp_piodma_probe() calls component_add().
-	 */
-	dcp->piodma = dcp_get_dev(dev, "apple,piodma-mapper");
-	if (!dcp->piodma) {
-		dev_err(dev, "failed to find piodma\n");
-		return -ENODEV;
-	}
+	ret = dcp_create_piodma_iommu_dev(dcp);
+	if (ret || !dcp->iommu_dom)
+		return dev_err_probe(dev, ret,
+				"Failed to created PIODMA iommu child device");
 
 	ret = dcp_get_disp_regs(dcp);
 	if (ret) {
@@ -545,8 +560,10 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 	if (dcp && dcp->shmem)
 		iomfb_shutdown(dcp);
 
-	platform_device_put(dcp->piodma);
-	dcp->piodma = NULL;
+	if (dcp->piodma) {
+		of_platform_device_destroy(&dcp->piodma->dev, NULL);
+		dcp->piodma = NULL;
+	}
 
 	devm_clk_put(dev, dcp->clk);
 	dcp->clk = NULL;
@@ -562,6 +579,7 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	enum dcp_firmware_version fw_compat;
 	struct device *dev = &pdev->dev;
 	struct apple_dcp *dcp;
+	int ret;
 
 	fw_compat = dcp_check_firmware_version(dev);
 	if (fw_compat == DCP_FIRMWARE_UNKNOWN)
@@ -575,6 +593,12 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	dcp->dev = dev;
 
 	platform_set_drvdata(pdev, dcp);
+
+	ret = devm_of_platform_populate(dev);
+	if (ret) {
+		dev_err(dev, "failed to populate child devices: %d\n", ret);
+		return ret;
+	}
 
 	return component_add(&pdev->dev, &dcp_comp_ops);
 }
