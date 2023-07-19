@@ -279,7 +279,10 @@ static struct dcp_map_buf_resp dcpep_cb_map_piodma(struct apple_dcp *dcp,
 	ret = iommu_map_sgtable(dcp->iommu_dom, memdesc->dva, map,
 				IOMMU_READ | IOMMU_WRITE);
 
-	if (ret != memdesc->size) {
+	/* HACK: expect size to be 16K aligned since the iommu API only maps
+	 *       full pages
+	 */
+	if (ret < 0 || ret != ALIGN(memdesc->size, SZ_16K)) {
 		dev_err(dcp->dev, "iommu_map_sgtable() returned %zd instead of expected buffer size of %zu\n", ret, memdesc->size);
 		goto reject;
 	}
@@ -334,6 +337,7 @@ dcpep_cb_allocate_buffer(struct apple_dcp *dcp,
 {
 	struct dcp_allocate_buffer_resp resp = { 0 };
 	struct dcp_mem_descriptor *memdesc;
+	size_t size;
 	u32 id;
 
 	resp.dva_size = ALIGN(req->size, 4096);
@@ -352,11 +356,13 @@ dcpep_cb_allocate_buffer(struct apple_dcp *dcp,
 	memdesc = &dcp->memdesc[id];
 
 	memdesc->size = resp.dva_size;
-	memdesc->buf = dma_alloc_coherent(dcp->dev, memdesc->size,
+	/* HACK: align size to 16K since the iommu API only maps full pages */
+	size = ALIGN(resp.dva_size, SZ_16K);
+	memdesc->buf = dma_alloc_coherent(dcp->dev, size,
 					  &memdesc->dva, GFP_KERNEL);
 
 	dma_get_sgtable(dcp->dev, &memdesc->map, memdesc->buf, memdesc->dva,
-			memdesc->size);
+			size);
 	resp.dva = memdesc->dva;
 
 	return resp;
