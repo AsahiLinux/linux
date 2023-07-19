@@ -337,7 +337,6 @@ impl Resources {
             },
             gpu_rev,
             gpu_rev_id,
-            max_dies: (id_clusters >> 20) & 0xf,
             num_clusters,
             num_cores,
             num_frags: num_cores, // Used to be id_counts_1[15:8] but does not work for G14X

@@ -326,8 +326,6 @@ pub(crate) struct GpuIdConfig {
     pub(crate) gpu_rev: GpuRevision,
     /// GPU silicon revision ID (firmware enum).
     pub(crate) gpu_rev_id: GpuRevisionID,
-    /// Maximum number of dies supported.
-    pub(crate) max_dies: u32,
     /// Total number of GPU clusters.
     pub(crate) num_clusters: u32,
     /// Maximum number of GPU cores per cluster.

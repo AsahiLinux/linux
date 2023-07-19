@@ -711,8 +711,7 @@ impl GpuManager::ver {
             gpu_id.gpu_gen,
             gpu_id.gpu_variant
         );
-        dev_info!(dev, "  Max dies: {}\n", gpu_id.max_dies);
-        dev_info!(dev, "  Clusters: {}\n", gpu_id.num_clusters);
+        dev_info!(dev.as_ref(), "  Clusters: {}\n", gpu_id.num_clusters);
         dev_info!(
             dev.as_ref(),
             "  Cores: {} ({})\n",

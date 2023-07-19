@@ -220,7 +220,7 @@ impl File {
             gpu_revision: gpu.get_dyncfg().id.gpu_rev as u32,
             chip_id: gpu.get_cfg().chip_id,
 
-            num_dies: gpu.get_dyncfg().id.max_dies,
+            num_dies: gpu.get_cfg().num_dies,
             num_clusters_total: gpu.get_dyncfg().id.num_clusters,
             num_cores_per_cluster: gpu.get_dyncfg().id.num_cores,
             num_frags_per_cluster: gpu.get_dyncfg().id.num_frags,
