@@ -6,7 +6,7 @@ use crate::f32;
 
 use super::*;
 
-const fn iomaps(mcc_count: usize) -> [Option<IOMapping>; 24] {
+const fn iomaps(chip_id: u32, mcc_count: usize) -> [Option<IOMapping>; 24] {
     [
         Some(IOMapping::new(0x404d00000, 0x144000, 0x144000, true)), // Fender
         Some(IOMapping::new(0x20e100000, 0x4000, 0x4000, false)),    // AICTimer
@@ -15,18 +15,21 @@ const fn iomaps(mcc_count: usize) -> [Option<IOMapping>; 24] {
         None,                                                        // UVD
         None,                                                        // unused
         None,                                                        // DisplayUnderrunWA
-        Some(IOMapping::new(0x28e478000, 0x4000, 0x4000, false)), // AnalogTempSensorControllerRegs
-        None,                                                     // PMPDoorbell
-        Some(IOMapping::new(0x404e08000, 0x8000, 0x8000, true)),  // MetrologySensorRegs
-        None,                                                     // GMGIFAFRegs
+        Some(match chip_id {
+            0x6020 => IOMapping::new(0x28e460000, 0x4000, 0x4000, false),
+            _ => IOMapping::new(0x28e478000, 0x8000, 0x4000, false),
+        }), // AnalogTempSensorControllerRegs
+        None,                                                        // PMPDoorbell
+        Some(IOMapping::new(0x404e08000, 0x8000, 0x8000, true)),     // MetrologySensorRegs
+        None,                                                        // GMGIFAFRegs
         Some(IOMapping::new(
             0x200000000,
             mcc_count * 0xd8000,
             0xd8000,
             true,
         )), // MCache registers
-        Some(IOMapping::new(0x28e118000, 0x4000, 0x4000, false)), // AICBankedRegisters
-        None,                                                     // PMGRScratch
+        Some(IOMapping::new(0x28e118000, 0x4000, 0x4000, false)),    // AICBankedRegisters
+        None,                                                        // PMGRScratch
         None, // NIA Special agent idle register die 0
         None, // NIA Special agent idle register die 1
         None, // CRE registers
@@ -79,6 +82,7 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
         unk_e24: 125,
     },
     db: HwConfigB {
+        unk_454: 1,
         unk_4e0: 4,
         unk_534: 0,
         unk_ab8: 0, // Unused
@@ -136,7 +140,7 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
     fast_sensor_mask: [0x40005000c000d00, 0x40005000c000d00],
     fast_sensor_mask_alt: [0x140015001d001d00, 0x140015001d001d00],
     fast_die0_sensor_present: 0, // Unused
-    io_mappings: &iomaps(16),
+    io_mappings: &iomaps(0x6022, 16),
     sram_base: Some(0x404d60000),
     sram_size: Some(0x20000),
 };
@@ -150,7 +154,7 @@ pub(crate) const HWCONFIG_T6021: super::HwConfig = HwConfig {
     max_num_clusters: 4,
     fast_sensor_mask: [0x40005000c000d00, 0],
     fast_sensor_mask_alt: [0x140015001d001d00, 0],
-    io_mappings: &iomaps(8),
+    io_mappings: &iomaps(0x6021, 8),
     ..HWCONFIG_T6022
 };
 
@@ -159,9 +163,14 @@ pub(crate) const HWCONFIG_T6020: super::HwConfig = HwConfig {
     gpu_variant: GpuVariant::S,
     gpu_core: GpuCore::G14S,
 
+    db: HwConfigB {
+        unk_454: 0,
+        ..HWCONFIG_T6021.db
+    },
+
     max_num_clusters: 2,
     fast_sensor_mask: [0xc000d00, 0],
     fast_sensor_mask_alt: [0x1d001d00, 0],
-    io_mappings: &iomaps(4),
+    io_mappings: &iomaps(0x6020, 4),
     ..HWCONFIG_T6021
 };

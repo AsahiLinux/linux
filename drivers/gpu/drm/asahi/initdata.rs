@@ -494,7 +494,7 @@ impl<'a> InitDataBuilder::ver<'a> {
                     unkptr_38: U64(0xffffffa0_11800000),
                     // TODO: yuv matrices
                     chip_id: cfg.chip_id,
-                    unk_454: 0x1,
+                    unk_454: cfg.db.unk_454,
                     unk_458: 0x1,
                     unk_460: 0x1,
                     unk_464: 0x1,
@@ -606,6 +606,12 @@ impl<'a> InitDataBuilder::ver<'a> {
                                 aux.afr_voltages_sram[i][j] = sram_mv;
                             }
                         }
+                    }
+
+                    // Special case override for T602x
+                    #[ver(G == G14X)]
+                    if dyncfg.id.gpu_rev_id == hw::GpuRevisionID::B1 {
+                        raw.gpu_rev_id = hw::GpuRevisionID::B0 as u32;
                     }
 
                     Ok(())

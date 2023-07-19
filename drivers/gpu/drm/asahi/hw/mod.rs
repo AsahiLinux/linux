@@ -171,6 +171,7 @@ pub(crate) struct HwConfigA {
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct HwConfigB {
+    pub(crate) unk_454: u32,
     pub(crate) unk_4e0: u64,
     pub(crate) unk_534: u32,
     pub(crate) unk_ab8: u32,
