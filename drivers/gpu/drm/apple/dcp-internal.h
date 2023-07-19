@@ -97,6 +97,7 @@ struct dcp_panel {
 struct apple_dcp {
 	struct device *dev;
 	struct platform_device *piodma;
+	struct iommu_domain *iommu_dom;
 	struct apple_rtkit *rtk;
 	struct apple_crtc *crtc;
 	struct apple_connector *connector;
