@@ -258,32 +258,33 @@ static void iomfbep_cb_set_fx_prop(struct apple_dcp *dcp, struct iomfb_set_fx_pr
  * Callback to map a buffer allocated with allocate_buf for PIODMA usage.
  * PIODMA is separate from the main DCP and uses own IOVA space on a dedicated
  * stream of the display DART, rather than the expected DCP DART.
- *
- * XXX: This relies on dma_get_sgtable in concert with dma_map_sgtable, which
- * is a "fundamentally unsafe" operation according to the docs. And yet
- * everyone does it...
  */
 static struct dcp_map_buf_resp dcpep_cb_map_piodma(struct apple_dcp *dcp,
 						   struct dcp_map_buf_req *req)
 {
+	struct dcp_mem_descriptor *memdesc;
 	struct sg_table *map;
-	int ret;
+	ssize_t ret;
 
 	if (req->buffer >= ARRAY_SIZE(dcp->memdesc))
 		goto reject;
 
-	map = &dcp->memdesc[req->buffer].map;
+	memdesc = &dcp->memdesc[req->buffer];
+	map = &memdesc->map;
 
 	if (!map->sgl)
 		goto reject;
 
-	/* Use PIODMA device instead of DCP to map against the right IOMMU. */
-	ret = dma_map_sgtable(&dcp->piodma->dev, map, DMA_BIDIRECTIONAL, 0);
+	/* use the piodma iommu domain to map against the right IOMMU */
+	ret = iommu_map_sgtable(dcp->iommu_dom, memdesc->dva, map,
+				IOMMU_READ | IOMMU_WRITE);
 
-	if (ret)
+	if (ret != memdesc->size) {
+		dev_err(dcp->dev, "iommu_map_sgtable() returned %zd instead of expected buffer size of %zu\n", ret, memdesc->size);
 		goto reject;
+	}
 
-	return (struct dcp_map_buf_resp){ .dva = sg_dma_address(map->sgl) };
+	return (struct dcp_map_buf_resp){ .dva = memdesc->dva };
 
 reject:
 	dev_err(dcp->dev, "denying map of invalid buffer %llx for piodma\n",
@@ -294,8 +295,7 @@ reject:
 static void dcpep_cb_unmap_piodma(struct apple_dcp *dcp,
 				  struct dcp_unmap_buf_resp *resp)
 {
-	struct sg_table *map;
-	dma_addr_t dma_addr;
+	struct dcp_mem_descriptor *memdesc;
 
 	if (resp->buffer >= ARRAY_SIZE(dcp->memdesc)) {
 		dev_warn(dcp->dev, "unmap request for out of range buffer %llu",
@@ -303,24 +303,24 @@ static void dcpep_cb_unmap_piodma(struct apple_dcp *dcp,
 		return;
 	}
 
-	map = &dcp->memdesc[resp->buffer].map;
+	memdesc = &dcp->memdesc[resp->buffer];
 
-	if (!map->sgl) {
+	if (!memdesc->buf) {
 		dev_warn(dcp->dev,
 			 "unmap for non-mapped buffer %llu iova:0x%08llx",
 			 resp->buffer, resp->dva);
 		return;
 	}
 
-	dma_addr = sg_dma_address(map->sgl);
-	if (dma_addr != resp->dva) {
-		dev_warn(dcp->dev, "unmap buffer %llu address mismatch dma_addr:%llx dva:%llx",
-			 resp->buffer, dma_addr, resp->dva);
+	if (memdesc->dva != resp->dva) {
+		dev_warn(dcp->dev, "unmap buffer %llu address mismatch "
+			 "memdesc.dva:%llx dva:%llx", resp->buffer,
+			 memdesc->dva, resp->dva);
 		return;
 	}
 
-	/* Use PIODMA device instead of DCP to unmap from the right IOMMU. */
-	dma_unmap_sgtable(&dcp->piodma->dev, map, DMA_BIDIRECTIONAL, 0);
+	/* use the piodma iommu domain to unmap from the right IOMMU */
+	iommu_unmap(dcp->iommu_dom, memdesc->dva, memdesc->size);
 }
 
 /*
