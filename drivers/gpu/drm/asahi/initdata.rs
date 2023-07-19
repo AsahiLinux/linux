@@ -872,9 +872,7 @@ impl<'a> InitDataBuilder::ver<'a> {
             |inner, _ptr| {
                 let cfg = &self.cfg;
                 try_init!(raw::InitData::ver {
-                    #[ver(V == V13_5 && G == G13)]
-                    ver_info: Array::new([1, 1, 16, 1]), // TODO
-                    #[ver(V == V13_5 && G == G14)]
+                    #[ver(V == V13_5 && G != G14X)]
                     ver_info: Array::new([0x6ba0, 0x1f28, 0x601, 0xb0]),
                     #[ver(V == V13_5 && G == G14X)]
                     ver_info: Array::new([0xb390, 0x70f8, 0x601, 0xb0]),
