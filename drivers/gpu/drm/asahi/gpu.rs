@@ -1297,6 +1297,8 @@ impl GpuManager for GpuManager::ver {
             buffer_slot,
             vm_slot,
             counter,
+            subpipe: 0, // TODO
+            halt_count: U64(halt_count),
             __pad: Default::default(),
         };
 
