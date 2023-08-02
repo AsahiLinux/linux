@@ -100,7 +100,7 @@ pub(crate) const HWCONFIG: super::HwConfig = HwConfig {
         Some(IOMapping::new(0x204e00000, 0x10000, 0x10000, true)), // CRE registers
         Some(IOMapping::new(0x27d050000, 0x4000, 0x4000, true)), // Streaming codec registers
         Some(IOMapping::new(0x23b3d0000, 0x1000, 0x1000, true)), //
-        Some(IOMapping::new(0x23b3c0000, 0x1000, 0x1000, true)), //
+        Some(IOMapping::new(0x23b3c0000, 0x1000, 0x1000, false)), //
     ],
     sram_base: None,
     sram_size: None,
