@@ -15,7 +15,7 @@ const fn iomaps(mcc_count: usize, has_die1: bool) -> [Option<IOMapping>; 20] {
         None,                                                      // UVD
         None,                                                      // unused
         None,                                                      // DisplayUnderrunWA
-        Some(IOMapping::new(0x28e494000, 0x1000, 0x1000, false)),  // AnalogTempSensorControllerRegs
+        Some(IOMapping::new(0x28e494000, 0x8000, 0x4000, false)),  // AnalogTempSensorControllerRegs
         None,                                                      // PMPDoorbell
         Some(IOMapping::new(0x404d80000, 0x8000, 0x8000, true)),   // MetrologySensorRegs
         Some(IOMapping::new(0x204d61000, 0x1000, 0x1000, true)),   // GMGIFAFRegs
@@ -37,7 +37,7 @@ const fn iomaps(mcc_count: usize, has_die1: bool) -> [Option<IOMapping>; 20] {
         None,                                                     // CRE registers
         None,                                                     // Streaming codec registers
         Some(IOMapping::new(0x28e3d0000, 0x1000, 0x1000, true)),  // ?
-        Some(IOMapping::new(0x28e3c0000, 0x1000, 0x1000, false)), // ?
+        Some(IOMapping::new(0x28e3c0000, 0x2000, 0x2000, false)), // ?
     ]
 }
 
