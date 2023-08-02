@@ -507,7 +507,10 @@ impl super::Queue::ver {
             unks.aux_fb_unk = 0x100000;
         }
         if unks.flags & uapi::ASAHI_RENDER_UNK_SET_G14_UNK as u64 == 0 {
+            #[ver(G >= G14)]
             unks.g14_unk = 0x4040404;
+            #[ver(G < G14)]
+            unks.g14_unk = 0;
         }
         if unks.flags & uapi::ASAHI_RENDER_UNK_SET_FRG_UNK_140 as u64 == 0 {
             unks.frg_unk_140 = 0x8c60;
@@ -521,7 +524,7 @@ impl super::Queue::ver {
         }
         if unks.flags & uapi::ASAHI_RENDER_UNK_SET_LOAD_BGOBJVALS as u64 == 0 {
             unks.load_bgobjvals = cmdbuf.isp_bgobjvals.into();
-            #[ver(G < G14X)]
+            #[ver(G < G14)]
             unks.load_bgobjvals |= 0x400;
         }
         if unks.flags & uapi::ASAHI_RENDER_UNK_SET_FRG_UNK_38 as u64 == 0 {
@@ -946,10 +949,7 @@ impl super::Queue::ver {
                             address: U64(cmdbuf.partial_reload_pipeline as u64),
                         },
                         zls_ctrl: U64(unks.reload_zlsctrl),
-                        #[ver(G >= G14X)]
                         unk_290: U64(unks.g14_unk),
-                        #[ver(G < G14X)]
-                        unk_290: U64(0x0),
                         depth_buffer_ptr1: U64(cmdbuf.depth_buffer_load),
                         unk_2a0: U64(0x0),
                         unk_2a8: U64(0x0),
