@@ -721,11 +721,12 @@ pub(crate) mod raw {
         pub(crate) unk_528: u32,
         pub(crate) unk_52c: u32,
         pub(crate) unk_530: u32,
-        pub(crate) unk_534: u32,
-        pub(crate) unk_538: u32,
 
         #[ver(V >= V13_0B4)]
-        pub(crate) unk_53c_0: u32,
+        pub(crate) unk_534_0: u32,
+
+        pub(crate) unk_534: u32,
+        pub(crate) unk_538: u32,
 
         pub(crate) num_frags: u32,
         pub(crate) unk_540: u32,
