@@ -537,6 +537,7 @@ impl<'a> InitDataBuilder::ver<'a> {
                     #[ver(V < V13_0B4)]
                     unk_ae4: Array::new([0x0, 0xf, 0x3f, 0x3f]),
                     unk_b10: 0x1,
+                    timer_offset: U64(0),
                     unk_b24: 0x1,
                     unk_b28: 0x1,
                     unk_b2c: 0x1,

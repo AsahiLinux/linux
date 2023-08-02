@@ -793,7 +793,7 @@ pub(crate) mod raw {
         pub(crate) pad_b10_0: Array<0x8, u8>,
 
         pub(crate) unk_b10: u32,
-        pub(crate) pad_b14: Pad<0x8>,
+        pub(crate) timer_offset: U64,
         pub(crate) unk_b1c: u32,
         pub(crate) unk_b20: u32,
         pub(crate) unk_b24: u32,
@@ -1130,6 +1130,8 @@ pub(crate) mod raw {
         #[ver((G >= G14X && V < V13_3) || (G <= G14 && V >= V13_3))]
         pub(crate) unk_x_pad: Array<0x4, u8>,
 
+        // bit 0: sets sgx_reg 0x17620
+        // bit 1: sets sgx_reg 0x17630
         pub(crate) fault_control: u32,
         pub(crate) do_init: u32,
         pub(crate) unk_10e88: Array<0x188, u8>,
@@ -1183,7 +1185,7 @@ pub(crate) mod raw {
         #[ver(V >= V13_0B4)]
         pub(crate) cl_kill_timeout_ms: u32,
 
-        pub(crate) unk_118e4: u32,
+        pub(crate) cdm_context_store_latency_threshold: u32,
         pub(crate) unk_118e8: u32,
         pub(crate) unk_118ec: Array<0x400, u8>,
         pub(crate) unk_11cec: Array<0x54, u8>,
