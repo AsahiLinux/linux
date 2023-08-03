@@ -5,6 +5,7 @@
 use super::types::*;
 use crate::default_zeroed;
 use core::sync::atomic::Ordering;
+use kernel::static_assert;
 
 pub(crate) mod raw {
     use super::*;
@@ -217,6 +218,9 @@ pub(crate) enum DeviceControlMsg {
 }
 
 #[versions(AGX)]
+static_assert!(core::mem::size_of::<DeviceControlMsg::ver>() == 4 + DEVICECONTROL_SZ::ver);
+
+#[versions(AGX)]
 default_zeroed!(DeviceControlMsg::ver);
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -256,6 +260,8 @@ pub(crate) enum EventMsg {
         counter: u32,
     }, // Max discriminant: 0x7
 }
+
+static_assert!(core::mem::size_of::<EventMsg>() == 4 + EVENT_SZ);
 
 pub(crate) const EVENT_MAX: u32 = 0x7;
 
@@ -392,6 +398,9 @@ pub(crate) enum StatsMsg {
         tmax: u32,
     }, // Max discriminant: 0xe
 }
+
+#[versions(AGX)]
+static_assert!(core::mem::size_of::<StatsMsg::ver>() == 4 + STATS_SZ::ver);
 
 #[versions(AGX)]
 pub(crate) const STATS_MAX: u32 = 0xe;
