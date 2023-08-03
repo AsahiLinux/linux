@@ -154,10 +154,12 @@ impl EventManager {
             alloc: slotalloc::SlotAllocator::new(
                 NUM_EVENTS,
                 inner,
-                |inner: &mut EventManagerInner, slot| EventInner {
-                    stamp: &inner.stamps[slot as usize].0,
-                    gpu_stamp: inner.stamps.weak_item_pointer(slot as usize),
-                    gpu_fw_stamp: inner.fw_stamps.weak_item_pointer(slot as usize),
+                |inner: &mut EventManagerInner, slot| {
+                    Some(EventInner {
+                        stamp: &inner.stamps[slot as usize].0,
+                        gpu_stamp: inner.stamps.weak_item_pointer(slot as usize),
+                        gpu_fw_stamp: inner.fw_stamps.weak_item_pointer(slot as usize),
+                    })
                 },
                 c_str!("EventManager::SlotAllocator"),
                 static_lock_class!(),

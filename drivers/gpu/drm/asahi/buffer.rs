@@ -737,7 +737,7 @@ impl BufferManager::ver {
         Ok(BufferManager::ver(slotalloc::SlotAllocator::new(
             NUM_BUFFERS,
             BufferManagerInner::ver { owners },
-            |_inner, _slot| BufferSlotInner::ver(),
+            |_inner, _slot| Some(BufferSlotInner::ver()),
             c_str!("BufferManager::SlotAllocator"),
             static_lock_class!(),
             static_lock_class!(),
