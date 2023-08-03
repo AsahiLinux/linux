@@ -243,7 +243,7 @@ pub(crate) struct StartFragment<'a> {
     #[ver(G >= G14X)]
     pub(crate) registers: GpuWeakPointer<job::raw::RegisterArray>,
     pub(crate) scene: GpuPointer<'a, buffer::Scene::ver>,
-    pub(crate) stats: GpuWeakPointer<initdata::raw::GpuStatsFrag>,
+    pub(crate) stats: GpuWeakPointer<initdata::raw::GpuStatsFrag::ver>,
     pub(crate) busy_flag: GpuWeakPointer<u32>,
     pub(crate) tvb_overflow_count: GpuWeakPointer<u32>,
     pub(crate) unk_pointer: GpuWeakPointer<u32>,
@@ -290,7 +290,7 @@ pub(crate) struct FinalizeFragment {
     pub(crate) scene: GpuWeakPointer<buffer::Scene::ver>,
     pub(crate) buffer: GpuWeakPointer<buffer::Info::ver>,
     pub(crate) unk_2c: U64,
-    pub(crate) stats: GpuWeakPointer<initdata::raw::GpuStatsFrag>,
+    pub(crate) stats: GpuWeakPointer<initdata::raw::GpuStatsFrag::ver>,
     pub(crate) unk_pointer: GpuWeakPointer<u32>,
     pub(crate) busy_flag: GpuWeakPointer<u32>,
     pub(crate) work_queue: GpuWeakPointer<workqueue::QueueInfo::ver>,

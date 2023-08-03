@@ -763,7 +763,16 @@ impl<'a> InitDataBuilder::ver<'a> {
                         let alloc = &mut *alloc;
                         try_init!(Stats::ver {
                             vtx: alloc.private.new_default::<GpuGlobalStatsVtx>()?,
-                            frag: alloc.private.new_default::<GpuGlobalStatsFrag>()?,
+                            frag: alloc.private.new_init(
+                                init::zeroed::<GpuGlobalStatsFrag::ver>(),
+                                |_inner, _ptr| {
+                                    try_init!(raw::GpuGlobalStatsFrag::ver {
+                                        total_cmds: 0,
+                                        unk_4: 0,
+                                        stats: Default::default(),
+                                    })
+                                }
+                            )?,
                             comp: alloc.private.new_default::<GpuStatsComp>()?,
                         })
                     },

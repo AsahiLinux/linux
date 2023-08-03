@@ -840,13 +840,35 @@ pub(crate) mod raw {
     }
     default_zeroed!(GpuStatsVtx);
 
+    #[versions(AGX)]
     #[derive(Debug)]
     #[repr(C)]
     pub(crate) struct GpuStatsFrag {
         // This changes all the time and we don't use it, let's just make it a big buffer
-        pub(crate) opaque: Array<0x3000, u8>,
+        // except for these two fields which may need init.
+        #[ver(G >= G14X)]
+        pub(crate) unk1_0: Array<0x910, u8>,
+        pub(crate) unk1: Array<0x100, u8>,
+        pub(crate) cur_stamp_id: i32,
+        pub(crate) unk2: Array<0x14, u8>,
+        pub(crate) unk_id: i32,
+        pub(crate) unk3: Array<0x1000, u8>,
     }
-    default_zeroed!(GpuStatsFrag);
+
+    #[versions(AGX)]
+    impl Default for GpuStatsFrag::ver {
+        fn default() -> Self {
+            Self {
+                #[ver(G >= G14X)]
+                unk1_0: Default::default(),
+                unk1: Default::default(),
+                cur_stamp_id: -1,
+                unk2: Default::default(),
+                unk_id: -1,
+                unk3: Default::default(),
+            }
+        }
+    }
 
     #[derive(Debug)]
     #[repr(C)]
@@ -856,14 +878,14 @@ pub(crate) mod raw {
     }
     default_zeroed!(GpuGlobalStatsVtx);
 
-    #[derive(Debug)]
+    #[versions(AGX)]
+    #[derive(Debug, Default)]
     #[repr(C)]
     pub(crate) struct GpuGlobalStatsFrag {
         pub(crate) total_cmds: u32,
         pub(crate) unk_4: u32,
-        pub(crate) stats: GpuStatsFrag,
+        pub(crate) stats: GpuStatsFrag::ver,
     }
-    default_zeroed!(GpuGlobalStatsFrag);
 
     #[derive(Debug)]
     #[repr(C)]
@@ -933,7 +955,7 @@ pub(crate) mod raw {
         pub(crate) unk_160: U64,
         pub(crate) unk_168: U64,
         pub(crate) stats_vtx: GpuPointer<'a, super::GpuGlobalStatsVtx>,
-        pub(crate) stats_frag: GpuPointer<'a, super::GpuGlobalStatsFrag>,
+        pub(crate) stats_frag: GpuPointer<'a, super::GpuGlobalStatsFrag::ver>,
         pub(crate) stats_comp: GpuPointer<'a, super::GpuStatsComp>,
         pub(crate) hwdata_a: GpuPointer<'a, super::HwDataA::ver>,
         pub(crate) unkptr_190: GpuPointer<'a, &'a [u8]>,
@@ -1271,7 +1293,8 @@ where
 
 trivial_gpustruct!(FwStatus);
 trivial_gpustruct!(GpuGlobalStatsVtx);
-trivial_gpustruct!(GpuGlobalStatsFrag);
+#[versions(AGX)]
+trivial_gpustruct!(GpuGlobalStatsFrag::ver);
 trivial_gpustruct!(GpuStatsComp);
 
 #[versions(AGX)]
@@ -1284,7 +1307,7 @@ trivial_gpustruct!(HwDataB::ver);
 #[derive(Debug)]
 pub(crate) struct Stats {
     pub(crate) vtx: GpuObject<GpuGlobalStatsVtx>,
-    pub(crate) frag: GpuObject<GpuGlobalStatsFrag>,
+    pub(crate) frag: GpuObject<GpuGlobalStatsFrag::ver>,
     pub(crate) comp: GpuObject<GpuStatsComp>,
 }
 
