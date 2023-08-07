@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Apple Platform-Specific Drivers
+#
+
+menuconfig APPLE_PLATFORMS
+	bool "Apple Mac Platform-Specific Device Drivers"
+	default y
+	help
+	  Say Y here to get to see options for platform-specific device drivers
+	  for Apple devices. This option alone does not add any kernel code.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
+
+if APPLE_PLATFORMS
+
+config APPLE_SMC
+	tristate "Apple SMC Driver"
+	depends on ARCH_APPLE || (COMPILE_TEST && 64BIT)
+	default ARCH_APPLE
+	select MFD_CORE
+	help
+	  Build support for the Apple System Management Controller present in
+	  Apple Macs. This driver currently supports the SMC in Apple Silicon
+	  Macs. For x86 Macs, see the applesmc driver (SENSORS_APPLESMC).
+
+	  Say Y here if you have an Apple Silicon Mac.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called macsmc.
+
+if APPLE_SMC
+
+config APPLE_SMC_RTKIT
+	tristate "RTKit (Apple Silicon) backend"
+	depends on ARCH_APPLE || (COMPILE_TEST && 64BIT)
+	depends on APPLE_RTKIT
+	default ARCH_APPLE
+	help
+	  Build support for SMC communications via the RTKit backend. This is
+	  required for Apple Silicon Macs.
+
+	  Say Y here if you have an Apple Silicon Mac.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called macsmc-rtkit.
+
+endif
+endif

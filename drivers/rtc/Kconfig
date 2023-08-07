@@ -1978,4 +1978,17 @@ config RTC_DRV_POLARFIRE_SOC
 	  This driver can also be built as a module, if so, the module
 	  will be called "rtc-mpfs".
 
+config RTC_DRV_MACSMC
+	tristate "Apple Mac SMC RTC"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on APPLE_SMC
+	depends on OF
+	default ARCH_APPLE
+	help
+	  If you say yes here you get support for RTC functions
+	  inside Apple SPMI PMUs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called rtc-macsmc.
+
 endif # RTC_CLASS

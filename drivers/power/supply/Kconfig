@@ -934,4 +934,11 @@ config BATTERY_UG3105
 	  device is off or suspended, the functionality of this driver is
 	  limited to reporting capacity only.
 
+config CHARGER_MACSMC
+	tristate "Apple SMC Charger / Battery support"
+	depends on APPLE_SMC
+	help
+	  Say Y here to enable support for the charger and battery controls on
+	  Apple SMC controllers, as used on Apple Silicon Macs.
+
 endif # POWER_SUPPLY
