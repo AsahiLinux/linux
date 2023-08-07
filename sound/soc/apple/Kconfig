@@ -6,3 +6,20 @@ config SND_SOC_APPLE_MCA
 	help
 	  This option enables an ASoC platform driver for MCA peripherals found
 	  on Apple Silicon SoCs.
+
+config SND_SOC_APPLE_MACAUDIO
+	tristate "Sound support for Apple Silicon Macs"
+	depends on ARCH_APPLE || COMPILE_TEST
+	select SND_SOC_APPLE_MCA
+	select SND_SIMPLE_CARD_UTILS
+	select APPLE_ADMAC
+	select COMMON_CLK_APPLE_NCO
+	select SND_SOC_TAS2764
+	select SND_SOC_TAS2770
+	select SND_SOC_CS42L83
+	select SND_SOC_CS42L84
+	default ARCH_APPLE
+	help
+	  This option enables an ASoC machine-level driver for Apple Silicon Macs
+	  and it also enables the required SoC and codec drivers for overall
+	  sound support on these machines.
