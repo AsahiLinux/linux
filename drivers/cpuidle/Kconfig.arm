@@ -130,3 +130,11 @@ config ARM_QCOM_SPM_CPUIDLE
 	  The Subsystem Power Manager (SPM) controls low power modes for the
 	  CPU and L2 cores. It interface with various system drivers to put
 	  the cores in low power modes.
+
+config ARM_APPLE_CPUIDLE
+	bool "Apple SoC CPU idle driver"
+	depends on ARM64
+	default ARCH_APPLE
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	help
+	  Select this to enable cpuidle on Apple SoCs.
