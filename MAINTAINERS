@@ -1507,6 +1507,13 @@ L:	linux-input@vger.kernel.org
 S:	Odd fixes
 F:	drivers/input/mouse/bcm5974.c
 
+APPLE DRM DISPLAY DRIVER
+M:	Alyssa Rosenzweig <alyssa@rosenzweig.io>
+L:	dri-devel@lists.freedesktop.org
+S:	Maintained
+T:	git git://anongit.freedesktop.org/drm/drm-misc
+F:	drivers/gpu/drm/apple/
+
 APPLE PCIE CONTROLLER DRIVER
 M:	Alyssa Rosenzweig <alyssa@rosenzweig.io>
 M:	Marc Zyngier <maz@kernel.org>

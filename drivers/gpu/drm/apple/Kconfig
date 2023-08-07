@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only OR MIT
+config DRM_APPLE
+	tristate "DRM Support for Apple display controllers"
+	depends on DRM && OF && ARM64
+	depends on ARCH_APPLE || COMPILE_TEST
+	select DRM_KMS_HELPER
+	select DRM_KMS_DMA_HELPER
+	select DRM_GEM_DMA_HELPER
+	select VIDEOMODE_HELPERS
+	help
+	  Say Y if you have an Apple Silicon chipset.
