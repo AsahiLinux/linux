@@ -294,4 +294,10 @@ struct prctl_mm_map {
 
 #define PR_SET_MEMORY_MERGE		67
 #define PR_GET_MEMORY_MERGE		68
+
+#define PR_GET_MEM_MODEL	0x6d4d444c
+#define PR_SET_MEM_MODEL	0x4d4d444c
+# define PR_SET_MEM_MODEL_DEFAULT	0
+# define PR_SET_MEM_MODEL_TSO		1
+
 #endif /* _LINUX_PRCTL_H */
