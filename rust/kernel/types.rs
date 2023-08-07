@@ -237,6 +237,11 @@ impl<T> Opaque<T> {
         Self(MaybeUninit::uninit())
     }
 
+    /// Creates a zeroed value.
+    pub fn zeroed() -> Self {
+        Self(MaybeUninit::zeroed())
+    }
+
     /// Creates a pin-initializer from the given initializer closure.
     ///
     /// The returned initializer calls the given closure with the pointer to the inner `T` of this
@@ -257,7 +262,7 @@ impl<T> Opaque<T> {
     }
 
     /// Returns a raw pointer to the opaque data.
-    pub fn get(&self) -> *mut T {
+    pub const fn get(&self) -> *mut T {
         UnsafeCell::raw_get(self.0.as_ptr())
     }
 
@@ -321,6 +326,19 @@ pub struct ARef<T: AlwaysRefCounted> {
     _p: PhantomData<T>,
 }
 
+// SAFETY: It is safe to send `ARef<T>` to another thread when the underlying `T` is `Sync` because
+// it effectively means sharing `&T` (which is safe because `T` is `Sync`); additionally, it needs
+// `T` to be `Send` because any thread that has an `ARef<T>` may ultimately access `T` using a
+// mutable reference, for example, when the reference count reaches zero and `T` is dropped.
+unsafe impl<T: AlwaysRefCounted + Sync + Send> Send for ARef<T> {}
+
+// SAFETY: It is safe to send `&ARef<T>` to another thread when the underlying `T` is `Sync`
+// because it effectively means sharing `&T` (which is safe because `T` is `Sync`); additionally,
+// it needs `T` to be `Send` because any thread that has a `&ARef<T>` may clone it and get an
+// `ARef<T>` on that thread, so the thread may ultimately access `T` using a mutable reference, for
+// example, when the reference count reaches zero and `T` is dropped.
+unsafe impl<T: AlwaysRefCounted + Sync + Send> Sync for ARef<T> {}
+
 impl<T: AlwaysRefCounted> ARef<T> {
     /// Creates a new instance of [`ARef`].
     ///
@@ -383,3 +401,84 @@ pub enum Either<L, R> {
     /// Constructs an instance of [`Either`] containing a value of type `R`.
     Right(R),
 }
+
+/// A trait for boolean types.
+///
+/// This is meant to be used in type states to allow boolean constraints in implementation blocks.
+/// In the example below, the implementation containing `MyType::set_value` could _not_ be
+/// constrained to type states containing `Writable = true` if `Writable` were a constant instead
+/// of a type.
+///
+/// # Safety
+///
+/// No additional implementations of [`Bool`] should be provided, as [`True`] and [`False`] are
+/// already provided.
+///
+/// # Examples
+///
+/// ```
+/// # use kernel::{Bool, False, True};
+/// use core::marker::PhantomData;
+///
+/// // Type state specifies whether the type is writable.
+/// trait MyTypeState {
+///     type Writable: Bool;
+/// }
+///
+/// // In state S1, the type is writable.
+/// struct S1;
+/// impl MyTypeState for S1 {
+///     type Writable = True;
+/// }
+///
+/// // In state S2, the type is not writable.
+/// struct S2;
+/// impl MyTypeState for S2 {
+///     type Writable = False;
+/// }
+///
+/// struct MyType<T: MyTypeState> {
+///     value: u32,
+///     _p: PhantomData<T>,
+/// }
+///
+/// impl<T: MyTypeState> MyType<T> {
+///     fn new(value: u32) -> Self {
+///         Self {
+///             value,
+///             _p: PhantomData,
+///         }
+///     }
+/// }
+///
+/// // This implementation block only applies if the type state is writable.
+/// impl<T> MyType<T>
+/// where
+///     T: MyTypeState<Writable = True>,
+/// {
+///     fn set_value(&mut self, v: u32) {
+///         self.value = v;
+///     }
+/// }
+///
+/// let mut x = MyType::<S1>::new(10);
+/// let mut y = MyType::<S2>::new(20);
+///
+/// x.set_value(30);
+///
+/// // The code below fails to compile because `S2` is not writable.
+/// // y.set_value(40);
+/// ```
+pub unsafe trait Bool {}
+
+/// Represents the `true` value for types with [`Bool`] bound.
+pub struct True;
+
+// SAFETY: This is one of the only two implementations of `Bool`.
+unsafe impl Bool for True {}
+
+/// Represents the `false` value for types wth [`Bool`] bound.
+pub struct False;
+
+// SAFETY: This is one of the only two implementations of `Bool`.
+unsafe impl Bool for False {}

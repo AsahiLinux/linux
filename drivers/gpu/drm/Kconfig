@@ -277,6 +277,8 @@ config DRM_VKMS
 
 	  If M is selected the module will be called vkms.
 
+source "drivers/gpu/drm/asahi/Kconfig"
+
 source "drivers/gpu/drm/exynos/Kconfig"
 
 source "drivers/gpu/drm/rockchip/Kconfig"

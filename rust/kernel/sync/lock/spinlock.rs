@@ -13,7 +13,7 @@ use crate::bindings;
 #[macro_export]
 macro_rules! new_spinlock {
     ($inner:expr $(, $name:literal)? $(,)?) => {
-        $crate::sync::SpinLock::new(
+        $crate::sync::SpinLock::new_with_class(
             $inner, $crate::optional_name!($($name)?), $crate::static_lock_class!())
     };
 }
