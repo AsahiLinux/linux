@@ -129,7 +129,7 @@ config HID_APPLE
 	tristate "Apple {i,Power,Mac}Books"
 	depends on LEDS_CLASS
 	depends on NEW_LEDS
-	default !EXPERT
+	default !EXPERT || SPI_HID_APPLE
 	help
 	Support for some Apple devices which less or more break
 	HID specification.
@@ -662,11 +662,13 @@ config LOGIWHEELS_FF
 
 config HID_MAGICMOUSE
 	tristate "Apple Magic Mouse/Trackpad multi-touch support"
+	default SPI_HID_APPLE
 	help
 	Support for the Apple Magic Mouse/Trackpad multi-touch.
 
 	Say Y here if you want support for the multi-touch features of the
-	Apple Wireless "Magic" Mouse and the Apple Wireless "Magic" Trackpad.
+	Apple Wireless "Magic" Mouse, the Apple Wireless "Magic" Trackpad and
+	force touch Trackpads in Macbooks starting from 2015.
 
 config HID_MALTRON
 	tristate "Maltron L90 keyboard"
@@ -1019,7 +1021,7 @@ config HID_SONY
 	  * Guitar Hero PS3 and PC guitar dongles
 
 config SONY_FF
-	bool "Sony PS2/3/4 accessories force feedback support" 
+	bool "Sony PS2/3/4 accessories force feedback support"
 	depends on HID_SONY
 	select INPUT_FF_MEMLESS
 	help
@@ -1315,5 +1317,9 @@ source "drivers/hid/intel-ish-hid/Kconfig"
 source "drivers/hid/amd-sfh-hid/Kconfig"
 
 source "drivers/hid/surface-hid/Kconfig"
+
+source "drivers/hid/spi-hid/Kconfig"
+
+source "drivers/hid/dockchannel-hid/Kconfig"
 
 endif # HID_SUPPORT
