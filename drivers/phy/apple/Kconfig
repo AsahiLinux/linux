@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
+config PHY_APPLE_ATC
+	tristate "Apple Type-C PHY"
+	depends on ARCH_APPLE || COMPILE_TEST
+	default ARCH_APPLE
+	select GENERIC_PHY
+	select TYPEC
+	help
+	  Enable this to add support for the Apple Type-C PHY, switch
+	  and mux found in Apple SoCs such as the M1.
+	  This driver currently provides support for USB2 and USB3.
