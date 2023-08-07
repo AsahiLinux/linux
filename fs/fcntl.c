@@ -325,6 +325,8 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
 		err = f_dupfd(arg, filp, 0);
 		break;
 	case F_DUPFD_CLOEXEC:
+		if (arg >= 1024)
+			arg = 0; /* Lol libwebrtc */
 		err = f_dupfd(arg, filp, O_CLOEXEC);
 		break;
 	case F_GETFD:

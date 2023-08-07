@@ -39,6 +39,7 @@ config PCIE_APPLE
 	depends on ARCH_APPLE || COMPILE_TEST
 	depends on OF
 	depends on PCI_MSI
+	depends on ARM64_PAGE_SHIFT = 14 || COMPILE_TEST
 	select PCI_HOST_COMMON
 	help
 	  Say Y here if you want to enable PCIe controller support on Apple

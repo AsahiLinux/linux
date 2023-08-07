@@ -190,6 +190,33 @@ void fw_devlink_purge_absent_suppliers(struct fwnode_handle *fwnode)
 EXPORT_SYMBOL_GPL(fw_devlink_purge_absent_suppliers);
 
 /**
+ * fw_devlink_count_absent_consumers - Return how many consumers have
+ * either not been created yet, or do not yet have a driver attached.
+ * @fwnode: fwnode of the supplier
+ */
+int fw_devlink_count_absent_consumers(struct fwnode_handle *fwnode)
+{
+	struct fwnode_link *link, *tmp;
+	struct device_link *dlink, *dtmp;
+	struct device *sup_dev = get_dev_from_fwnode(fwnode);
+	int count = 0;
+
+	list_for_each_entry_safe(link, tmp, &fwnode->consumers, s_hook)
+		count++;
+
+	if (!sup_dev)
+		return count;
+
+	list_for_each_entry_safe(dlink, dtmp, &sup_dev->links.consumers, s_node)
+		if (dlink->consumer->links.status != DL_DEV_DRIVER_BOUND)
+			count++;
+
+	return count;
+}
+EXPORT_SYMBOL_GPL(fw_devlink_count_absent_consumers);
+
+
+/**
  * __fwnode_links_move_consumers - Move consumer from @from to @to fwnode_handle
  * @from: move consumers away from this fwnode
  * @to: move consumers to this fwnode

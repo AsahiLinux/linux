@@ -242,6 +242,8 @@ static int apple_pmgr_ps_probe(struct platform_device *pdev)
 			/* Turn it on so pm_genpd_init does not fail */
 			active = apple_pmgr_ps_power_on(&ps->genpd) == 0;
 		}
+	} else if (active) {
+		ps->genpd.flags |= GENPD_FLAG_DEFER_OFF | GENPD_FLAG_ACTIVE_WAKEUP;
 	}
 
 	/* Turn on auto-PM if the domain is already on */
