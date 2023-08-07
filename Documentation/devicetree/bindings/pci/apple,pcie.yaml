@@ -72,6 +72,27 @@ properties:
   power-domains:
     maxItems: 1
 
+patternProperties:
+  "^pci@":
+    $ref: /schemas/pci/pci-bus.yaml#
+    type: object
+    description: A single PCI root port
+
+    properties:
+      reg:
+        maxItems: 1
+
+      pwren-gpios:
+        description: Optional GPIO to power on the device
+        maxItems: 1
+
+    required:
+      - reset-gpios
+      - interrupt-controller
+      - "#interrupt-cells"
+      - interrupt-map-mask
+      - interrupt-map
+
 required:
   - compatible
   - reg
@@ -142,7 +163,7 @@ examples:
         pinctrl-0 = <&pcie_pins>;
         pinctrl-names = "default";
 
-        pci@0,0 {
+        port00: pci@0,0 {
           device_type = "pci";
           reg = <0x0 0x0 0x0 0x0 0x0>;
           reset-gpios = <&pinctrl_ap 152 0>;
@@ -150,9 +171,17 @@ examples:
           #address-cells = <3>;
           #size-cells = <2>;
           ranges;
+
+          interrupt-controller;
+          #interrupt-cells = <1>;
+          interrupt-map-mask = <0 0 0 7>;
+          interrupt-map = <0 0 0 1 &port00 0 0 0 0>,
+                          <0 0 0 2 &port00 0 0 0 1>,
+                          <0 0 0 3 &port00 0 0 0 2>,
+                          <0 0 0 4 &port00 0 0 0 3>;
         };
 
-        pci@1,0 {
+        port01: pci@1,0 {
           device_type = "pci";
           reg = <0x800 0x0 0x0 0x0 0x0>;
           reset-gpios = <&pinctrl_ap 153 0>;
@@ -160,9 +189,17 @@ examples:
           #address-cells = <3>;
           #size-cells = <2>;
           ranges;
+
+          interrupt-controller;
+          #interrupt-cells = <1>;
+          interrupt-map-mask = <0 0 0 7>;
+          interrupt-map = <0 0 0 1 &port01 0 0 0 0>,
+                          <0 0 0 2 &port01 0 0 0 1>,
+                          <0 0 0 3 &port01 0 0 0 2>,
+                          <0 0 0 4 &port01 0 0 0 3>;
         };
 
-        pci@2,0 {
+        port02: pci@2,0 {
           device_type = "pci";
           reg = <0x1000 0x0 0x0 0x0 0x0>;
           reset-gpios = <&pinctrl_ap 33 0>;
@@ -170,6 +207,14 @@ examples:
           #address-cells = <3>;
           #size-cells = <2>;
           ranges;
+
+          interrupt-controller;
+          #interrupt-cells = <1>;
+          interrupt-map-mask = <0 0 0 7>;
+          interrupt-map = <0 0 0 1 &port02 0 0 0 0>,
+                          <0 0 0 2 &port02 0 0 0 1>,
+                          <0 0 0 3 &port02 0 0 0 2>,
+                          <0 0 0 4 &port02 0 0 0 3>;
         };
       };
     };
