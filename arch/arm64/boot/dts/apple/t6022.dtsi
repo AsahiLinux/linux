@@ -366,4 +366,10 @@
 	apple,ppm-kp = <0.15>;
 };
 
+&pinctrl_ap_die1 {
+	pcie_ge_pins_die1: pcie-ge1-pins {
+		pinmux = <APPLE_PINMUX(8, 1)>;
+	};
+};
+
 #include "hwmon-common.dtsi"
