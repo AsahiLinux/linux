@@ -124,11 +124,11 @@ impl<'a> InitDataBuilder::ver<'a> {
                         continue;
                     }
 
-                    let f_mhz = (ps.freq_hz / 1000) as u64;
+                    let f_khz = (ps.freq_hz / 1000) as u64;
                     let v_max = ps.max_volt_mv() as u64;
 
                     t1.try_push(
-                        (1000000000 * (curve_cfg.t1_coef as u64) / (f_mhz * v_max))
+                        (1000000000 * (curve_cfg.t1_coef as u64) / (f_khz * v_max))
                             .try_into()
                             .unwrap(),
                         GFP_KERNEL,
@@ -136,7 +136,7 @@ impl<'a> InitDataBuilder::ver<'a> {
 
                     for (j, scale) in curve_cfg.t3_scales.iter().enumerate() {
                         t3[j].try_push(
-                            (t3_coef as u64 * 1000000000 * *scale as u64 / (f_mhz * v_max * 6))
+                            (t3_coef as u64 * 1000000100 * *scale as u64 / (f_khz * v_max * 6))
                                 .try_into()
                                 .unwrap(),
                         )?;
