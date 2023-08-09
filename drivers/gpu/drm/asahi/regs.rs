@@ -236,7 +236,8 @@ impl Resources {
                 core_mask_regs.push(self.sgx_read32(CORE_MASKS_G14X), GFP_KERNEL)?;
                 core_mask_regs.push(self.sgx_read32(CORE_MASKS_G14X + 4), GFP_KERNEL)?;
                 core_mask_regs.push(self.sgx_read32(CORE_MASKS_G14X + 8), GFP_KERNEL)?;
-                (id_counts_1 >> 8) & 0xff
+                // Clusters per die * num dies
+                ((id_counts_1 >> 8) & 0xff) * ((id_counts_1 >> 16) & 0xf)
             }
             a => {
                 dev_err!(self.dev.as_ref(), "Unknown GPU generation {}\n", a);
