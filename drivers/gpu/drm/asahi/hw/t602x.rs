@@ -65,12 +65,12 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
     preempt1_size: 0x540,
     preempt2_size: 0x280,
     preempt3_size: 0x40,
-    compute_preempt1_size: 0x25980, // CHECK for T6022
+    compute_preempt1_size: 0x25980 * 2, // Conservative guess
     clustering: Some(HwClusteringConfig {
         meta1_blocksize: 0x44,
-        meta2_size: 0xc0 * 8,
-        meta3_size: 0x280 * 8,
-        meta4_size: 0x10 * 64,
+        meta2_size: 0xc0 * 16,
+        meta3_size: 0x280 * 16,
+        meta4_size: 0x10 * 128,
         max_splits: 64,
     }),
 
@@ -155,6 +155,7 @@ pub(crate) const HWCONFIG_T6021: super::HwConfig = HwConfig {
 
     num_dies: 1,
     max_num_clusters: 4,
+    compute_preempt1_size: 0x25980,
     unk_hws2_4: Some(f32!([1.0, 0.8, 0.2, 0.9, 0.1, 0.25, 0.7, 0.9])),
     fast_sensor_mask: [0x40005000c000d00, 0],
     fast_sensor_mask_alt: [0x140015001d001d00, 0],
