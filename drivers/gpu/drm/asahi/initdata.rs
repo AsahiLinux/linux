@@ -307,6 +307,8 @@ impl<'a> InitDataBuilder::ver<'a> {
                     unk_alpha_neg: f32!(0.8),
                     unk_alpha: f32!(0.2),
                     fast_die0_sensor_mask: U64(cfg.fast_sensor_mask[0]),
+                    #[ver(G >= G14X)]
+                    fast_die1_sensor_mask: U64(cfg.fast_sensor_mask[1]),
                     fast_die0_release_temp_cc: 100 * pwr.fast_die0_release_temp,
                     unk_87c: cfg.da.unk_87c,
                     unk_880: 0x4,
@@ -399,9 +401,13 @@ impl<'a> InitDataBuilder::ver<'a> {
                         })
                     },
                     fast_die0_sensor_mask_2: U64(cfg.fast_sensor_mask[0]),
+                    #[ver(G >= G14X)]
+                    fast_die1_sensor_mask_2: U64(cfg.fast_sensor_mask[1]),
                     unk_e24: cfg.da.unk_e24,
                     unk_e28: 1,
                     fast_die0_sensor_mask_alt: U64(cfg.fast_sensor_mask_alt[0]),
+                    #[ver(G >= G14X)]
+                    fast_die1_sensor_mask_alt: U64(cfg.fast_sensor_mask_alt[1]),
                     #[ver(V < V13_0B4)]
                     fast_die0_sensor_present: U64(cfg.fast_die0_sensor_present as u64),
                     unk_163c: 1,
