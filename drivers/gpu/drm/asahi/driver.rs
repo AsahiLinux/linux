@@ -85,6 +85,7 @@ kernel::define_of_id_table! {ASAHI_ID_TABLE, &'static hw::HwConfig, [
     (of::DeviceId::Compatible(b"apple,agx-t6002"), Some(&hw::t600x::HWCONFIG_T6002)),
     (of::DeviceId::Compatible(b"apple,agx-t6020"), Some(&hw::t602x::HWCONFIG_T6020)),
     (of::DeviceId::Compatible(b"apple,agx-t6021"), Some(&hw::t602x::HWCONFIG_T6021)),
+    (of::DeviceId::Compatible(b"apple,agx-t6022"), Some(&hw::t602x::HWCONFIG_T6022)),
 ]}
 
 /// Platform Driver implementation for `AsahiDriver`.
