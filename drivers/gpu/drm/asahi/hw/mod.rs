@@ -131,10 +131,14 @@ pub(crate) struct PowerZone {
 pub(crate) struct IOMapping {
     /// Base physical address of the mapping.
     pub(crate) base: usize,
-    /// Size of the mapping.
+    /// Whether this mapping should be replicated to all dies
+    pub(crate) per_die: bool,
+    /// Number of mappings.
+    pub(crate) count: usize,
+    /// Size of one mapping.
     pub(crate) size: usize,
-    /// Range size of the mapping (for arrays?)
-    pub(crate) range_size: usize,
+    /// Stride between mappings.
+    pub(crate) stride: usize,
     /// Whether the mapping should be writable.
     pub(crate) writable: bool,
 }
@@ -143,14 +147,18 @@ impl IOMapping {
     /// Convenience constructor for a new IOMapping.
     pub(crate) const fn new(
         base: usize,
+        per_die: bool,
+        count: usize,
         size: usize,
-        range_size: usize,
+        stride: usize,
         writable: bool,
     ) -> IOMapping {
         IOMapping {
             base,
+            per_die,
+            count,
             size,
-            range_size,
+            stride,
             writable,
         }
     }

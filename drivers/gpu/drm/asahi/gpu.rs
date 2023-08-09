@@ -91,6 +91,10 @@ const IOVA_KERN_GPU_TOP: u64 = 0xffffffadffffffff;
 const IOVA_KERN_RTKIT_BASE: u64 = 0xffffffae00000000;
 /// GPU/FW shared structure VA range top.
 const IOVA_KERN_RTKIT_TOP: u64 = 0xffffffae0fffffff;
+/// FW MMIO VA range base.
+const IOVA_KERN_MMIO_BASE: u64 = 0xffffffaf00000000;
+/// FW MMIO VA range top.
+const IOVA_KERN_MMIO_TOP: u64 = 0xffffffafffffffff;
 
 /// GPU/FW buffer manager control address (context 0 low)
 pub(crate) const IOVA_KERN_GPU_BUFMGR_LOW: u64 = 0x20_0000_0000;
@@ -202,6 +206,7 @@ pub(crate) struct GpuManager {
     #[pin]
     alloc: Mutex<KernelAllocators>,
     io_mappings: Vec<mmu::Mapping>,
+    next_mmio_iova: u64,
     #[pin]
     rtkit: Mutex<Option<rtkit::RtKit<GpuManager::ver>>>,
     #[pin]
@@ -509,18 +514,19 @@ impl GpuManager::ver {
 
         for (i, map) in cfg.io_mappings.iter().enumerate() {
             if let Some(map) = map.as_ref() {
-                Self::iomap(&mut mgr, i, map)?;
+                Self::iomap(&mut mgr, cfg, i, map)?;
             }
         }
 
         #[ver(V >= V13_0B4)]
         if let Some(base) = cfg.sram_base {
             let size = cfg.sram_size.unwrap() as usize;
+            let iova = mgr.as_mut().alloc_mmio_iova(size);
 
             let mapping =
                 mgr.uat
                     .kernel_vm()
-                    .map_io(base as usize, size, mmu::PROT_FW_SHARED_RW)?;
+                    .map_io(iova, base as usize, size, mmu::PROT_FW_SHARED_RW)?;
 
             mgr.as_mut()
                 .initdata_mut()
@@ -559,6 +565,21 @@ impl GpuManager::ver {
     fn io_mappings_mut(self: Pin<&mut Self>) -> &mut Vec<mmu::Mapping> {
         // SAFETY: io_mappings does not require structural pinning.
         unsafe { &mut self.get_unchecked_mut().io_mappings }
+    }
+
+    /// Allocate an MMIO iova range
+    fn alloc_mmio_iova(self: Pin<&mut Self>, size: usize) -> u64 {
+        // SAFETY: next_mmio_iova does not require structural pinning.
+        let next_ref = unsafe { &mut self.get_unchecked_mut().next_mmio_iova };
+
+        let addr = *next_ref;
+        let next = addr + (size + mmu::UAT_PGSZ) as u64;
+
+        assert!(next - 1 <= IOVA_KERN_MMIO_TOP);
+
+        *next_ref = next;
+
+        addr
     }
 
     /// Build the entire GPU InitData structure tree and return it as a boxed GpuObject.
@@ -675,6 +696,7 @@ impl GpuManager::ver {
             initdata: *initdata,
             uat: *uat,
             io_mappings: Vec::new(),
+            next_mmio_iova: IOVA_KERN_MMIO_BASE,
             rtkit <- Mutex::new_named(None, c_str!("rtkit")),
             crashed: AtomicBool::new(false),
             event_manager,
@@ -805,21 +827,47 @@ impl GpuManager::ver {
     /// index.
     fn iomap(
         this: &mut Pin<UniqueArc<GpuManager::ver>>,
+        cfg: &'static hw::HwConfig,
         index: usize,
         map: &hw::IOMapping,
     ) -> Result {
+        let dies = if map.per_die {
+            cfg.num_dies as usize
+        } else {
+            1
+        };
+
         let off = map.base & mmu::UAT_PGMSK;
         let base = map.base - off;
         let end = (map.base + map.size + mmu::UAT_PGMSK) & !mmu::UAT_PGMSK;
-        let mapping = this.uat.kernel_vm().map_io(
-            base,
-            end - base,
-            if map.writable {
-                mmu::PROT_FW_MMIO_RW
-            } else {
-                mmu::PROT_FW_MMIO_RO
-            },
-        )?;
+        let map_size = end - base;
+
+        // Array mappings must be aligned
+        assert!((off == 0 && map_size == map.size) || (map.count == 1 && !map.per_die));
+        assert!(map.count > 0);
+
+        let iova = this.as_mut().alloc_mmio_iova(map_size * map.count * dies);
+        let mut cur_iova = iova;
+
+        for die in 0..dies {
+            for i in 0..map.count {
+                let phys_off = die * 0x20_0000_0000 + i * map.stride;
+
+                let mapping = this.uat.kernel_vm().map_io(
+                    cur_iova,
+                    base + phys_off,
+                    map_size,
+                    if map.writable {
+                        mmu::PROT_FW_MMIO_RW
+                    } else {
+                        mmu::PROT_FW_MMIO_RO
+                    },
+                )?;
+
+                this.as_mut().io_mappings_mut().push(mapping, GFP_KERNEL)?;
+                cur_iova += map_size as u64;
+            }
+        }
 
         this.as_mut()
             .initdata_mut()
@@ -828,14 +876,13 @@ impl GpuManager::ver {
             .with_mut(|raw, _| {
                 raw.io_mappings[index] = fw::initdata::raw::IOMapping {
                     phys_addr: U64(map.base as u64),
-                    virt_addr: U64((mapping.iova() + off) as u64),
-                    size: map.size as u32,
-                    range_size: map.range_size as u32,
+                    virt_addr: U64(iova + off as u64),
+                    total_size: (map.size * map.count * dies) as u32,
+                    element_size: map.size as u32,
                     readwrite: U64(map.writable as u64),
                 };
             });
 
-        this.as_mut().io_mappings_mut().try_push(mapping)?;
         Ok(())
     }
 

@@ -76,10 +76,6 @@ const IOVA_KERN_BASE: usize = 0xffffffa000000000;
 /// Driver-managed kernel top VA
 const IOVA_KERN_TOP: usize = 0xffffffafffffffff;
 
-/// Range reserved for MMIO maps
-const IOVA_KERN_MMIO_BASE: usize = 0xffffffaf00000000;
-const IOVA_KERN_MMIO_TOP: usize = 0xffffffafffffffff;
-
 const TTBR_VALID: u64 = 0x1; // BIT(0)
 const TTBR_ASID_SHIFT: usize = 48;
 
@@ -893,29 +889,10 @@ impl Vm {
     }
 
     /// Add a direct MMIO mapping to this Vm at a free address.
-    pub(crate) fn map_io(&self, phys: usize, size: usize, prot: u32) -> Result<Mapping> {
+    pub(crate) fn map_io(&self, iova: u64, phys: usize, size: usize, prot: u32) -> Result<Mapping> {
         let mut inner = self.inner.lock();
 
-        let uat_inner = inner.uat_inner.clone();
-        let node = inner.mm.insert_node_in_range(
-            MappingInner {
-                owner: self.inner.clone(),
-                uat_inner,
-                prot,
-                sgt: None,
-                mapped_size: size,
-            },
-            (size + UAT_PGSZ) as u64, // Add guard page
-            UAT_PGSZ as u64,
-            0,
-            IOVA_KERN_MMIO_BASE as u64,
-            IOVA_KERN_MMIO_TOP as u64,
-            mm::InsertMode::Best,
-        )?;
-
-        let iova = node.start() as usize;
-
-        if (phys | size | iova) & UAT_PGMSK != 0 {
+        if (iova as usize | phys | size) & UAT_PGMSK != 0 {
             dev_err!(
                 inner.dev.as_ref(),
                 "MMU: Mapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
@@ -934,7 +911,21 @@ impl Vm {
             iova
         );
 
-        inner.map_pages(iova, phys, UAT_PGSZ, size >> UAT_PGBIT, prot)?;
+        let uat_inner = inner.uat_inner.clone();
+        let node = inner.mm.reserve_node(
+            MappingInner {
+                owner: self.inner.clone(),
+                uat_inner,
+                prot,
+                sgt: None,
+                mapped_size: size,
+            },
+            iova,
+            size as u64,
+            0,
+        )?;
+
+        inner.map_pages(iova as usize, phys, UAT_PGSZ, size >> UAT_PGBIT, prot)?;
 
         Ok(Mapping(node))
     }

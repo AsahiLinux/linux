@@ -591,8 +591,8 @@ pub(crate) mod raw {
     pub(crate) struct IOMapping {
         pub(crate) phys_addr: U64,
         pub(crate) virt_addr: U64,
-        pub(crate) size: u32,
-        pub(crate) range_size: u32,
+        pub(crate) total_size: u32,
+        pub(crate) element_size: u32,
         pub(crate) readwrite: U64,
     }
 

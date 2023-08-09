@@ -68,20 +68,20 @@ pub(crate) const HWCONFIG: super::HwConfig = HwConfig {
     fast_sensor_mask_alt: [0x12, 0],
     fast_die0_sensor_present: 0x01,
     io_mappings: &[
-        Some(IOMapping::new(0x204d00000, 0x1c000, 0x1c000, true)), // Fender
-        Some(IOMapping::new(0x20e100000, 0x4000, 0x4000, false)),  // AICTimer
-        Some(IOMapping::new(0x23b104000, 0x4000, 0x4000, true)),   // AICSWInt
-        Some(IOMapping::new(0x204000000, 0x20000, 0x20000, true)), // RGX
-        None,                                                      // UVD
-        None,                                                      // unused
-        None,                                                      // DisplayUnderrunWA
-        Some(IOMapping::new(0x23b2e8000, 0x1000, 0x1000, false)),  // AnalogTempSensorControllerRegs
-        Some(IOMapping::new(0x23bc00000, 0x1000, 0x1000, true)),   // PMPDoorbell
-        Some(IOMapping::new(0x204d80000, 0x5000, 0x5000, true)),   // MetrologySensorRegs
-        Some(IOMapping::new(0x204d61000, 0x1000, 0x1000, true)),   // GMGIFAFRegs
-        Some(IOMapping::new(0x200000000, 0xd6400, 0xd6400, true)), // MCache registers
-        None,                                                      // AICBankedRegisters
-        Some(IOMapping::new(0x23b738000, 0x1000, 0x1000, true)),   // PMGRScratch
+        Some(IOMapping::new(0x204d00000, false, 1, 0x1c000, 0, true)), // Fender
+        Some(IOMapping::new(0x20e100000, false, 1, 0x4000, 0, false)), // AICTimer
+        Some(IOMapping::new(0x23b104000, false, 1, 0x4000, 0, true)),  // AICSWInt
+        Some(IOMapping::new(0x204000000, false, 1, 0x20000, 0, true)), // RGX
+        None,                                                          // UVD
+        None,                                                          // unused
+        None,                                                          // DisplayUnderrunWA
+        Some(IOMapping::new(0x23b2e8000, false, 1, 0x1000, 0, false)), // AnalogTempSensorControllerRegs
+        Some(IOMapping::new(0x23bc00000, false, 1, 0x1000, 0, true)),  // PMPDoorbell
+        Some(IOMapping::new(0x204d80000, false, 1, 0x5000, 0, true)),  // MetrologySensorRegs
+        Some(IOMapping::new(0x204d61000, false, 1, 0x1000, 0, true)),  // GMGIFAFRegs
+        Some(IOMapping::new(0x200000000, false, 1, 0xd6400, 0, true)), // MCache registers
+        None,                                                          // AICBankedRegisters
+        Some(IOMapping::new(0x23b738000, false, 1, 0x1000, 0, true)),  // PMGRScratch
         None, // NIA Special agent idle register die 0
         None, // NIA Special agent idle register die 1
         None, // CRE registers
