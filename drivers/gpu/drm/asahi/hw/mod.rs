@@ -268,8 +268,8 @@ pub(crate) struct HwConfig {
     /// HwDataShared3.table.
     pub(crate) shared3_tab: &'static [u32],
 
-    /// Globals.unk_hws2_0.
-    pub(crate) unk_hws2_0: u32,
+    /// Globals.idle_off_standby_timer.
+    pub(crate) idle_off_standby_timer_default: u32,
     /// Globals.unk_hws2_4.
     pub(crate) unk_hws2_4: Option<[F32; 8]>,
     /// Globals.unk_hws2_24.
@@ -408,6 +408,8 @@ pub(crate) struct PwrConfig {
     pub(crate) fw_early_wake_timeout_ms: u32,
     /// Delay from the GPU becoming idle to powerdown
     pub(crate) idle_off_delay_ms: u32,
+    /// Related to the above?
+    pub(crate) idle_off_standby_timer: u32,
     /// Percent?
     pub(crate) perf_boost_ce_step: u32,
     /// Minimum utilization before performance state is increased in %.
@@ -608,6 +610,10 @@ impl PwrConfig {
             fender_idle_off_delay_ms: prop!("apple,fender-idle-off-delay-ms", 40),
             fw_early_wake_timeout_ms: prop!("apple,fw-early-wake-timeout-ms", 5),
             idle_off_delay_ms: prop!("apple,idle-off-delay-ms", 2),
+            idle_off_standby_timer: prop!(
+                "apple,idleoff-standby-timer",
+                cfg.idle_off_standby_timer_default
+            ),
             perf_boost_ce_step: prop!("apple,perf-boost-ce-step", 25),
             perf_boost_min_util: prop!("apple,perf-boost-min-util", 100),
             perf_filter_drop_threshold: prop!("apple,perf-filter-drop-threshold"),

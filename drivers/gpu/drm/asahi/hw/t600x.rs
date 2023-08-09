@@ -96,7 +96,7 @@ pub(crate) const HWCONFIG_T6002: super::HwConfig = HwConfig {
     shared2_curves: None,
     shared3_unk: 0,
     shared3_tab: &[],
-    unk_hws2_0: 0,
+    idle_off_standby_timer_default: 0,
     unk_hws2_4: None,
     unk_hws2_24: 0,
     global_unk_54: 0xffff,

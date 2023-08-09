@@ -1121,7 +1121,7 @@ pub(crate) mod raw {
         pub(crate) hws2: HwDataShared2,
 
         #[ver(V >= V13_0B4)]
-        pub(crate) unk_hws2_0: u32,
+        pub(crate) idle_off_standby_timer: u32,
 
         #[ver(V >= V13_0B4)]
         pub(crate) unk_hws2_4: Array<0x8, F32>,

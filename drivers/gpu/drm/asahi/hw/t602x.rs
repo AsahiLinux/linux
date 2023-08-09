@@ -113,7 +113,7 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
     shared3_tab: &[
         125, 125, 125, 125, 125, 125, 125, 125, 7500, 125, 125, 125, 125, 125, 125, 125,
     ],
-    unk_hws2_0: 700,
+    idle_off_standby_timer_default: 700,
     unk_hws2_4: Some(f32!([1.0, 0.8, 0.2, 0.9, 0.1, 0.25, 0.5, 0.9])),
     unk_hws2_24: 6,
     global_unk_54: 4000,

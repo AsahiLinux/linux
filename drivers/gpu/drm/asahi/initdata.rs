@@ -695,7 +695,7 @@ impl<'a> InitDataBuilder::ver<'a> {
                     hws2 <- Self::hw_shared2(cfg, dyncfg),
                     hws3 <- Self::hw_shared3(cfg),
                     #[ver(V >= V13_0B4)]
-                    unk_hws2_0: cfg.unk_hws2_0,
+                    idle_off_standby_timer: pwr.idle_off_standby_timer,
                     #[ver(V >= V13_0B4)]
                     unk_hws2_4: cfg.unk_hws2_4.map(Array::new).unwrap_or_default(),
                     #[ver(V >= V13_0B4)]
