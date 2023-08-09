@@ -37,7 +37,12 @@ const fn iomaps(chip_id: u32, mcc_count: usize) -> [Option<IOMapping>; 24] {
         Some(IOMapping::new(0x28e3d0000, 0x4000, 0x4000, true)), // ?
         Some(IOMapping::new(0x28e3c0000, 0x4000, 0x4000, false)), // ?
         Some(IOMapping::new(0x28e3d8000, 0x4000, 0x4000, true)), // ?
-        Some(IOMapping::new(0x404eac000, 0x4000, 0x4000, true)), // ?
+        Some(IOMapping::new(
+            0x404eac000,
+            if mcc_count > 8 { 0x8000 } else { 0x4000 },
+            0x4000,
+            true,
+        )), // ?
         None,
         None,
     ]
@@ -48,7 +53,7 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
     chip_id: 0x6022,
     gpu_gen: GpuGen::G14,
     gpu_variant: GpuVariant::D,
-    gpu_core: GpuCore::G14C,
+    gpu_core: GpuCore::G14D,
     gpu_feat_compat: 0,
     gpu_feat_incompat: feat::incompat::MANDATORY_ZS_COMPRESSION,
 
@@ -109,7 +114,7 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
         125, 125, 125, 125, 125, 125, 125, 125, 7500, 125, 125, 125, 125, 125, 125, 125,
     ],
     unk_hws2_0: 700,
-    unk_hws2_4: Some(f32!([1.0, 0.8, 0.2, 0.9, 0.1, 0.25, 0.7, 0.9])),
+    unk_hws2_4: Some(f32!([1.0, 0.8, 0.2, 0.9, 0.1, 0.25, 0.5, 0.9])),
     unk_hws2_24: 6,
     global_unk_54: 4000,
     sram_k: f32!(1.02),
@@ -137,8 +142,9 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
         0, 2, 2, 1, 1, 90, 75, 1, 1, 1, 2, 90, 75, 1, 1, 1, 2, 90, 75, 1, 1, 1, 1, 90, 75, 1, 1,
     ]),
     has_csafr: true,
-    fast_sensor_mask: [0x40005000c000d00, 0x40005000c000d00],
-    fast_sensor_mask_alt: [0x140015001d001d00, 0x140015001d001d00],
+    fast_sensor_mask: [0x40005000c000d00, 0xd000c0005000400],
+    // Apple typo? Should probably be 0x140015001c001d00
+    fast_sensor_mask_alt: [0x140015001d001d00, 0x1d001c0015001400],
     fast_die0_sensor_present: 0, // Unused
     io_mappings: &iomaps(0x6022, 16),
     sram_base: Some(0x404d60000),
@@ -152,6 +158,7 @@ pub(crate) const HWCONFIG_T6021: super::HwConfig = HwConfig {
 
     num_dies: 1,
     max_num_clusters: 4,
+    unk_hws2_4: Some(f32!([1.0, 0.8, 0.2, 0.9, 0.1, 0.25, 0.7, 0.9])),
     fast_sensor_mask: [0x40005000c000d00, 0],
     fast_sensor_mask_alt: [0x140015001d001d00, 0],
     io_mappings: &iomaps(0x6021, 8),
