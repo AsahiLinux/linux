@@ -17,13 +17,14 @@ config DRM_ASAHI
 	tristate "Asahi (DRM support for Apple AGX GPUs)"
 	depends on RUST
 	depends on DRM
-	depends on (ARM64 && ARCH_APPLE && OF) || (COMPILE_TEST && !GENERIC_ATOMIC64)
+	depends on (ARM64 && ARCH_APPLE) || (COMPILE_TEST && !GENERIC_ATOMIC64)
 	depends on MMU
 	select RUST_DRM_SCHED
 	select IOMMU_SUPPORT
 	select IOMMU_IO_PGTABLE_LPAE
 	select RUST_DRM_GEM_SHMEM_HELPER
 	select RUST_APPLE_RTKIT
+	select OF_UNITTEST
 	select OF_DYNAMIC
 	help
 	  DRM driver for Apple AGX GPUs (G13x, found in the M1 SoC family)
