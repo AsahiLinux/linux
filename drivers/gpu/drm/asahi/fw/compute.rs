@@ -24,7 +24,7 @@ pub(crate) mod raw {
         pub(crate) helper_program: u32,
         pub(crate) unk_44: u32,
         pub(crate) helper_arg: U64,
-        pub(crate) unk_50: u32,
+        pub(crate) helper_unk: u32,
         pub(crate) unk_54: u32,
         pub(crate) unk_58: u32,
         pub(crate) unk_5c: u32,

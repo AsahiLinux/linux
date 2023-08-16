@@ -806,8 +806,9 @@ impl super::Queue::ver {
                         unk_108: Default::default(),
                         pipeline_base: U64(0x11_00000000),
                         unk_140: U64(unks.frg_unk_140),
-                        unk_148: U64(0x0),
-                        unk_150: U64(0x0),
+                        helper_program: cmdbuf.fragment_helper_program,
+                        unk_14c: 0,
+                        helper_arg: U64(cmdbuf.fragment_helper_arg),
                         unk_158: U64(unks.frg_unk_158),
                         unk_160: U64(0),
                         __pad: Default::default(),
@@ -904,8 +905,8 @@ impl super::Queue::ver {
                             r.add(0x16431, (4 * tile_info.params.rgn_size as u64) << 24); // ISP_RGN?
                             r.add(0x10039, tile_config); // tile_config ISP_CTL?
                             r.add(0x16451, 0x0); // ISP_RENDER_ORIGIN
-                            r.add(0x11821, 0x0); // some shader?
-                            r.add(0x11829, 0);
+                            r.add(0x11821, cmdbuf.fragment_helper_program.into());
+                            r.add(0x11829, cmdbuf.fragment_helper_arg);
                             r.add(0x11f79, 0);
                             r.add(0x15359, 0);
                             r.add(0x10069, 0x11_00000000); // USC_EXEC_BASE_ISP
@@ -1019,7 +1020,9 @@ impl super::Queue::ver {
                     meta <- try_init!(fw::job::raw::JobMeta {
                         unk_0: 0,
                         unk_2: 0,
-                        no_preemption: 0,
+                        no_preemption: (cmdbuf.flags
+                        & uapi::ASAHI_RENDER_NO_PREEMPTION as u64
+                        != 0) as u8,
                         stamp: ev_frag.stamp_pointer,
                         fw_stamp: ev_frag.fw_stamp_pointer,
                         stamp_value: ev_frag.value.next(),
@@ -1313,7 +1316,10 @@ impl super::Queue::ver {
                         #[ver(G < G14)]
                         unk_f0: U64(unks.vtx_unk_f0),
                         unk_f8: U64(unks.vtx_unk_f8),     // fixed
-                        unk_100: Default::default(),      // fixed
+                        helper_program: cmdbuf.vertex_helper_program,
+                        unk_104: 0,
+                        helper_arg: U64(cmdbuf.vertex_helper_arg),
+                        unk_110: Default::default(),      // fixed
                         unk_118: unks.vtx_unk_118 as u32, // fixed
                         __pad: Default::default(),
                     }),
@@ -1392,8 +1398,8 @@ impl super::Queue::ver {
                             r.add(0x1c1b1, 0);
                             r.add(0x1c1b9, 0);
                             r.add(0x10061, 0x11_00000000); // USC_EXEC_BASE_TA
-                            r.add(0x11801, 0); // some shader?
-                            r.add(0x11809, 0); // maybe arg?
+                            r.add(0x11801, cmdbuf.vertex_helper_program.into());
+                            r.add(0x11809, cmdbuf.vertex_helper_arg);
                             r.add(0x11f71, 0);
                             r.add(0x1c0b1, tile_info.params.rgn_size.into()); // TE_PSG
                             r.add(0x1c850, tile_info.params.rgn_size.into());
@@ -1469,7 +1475,9 @@ impl super::Queue::ver {
                     meta <- try_init!(fw::job::raw::JobMeta {
                         unk_0: 0,
                         unk_2: 0,
-                        no_preemption: 0,
+                        no_preemption: (cmdbuf.flags
+                        & uapi::ASAHI_RENDER_NO_PREEMPTION as u64
+                        != 0) as u8,
                         stamp: ev_vtx.stamp_pointer,
                         fw_stamp: ev_vtx.fw_stamp_pointer,
                         stamp_value: ev_vtx.value.next(),

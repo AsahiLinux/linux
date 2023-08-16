@@ -282,7 +282,7 @@ impl super::Queue::ver {
                         helper_program: cmdbuf.helper_program, // Internal program addr | 1
                         unk_44: 0,
                         helper_arg: U64(cmdbuf.helper_arg), // Only if internal program used
-                        unk_50: cmdbuf.buffer_descriptor_size, // 0x40 if internal program used
+                        helper_unk: cmdbuf.helper_unk, // 0x40 if internal program used
                         unk_54: 0,
                         unk_58: 1,
                         unk_5c: 0,
@@ -303,7 +303,7 @@ impl super::Queue::ver {
                             r.add(0x10071, 0x1100000000); // USC_EXEC_BASE_CP
                             r.add(0x11841, cmdbuf.helper_program.into());
                             r.add(0x11849, cmdbuf.helper_arg);
-                            r.add(0x11f81, cmdbuf.buffer_descriptor_size.into());
+                            r.add(0x11f81, cmdbuf.helper_unk.into());
                             r.add(0x1a440, 0x24201);
                             r.add(0x12091, cmdbuf.iogpu_unk_40.into());
                             /*
@@ -345,7 +345,9 @@ impl super::Queue::ver {
                         unk_0: 0,
                         unk_2: 0,
                         // TODO: make separate flag
-                        no_preemption: ((cmdbuf.helper_program & 1) == 0) as u8,
+                        no_preemption: (cmdbuf.flags
+                        & uapi::ASAHI_COMPUTE_NO_PREEMPTION as u64
+                        != 0) as u8,
                         stamp: ev_comp.stamp_pointer,
                         fw_stamp: ev_comp.fw_stamp_pointer,
                         stamp_value: ev_comp.value.next(),

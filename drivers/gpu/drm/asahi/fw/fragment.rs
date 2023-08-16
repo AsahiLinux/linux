@@ -105,8 +105,9 @@ pub(crate) mod raw {
         pub(crate) unk_108: Array<0x6, U64>,
         pub(crate) pipeline_base: U64,
         pub(crate) unk_140: U64,
-        pub(crate) unk_148: U64,
-        pub(crate) unk_150: U64,
+        pub(crate) helper_program: u32,
+        pub(crate) unk_14c: u32,
+        pub(crate) helper_arg: U64,
         pub(crate) unk_158: U64,
         pub(crate) unk_160: U64,
 

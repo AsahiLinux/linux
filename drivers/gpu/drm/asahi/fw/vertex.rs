@@ -72,7 +72,10 @@ pub(crate) mod raw {
         #[ver(G < G14)]
         pub(crate) unk_f0: U64,
         pub(crate) unk_f8: U64,
-        pub(crate) unk_100: Array<3, U64>,
+        pub(crate) helper_program: u32,
+        pub(crate) unk_104: u32,
+        pub(crate) helper_arg: U64,
+        pub(crate) unk_110: U64,
         pub(crate) unk_118: u32,
         #[ver(G >= G14)]
         pub(crate) __pad: Pad<{ 8 * 9 + 0x268 }>,
