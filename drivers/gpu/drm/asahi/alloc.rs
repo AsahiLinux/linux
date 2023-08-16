@@ -78,6 +78,8 @@ pub(crate) struct GenericAlloc<T, U: RawAllocation> {
     alloc_size: usize,
     debug_offset: usize,
     padding: usize,
+    tag: u32,
+    pad_word: u32,
     _p: PhantomData<T>,
 }
 
@@ -125,7 +127,7 @@ const STATE_LIVE: u32 = u32::from_le_bytes(*b"LIVE");
 const STATE_DEAD: u32 = u32::from_le_bytes(*b"DEAD");
 
 /// Marker byte to identify when firmware/GPU write beyond the end of an allocation.
-const GUARD_MARKER: u8 = 0x93;
+const GUARD_MARKER: u32 = 0x93939393;
 
 impl<T, U: RawAllocation> Drop for GenericAlloc<T, U> {
     fn drop(&mut self) {
@@ -151,20 +153,26 @@ impl<T, U: RawAllocation> Drop for GenericAlloc<T, U> {
                         self.padding,
                     )
                 };
-                if let Some(first_err) = guard.iter().position(|&r| r != GUARD_MARKER) {
-                    let last_err = guard
-                        .iter()
-                        .rev()
-                        .position(|&r| r != GUARD_MARKER)
-                        .unwrap_or(0);
+                let mut first_err = None;
+                let mut last_err = 0;
+                for (i, p) in guard.iter().enumerate() {
+                    if *p != (self.pad_word >> (8 * (i & 3))) as u8 {
+                        if first_err.is_none() {
+                            first_err = Some(i);
+                        }
+                        last_err = i;
+                    }
+                }
+                if let Some(start) = first_err {
                     dev_warn!(
-                        self.device(),
-                        "Allocator: Corruption after object of type {} at {:#x}:{:#x} + {:#x}..={:#x}\n",
+                        self.device().as_ref(),
+                        "Allocator: Corruption after object of type {}/{:#x} at {:#x}:{:#x} + {:#x}..={:#x}\n",
                         core::any::type_name::<T>(),
+                        self.tag,
                         self.gpu_ptr(),
                         self.size(),
-                        first_err,
-                        self.padding - last_err - 1
+                        start,
+                        last_err,
                     );
                 }
             }
@@ -336,6 +344,8 @@ pub(crate) trait Allocator {
                     alloc,
                     alloc_size: size,
                     debug_offset,
+                    tag: tag.unwrap_or(0),
+                    pad_word: tag.unwrap_or(GUARD_MARKER) | 0x81818181,
                     padding,
                     _p: PhantomData,
                 }
@@ -344,6 +354,8 @@ pub(crate) trait Allocator {
                     alloc: self.alloc(size + padding, align)?,
                     alloc_size: size,
                     debug_offset: 0,
+                    tag: tag.unwrap_or(0),
+                    pad_word: tag.unwrap_or(GUARD_MARKER) | 0x81818181,
                     padding,
                     _p: PhantomData,
                 }
@@ -357,10 +369,14 @@ pub(crate) trait Allocator {
 
         if padding != 0 {
             if let Some(p) = ret.ptr() {
-                unsafe {
-                    (p.as_ptr() as *mut u8)
-                        .add(ret.size())
-                        .write_bytes(GUARD_MARKER, padding);
+                let guard = unsafe {
+                    core::slice::from_raw_parts_mut(
+                        (p.as_ptr() as *mut u8).add(ret.size()),
+                        padding,
+                    )
+                };
+                for (i, p) in guard.iter_mut().enumerate() {
+                    *p = (ret.pad_word >> (8 * (i & 3))) as u8;
                 }
             }
         }
