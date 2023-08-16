@@ -336,8 +336,10 @@ impl Buffer::ver {
                 try_init!(buffer::Info::ver {
                     block_ctl: shared.new_default::<buffer::BlockControl>()?,
                     counter: shared.new_default::<buffer::Counter>()?,
-                    page_list: ualloc_priv.lock().array_empty(max_pages)?,
-                    block_list: ualloc_priv.lock().array_empty(max_blocks * 2)?,
+                    page_list: ualloc_priv.lock().array_empty_tagged(max_pages, b"PLST")?,
+                    block_list: ualloc_priv
+                        .lock()
+                        .array_empty_tagged(max_blocks * 2, b"BLST")?,
                 })
             },
             |inner, _p| {
@@ -380,7 +382,7 @@ impl Buffer::ver {
         )?;
 
         // Technically similar to Scene below, let's play it safe.
-        let kernel_buffer = alloc.shared.array_empty(0x40)?;
+        let kernel_buffer = alloc.shared.array_empty_tagged(0x40, b"KBUF")?;
         let stats = alloc
             .shared
             .new_object(Default::default(), |_inner| buffer::raw::Stats {
@@ -538,20 +540,26 @@ impl Buffer::ver {
         // On M1 Ultra, it can grow and usually doesn't exceed 64 entries.
         // macOS allocates a whole 64K * 0x80 for this, so let's go with
         // that to be safe...
-        let user_buffer = inner.ualloc.lock().array_empty(if inner.num_clusters > 1 {
-            0x10080
-        } else {
-            0x80
-        })?;
+        let user_buffer = inner.ualloc.lock().array_empty_tagged(
+            if inner.num_clusters > 1 {
+                0x10080
+            } else {
+                0x80
+            },
+            b"UBUF",
+        )?;
 
-        let tvb_heapmeta = inner.ualloc.lock().array_empty(0x200)?;
-        let tvb_tilemap = inner.ualloc.lock().array_empty(tilemap_size)?;
-
-        mod_pr_debug!("Buffer: Allocating misc buffers\n");
-        let preempt_buf = inner
+        let tvb_heapmeta = inner.ualloc.lock().array_empty_tagged(0x200, b"HMTA")?;
+        let tvb_tilemap = inner
             .ualloc
             .lock()
-            .array_empty(inner.preempt1_size + inner.preempt2_size + inner.preempt3_size)?;
+            .array_empty_tagged(tilemap_size, b"TMAP")?;
+
+        mod_pr_debug!("Buffer: Allocating misc buffers\n");
+        let preempt_buf = inner.ualloc.lock().array_empty_tagged(
+            inner.preempt1_size + inner.preempt2_size + inner.preempt3_size,
+            b"PRMT",
+        )?;
 
         let tpc = match inner.tpc.as_ref() {
             Some(buf) if buf.len() >= tpc_size => buf.clone(),
@@ -560,11 +568,12 @@ impl Buffer::ver {
                 // priv seems to work and might be faster?
                 // Needs to be FW-writable anyway, so ualloc
                 // won't work.
-                let buf = Arc::try_new(
-                    inner
-                        .ualloc_priv
-                        .lock()
-                        .array_empty((tpc_size + mmu::UAT_PGMSK) & !mmu::UAT_PGMSK)?,
+                let buf = Arc::new(
+                    inner.ualloc_priv.lock().array_empty_tagged(
+                        (tpc_size + mmu::UAT_PGMSK) & !mmu::UAT_PGMSK,
+                        b"TPC ",
+                    )?,
+                    GFP_KERNEL,
                 )?;
                 inner.tpc = Some(buf.clone());
                 buf
@@ -591,8 +600,8 @@ impl Buffer::ver {
             let tilemaps = inner
                 .ualloc
                 .lock()
-                .array_empty(cfg.max_splits * tilemap_size)?;
-            let meta = inner.ualloc.lock().array_empty(meta_size)?;
+                .array_empty_tagged(cfg.max_splits * tilemap_size, b"CTMP")?;
+            let meta = inner.ualloc.lock().array_empty_tagged(meta_size, b"CMTA")?;
             Some(buffer::ClusterBuffers { tilemaps, meta })
         } else {
             None
@@ -620,7 +629,7 @@ impl Buffer::ver {
                 clustering: clustering,
                 preempt_buf: preempt_buf,
                 #[ver(G >= G14X)]
-                control_word: _gpu.array_empty(1)?,
+                control_word: _gpu.array_empty_tagged(1, b"CWRD")?,
             }),
             |inner, _p| {
                 try_init!(buffer::raw::Scene::ver {
