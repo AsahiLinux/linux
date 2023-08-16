@@ -1002,9 +1002,9 @@ impl super::Queue::ver {
                         encoder_id: cmdbuf.encoder_id,
                         unk_18: 0x0, // fixed
                         unk_mask: unks.frg_unk_mask as u32,
-                        sampler_array: U64(0),
-                        sampler_count: 0,
-                        sampler_max: 0,
+                        sampler_array: U64(cmdbuf.fragment_sampler_array),
+                        sampler_count: cmdbuf.fragment_sampler_count,
+                        sampler_max: cmdbuf.fragment_sampler_max,
                     }),
                     process_empty_tiles: (cmdbuf.flags
                         & uapi::ASAHI_RENDER_PROCESS_EMPTY_TILES as u64
@@ -1455,9 +1455,9 @@ impl super::Queue::ver {
                         encoder_id: cmdbuf.encoder_id,
                         unk_18: 0x0, // fixed
                         unk_mask: unks.vtx_unk_mask as u32,
-                        sampler_array: U64(0),
-                        sampler_count: 0,
-                        sampler_max: 0,
+                        sampler_array: U64(cmdbuf.vertex_sampler_array),
+                        sampler_count: cmdbuf.vertex_sampler_count,
+                        sampler_max: cmdbuf.vertex_sampler_max,
                     }),
                     unk_55c: 0,
                     unk_560: 0,
