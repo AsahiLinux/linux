@@ -788,15 +788,18 @@ impl super::Queue::ver {
                         stencil_buffer_ptr2: U64(cmdbuf.stencil_buffer_store),
                         #[ver(G >= G14)]
                         unk_68_g14_0: Default::default(),
-                        unk_78: Default::default(),
+                        depth_buffer_stride1: U64(cmdbuf.depth_buffer_load_stride),
+                        depth_buffer_stride2: U64(cmdbuf.depth_buffer_store_stride),
+                        stencil_buffer_stride1: U64(cmdbuf.stencil_buffer_load_stride),
+                        stencil_buffer_stride2: U64(cmdbuf.stencil_buffer_store_stride),
                         depth_meta_buffer_ptr1: U64(cmdbuf.depth_meta_buffer_load),
-                        unk_a0: Default::default(),
+                        depth_meta_buffer_stride1: U64(cmdbuf.depth_meta_buffer_load_stride),
                         depth_meta_buffer_ptr2: U64(cmdbuf.depth_meta_buffer_store),
-                        unk_b0: Default::default(),
+                        depth_meta_buffer_stride2: U64(cmdbuf.depth_meta_buffer_store_stride),
                         stencil_meta_buffer_ptr1: U64(cmdbuf.stencil_meta_buffer_load),
-                        unk_c0: Default::default(),
+                        stencil_meta_buffer_stride1: U64(cmdbuf.stencil_meta_buffer_load_stride),
                         stencil_meta_buffer_ptr2: U64(cmdbuf.stencil_meta_buffer_store),
-                        unk_d0: Default::default(),
+                        stencil_meta_buffer_stride2: U64(cmdbuf.stencil_meta_buffer_store_stride),
                         tvb_tilemap: inner.scene.tvb_tilemap_pointer(),
                         tvb_layermeta: inner.scene.tvb_layermeta_pointer(),
                         mtile_stride_dwords: U64((4 * tile_info.params.rgn_size as u64) << 24),
@@ -888,18 +891,18 @@ impl super::Queue::ver {
                             r.add(0x15221, 0);
                             r.add(0x15239, 0);
                             r.add(0x15229, 0);
-                            r.add(0x15401, 0);
-                            r.add(0x15421, 0);
-                            r.add(0x15409, 0);
-                            r.add(0x15429, 0);
+                            r.add(0x15401, cmdbuf.depth_buffer_load_stride);
+                            r.add(0x15421, cmdbuf.depth_buffer_store_stride);
+                            r.add(0x15409, cmdbuf.stencil_buffer_load_stride);
+                            r.add(0x15429, cmdbuf.stencil_buffer_store_stride);
                             r.add(0x153c1, cmdbuf.depth_meta_buffer_load);
-                            r.add(0x15411, 0);
+                            r.add(0x15411, cmdbuf.depth_meta_buffer_load_stride);
                             r.add(0x153c9, cmdbuf.depth_meta_buffer_store);
-                            r.add(0x15431, 0);
+                            r.add(0x15431, cmdbuf.depth_meta_buffer_store_stride);
                             r.add(0x153d1, cmdbuf.stencil_meta_buffer_load);
-                            r.add(0x15419, 0);
+                            r.add(0x15419, cmdbuf.stencil_meta_buffer_load_stride);
                             r.add(0x153d9, cmdbuf.stencil_meta_buffer_store);
-                            r.add(0x15439, 0);
+                            r.add(0x15439, cmdbuf.stencil_meta_buffer_store_stride);
                             r.add(0x16429, inner.scene.tvb_tilemap_pointer().into());
                             r.add(0x16060, inner.scene.tvb_layermeta_pointer().into());
                             r.add(0x16431, (4 * tile_info.params.rgn_size as u64) << 24); // ISP_RGN?
@@ -953,14 +956,14 @@ impl super::Queue::ver {
                         zls_ctrl: U64(unks.reload_zlsctrl),
                         unk_290: U64(unks.g14_unk),
                         depth_buffer_ptr1: U64(cmdbuf.depth_buffer_load),
-                        unk_2a0: U64(0x0),
-                        unk_2a8: U64(0x0),
+                        depth_buffer_stride3: U64(cmdbuf.depth_buffer_partial_stride),
+                        depth_meta_buffer_stride3: U64(cmdbuf.depth_meta_buffer_partial_stride),
                         depth_buffer_ptr2: U64(cmdbuf.depth_buffer_store),
                         depth_buffer_ptr3: U64(cmdbuf.depth_buffer_partial),
                         depth_meta_buffer_ptr3: U64(cmdbuf.depth_meta_buffer_partial),
                         stencil_buffer_ptr1: U64(cmdbuf.stencil_buffer_load),
-                        unk_2d0: U64(0x0),
-                        unk_2d8: U64(0x0),
+                        stencil_buffer_stride3: U64(cmdbuf.stencil_buffer_partial_stride),
+                        stencil_meta_buffer_stride3: U64(cmdbuf.stencil_meta_buffer_partial_stride),
                         stencil_buffer_ptr2: U64(cmdbuf.stencil_buffer_store),
                         stencil_buffer_ptr3: U64(cmdbuf.stencil_buffer_partial),
                         stencil_meta_buffer_ptr3: U64(cmdbuf.stencil_meta_buffer_partial),
