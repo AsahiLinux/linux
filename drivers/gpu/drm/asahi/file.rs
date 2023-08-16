@@ -247,10 +247,16 @@ impl File {
 
             result_render_size: core::mem::size_of::<uapi::drm_asahi_result_render>() as u32,
             result_compute_size: core::mem::size_of::<uapi::drm_asahi_result_compute>() as u32,
+
+            firmware_version: [0; 4],
         };
 
         for (i, mask) in gpu.get_dyncfg().id.core_masks.iter().enumerate() {
             *(params.core_masks.get_mut(i).ok_or(EIO)?) = (*mask).into();
+        }
+
+        for i in 0..3 {
+            params.firmware_version[i] = *gpu.get_dyncfg().firmware_version.get(i).unwrap_or(&0);
         }
 
         let size = core::mem::size_of::<uapi::drm_asahi_params_global>().min(data.size.try_into()?);

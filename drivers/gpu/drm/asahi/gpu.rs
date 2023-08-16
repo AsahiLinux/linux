@@ -811,16 +811,22 @@ impl GpuManager::ver {
             return Err(EIO);
         }
 
-        Ok(Box::try_new(hw::DynConfig {
-            pwr: pwr_cfg,
-            uat_ttb_base: uat.ttb_base(),
-            id: gpu_id,
-        })?)
+        let node = dev.as_ref().of_node().ok_or(EIO)?;
+
+        Ok(KBox::new(
+            hw::DynConfig {
+                pwr: pwr_cfg,
+                uat_ttb_base: uat.ttb_base(),
+                id: gpu_id,
+                firmware_version: node.get_property(c_str!("apple,firmware-version"))?,
+            },
+            GFP_KERNEL,
+        )?)
     }
 
     /// Create the global GPU event manager, and return an `Arc<>` to it.
     fn make_event_manager(alloc: &mut KernelAllocators) -> Result<Arc<event::EventManager>> {
-        Ok(Arc::try_new(event::EventManager::new(alloc)?)?)
+        Ok(Arc::new(event::EventManager::new(alloc)?, GFP_KERNEL)?)
     }
 
     /// Create a new MMIO mapping and add it to the mappings list in initdata at the specified
