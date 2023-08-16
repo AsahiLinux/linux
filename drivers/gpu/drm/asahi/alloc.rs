@@ -112,7 +112,7 @@ impl<T, U: RawAllocation> Debug for GenericAlloc<T, U> {
 #[repr(C)]
 struct AllocDebugData {
     state: u32,
-    _pad: u32,
+    tag: u32,
     size: u64,
     base_gpuva: u64,
     obj_gpuva: u64,
@@ -120,9 +120,9 @@ struct AllocDebugData {
 }
 
 /// Magic flag indicating a live allocation.
-const STATE_LIVE: u32 = 0x4556494c;
+const STATE_LIVE: u32 = u32::from_le_bytes(*b"LIVE");
 /// Magic flag indicating a freed allocation.
-const STATE_DEAD: u32 = 0x44414544;
+const STATE_DEAD: u32 = u32::from_le_bytes(*b"DEAD");
 
 /// Marker byte to identify when firmware/GPU write beyond the end of an allocation.
 const GUARD_MARKER: u8 = 0x93;
@@ -292,6 +292,7 @@ pub(crate) trait Allocator {
         &mut self,
         size: usize,
         align: usize,
+        tag: Option<u32>,
     ) -> Result<GenericAlloc<T, Self::Raw>> {
         let padding = if debug_enabled(DebugFlags::DetectOverflows) {
             size
@@ -309,7 +310,7 @@ pub(crate) trait Allocator {
 
                 let mut debug = AllocDebugData {
                     state: STATE_LIVE,
-                    _pad: 0,
+                    tag: tag.unwrap_or(0),
                     size: size as u64,
                     base_gpuva: alloc.gpu_ptr(),
                     obj_gpuva: alloc.gpu_ptr() + debug_offset as u64,
@@ -376,7 +377,7 @@ pub(crate) trait Allocator {
         let size = mem::size_of::<T::Raw<'static>>();
         let align = mem::align_of::<T::Raw<'static>>();
 
-        self.alloc_generic(size, align)
+        self.alloc_generic(size, align, None)
     }
 
     /// Allocate an empty `GpuArray` of a given type and length.
@@ -387,7 +388,20 @@ pub(crate) trait Allocator {
         let size = mem::size_of::<T>() * count;
         let align = mem::align_of::<T>();
 
-        let alloc = self.alloc_generic(size, align)?;
+        let alloc = self.alloc_generic(size, align, None)?;
+        GpuArray::<T, GenericAlloc<T, Self::Raw>>::empty(alloc, count)
+    }
+
+    /// Allocate an empty `GpuArray` of a given type and length.
+    fn array_empty_tagged<T: Sized + Default>(
+        &mut self,
+        count: usize,
+        tag: &[u8; 4],
+    ) -> Result<GpuArray<T, GenericAlloc<T, Self::Raw>>> {
+        let size = mem::size_of::<T>() * count;
+        let align = mem::align_of::<T>();
+
+        let alloc = self.alloc_generic(size, align, Some(u32::from_le_bytes(*tag)))?;
         GpuArray::<T, GenericAlloc<T, Self::Raw>>::empty(alloc, count)
     }
 
@@ -399,7 +413,7 @@ pub(crate) trait Allocator {
         let size = mem::size_of::<T>() * count;
         let align = mem::align_of::<T>();
 
-        let alloc = self.alloc_generic(size, align)?;
+        let alloc = self.alloc_generic(size, align, None)?;
         GpuOnlyArray::<T, GenericAlloc<T, Self::Raw>>::new(alloc, count)
     }
 }
