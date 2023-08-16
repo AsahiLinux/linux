@@ -101,7 +101,10 @@ impl super::Queue::ver {
         let preempt5_off = preempt4_off + 8;
         let preempt_size = preempt5_off + 8;
 
-        let preempt_buf = self.ualloc.lock().array_empty(preempt_size)?;
+        let preempt_buf = self
+            .ualloc
+            .lock()
+            .array_empty_tagged(preempt_size, b"CPMT")?;
 
         mod_dev_dbg!(
             self.dev,
