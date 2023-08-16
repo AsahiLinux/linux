@@ -337,9 +337,9 @@ impl super::Queue::ver {
                         encoder_id: cmdbuf.encoder_id,
                         unk_18: 0x0, // fixed
                         unk_mask: cmdbuf.unk_mask,
-                        sampler_array: U64(0),
-                        sampler_count: 0,
-                        sampler_max: 0,
+                        sampler_array: U64(cmdbuf.sampler_array),
+                        sampler_count: cmdbuf.sampler_count,
+                        sampler_max: cmdbuf.sampler_max,
                     }),
                     meta <- try_init!(fw::job::raw::JobMeta {
                         unk_0: 0,
