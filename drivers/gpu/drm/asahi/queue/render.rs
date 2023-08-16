@@ -168,6 +168,7 @@ impl super::Queue::ver {
             tilemap_size,
             tpc_size,
             meta1_blocks,
+            layermeta_size: if layers > 1 { 0x100 } else { 0 },
             min_tvb_blocks: min_tvb_blocks as usize,
             params: fw::vertex::raw::TilingParameters {
                 rgn_size,
@@ -797,9 +798,9 @@ impl super::Queue::ver {
                         stencil_meta_buffer_ptr2: U64(cmdbuf.stencil_meta_buffer_store),
                         unk_d0: Default::default(),
                         tvb_tilemap: inner.scene.tvb_tilemap_pointer(),
-                        tvb_heapmeta: inner.scene.tvb_heapmeta_pointer(),
+                        tvb_layermeta: inner.scene.tvb_layermeta_pointer(),
                         mtile_stride_dwords: U64((4 * tile_info.params.rgn_size as u64) << 24),
-                        tvb_heapmeta_2: inner.scene.tvb_heapmeta_pointer(),
+                        tvb_heapmeta: inner.scene.tvb_heapmeta_pointer(),
                         tile_config: U64(tile_config),
                         aux_fb: inner.aux_fb.gpu_pointer(),
                         unk_108: Default::default(),
@@ -899,7 +900,7 @@ impl super::Queue::ver {
                             r.add(0x153d9, cmdbuf.stencil_meta_buffer_store);
                             r.add(0x15439, 0);
                             r.add(0x16429, inner.scene.tvb_tilemap_pointer().into());
-                            r.add(0x16060, inner.scene.tvb_heapmeta_pointer().into());
+                            r.add(0x16060, inner.scene.tvb_layermeta_pointer().into());
                             r.add(0x16431, (4 * tile_info.params.rgn_size as u64) << 24); // ISP_RGN?
                             r.add(0x10039, tile_config); // tile_config ISP_CTL?
                             r.add(0x16451, 0x0); // ISP_RENDER_ORIGIN
@@ -1281,7 +1282,7 @@ impl super::Queue::ver {
                         utile_config,
                         unk_4c: 0,
                         ppp_multisamplectl: U64(cmdbuf.ppp_multisamplectl), // fixed
-                        tvb_heapmeta_2: inner.scene.tvb_heapmeta_pointer(),
+                        tvb_layermeta: inner.scene.tvb_layermeta_pointer(),
                         #[ver(G < G14)]
                         unk_60: U64(0x0), // fixed
                         #[ver(G < G14)]
@@ -1371,8 +1372,8 @@ impl super::Queue::ver {
                             ); // tvb_cluster_meta3
                             r.add(0x1c890, tiling_control.into()); // tvb_tiling_control
                             r.add(0x1c918, unks.tiling_control_2);
-                            r.add(0x1c079, inner.scene.tvb_heapmeta_pointer().into());
-                            r.add(0x1c9d8, inner.scene.tvb_heapmeta_pointer().into());
+                            r.add(0x1c079, inner.scene.tvb_layermeta_pointer().into());
+                            r.add(0x1c9d8, inner.scene.tvb_layermeta_pointer().into());
                             r.add(0x1c089, 0);
                             r.add(0x1c9e0, 0);
                             let cl_meta_4_pointer =

@@ -91,6 +91,8 @@ pub(crate) struct TileInfo {
     pub(crate) tpc_size: usize,
     /// Number of blocks in the clustering meta buffer (for clustering).
     pub(crate) meta1_blocks: u32,
+    /// Layering metadata size.
+    pub(crate) layermeta_size: usize,
     /// Minimum number of TVB blocks for this render.
     pub(crate) min_tvb_blocks: usize,
     /// Tiling parameter structure passed to firmware.
@@ -161,6 +163,11 @@ impl Scene::ver {
     /// Returns the GPU pointer to the TVB heap metadata buffer.
     pub(crate) fn tvb_heapmeta_pointer(&self) -> GpuPointer<'_, &'_ [u8]> {
         self.object.tvb_heapmeta.gpu_pointer()
+    }
+
+    /// Returns the GPU pointer to the layer metadata buffer.
+    pub(crate) fn tvb_layermeta_pointer(&self) -> GpuPointer<'_, &'_ [u8]> {
+        self.object.tvb_heapmeta.gpu_offset_pointer(0x200)
     }
 
     /// Returns the GPU pointer to the top-level TVB tilemap buffer.
@@ -549,7 +556,10 @@ impl Buffer::ver {
             b"UBUF",
         )?;
 
-        let tvb_heapmeta = inner.ualloc.lock().array_empty_tagged(0x200, b"HMTA")?;
+        let tvb_heapmeta = inner
+            .ualloc
+            .lock()
+            .array_empty_tagged(0x200 + tile_info.layermeta_size, b"HMTA")?;
         let tvb_tilemap = inner
             .ualloc
             .lock()

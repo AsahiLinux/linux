@@ -47,7 +47,7 @@ pub(crate) mod raw {
         pub(crate) utile_config: u32,
         pub(crate) unk_4c: u32,
         pub(crate) ppp_multisamplectl: U64,
-        pub(crate) tvb_heapmeta_2: GpuPointer<'a, &'a [u8]>,
+        pub(crate) tvb_layermeta: GpuPointer<'a, &'a [u8]>,
         #[ver(G < G14)]
         pub(crate) unk_60: U64,
         #[ver(G < G14)]
