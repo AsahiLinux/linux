@@ -784,13 +784,13 @@ impl<'a> InitDataBuilder::ver<'a> {
                     },
 
                     hwdata_a: hwa,
-                    unkptr_190: alloc.private.array_empty(0x80)?,
-                    unkptr_198: alloc.private.array_empty(0xc0)?,
+                    unkptr_190: alloc.private.array_empty_tagged(0x80, b"I190")?,
+                    unkptr_198: alloc.private.array_empty_tagged(0xc0, b"I198")?,
                     hwdata_b: hwb,
 
-                    unkptr_1b8: alloc.private.array_empty(0x1000)?,
-                    unkptr_1c0: alloc.private.array_empty(0x300)?,
-                    unkptr_1c8: alloc.private.array_empty(0x1000)?,
+                    unkptr_1b8: alloc.private.array_empty_tagged(0x1000, b"I1B8")?,
+                    unkptr_1c0: alloc.private.array_empty_tagged(0x300, b"I1C0")?,
+                    unkptr_1c8: alloc.private.array_empty_tagged(0x1000, b"I1C8")?,
 
                     buffer_mgr_ctl,
                 })
@@ -880,7 +880,7 @@ impl<'a> InitDataBuilder::ver<'a> {
 
         let obj = self.alloc.private.new_init(
             try_init!(InitData::ver {
-                unk_buf: shared_ro.array_empty(0x4000)?,
+                unk_buf: shared_ro.array_empty_tagged(0x4000, b"IDTA")?,
                 runtime_pointers,
                 globals,
                 fw_status,
