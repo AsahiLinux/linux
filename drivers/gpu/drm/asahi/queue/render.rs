@@ -724,7 +724,7 @@ impl super::Queue::ver {
                     notifier,
                     scene,
                     vm_bind,
-                    aux_fb: self.ualloc.lock().array_empty(0x8000)?,
+                    aux_fb: self.ualloc.lock().array_empty_tagged(0x8000, b"AXFB")?,
                     timestamps,
                 })
             },
