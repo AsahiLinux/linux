@@ -587,7 +587,7 @@ impl WorkQueue::ver {
         priority: u32,
         size: u32,
     ) -> Result<Arc<WorkQueue::ver>> {
-        let gpu_buf = alloc.private.array_empty(0x2c18)?;
+        let gpu_buf = alloc.private.array_empty_tagged(0x2c18, b"GPBF")?;
         let shared = &mut alloc.shared;
         let inner = WorkQueueInner::ver {
             dev: dev.into(),
