@@ -198,7 +198,7 @@ impl sched::JobImpl for QueueJob::ver {
 
         if let Some(sj) = job.sj_vtx.as_ref() {
             if let Some(fence) = sj.can_submit() {
-                dev_info!(
+                mod_dev_dbg!(
                     job.dev,
                     "QueueJob {}: Blocking due to vertex queue full\n",
                     job.id
@@ -208,7 +208,7 @@ impl sched::JobImpl for QueueJob::ver {
         }
         if let Some(sj) = job.sj_frag.as_ref() {
             if let Some(fence) = sj.can_submit() {
-                dev_info!(
+                mod_dev_dbg!(
                     job.dev,
                     "QueueJob {}: Blocking due to fragment queue full\n",
                     job.id
@@ -218,7 +218,7 @@ impl sched::JobImpl for QueueJob::ver {
         }
         if let Some(sj) = job.sj_comp.as_ref() {
             if let Some(fence) = sj.can_submit() {
-                dev_info!(
+                mod_dev_dbg!(
                     job.dev,
                     "QueueJob {}: Blocking due to compute queue full\n",
                     job.id
