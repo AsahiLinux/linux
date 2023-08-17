@@ -65,7 +65,7 @@ int dptxport_validate_connection(struct apple_epic_service *service, u8 core,
 
 	cmd.target = cpu_to_le32(target);
 	cmd.unk = cpu_to_le32(0x100);
-	ret = afk_service_call(service, 0, 14, &cmd, sizeof(cmd), 40, &resp,
+	ret = afk_service_call(service, 0, 12, &cmd, sizeof(cmd), 40, &resp,
 			       sizeof(resp), 40);
 	if (ret)
 		return ret;
@@ -93,7 +93,7 @@ int dptxport_connect(struct apple_epic_service *service, u8 core, u8 atc,
 
 	cmd.target = cpu_to_le32(target);
 	cmd.unk = cpu_to_le32(0x100);
-	ret = afk_service_call(service, 0, 13, &cmd, sizeof(cmd), 24, &resp,
+	ret = afk_service_call(service, 0, 11, &cmd, sizeof(cmd), 24, &resp,
 			       sizeof(resp), 24);
 	if (ret)
 		return ret;
@@ -108,12 +108,12 @@ int dptxport_connect(struct apple_epic_service *service, u8 core, u8 atc,
 
 int dptxport_request_display(struct apple_epic_service *service)
 {
-	return afk_service_call(service, 0, 8, NULL, 0, 16, NULL, 0, 16);
+	return afk_service_call(service, 0, 6, NULL, 0, 16, NULL, 0, 16);
 }
 
 int dptxport_release_display(struct apple_epic_service *service)
 {
-	return afk_service_call(service, 0, 9, NULL, 0, 16, NULL, 0, 16);
+	return afk_service_call(service, 0, 7, NULL, 0, 16, NULL, 0, 16);
 }
 
 int dptxport_set_hpd(struct apple_epic_service *service, bool hpd)
@@ -126,7 +126,7 @@ int dptxport_set_hpd(struct apple_epic_service *service, bool hpd)
 	if (hpd)
 		cmd.unk = cpu_to_le32(1);
 
-	ret = afk_service_call(service, 8, 10, &cmd, sizeof(cmd), 12, &resp,
+	ret = afk_service_call(service, 8, 8, &cmd, sizeof(cmd), 12, &resp,
 			       sizeof(resp), 12);
 	if (ret)
 		return ret;
