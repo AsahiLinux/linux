@@ -183,6 +183,9 @@ struct apple_dcp {
 	/* clear all surfaces on init */
 	bool surfaces_cleared;
 
+	/* is dcpext / requires dptx */
+	bool is_dptx;
+
 	/* Modes valid for the connected display */
 	struct dcp_display_mode *modes;
 	unsigned int nr_modes;
