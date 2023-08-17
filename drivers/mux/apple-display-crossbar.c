@@ -18,6 +18,32 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
+/*
+ * T602x register interface is cleary different so most of the names below are
+ * probably wrong.
+ */
+
+#define T602X_FIFO_WR_DPTX_CLK_EN 0x000
+#define T602X_FIFO_WR_N_CLK_EN 0x004
+#define T602X_FIFO_WR_UNK_EN 0x008
+#define T602X_REG_00C 0x00c
+#define T602X_REG_014 0x014
+#define T602X_REG_018 0x018
+#define T602X_REG_01C 0x01c
+#define T602X_FIFO_RD_PCLK2_EN 0x024
+#define T602X_FIFO_RD_N_CLK_EN 0x028
+#define T602X_FIFO_RD_UNK_EN 0x02c
+#define T602X_REG_030 0x030
+#define T602X_REG_034 0x034
+
+#define T602X_REG_804_STAT 0x804 // status of 0x004
+#define T602X_REG_810_STAT 0x810 // status of 0x014
+#define T602X_REG_81C_STAT 0x81c // status of 0x024
+
+/*
+ * T8013, T600x, T8112 dp crossbar registers.
+ */
+
 #define FIFO_WR_DPTX_CLK_EN 0x000
 #define FIFO_WR_N_CLK_EN 0x004
 #define FIFO_WR_UNK_EN 0x008
@@ -63,6 +89,7 @@ static const char *apple_dpxbar_names[MUX_MAX] = { "dpphy", "dpin0", "dpin1" };
 struct apple_dpxbar_hw {
 	unsigned int n_ufp;
 	u32 tunable;
+	const struct mux_control_ops *ops;
 };
 
 struct apple_dpxbar {
@@ -89,6 +116,109 @@ static inline void dpxbar_set32(struct apple_dpxbar *xbar, u32 reg, u32 set)
 static inline void dpxbar_clear32(struct apple_dpxbar *xbar, u32 reg, u32 clear)
 {
 	dpxbar_mask32(xbar, reg, clear, 0);
+}
+
+static int apple_dpxbar_set_t602x(struct mux_control *mux, int state)
+{
+	struct apple_dpxbar *dpxbar = mux_chip_priv(mux->chip);
+	unsigned int index = mux_control_get_index(mux);
+	unsigned long flags;
+	unsigned int mux_state;
+	unsigned int dispext_bit;
+	unsigned int dispext_bit_en;
+	bool enable;
+	int ret = 0;
+
+	if (state == MUX_IDLE_DISCONNECT) {
+		/*
+		 * Technically this will select dispext0,0 in the mux control
+		 * register. Practically that doesn't matter since everything
+		 * else is disabled.
+		 */
+		mux_state = 0;
+		enable = false;
+	} else if (state >= 0 && state < 9) {
+		dispext_bit = 1 << state;
+		dispext_bit_en = 1 << (2 * state);
+		mux_state = state;
+		enable = true;
+	} else {
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&dpxbar->lock, flags);
+
+	/* ensure the selected dispext isn't already used in this crossbar */
+	if (enable) {
+		for (int i = 0; i < MUX_MAX; ++i) {
+			if (i == index)
+				continue;
+			if (dpxbar->selected_dispext[i] == state) {
+				spin_unlock_irqrestore(&dpxbar->lock, flags);
+				return -EBUSY;
+			}
+		}
+	}
+
+	if (dpxbar->selected_dispext[index] >= 0) {
+		u32 prev_dispext_bit = 1 << dpxbar->selected_dispext[index];
+		u32 prev_dispext_bit_en = 1 << (2 * dpxbar->selected_dispext[index]);
+
+		dpxbar_clear32(dpxbar, T602X_FIFO_RD_UNK_EN, prev_dispext_bit);
+		dpxbar_clear32(dpxbar, T602X_FIFO_WR_DPTX_CLK_EN, prev_dispext_bit);
+		dpxbar_clear32(dpxbar, T602X_REG_00C, prev_dispext_bit_en);
+
+		dpxbar_clear32(dpxbar, T602X_REG_01C, 0x100);
+
+		dpxbar_clear32(dpxbar, T602X_FIFO_WR_UNK_EN, prev_dispext_bit);
+		dpxbar_clear32(dpxbar, T602X_REG_018, prev_dispext_bit_en);
+
+		dpxbar_clear32(dpxbar, T602X_FIFO_RD_N_CLK_EN, 0x100);
+
+		dpxbar_set32(dpxbar, T602X_FIFO_WR_N_CLK_EN, prev_dispext_bit);
+		dpxbar_set32(dpxbar, T602X_REG_014, 0x4);
+
+		dpxbar_set32(dpxbar, FIFO_RD_PCLK1_EN, 0x100);
+
+		dpxbar->selected_dispext[index] = -1;
+	}
+
+	if (enable) {
+		dpxbar_set32(dpxbar, T602X_REG_030, state << 20);
+		dpxbar_set32(dpxbar, T602X_REG_030, state << 8);
+		udelay(10);
+
+		dpxbar_clear32(dpxbar, T602X_FIFO_WR_N_CLK_EN, dispext_bit);
+		dpxbar_clear32(dpxbar, T602X_REG_014, 0x4);
+
+		dpxbar_clear32(dpxbar, T602X_FIFO_RD_PCLK2_EN, 0x100);
+
+		dpxbar_set32(dpxbar, T602X_FIFO_WR_UNK_EN, dispext_bit);
+		dpxbar_set32(dpxbar, T602X_REG_018, dispext_bit_en);
+
+		dpxbar_set32(dpxbar, T602X_FIFO_RD_N_CLK_EN, 0x100);
+		dpxbar_set32(dpxbar, T602X_FIFO_WR_DPTX_CLK_EN, dispext_bit);
+		dpxbar_set32(dpxbar, T602X_REG_00C, dispext_bit);
+
+		dpxbar_set32(dpxbar, T602X_REG_01C, 0x100);
+		dpxbar_set32(dpxbar, T602X_REG_034, 0x100);
+
+		dpxbar_set32(dpxbar, T602X_FIFO_RD_UNK_EN, dispext_bit);
+
+		dpxbar->selected_dispext[index] = state;
+	}
+
+	spin_unlock_irqrestore(&dpxbar->lock, flags);
+
+	if (enable)
+		dev_info(dpxbar->dev, "Switched %s to dispext%u,%u\n",
+			 apple_dpxbar_names[index], mux_state >> 1,
+			 mux_state & 1);
+	else
+		dev_info(dpxbar->dev, "Switched %s to disconnected state\n",
+			 apple_dpxbar_names[index]);
+
+	return ret;
 }
 
 static int apple_dpxbar_set(struct mux_control *mux, int state)
@@ -230,6 +360,10 @@ static const struct mux_control_ops apple_dpxbar_ops = {
 	.set = apple_dpxbar_set,
 };
 
+static const struct mux_control_ops apple_dpxbar_t602x_ops = {
+	.set = apple_dpxbar_set_t602x,
+};
+
 static int apple_dpxbar_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -244,7 +378,7 @@ static int apple_dpxbar_probe(struct platform_device *pdev)
 		return PTR_ERR(mux_chip);
 
 	dpxbar = mux_chip_priv(mux_chip);
-	mux_chip->ops = &apple_dpxbar_ops;
+	mux_chip->ops = hw->ops;
 	spin_lock_init(&dpxbar->lock);
 
 	dpxbar->dev = dev;
@@ -252,9 +386,11 @@ static int apple_dpxbar_probe(struct platform_device *pdev)
 	if (IS_ERR(dpxbar->regs))
 		return PTR_ERR(dpxbar->regs);
 
-	readl(dpxbar->regs + UNK_TUNABLE);
-	writel(hw->tunable, dpxbar->regs + UNK_TUNABLE);
-	readl(dpxbar->regs + UNK_TUNABLE);
+	if (!of_device_is_compatible(dev->of_node, "apple,t6020-display-crossbar")) {
+		readl(dpxbar->regs + UNK_TUNABLE);
+		writel(hw->tunable, dpxbar->regs + UNK_TUNABLE);
+		readl(dpxbar->regs + UNK_TUNABLE);
+	}
 
 	for (unsigned int i = 0; i < MUX_MAX; ++i) {
 		mux_chip->mux[i].states = hw->n_ufp;
@@ -269,19 +405,27 @@ static int apple_dpxbar_probe(struct platform_device *pdev)
 	return 0;
 }
 
-const static struct apple_dpxbar_hw apple_dpxbar_hw_t8103 = {
+static const struct apple_dpxbar_hw apple_dpxbar_hw_t8103 = {
 	.n_ufp = 2,
 	.tunable = 0,
+	.ops = &apple_dpxbar_ops,
 };
 
-const static struct apple_dpxbar_hw apple_dpxbar_hw_t8112 = {
+static const struct apple_dpxbar_hw apple_dpxbar_hw_t8112 = {
 	.n_ufp = 4,
 	.tunable = 4278196325,
+	.ops = &apple_dpxbar_ops,
 };
 
-const static struct apple_dpxbar_hw apple_dpxbar_hw_t6000 = {
+static const struct apple_dpxbar_hw apple_dpxbar_hw_t6000 = {
 	.n_ufp = 9,
 	.tunable = 5,
+	.ops = &apple_dpxbar_ops,
+};
+
+static const struct apple_dpxbar_hw apple_dpxbar_hw_t6020 = {
+	.n_ufp = 9,
+	.ops = &apple_dpxbar_t602x_ops,
 };
 
 static const struct of_device_id apple_dpxbar_ids[] = {
@@ -296,6 +440,10 @@ static const struct of_device_id apple_dpxbar_ids[] = {
 	{
 		.compatible = "apple,t6000-display-crossbar",
 		.data = &apple_dpxbar_hw_t6000,
+	},
+	{
+		.compatible = "apple,t6020-display-crossbar",
+		.data = &apple_dpxbar_hw_t6020,
 	},
 	{}
 };
