@@ -344,6 +344,14 @@
 	};
 };
 
+&dcpext0_die1 {
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x1240>;
+};
+
+&dcpext1_die1 {
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x1248>;
+};
+
 &ps_gfx {
 	// On t6022, the die0 GPU power domain needs both AFR power domains
 	power-domains = <&ps_afr>, <&ps_afr_die1>;
