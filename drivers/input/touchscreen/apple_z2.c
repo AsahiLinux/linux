@@ -12,6 +12,7 @@
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/spi/spi.h>
 
 #define APPLE_Z2_NUM_FINGERS_OFFSET      16
