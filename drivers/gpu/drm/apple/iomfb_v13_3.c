@@ -62,6 +62,7 @@ static const iomfb_cb_handler cb_handlers[IOMFB_MAX_CB] = {
 	[126] = trampoline_prop_start,
 	[127] = trampoline_prop_chunk,
 	[128] = trampoline_prop_end,
+	[129] = trampoline_allocate_bandwidth,
 	[201] = trampoline_map_piodma,
 	[202] = trampoline_unmap_piodma,
 	[206] = iomfbep_cb_match_pmu_service_2,

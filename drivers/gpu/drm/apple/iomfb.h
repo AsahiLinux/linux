@@ -127,6 +127,21 @@ struct dcp_component_types {
 	u8 types[7];
 } __packed;
 
+struct dcp_allocate_bandwidth_req {
+	u64 unk1;
+	u64 unk2;
+	u64 unk3;
+	u8 unk1_null;
+	u8 unk2_null;
+	u8 padding[8];
+} __packed;
+
+struct dcp_allocate_bandwidth_resp {
+	u64 unk1;
+	u64 unk2;
+	u32 ret;
+} __packed;
+
 struct dcp_rt_bandwidth {
 	u64 unk1;
 	u64 reg_scratch;
