@@ -652,6 +652,16 @@ static bool dcpep_cb_boot_1(struct apple_dcp *dcp, int tag, void *out, void *in)
 	return false;
 }
 
+static struct dcp_allocate_bandwidth_resp dcpep_cb_allocate_bandwidth(struct apple_dcp *dcp,
+						struct dcp_allocate_bandwidth_req *req)
+{
+	return (struct dcp_allocate_bandwidth_resp){
+		.unk1 = req->unk1,
+		.unk2 = req->unk2,
+		.ret = 1,
+	};
+}
+
 static struct dcp_rt_bandwidth dcpep_cb_rt_bandwidth(struct apple_dcp *dcp)
 {
 	if (dcp->disp_registers[5] && dcp->disp_registers[6]) {
@@ -1057,6 +1067,8 @@ TRAMPOLINE_INOUT(trampoline_prop_chunk, dcpep_cb_prop_chunk,
 		 struct dcp_set_dcpav_prop_chunk_req, u8);
 TRAMPOLINE_INOUT(trampoline_prop_end, dcpep_cb_prop_end,
 		 struct dcp_set_dcpav_prop_end_req, u8);
+TRAMPOLINE_INOUT(trampoline_allocate_bandwidth, dcpep_cb_allocate_bandwidth,
+	       struct dcp_allocate_bandwidth_req, struct dcp_allocate_bandwidth_resp);
 TRAMPOLINE_OUT(trampoline_rt_bandwidth, dcpep_cb_rt_bandwidth,
 	       struct dcp_rt_bandwidth);
 TRAMPOLINE_INOUT(trampoline_set_frame_sync_props, dcpep_cb_set_frame_sync_props,
