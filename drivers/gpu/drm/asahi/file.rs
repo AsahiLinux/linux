@@ -52,12 +52,14 @@ pub(crate) struct SyncItem {
 impl SyncItem {
     fn parse_one(file: &DrmFile, data: uapi::drm_asahi_sync, out: bool) -> Result<SyncItem> {
         if data.extensions != 0 {
+            cls_pr_debug!(Errors, "drm_asahi_sync extension unexpected\n");
             return Err(EINVAL);
         }
 
         match data.sync_type {
             uapi::drm_asahi_sync_type_DRM_ASAHI_SYNC_SYNCOBJ => {
                 if data.timeline_value != 0 {
+                    cls_pr_debug!(Errors, "Non-timeline sync object with a nonzero value\n");
                     return Err(EINVAL);
                 }
                 let syncobj = drm::syncobj::SyncObj::lookup_handle(file, data.handle)?;
@@ -66,7 +68,10 @@ impl SyncItem {
                     fence: if out {
                         None
                     } else {
-                        Some(syncobj.fence_get().ok_or(EINVAL)?)
+                        Some(syncobj.fence_get().ok_or_else(|| {
+                            cls_pr_debug!(Errors, "Failed to get fence from sync object\n");
+                            EINVAL
+                        })?)
                     },
                     syncobj,
                     chain_fence: None,
@@ -80,7 +85,13 @@ impl SyncItem {
                 } else {
                     syncobj
                         .fence_get()
-                        .ok_or(EINVAL)?
+                        .ok_or_else(|| {
+                            cls_pr_debug!(
+                                Errors,
+                                "Failed to get fence from timeline sync object\n"
+                            );
+                            EINVAL
+                        })?
                         .chain_find_seqno(data.timeline_value)?
                 };
 
@@ -95,7 +106,10 @@ impl SyncItem {
                     timeline_value: data.timeline_value,
                 })
             }
-            _ => Err(EINVAL),
+            _ => {
+                cls_pr_debug!(Errors, "Invalid sync type {}\n", data.sync_type);
+                Err(EINVAL)
+            }
         }
     }
 
@@ -201,6 +215,7 @@ impl File {
         let gpu = &device.data().gpu;
 
         if data.extensions != 0 || data.param_group != 0 || data.pad != 0 {
+            cls_pr_debug!(Errors, "get_params: Invalid arguments\n");
             return Err(EINVAL);
         }
 
@@ -278,6 +293,7 @@ impl File {
         file: &DrmFile,
     ) -> Result<u32> {
         if data.extensions != 0 {
+            cls_pr_debug!(Errors, "vm_create: Unexpected extensions\n");
             return Err(EINVAL);
         }
 
@@ -350,6 +366,7 @@ impl File {
         file: &DrmFile,
     ) -> Result<u32> {
         if data.extensions != 0 {
+            cls_pr_debug!(Errors, "vm_destroy: Unexpected extensions\n");
             return Err(EINVAL);
         }
 
@@ -377,6 +394,7 @@ impl File {
             || (data.flags & !(uapi::ASAHI_GEM_WRITEBACK | uapi::ASAHI_GEM_VM_PRIVATE)) != 0
             || (data.flags & uapi::ASAHI_GEM_VM_PRIVATE == 0 && data.vm_id != 0)
         {
+            cls_pr_debug!(Errors, "gem_create: Invalid arguments\n");
             return Err(EINVAL);
         }
 
@@ -424,6 +442,7 @@ impl File {
         );
 
         if data.extensions != 0 || data.flags != 0 {
+            cls_pr_debug!(Errors, "gem_mmap_offset: Unexpected extensions or flags\n");
             return Err(EINVAL);
         }
 
@@ -452,6 +471,7 @@ impl File {
         );
 
         if data.extensions != 0 {
+            cls_pr_debug!(Errors, "gem_bind: Unexpected extensions\n");
             return Err(EINVAL);
         }
 
@@ -461,7 +481,10 @@ impl File {
             uapi::drm_asahi_bind_op_ASAHI_BIND_OP_UNBIND_ALL => {
                 Self::do_gem_unbind_all(device, data, file)
             }
-            _ => Err(EINVAL),
+            _ => {
+                cls_pr_debug!(Errors, "gem_bind: Invalid op {}\n", data.op);
+                Err(EINVAL)
+            }
         }
     }
 
@@ -471,20 +494,29 @@ impl File {
         file: &DrmFile,
     ) -> Result<u32> {
         if data.offset != 0 {
+            pr_err!("gem_bind: Offset not supported yet\n");
             return Err(EINVAL); // Not supported yet
         }
 
         if (data.addr | data.range) as usize & mmu::UAT_PGMSK != 0 {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Addr/range not page aligned: {:#x} {:#x}\n",
+                data.addr,
+                data.range
+            );
             return Err(EINVAL); // Must be page aligned
         }
 
         if (data.flags & !(uapi::ASAHI_BIND_READ | uapi::ASAHI_BIND_WRITE)) != 0 {
+            cls_pr_debug!(Errors, "gem_bind: Invalid flags {:#x}\n", data.flags);
             return Err(EINVAL);
         }
 
         let mut bo = gem::lookup_handle(file, data.handle)?;
 
         if data.range != bo.size().try_into()? {
+            pr_err!("gem_bind: Partial maps not supported yet\n");
             return Err(EINVAL); // Not supported yet
         }
 
@@ -493,18 +525,42 @@ impl File {
 
         if (VM_SHADER_START..=VM_SHADER_END).contains(&start) {
             if !(VM_SHADER_START..=VM_SHADER_END).contains(&end) {
+                cls_pr_debug!(
+                    Errors,
+                    "gem_bind: Invalid map range {:#x}..{:#x} (straddles shader range)\n",
+                    start,
+                    end
+                );
                 return Err(EINVAL); // Invalid map range
             }
         } else if (VM_USER_START..=VM_USER_END).contains(&start) {
             if !(VM_USER_START..=VM_USER_END).contains(&end) {
+                cls_pr_debug!(
+                    Errors,
+                    "gem_bind: Invalid map range {:#x}..{:#x} (straddles user range)\n",
+                    start,
+                    end
+                );
                 return Err(EINVAL); // Invalid map range
             }
         } else {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Invalid map range {:#x}..{:#x}\n",
+                start,
+                end
+            );
             return Err(EINVAL); // Invalid map range
         }
 
         // Just in case
         if end >= VM_DRV_GPU_START {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Invalid map range {:#x}..{:#x} (intrudes in kernel range)\n",
+                start,
+                end
+            );
             return Err(EINVAL);
         }
 
@@ -517,6 +573,11 @@ impl File {
         } else if data.flags & uapi::ASAHI_BIND_WRITE != 0 {
             mmu::PROT_GPU_SHARED_WO
         } else {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Must specify read or write (flags: {:#x})\n",
+                data.flags
+            );
             return Err(EINVAL); // Must specify one of ASAHI_BIND_{READ,WRITE}
         };
 
@@ -541,6 +602,7 @@ impl File {
         file: &DrmFile,
     ) -> Result<u32> {
         if data.flags != 0 || data.offset != 0 || data.range != 0 || data.addr != 0 {
+            cls_pr_debug!(Errors, "gem_unbind_all: Invalid arguments\n");
             return Err(EINVAL);
         }
 
@@ -591,6 +653,7 @@ impl File {
                     | uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_COMPUTE))
                 != 0
         {
+            cls_pr_debug!(Errors, "queue_create: Invalid arguments\n");
             return Err(EINVAL);
         }
 
@@ -625,6 +688,7 @@ impl File {
         file: &DrmFile,
     ) -> Result<u32> {
         if data.extensions != 0 {
+            cls_pr_debug!(Errors, "queue_destroy: Unexpected extensions\n");
             return Err(EINVAL);
         }
 
@@ -646,16 +710,44 @@ impl File {
         data: &mut uapi::drm_asahi_submit,
         file: &DrmFile,
     ) -> Result<u32> {
-        if data.extensions != 0
-            || data.flags != 0
-            || data.in_sync_count > MAX_SYNCS_PER_SUBMISSION
-            || data.out_sync_count > MAX_SYNCS_PER_SUBMISSION
-            || data.command_count > MAX_COMMANDS_PER_SUBMISSION
-        {
+        debug::update_debug_flags();
+
+        if data.extensions != 0 {
+            cls_pr_debug!(Errors, "submit: Unexpected extensions\n");
             return Err(EINVAL);
         }
 
-        debug::update_debug_flags();
+        if data.flags != 0 {
+            cls_pr_debug!(Errors, "submit: Unexpected flags {:#x}\n", data.flags);
+            return Err(EINVAL);
+        }
+        if data.in_sync_count > MAX_SYNCS_PER_SUBMISSION {
+            cls_pr_debug!(
+                Errors,
+                "submit: Too many in syncs: {} > {}\n",
+                data.in_sync_count,
+                MAX_SYNCS_PER_SUBMISSION
+            );
+            return Err(EINVAL);
+        }
+        if data.out_sync_count > MAX_SYNCS_PER_SUBMISSION {
+            cls_pr_debug!(
+                Errors,
+                "submit: Too many out syncs: {} > {}\n",
+                data.out_sync_count,
+                MAX_SYNCS_PER_SUBMISSION
+            );
+            return Err(EINVAL);
+        }
+        if data.command_count > MAX_COMMANDS_PER_SUBMISSION {
+            cls_pr_debug!(
+                Errors,
+                "submit: Too many commands: {} > {}\n",
+                data.command_count,
+                MAX_COMMANDS_PER_SUBMISSION
+            );
+            return Err(EINVAL);
+        }
 
         let gpu = &device.data().gpu;
         gpu.update_globals();

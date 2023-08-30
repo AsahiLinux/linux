@@ -79,10 +79,12 @@ impl super::Queue::ver {
         let layers: u32 = cmdbuf.layers;
 
         if width > 65536 || height > 65536 {
+            cls_pr_debug!(Errors, "Framebuffer too large ({} x {})\n", width, height);
             return Err(EINVAL);
         }
 
         if layers == 0 || layers > 2048 {
+            cls_pr_debug!(Errors, "Layer count invalid ({})\n", layers);
             return Err(EINVAL);
         }
 
@@ -94,7 +96,15 @@ impl super::Queue::ver {
 
         match (utile_width, utile_height) {
             (32, 32) | (32, 16) | (16, 16) => (),
-            _ => return Err(EINVAL),
+            _ => {
+                cls_pr_debug!(
+                    Errors,
+                    "uTile size invalid ({} x {})\n",
+                    utile_width,
+                    utile_height
+                );
+                return Err(EINVAL);
+            }
         };
 
         let utiles_per_tile_x = tile_width / utile_width;
@@ -202,6 +212,7 @@ impl super::Queue::ver {
         flush_stamps: bool,
     ) -> Result {
         if cmd.cmd_type != uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER {
+            cls_pr_debug!(Errors, "Not a render command ({})\n", cmd.cmd_type);
             return Err(EINVAL);
         }
 
@@ -233,6 +244,7 @@ impl super::Queue::ver {
                 | uapi::ASAHI_RENDER_MSAA_ZS) as u64
             != 0
         {
+            cls_pr_debug!(Errors, "Invalid flags ({:#x})\n", cmdbuf.flags);
             return Err(EINVAL);
         }
 
@@ -241,10 +253,9 @@ impl super::Queue::ver {
             || cmdbuf.fb_width > 16384
             || cmdbuf.fb_height > 16384
         {
-            mod_dev_dbg!(
-                self.dev,
-                "[Submission {}] Invalid dimensions {}x{}\n",
-                id,
+            cls_pr_debug!(
+                Errors,
+                "Invalid dimensions ({}x{})\n",
                 cmdbuf.fb_width,
                 cmdbuf.fb_height
             );
@@ -265,6 +276,7 @@ impl super::Queue::ver {
             match ext_type {
                 uapi::ASAHI_RENDER_EXT_UNKNOWNS => {
                     if !debug_enabled(debug::DebugFlags::AllowUnknownOverrides) {
+                        cls_pr_debug!(Errors, "Overrides not enabled\n");
                         return Err(EINVAL);
                     }
                     let mut ext_reader = unsafe {
@@ -283,11 +295,15 @@ impl super::Queue::ver {
 
                     ext_ptr = unks.next;
                 }
-                _ => return Err(EINVAL),
+                _ => {
+                    cls_pr_debug!(Errors, "Unknown extension {}\n", ext_type);
+                    return Err(EINVAL);
+                }
             }
         }
 
         if unks.pad != 0 {
+            cls_pr_debug!(Errors, "Nonzero unks.pad: {}\n", unks.pad);
             return Err(EINVAL);
         }
 
@@ -332,7 +348,10 @@ impl super::Queue::ver {
 
         let tile_info = Self::get_tiling_params(&cmdbuf, if clustering { nclusters } else { 1 })?;
 
-        let buffer = self.buffer.as_ref().ok_or(EINVAL)?;
+        let buffer = self.buffer.as_ref().ok_or_else(|| {
+            cls_pr_debug!(Errors, "Failed to get buffer\n");
+            EINVAL
+        })?;
 
         let notifier = self.notifier.clone();
 
@@ -455,7 +474,10 @@ impl super::Queue::ver {
             1 => 0,
             2 => 1,
             4 => 2,
-            _ => return Err(EINVAL),
+            _ => {
+                cls_pr_debug!(Errors, "Invalid sample count {}\n", cmdbuf.samples);
+                return Err(EINVAL);
+            }
         };
 
         #[ver(G >= G14X)]
