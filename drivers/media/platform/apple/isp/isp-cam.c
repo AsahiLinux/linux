@@ -78,12 +78,13 @@ static const struct isp_setfile isp_setfiles[] = {
 	[ISP_VD56G0_6221_01] = {0xd56, 0x62210102, "isp/6221_01XX.dat", 0x1b80},
 	[ISP_VD56G0_6222_01] = {0xd56, 0x62220102, "isp/6222_01XX.dat", 0x1b80},
 };
-// clang-format on
 
 // one day we will do this intelligently
 static const struct isp_preset isp_presets[] = {
-	[ISP_IMX248_1820_01] = { 0, 1280, 720, 8, 8, 1280, 720, 1296, 736 },
+	[ISP_IMX248_1820_01] = {0, 1280,  720, 8, 8, 1280,  720, 1296,  736}, // J293AP
+	[ISP_IMX558_1921_01] = {1, 1920, 1080, 0, 0, 1920, 1080, 1920, 1080}, // J316sAP, J415AP
 };
+// clang-format on
 
 static int isp_ch_get_sensor_id(struct apple_isp *isp, u32 ch)
 {

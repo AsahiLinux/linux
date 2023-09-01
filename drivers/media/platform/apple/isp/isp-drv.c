@@ -292,6 +292,60 @@ static const struct apple_isp_hw apple_isp_hw_t8103 = {
 	.stream_command_invalidate = DART_T8020_STREAM_COMMAND_INVALIDATE,
 };
 
+static const struct apple_isp_hw apple_isp_hw_t6000 = {
+	.pmu_base = 0x28e584000,
+
+	.dsid_clr_base0 = 0x200014000,
+	.dsid_clr_base1 = 0x200054000,
+	.dsid_clr_base2 = 0x200094000,
+	.dsid_clr_base3 = 0x2000d4000,
+	.dsid_clr_range0 = 0x1000,
+	.dsid_clr_range1 = 0x1000,
+	.dsid_clr_range2 = 0x1000,
+	.dsid_clr_range3 = 0x1000,
+
+	.clock_scratch = 0x28e3d0868,
+	.clock_base = 0x0,
+	.clock_bit = 0x0,
+	.clock_size = 0x8,
+	.bandwidth_scratch = 0x28e3d0980,
+	.bandwidth_base = 0x0,
+	.bandwidth_bit = 0x0,
+	.bandwidth_size = 0x8,
+
+	.stream_command = DART_T8020_STREAM_COMMAND,
+	.stream_select = DART_T8020_STREAM_SELECT,
+	.ttbr = DART_T8020_TTBR,
+	.stream_command_invalidate = DART_T8020_STREAM_COMMAND_INVALIDATE,
+};
+
+static const struct apple_isp_hw apple_isp_hw_t8110 = {
+	.pmu_base = 0x23b704000,
+
+	.dsid_clr_base0 = 0x200014000, // TODO
+	.dsid_clr_base1 = 0x200054000,
+	.dsid_clr_base2 = 0x200094000,
+	.dsid_clr_base3 = 0x2000d4000,
+	.dsid_clr_range0 = 0x1000,
+	.dsid_clr_range1 = 0x1000,
+	.dsid_clr_range2 = 0x1000,
+	.dsid_clr_range3 = 0x1000,
+
+	.clock_scratch = 0x23b3d0560,
+	.clock_base = 0x0,
+	.clock_bit = 0x0,
+	.clock_size = 0x8,
+	.bandwidth_scratch = 0x23b3d05d0,
+	.bandwidth_base = 0x0,
+	.bandwidth_bit = 0x0,
+	.bandwidth_size = 0x8,
+
+	.stream_command = DART_T8020_STREAM_COMMAND, // TODO
+	.stream_select = DART_T8020_STREAM_SELECT,
+	.ttbr = DART_T8020_TTBR,
+	.stream_command_invalidate = DART_T8020_STREAM_COMMAND_INVALIDATE,
+};
+
 static const struct of_device_id apple_isp_of_match[] = {
 	{ .compatible = "apple,t8103-isp", .data = &apple_isp_hw_t8103 },
 	{},
