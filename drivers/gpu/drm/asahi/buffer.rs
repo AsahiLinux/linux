@@ -770,8 +770,8 @@ impl BufferManager::ver {
             .with_inner(|inner| inner.owners[slot as usize].as_ref().cloned())
         {
             Some(owner) => {
-                pr_info!(
-                    "BufferManager: Received synchronous grow request for slot {}, this is not generally expected\n",
+                pr_err!(
+                    "BufferManager: Unexpected grow request for slot {}. This might deadlock. Please report this bug.\n",
                     slot
                 );
                 owner.sync_grow();
