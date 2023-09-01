@@ -185,7 +185,8 @@ struct apple_isp {
 	int irq;
 
 	void __iomem *asc;
-	void __iomem *core;
+	void __iomem *mbox;
+	void __iomem *gpio;
 	void __iomem *dart0;
 	void __iomem *dart1;
 	void __iomem *dart2;

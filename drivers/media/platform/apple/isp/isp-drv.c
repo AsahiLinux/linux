@@ -164,9 +164,15 @@ static int apple_isp_probe(struct platform_device *pdev)
 		goto detach_genpd;
 	}
 
-	isp->core = devm_platform_ioremap_resource_byname(pdev, "core");
-	if (IS_ERR(isp->core)) {
-		err = PTR_ERR(isp->core);
+	isp->mbox = devm_platform_ioremap_resource_byname(pdev, "mbox");
+	if (IS_ERR(isp->mbox)) {
+		err = PTR_ERR(isp->mbox);
+		goto detach_genpd;
+	}
+
+	isp->gpio = devm_platform_ioremap_resource_byname(pdev, "gpio");
+	if (IS_ERR(isp->gpio)) {
+		err = PTR_ERR(isp->gpio);
 		goto detach_genpd;
 	}
 

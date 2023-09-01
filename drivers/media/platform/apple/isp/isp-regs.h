@@ -23,40 +23,29 @@
 #define ISP_ASC_IRQ_MASK_4     0x1400a10
 #define ISP_ASC_IRQ_MASK_5     0x1400a14
 
-#define ISP_CORE_IRQ_INTERRUPT 0x2104000
-#define ISP_CORE_IRQ_ENABLE    0x2104004
-#define ISP_CORE_IRQ_DOORBELL  0x21043f0
-#define ISP_CORE_IRQ_ACK       0x21043fc
+#define ISP_MBOX_IRQ_INTERRUPT 0x000
+#define ISP_MBOX_IRQ_ENABLE    0x004
+#define ISP_MBOX_IRQ_DOORBELL  0x3f0
+#define ISP_MBOX_IRQ_ACK       0x3fc
 
-#define ISP_CORE_GPIO_0	       0x2104170
-#define ISP_CORE_GPIO_1	       0x2104174
-#define ISP_CORE_GPIO_2	       0x2104178
-#define ISP_CORE_GPIO_3	       0x210417c
-#define ISP_CORE_GPIO_4	       0x2104180
-#define ISP_CORE_GPIO_5	       0x2104184
-#define ISP_CORE_GPIO_6	       0x2104188
-#define ISP_CORE_GPIO_7	       0x210418c
+#define ISP_GPIO_0	       0x00
+#define ISP_GPIO_1	       0x04
+#define ISP_GPIO_2	       0x08
+#define ISP_GPIO_3	       0x0c
+#define ISP_GPIO_4	       0x10
+#define ISP_GPIO_5	       0x14
+#define ISP_GPIO_6	       0x18
+#define ISP_GPIO_7	       0x1c
+#define ISP_GPIO_CLOCK_EN      0x20
 
-#define ISP_CORE_CLOCK_EN      0x2104190
-
-#define ISP_CORE_DPE_CTRL_0    0x2504000
-#define ISP_CORE_DPE_CTRL_1    0x2508000
-
-static inline u32 isp_core_read32(struct apple_isp *isp, u32 reg)
+static inline u32 isp_mbox_read32(struct apple_isp *isp, u32 reg)
 {
-	return readl(isp->core + reg - 0x2104000); // TODO this sucks
+	return readl(isp->mbox + reg);
 }
 
-static inline void isp_core_write32(struct apple_isp *isp, u32 reg, u32 val)
+static inline void isp_mbox_write32(struct apple_isp *isp, u32 reg, u32 val)
 {
-	writel(val, isp->core + reg - 0x2104000);
-}
-
-static inline void isp_core_mask32(struct apple_isp *isp, u32 reg, u32 clear,
-				   u32 set)
-{
-	isp_core_write32(isp, reg, isp_core_read32(isp, reg) & ~clear);
-	isp_core_write32(isp, reg, isp_core_read32(isp, reg) | set);
+	writel(val, isp->mbox + reg);
 }
 
 #endif /* __ISP_REGS_H__ */

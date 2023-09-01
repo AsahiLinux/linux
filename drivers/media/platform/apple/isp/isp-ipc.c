@@ -110,7 +110,7 @@ static int chan_handle_once(struct apple_isp *isp, struct isp_channel *chan)
 
 	chan_write_msg(isp, chan, &chan->rsp);
 
-	isp_core_write32(isp, ISP_CORE_IRQ_DOORBELL, chan->doorbell);
+	isp_mbox_write32(isp, ISP_MBOX_IRQ_DOORBELL, chan->doorbell);
 
 	chan_update_cursor(chan);
 
@@ -165,7 +165,7 @@ int ipc_chan_send(struct apple_isp *isp, struct isp_channel *chan,
 	chan_write_msg(isp, chan, &chan->req);
 	wmb();
 
-	isp_core_write32(isp, ISP_CORE_IRQ_DOORBELL, chan->doorbell);
+	isp_mbox_write32(isp, ISP_MBOX_IRQ_DOORBELL, chan->doorbell);
 
 	t = wait_event_interruptible_timeout(isp->wait, chan_tx_done(isp, chan),
 					     timeout);
