@@ -22,7 +22,6 @@ use kernel::{dma_fence, drm, uapi, xarray};
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::File;
 
-const MAX_SYNCS_PER_SUBMISSION: u32 = 64;
 const MAX_COMMANDS_PER_SUBMISSION: u32 = 64;
 pub(crate) const MAX_COMMANDS_IN_FLIGHT: u32 = 1024;
 
@@ -250,7 +249,7 @@ impl File {
             vm_shader_start: VM_SHADER_START,
             vm_shader_end: VM_SHADER_END,
 
-            max_syncs_per_submission: MAX_SYNCS_PER_SUBMISSION,
+            max_syncs_per_submission: 0,
             max_commands_per_submission: MAX_COMMANDS_PER_SUBMISSION,
             max_commands_in_flight: MAX_COMMANDS_IN_FLIGHT,
             max_attachments: crate::microseq::MAX_ATTACHMENTS as u32,
@@ -719,24 +718,6 @@ impl File {
 
         if data.flags != 0 {
             cls_pr_debug!(Errors, "submit: Unexpected flags {:#x}\n", data.flags);
-            return Err(EINVAL);
-        }
-        if data.in_sync_count > MAX_SYNCS_PER_SUBMISSION {
-            cls_pr_debug!(
-                Errors,
-                "submit: Too many in syncs: {} > {}\n",
-                data.in_sync_count,
-                MAX_SYNCS_PER_SUBMISSION
-            );
-            return Err(EINVAL);
-        }
-        if data.out_sync_count > MAX_SYNCS_PER_SUBMISSION {
-            cls_pr_debug!(
-                Errors,
-                "submit: Too many out syncs: {} > {}\n",
-                data.out_sync_count,
-                MAX_SYNCS_PER_SUBMISSION
-            );
             return Err(EINVAL);
         }
         if data.command_count > MAX_COMMANDS_PER_SUBMISSION {
