@@ -238,7 +238,6 @@ impl super::Queue::ver {
         if cmdbuf.flags
             & !(uapi::ASAHI_RENDER_NO_CLEAR_PIPELINE_TEXTURES
                 | uapi::ASAHI_RENDER_SET_WHEN_RELOADING_Z_OR_S
-                | uapi::ASAHI_RENDER_SYNC_TVB_GROWTH
                 | uapi::ASAHI_RENDER_PROCESS_EMPTY_TILES
                 | uapi::ASAHI_RENDER_NO_VERTEX_CLUSTERING
                 | uapi::ASAHI_RENDER_MSAA_ZS) as u64
@@ -642,8 +641,7 @@ impl super::Queue::ver {
                             unk_50: 0x1, // fixed
                             event_generation: self.id as u32,
                             buffer_slot: scene.slot(),
-                            sync_grow: (cmdbuf.flags & uapi::ASAHI_RENDER_SYNC_TVB_GROWTH as u64
-                                != 0) as u32,
+                            sync_grow: 0,
                             event_seq: U64(ev_frag.event_seq),
                             unk_68: 0,
                             unk_758_flag: inner_weak_ptr!(ptr, unk_758_flag),
@@ -1022,8 +1020,7 @@ impl super::Queue::ver {
                     encoder_params <- try_init!(fw::job::raw::EncoderParams {
                         unk_8: (cmdbuf.flags & uapi::ASAHI_RENDER_SET_WHEN_RELOADING_Z_OR_S as u64
                             != 0) as u32,
-                        sync_grow: (cmdbuf.flags & uapi::ASAHI_RENDER_SYNC_TVB_GROWTH as u64
-                                    != 0) as u32,
+                        sync_grow: 0,
                         unk_10: 0x0, // fixed
                         encoder_id: cmdbuf.encoder_id,
                         unk_18: 0x0, // fixed
@@ -1492,9 +1489,7 @@ impl super::Queue::ver {
                     }),
                     unk_55c: 0,
                     unk_560: 0,
-                    sync_grow: (cmdbuf.flags
-                        & uapi::ASAHI_RENDER_SYNC_TVB_GROWTH as u64
-                        != 0) as u32,
+                    sync_grow: 0,
                     unk_568: 0,
                     unk_56c: 0,
                     meta <- try_init!(fw::job::raw::JobMeta {
