@@ -94,6 +94,8 @@
 #define	WLC_BAND_2G			2	/* 2.4 Ghz */
 #define	WLC_BAND_ALL			3	/* all bands */
 
+#define WLC_AP_IOV_OP_MANUAL_AP_BSSCFG_CREATE	2
+
 #define CHSPEC_CHANNEL(chspec)	((u8)((chspec) & WL_CHANSPEC_CHAN_MASK))
 #define CHSPEC_BAND(chspec)	((chspec) & WL_CHANSPEC_BAND_MASK)
 
