@@ -946,6 +946,7 @@ static const struct of_device_id macaudio_snd_device_id[]  = {
 	{ .compatible = "apple,j314-macaudio", .data = macaudio_j314_fixup_controls },
 	{ .compatible = "apple,j375-macaudio", .data = macaudio_j375_fixup_controls },
 	{ .compatible = "apple,j413-macaudio", .data = macaudio_j314_fixup_controls },
+	{ .compatible = "apple,j415-macaudio", .data = macaudio_j314_fixup_controls },
 	{ .compatible = "apple,j493-macaudio", .data = macaudio_j493_fixup_controls },
 	{ .compatible = "apple,macaudio"},
 	{ }
