@@ -442,8 +442,18 @@ static enum dcp_firmware_version dcp_check_firmware_version(struct device *dev)
 
 	if (strncmp(compat_str, "12.3.0", sizeof(compat_str)) == 0)
 		return DCP_FIRMWARE_V_12_3;
-	if (strncmp(compat_str, "13.3.0", sizeof(compat_str)) == 0)
-		return DCP_FIRMWARE_V_13_3;
+	/*
+	 * m1n1 reports firmware version 13.5 as compatible with 13.3. This is
+	 * only true for the iomfb endpoint. The interface for the dptx-port
+	 * endpoint changed between 13.3 and 13.5. The driver will only support
+	 * firmware 13.5. Check the actual firmware version for compat version
+	 * 13.3 until m1n1 reports 13.5 as "firmware-compat".
+	 */
+	else if ((strncmp(compat_str, "13.3.0", sizeof(compat_str)) == 0) &&
+		 (strncmp(fw_str, "13.5.0", sizeof(compat_str)) == 0))
+		return DCP_FIRMWARE_V_13_5;
+	else if (strncmp(compat_str, "13.5.0", sizeof(compat_str)) == 0)
+		return DCP_FIRMWARE_V_13_5;
 
 	dev_err(dev, "DCP firmware-compat %s (FW: %s) is not supported\n",
 		compat_str, fw_str);
