@@ -624,6 +624,57 @@
 			};
 		};
 
+		isp_dart0: iommu@22c4a8000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x2 0x2c4a8000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 274 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>;
+			status = "disabled";
+		};
+
+		isp_dart1: iommu@22c4b4000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x2 0x2c4b4000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 274 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>;
+			status = "disabled";
+		};
+
+		isp_dart2: iommu@22c4bc000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x2 0x2c4bc000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 274 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>;
+			status = "disabled";
+		};
+
+		isp: isp@22a000000 {
+			compatible = "apple,t8112-isp", "apple,isp";
+			iommus = <&isp_dart0 0>, <&isp_dart1 0>, <&isp_dart2 0>;
+			reg-names = "coproc", "mbox", "gpio", "mbox2";
+			reg = <0x2 0x2a000000 0x0 0x2000000>,
+				<0x2 0x2c4c4000 0x0 0x100>,
+				<0x2 0x2c4c41b0 0x0 0x100>,
+				<0x2 0x2c4c4430 0x0 0x100>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 269 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>, <&ps_isp_set0>,
+				<&ps_isp_set1>, <&ps_isp_set2>, <&ps_isp_fe>,
+				<&ps_isp_set4>, <&ps_isp_set5>, <&ps_isp_set6>,
+				<&ps_isp_set7>, <&ps_isp_set8>, <&ps_isp_set9>,
+				<&ps_isp_set10>, <&ps_isp_set11>,
+				<&ps_isp_set12>;
+
+			apple,dart-vm-size = <0x0 0xa0000000>;
+			status = "disabled";
+		};
+
 		disp0_dart: iommu@231304000 {
 			compatible = "apple,t8112-dart", "apple,t8110-dart";
 			reg = <0x2 0x31304000 0x0 0x4000>;
