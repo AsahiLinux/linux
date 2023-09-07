@@ -31,8 +31,8 @@ static inline void isp_asc_write32(struct apple_isp *isp, u32 reg, u32 val)
 struct isp_firmware_bootargs {
 	u32 pad_0[2];
 	u64 ipc_iova;
-	u64 unk_size;
-	u64 unk_inv;
+	u64 shared_base;
+	u64 shared_size;
 	u64 extra_iova;
 	u64 extra_size;
 	u32 unk4;
@@ -255,8 +255,8 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	memset(&args, 0, sizeof(args));
 	args.ipc_iova = isp->ipc_surf->iova;
 	args.ipc_size = isp->ipc_surf->size;
-	args.unk_size = 0x1800000;
-	args.unk_inv = 0x10000000 - args.unk_size;
+	args.shared_base = isp->fw.heap_top;
+	args.shared_size = 0x10000000 - isp->fw.heap_top;
 	args.extra_iova = isp->extra_surf->iova;
 	args.extra_size = isp->extra_surf->size;
 	args.unk4 = 0x1;
