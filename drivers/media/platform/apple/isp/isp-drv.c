@@ -79,29 +79,43 @@ static int apple_isp_attach_genpd(struct apple_isp *isp)
 static int apple_isp_init_iommu(struct apple_isp *isp)
 {
 	struct device *dev = isp->dev;
-	struct isp_firmware *fw = &isp->fw;
-	u64 heap_base, heap_size, vm_size;
+	phys_addr_t heap_base;
+	size_t heap_size;
+	u64 vm_size;
 	int err;
-	int i = 0;
+	int idx;
+	int size;
+	struct device_node *mem_node;
+	const __be32 *maps, *end;
 
 	isp->domain = iommu_get_domain_for_dev(isp->dev);
 	if (!isp->domain)
 		return -EPROBE_DEFER;
 	isp->shift = __ffs(isp->domain->pgsize_bitmap);
 
-	err = of_property_read_u64(dev->of_node, "apple,isp-heap-base",
-				   &heap_base);
-	if (err) {
-		dev_err(dev, "failed to read 'apple,isp-heap-base': %d\n", err);
-		return err;
+	idx = of_property_match_string(dev->of_node, "memory-region-names", "heap");
+	mem_node = of_parse_phandle(dev->of_node, "memory-region", idx);
+	if (!mem_node) {
+		dev_err(dev, "No memory-region found for heap\n");
+		return -ENODEV;
 	}
 
-	err = of_property_read_u64(dev->of_node, "apple,isp-heap-size",
-				   &heap_size);
-	if (err) {
-		dev_err(dev, "failed to read 'apple,isp-heap-size': %d\n", err);
-		return err;
+	maps = of_get_property(mem_node, "iommu-addresses", &size);
+	if (!maps || !size) {
+		dev_err(dev, "No valid iommu-addresses found for heap\n");
+		return -ENODEV;
 	}
+
+	end = maps + size / sizeof(__be32);
+
+	while (maps < end) {
+		maps++;
+		maps = of_translate_dma_region(dev->of_node, maps, &heap_base, &heap_size);
+	}
+
+	printk("heap: 0x%llx 0x%lx\n", heap_base, heap_size);
+
+	isp->fw.heap_top = heap_base + heap_size;
 
 	err = of_property_read_u64(dev->of_node, "apple,dart-vm-size",
 				   &vm_size);
@@ -110,15 +124,7 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 		return err;
 	}
 
-	drm_mm_init(&isp->iovad, heap_base, vm_size - heap_base);
-
-	/* Allocate read-only coprocessor private heap */
-	fw->heap = isp_alloc_surface(isp, heap_size);
-	if (!fw->heap) {
-		drm_mm_takedown(&isp->iovad);
-		err = -ENOMEM;
-		return err;
-	}
+	drm_mm_init(&isp->iovad, isp->fw.heap_top, vm_size - heap_base);
 
 	apple_isp_iommu_sync_ttbr(isp);
 
@@ -127,7 +133,6 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 
 static void apple_isp_free_iommu(struct apple_isp *isp)
 {
-	isp_free_surface(isp, isp->fw.heap);
 	drm_mm_takedown(&isp->iovad);
 }
 

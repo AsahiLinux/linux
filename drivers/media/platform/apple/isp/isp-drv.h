@@ -196,7 +196,7 @@ struct apple_isp {
 	struct mutex iovad_lock;
 
 	struct isp_firmware {
-		struct isp_surf *heap;
+		u64 heap_top;
 	} fw;
 
 	struct isp_surf *ipc_surf;
