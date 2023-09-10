@@ -126,8 +126,6 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 
 	drm_mm_init(&isp->iovad, isp->fw.heap_top, vm_size - heap_base);
 
-	apple_isp_iommu_sync_ttbr(isp);
-
 	return 0;
 }
 
@@ -140,7 +138,6 @@ static int apple_isp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct apple_isp *isp;
-	struct resource *res;
 	int err;
 
 	isp = devm_kzalloc(dev, sizeof(*isp), GFP_KERNEL);
@@ -173,31 +170,6 @@ static int apple_isp_probe(struct platform_device *pdev)
 	isp->gpio = devm_platform_ioremap_resource_byname(pdev, "gpio");
 	if (IS_ERR(isp->gpio)) {
 		err = PTR_ERR(isp->gpio);
-		goto detach_genpd;
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dart0");
-	if (!res) {
-		err = -ENODEV;
-		goto detach_genpd;
-	}
-
-	/* Simply ioremap since it's a shared register zone */
-	isp->dart0 = devm_ioremap(dev, res->start, resource_size(res));
-	if (IS_ERR(isp->dart0)) {
-		err = PTR_ERR(isp->dart0);
-		goto detach_genpd;
-	}
-
-	isp->dart1 = devm_platform_ioremap_resource_byname(pdev, "dart1");
-	if (IS_ERR(isp->dart1)) {
-		err = PTR_ERR(isp->dart1);
-		goto detach_genpd;
-	}
-
-	isp->dart2 = devm_platform_ioremap_resource_byname(pdev, "dart2");
-	if (IS_ERR(isp->dart2)) {
-		err = PTR_ERR(isp->dart2);
 		goto detach_genpd;
 	}
 
@@ -270,12 +242,6 @@ static void apple_isp_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/* T8020/T6000 registers */
-#define DART_T8020_STREAM_COMMAND	     0x20
-#define DART_T8020_STREAM_SELECT	     0x34
-#define DART_T8020_TTBR			     0x200
-#define DART_T8020_STREAM_COMMAND_INVALIDATE BIT(20)
-
 static const struct apple_isp_hw apple_isp_hw_t8103 = {
 	.pmu_base = 0x23b704000,
 
@@ -296,11 +262,6 @@ static const struct apple_isp_hw apple_isp_hw_t8103 = {
 	.bandwidth_base = 0x23bc3c000,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x4,
-
-	.stream_command = DART_T8020_STREAM_COMMAND,
-	.stream_select = DART_T8020_STREAM_SELECT,
-	.ttbr = DART_T8020_TTBR,
-	.stream_command_invalidate = DART_T8020_STREAM_COMMAND_INVALIDATE,
 };
 
 static const struct apple_isp_hw apple_isp_hw_t6000 = {
@@ -323,11 +284,6 @@ static const struct apple_isp_hw apple_isp_hw_t6000 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
-
-	.stream_command = DART_T8020_STREAM_COMMAND,
-	.stream_select = DART_T8020_STREAM_SELECT,
-	.ttbr = DART_T8020_TTBR,
-	.stream_command_invalidate = DART_T8020_STREAM_COMMAND_INVALIDATE,
 };
 
 static const struct apple_isp_hw apple_isp_hw_t8110 = {
@@ -350,11 +306,6 @@ static const struct apple_isp_hw apple_isp_hw_t8110 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
-
-	.stream_command = DART_T8020_STREAM_COMMAND, // TODO
-	.stream_select = DART_T8020_STREAM_SELECT,
-	.ttbr = DART_T8020_TTBR,
-	.stream_command_invalidate = DART_T8020_STREAM_COMMAND_INVALIDATE,
 };
 
 static const struct of_device_id apple_isp_of_match[] = {
@@ -366,19 +317,11 @@ MODULE_DEVICE_TABLE(of, apple_isp_of_match);
 
 static __maybe_unused int apple_isp_suspend(struct device *dev)
 {
-	struct apple_isp *isp = dev_get_drvdata(dev);
-
-	apple_isp_iommu_invalidate_tlb(isp);
-
 	return 0;
 }
 
 static __maybe_unused int apple_isp_resume(struct device *dev)
 {
-	struct apple_isp *isp = dev_get_drvdata(dev);
-
-	apple_isp_iommu_sync_ttbr(isp);
-
 	return 0;
 }
 DEFINE_RUNTIME_DEV_PM_OPS(apple_isp_pm_ops, apple_isp_suspend, apple_isp_resume, NULL);

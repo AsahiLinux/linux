@@ -82,11 +82,6 @@ struct apple_isp_hw {
 	u64 bandwidth_base;
 	u8 bandwidth_bit;
 	u8 bandwidth_size;
-
-	u32 stream_command;
-	u32 stream_select;
-	u32 ttbr;
-	u32 stream_command_invalidate;
 };
 
 struct isp_resv {
@@ -187,9 +182,6 @@ struct apple_isp {
 	void __iomem *asc;
 	void __iomem *mbox;
 	void __iomem *gpio;
-	void __iomem *dart0;
-	void __iomem *dart1;
-	void __iomem *dart2;
 
 	struct iommu_domain *domain;
 	unsigned long shift;

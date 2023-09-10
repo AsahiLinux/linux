@@ -6,23 +6,6 @@
 
 #include "isp-iommu.h"
 
-void apple_isp_iommu_sync_ttbr(struct apple_isp *isp)
-{
-	writel(readl(isp->dart0 + isp->hw->ttbr), isp->dart1 + isp->hw->ttbr);
-	writel(readl(isp->dart0 + isp->hw->ttbr), isp->dart2 + isp->hw->ttbr);
-}
-
-void apple_isp_iommu_invalidate_tlb(struct apple_isp *isp)
-{
-	iommu_flush_iotlb_all(isp->domain);
-	writel(0x1, isp->dart1 + isp->hw->stream_select);
-	writel(isp->hw->stream_command_invalidate,
-	       isp->dart1 + isp->hw->stream_command);
-	writel(0x1, isp->dart2 + isp->hw->stream_select);
-	writel(isp->hw->stream_command_invalidate,
-	       isp->dart2 + isp->hw->stream_command);
-}
-
 static void isp_surf_free_pages(struct isp_surf *surf)
 {
 	for (u32 i = 0; i < surf->num_pages && surf->pages[i] != NULL; i++) {
@@ -113,7 +96,6 @@ mm_free:
 static void isp_surf_iommu_unmap(struct apple_isp *isp, struct isp_surf *surf)
 {
 	iommu_unmap(isp->domain, surf->iova, surf->size);
-	apple_isp_iommu_invalidate_tlb(isp);
 	sg_free_table(&surf->sgt);
 }
 
@@ -271,6 +253,5 @@ int apple_isp_iommu_map_sgt(struct apple_isp *isp, struct isp_surf *surf,
 void apple_isp_iommu_unmap_sgt(struct apple_isp *isp, struct isp_surf *surf)
 {
 	iommu_unmap(isp->domain, surf->iova, surf->size);
-	apple_isp_iommu_invalidate_tlb(isp);
 	isp_surf_unreserve_iova(isp, surf);
 }

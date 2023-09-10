@@ -6,9 +6,6 @@
 
 #include "isp-drv.h"
 
-void apple_isp_iommu_sync_ttbr(struct apple_isp *isp);
-void apple_isp_iommu_invalidate_tlb(struct apple_isp *isp);
-
 struct isp_surf *__isp_alloc_surface(struct apple_isp *isp, u64 size, bool gc);
 #define isp_alloc_surface(isp, size)	(__isp_alloc_surface(isp, size, false))
 #define isp_alloc_surface_gc(isp, size) (__isp_alloc_surface(isp, size, true))
