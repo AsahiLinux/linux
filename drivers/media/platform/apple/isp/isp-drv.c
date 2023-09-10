@@ -353,6 +353,7 @@ static const struct apple_isp_hw apple_isp_hw_t8110 = {
 
 static const struct of_device_id apple_isp_of_match[] = {
 	{ .compatible = "apple,t8103-isp", .data = &apple_isp_hw_t8103 },
+	{ .compatible = "apple,t6000-isp", .data = &apple_isp_hw_t6000 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, apple_isp_of_match);
