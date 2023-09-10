@@ -90,7 +90,7 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 
 	isp->domain = iommu_get_domain_for_dev(isp->dev);
 	if (!isp->domain)
-		return -EPROBE_DEFER;
+		return -ENODEV;
 	isp->shift = __ffs(isp->domain->pgsize_bitmap);
 
 	idx = of_property_match_string(dev->of_node, "memory-region-names", "heap");
