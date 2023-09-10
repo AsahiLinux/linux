@@ -269,8 +269,12 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	args.shared_size = 0x10000000 - isp->fw.heap_top;
 	args.extra_iova = isp->extra_surf->iova;
 	args.extra_size = isp->extra_surf->size;
-	args.unk4 = 0x1;
+	args.unk4 = 0x3;
+	//args.pad_40[1] = 0x3128000;
+	//args.pad_40[3] = 0x48000;
+	args.pad_40[5] = 0x90;
 	args.unk5 = 0x40;
+	//args.pad_7c[3] = 0x3b54000;
 	args.unk7 = 0x1;
 	args.unk_iova1 = args_iova + ISP_FIRMWARE_BOOTARGS_SIZE - 0xc;
 	args.unk9 = 0x3;

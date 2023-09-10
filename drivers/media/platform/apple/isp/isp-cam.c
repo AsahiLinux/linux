@@ -207,7 +207,7 @@ static int isp_ch_cache_sensor_info(struct apple_isp *isp, u32 ch)
 		       args, sizeof(*args), false);
 
 	err = isp_ch_get_sensor_id(isp, ch);
-	if (err || (fmt->id != ISP_IMX248_1820_01)) {
+	if (err || (fmt->id != ISP_IMX248_1820_01 && fmt->id != ISP_IMX558_1921_01)) {
 		dev_err(isp->dev,
 			"ch %d: unsupported sensor. Please file a bug report with hardware info & dmesg trace.\n",
 			ch);
