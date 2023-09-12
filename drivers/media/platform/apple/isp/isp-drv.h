@@ -63,6 +63,7 @@ struct isp_channel {
 };
 
 struct apple_isp_hw {
+	u32 platform_id;
 	u64 pmu_base;
 
 	u64 dsid_clr_base0;

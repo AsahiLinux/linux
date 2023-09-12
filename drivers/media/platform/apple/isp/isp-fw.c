@@ -45,7 +45,7 @@ struct isp_firmware_bootargs {
 	u64 shared_size;
 	u64 extra_iova;
 	u64 extra_size;
-	u32 unk4;
+	u32 platform_id;
 	u32 pad_40[7];
 	u32 ipc_size;
 	u32 pad_60[5];
@@ -269,10 +269,9 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	args.shared_size = 0x10000000 - isp->fw.heap_top;
 	args.extra_iova = isp->extra_surf->iova;
 	args.extra_size = isp->extra_surf->size;
-	args.unk4 = 0x3;
+	args.platform_id = isp->hw->platform_id;
 	//args.pad_40[1] = 0x3128000;
 	//args.pad_40[3] = 0x48000;
-	args.pad_40[5] = 0x90;
 	args.unk5 = 0x40;
 	//args.pad_7c[3] = 0x3b54000;
 	args.unk7 = 0x1;

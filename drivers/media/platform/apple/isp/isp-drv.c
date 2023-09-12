@@ -243,6 +243,7 @@ static void apple_isp_remove(struct platform_device *pdev)
 }
 
 static const struct apple_isp_hw apple_isp_hw_t8103 = {
+	.platform_id = 0x1,
 	.pmu_base = 0x23b704000,
 
 	.dsid_clr_base0 = 0x200014000,
@@ -265,6 +266,7 @@ static const struct apple_isp_hw apple_isp_hw_t8103 = {
 };
 
 static const struct apple_isp_hw apple_isp_hw_t6000 = {
+	.platform_id = 0x3,
 	.pmu_base = 0x28e584000,
 
 	.dsid_clr_base0 = 0x200014000,
@@ -287,6 +289,7 @@ static const struct apple_isp_hw apple_isp_hw_t6000 = {
 };
 
 static const struct apple_isp_hw apple_isp_hw_t8110 = {
+	.platform_id = 0xe, // J413AP
 	.pmu_base = 0x23b704000,
 
 	.dsid_clr_base0 = 0x200014000, // TODO
