@@ -14,7 +14,6 @@
 #define ISP_FIRMWARE_MDELAY	   1
 #define ISP_FIRMWARE_MAX_TRIES	   1000
 
-#define ISP_FIRMWARE_BOOTARGS_SIZE 0x180
 #define ISP_FIRMWARE_IPC_SIZE	   0x1c000
 #define ISP_FIRMWARE_DATA_SIZE	   0x28000
 
@@ -58,8 +57,7 @@ struct isp_firmware_bootargs {
 	u32 pad_c0[47];
 	u32 unk9;
 } __packed;
-static_assert(sizeof(struct isp_firmware_bootargs) ==
-	      ISP_FIRMWARE_BOOTARGS_SIZE);
+static_assert(sizeof(struct isp_firmware_bootargs) == 0x180);
 
 struct isp_chan_desc {
 	char name[64];
@@ -275,7 +273,7 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	args.unk5 = 0x40;
 	//args.pad_7c[3] = 0x3b54000;
 	args.unk7 = 0x1;
-	args.unk_iova1 = args_iova + ISP_FIRMWARE_BOOTARGS_SIZE - 0xc;
+	args.unk_iova1 = args_iova + sizeof(args) - 0xc;
 	args.unk9 = 0x3;
 	isp_iowrite(isp, args_iova, &args, sizeof(args));
 
