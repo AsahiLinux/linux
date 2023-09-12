@@ -202,19 +202,53 @@ static_assert(sizeof(struct cmd_ch_stop) == 0xc);
 struct cmd_ch_info {
 	u64 opcode;
 	u32 chan;
-	u32 unk_c;
-	u32 unk_10[4];
+	u32 unk_c;  // 0x7da0001, 0x7db0001
+	u32 unk_10; // 0x300ac, 0x5006d
+	u32 unk_14; // 0x40007, 0x10007
+	u32 unk_18; // 0x5, 0x2
+	u32 unk_1c; // 0x1, 0x1
 	u32 version;
-	u32 unk_24[3];
-	u32 unk_30[12];
+	u32 unk_24; // 0x7, 0x9
+	u32 unk_28; // 0x1, 0x1410
+	u32 unk_2c; // 0x7, 0x2
+	u32 pad_30[7];
+	u32 unk_4c; // 0x10000, 0x50000
+	u32 unk_50; // 0x1, 0x1
+	u32 unk_54; // 0x0, 0x0
+	u32 unk_58; // 0x4, 0x4
+	u32 unk_5c; // 0x10, 0x20
 	u32 num_presets;
-	u32 unk_64[7];
-	u32 unk_80[6];
-	u32 unk_98_freq;
+	u32 unk_64; // 0x0, 0x0
+	u32 unk_68; // 0x44c0, 0x4680
+	u32 unk_6c; // 0x40, 0x40
+	u32 unk_70; // 0x1, 0x1
+	u32 unk_74; // 0x2, 0x2
+	u32 unk_78; // 0x4000, 0x4000
+	u32 unk_7c; // 0x40, 0x40
+	u32 unk_80; // 0x1, 0x1
+	u32 pad_84[2];
+	u32 unk_8c; // 0x36, 0x36
+	u32 pad_90[2];
+	u32 timestamp_freq;
 	u16 pad_9c;
 	char module_sn[20];
 	u16 pad_b0;
-	u32 unk_b4[25];
+	u32 unk_b4; // 0x8, 0x8
+	u32 pad_b8[2];
+	u32 unk_c0; // 0x4, 0x1
+	u32 unk_c4; // 0x0, 0x0
+	u32 unk_c8; // 0x0, 0x100
+	u32 pad_cc[4];
+	u32 unk_dc; // 0xff0000, 0xff0000
+	u32 unk_e0; // 0xc00, 0xc00
+	u32 unk_e4; // 0x0, 0x0
+	u32 unk_e8; // 0x1c, 0x1c
+	u32 unk_ec; // 0x640, 0x680
+	u32 unk_f0; // 0x4, 0x4
+	u32 unk_f4; // 0x4, 0x4
+	u32 pad_f8[6];
+	u32 unk_110; // 0x0, 0x7800000
+	u32 unk_114; // 0x0, 0x780
 } __packed;
 static_assert(sizeof(struct cmd_ch_info) == 0x118);
 
@@ -226,7 +260,19 @@ struct cmd_ch_camera_config {
 	u16 in_height;
 	u16 out_width;
 	u16 out_height;
-	u32 unk[49];
+	u32 unk_28;
+	u32 unk_2c;
+	u32 unk_30[16];
+	u32 sensor_clk;
+	u32 unk_64[4];
+	u32 timestamp_freq;
+	u32 unk_78[2];
+	u32 unk_80[16];
+	u32 in_width2; // repeated in u32??
+	u32 in_height2;
+	u32 unk_c8[3];
+	u32 out_width2;
+	u32 out_height2;
 } __packed;
 static_assert(sizeof(struct cmd_ch_camera_config) == 0xdc);
 
