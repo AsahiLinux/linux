@@ -180,7 +180,7 @@ struct apple_isp {
 
 	int irq;
 
-	void __iomem *asc;
+	void __iomem *coproc;
 	void __iomem *mbox;
 	void __iomem *gpio;
 

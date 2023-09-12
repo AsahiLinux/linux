@@ -6,22 +6,22 @@
 
 #include "isp-drv.h"
 
-#define ISP_ASC_PMGR_0	       0x738
-#define ISP_ASC_PMGR_1	       0x798
-#define ISP_ASC_PMGR_2	       0x7f8
-#define ISP_ASC_PMGR_3	       0x858
+#define ISP_COPROC_PMGR_0      0x738
+#define ISP_COPROC_PMGR_1      0x798
+#define ISP_COPROC_PMGR_2      0x7f8
+#define ISP_COPROC_PMGR_3      0x858
 
-#define ISP_ASC_RVBAR	       0x1050000
-#define ISP_ASC_EDPRCR	       0x1010310
-#define ISP_ASC_CONTROL	       0x1400044
-#define ISP_ASC_STATUS	       0x1400048
+#define ISP_COPROC_RVBAR       0x1050000
+#define ISP_COPROC_EDPRCR      0x1010310
+#define ISP_COPROC_CONTROL     0x1400044
+#define ISP_COPROC_STATUS      0x1400048
 
-#define ISP_ASC_IRQ_MASK_0     0x1400a00
-#define ISP_ASC_IRQ_MASK_1     0x1400a04
-#define ISP_ASC_IRQ_MASK_2     0x1400a08
-#define ISP_ASC_IRQ_MASK_3     0x1400a0c
-#define ISP_ASC_IRQ_MASK_4     0x1400a10
-#define ISP_ASC_IRQ_MASK_5     0x1400a14
+#define ISP_COPROC_IRQ_MASK_0  0x1400a00
+#define ISP_COPROC_IRQ_MASK_1  0x1400a04
+#define ISP_COPROC_IRQ_MASK_2  0x1400a08
+#define ISP_COPROC_IRQ_MASK_3  0x1400a0c
+#define ISP_COPROC_IRQ_MASK_4  0x1400a10
+#define ISP_COPROC_IRQ_MASK_5  0x1400a14
 
 #define ISP_MBOX_IRQ_INTERRUPT 0x000
 #define ISP_MBOX_IRQ_ENABLE    0x004

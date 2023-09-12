@@ -11,20 +11,20 @@
 #include "isp-ipc.h"
 #include "isp-regs.h"
 
-#define ISP_FIRMWARE_MDELAY	   1
-#define ISP_FIRMWARE_MAX_TRIES	   1000
+#define ISP_FIRMWARE_MDELAY    1
+#define ISP_FIRMWARE_MAX_TRIES 1000
 
-#define ISP_FIRMWARE_IPC_SIZE	   0x1c000
-#define ISP_FIRMWARE_DATA_SIZE	   0x28000
+#define ISP_FIRMWARE_IPC_SIZE  0x1c000
+#define ISP_FIRMWARE_DATA_SIZE 0x28000
 
-static inline u32 isp_asc_read32(struct apple_isp *isp, u32 reg)
+static inline u32 isp_coproc_read32(struct apple_isp *isp, u32 reg)
 {
-	return readl(isp->asc + reg);
+	return readl(isp->coproc + reg);
 }
 
-static inline void isp_asc_write32(struct apple_isp *isp, u32 reg, u32 val)
+static inline void isp_coproc_write32(struct apple_isp *isp, u32 reg, u32 val)
 {
-	writel(val, isp->asc + reg);
+	writel(val, isp->coproc + reg);
 }
 
 static inline u32 isp_gpio_read32(struct apple_isp *isp, u32 reg)
@@ -131,22 +131,22 @@ static int isp_coproc_ready(struct apple_isp *isp)
 	int retries;
 	u32 status;
 
-	isp_asc_write32(isp, ISP_ASC_EDPRCR, 0x2);
+	isp_coproc_write32(isp, ISP_COPROC_EDPRCR, 0x2);
 
-	isp_asc_write32(isp, ISP_ASC_PMGR_0, 0xff00ff);
-	isp_asc_write32(isp, ISP_ASC_PMGR_1, 0xff00ff);
-	isp_asc_write32(isp, ISP_ASC_PMGR_2, 0xff00ff);
-	isp_asc_write32(isp, ISP_ASC_PMGR_3, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_PMGR_0, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_PMGR_1, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_PMGR_2, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_PMGR_3, 0xff00ff);
 
-	isp_asc_write32(isp, ISP_ASC_IRQ_MASK_0, 0xffffffff);
-	isp_asc_write32(isp, ISP_ASC_IRQ_MASK_1, 0xffffffff);
-	isp_asc_write32(isp, ISP_ASC_IRQ_MASK_2, 0xffffffff);
-	isp_asc_write32(isp, ISP_ASC_IRQ_MASK_3, 0xffffffff);
-	isp_asc_write32(isp, ISP_ASC_IRQ_MASK_4, 0xffffffff);
-	isp_asc_write32(isp, ISP_ASC_IRQ_MASK_5, 0xffffffff);
+	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_0, 0xffffffff);
+	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_1, 0xffffffff);
+	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_2, 0xffffffff);
+	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_3, 0xffffffff);
+	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_4, 0xffffffff);
+	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_5, 0xffffffff);
 
 	for (retries = 0; retries < ISP_FIRMWARE_MAX_TRIES; retries++) {
-		status = isp_asc_read32(isp, ISP_ASC_STATUS);
+		status = isp_coproc_read32(isp, ISP_COPROC_STATUS);
 		if (!((status & 0x3) == 0)) {
 			isp_dbg(isp, "%d: coproc in WFI (status: 0x%x)\n",
 				retries, status);
@@ -164,7 +164,7 @@ static int isp_coproc_ready(struct apple_isp *isp)
 
 static void isp_firmware_shutdown_stage1(struct apple_isp *isp)
 {
-	isp_asc_write32(isp, ISP_ASC_CONTROL, 0x0);
+	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x0);
 }
 
 static int isp_firmware_boot_stage1(struct apple_isp *isp)
@@ -188,8 +188,8 @@ static int isp_firmware_boot_stage1(struct apple_isp *isp)
 
 	isp_mbox_write32(isp, ISP_MBOX_IRQ_ENABLE, 0x0);
 
-	isp_asc_write32(isp, ISP_ASC_CONTROL, 0x0);
-	isp_asc_write32(isp, ISP_ASC_CONTROL, 0x10);
+	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x0);
+	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x10);
 
 	/* Wait for ISP_GPIO_7 to 0x0 -> 0x8042006 */
 	isp_gpio_write32(isp, ISP_GPIO_7, 0x0);

@@ -155,9 +155,9 @@ static int apple_isp_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	isp->asc = devm_platform_ioremap_resource_byname(pdev, "asc");
-	if (IS_ERR(isp->asc)) {
-		err = PTR_ERR(isp->asc);
+	isp->coproc = devm_platform_ioremap_resource_byname(pdev, "coproc");
+	if (IS_ERR(isp->coproc)) {
+		err = PTR_ERR(isp->coproc);
 		goto detach_genpd;
 	}
 
