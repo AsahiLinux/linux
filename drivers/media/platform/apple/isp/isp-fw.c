@@ -279,6 +279,7 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 
 	isp_gpio_write32(isp, ISP_GPIO_0, args_iova);
 	isp_gpio_write32(isp, ISP_GPIO_1, 0x0);
+	wmb();
 
 	/* Wait for ISP_GPIO_7 to 0xf7fbdff9 -> 0x8042006 */
 	isp_gpio_write32(isp, ISP_GPIO_7, 0xf7fbdff9);
