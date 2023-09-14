@@ -85,12 +85,6 @@ struct apple_isp_hw {
 	u8 bandwidth_size;
 };
 
-struct isp_resv {
-	phys_addr_t phys;
-	dma_addr_t iova;
-	u64 size;
-};
-
 enum isp_sensor_id {
 	ISP_IMX248_1820_01,
 	ISP_IMX248_1822_02,
