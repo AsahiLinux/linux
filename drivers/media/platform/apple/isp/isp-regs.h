@@ -6,10 +6,10 @@
 
 #include "isp-drv.h"
 
-#define ISP_COPROC_PMGR_0      0x738
-#define ISP_COPROC_PMGR_1      0x798
-#define ISP_COPROC_PMGR_2      0x7f8
-#define ISP_COPROC_PMGR_3      0x858
+#define ISP_COPROC_FABRIC_0    0x738
+#define ISP_COPROC_FABRIC_1    0x798
+#define ISP_COPROC_FABRIC_2    0x7f8
+#define ISP_COPROC_FABRIC_3    0x858
 
 #define ISP_COPROC_RVBAR       0x1050000
 #define ISP_COPROC_EDPRCR      0x1010310

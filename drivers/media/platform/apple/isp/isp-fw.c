@@ -17,6 +17,8 @@
 #define ISP_FIRMWARE_IPC_SIZE  0x1c000
 #define ISP_FIRMWARE_DATA_SIZE 0x28000
 
+#define ISP_COPROC_IN_WFI      0x3
+
 static inline u32 isp_coproc_read32(struct apple_isp *isp, u32 reg)
 {
 	return readl(isp->coproc + reg);
@@ -126,17 +128,17 @@ static int isp_enable_irq(struct apple_isp *isp)
 	return 0;
 }
 
-static int isp_coproc_ready(struct apple_isp *isp)
+static int isp_reset_coproc(struct apple_isp *isp)
 {
 	int retries;
 	u32 status;
 
 	isp_coproc_write32(isp, ISP_COPROC_EDPRCR, 0x2);
 
-	isp_coproc_write32(isp, ISP_COPROC_PMGR_0, 0xff00ff);
-	isp_coproc_write32(isp, ISP_COPROC_PMGR_1, 0xff00ff);
-	isp_coproc_write32(isp, ISP_COPROC_PMGR_2, 0xff00ff);
-	isp_coproc_write32(isp, ISP_COPROC_PMGR_3, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_FABRIC_0, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_FABRIC_1, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_FABRIC_2, 0xff00ff);
+	isp_coproc_write32(isp, ISP_COPROC_FABRIC_3, 0xff00ff);
 
 	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_0, 0xffffffff);
 	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_1, 0xffffffff);
@@ -147,7 +149,7 @@ static int isp_coproc_ready(struct apple_isp *isp)
 
 	for (retries = 0; retries < ISP_FIRMWARE_MAX_TRIES; retries++) {
 		status = isp_coproc_read32(isp, ISP_COPROC_STATUS);
-		if (!((status & 0x3) == 0)) {
+		if (status & ISP_COPROC_IN_WFI) {
 			isp_dbg(isp, "%d: coproc in WFI (status: 0x%x)\n",
 				retries, status);
 			break;
@@ -171,7 +173,7 @@ static int isp_firmware_boot_stage1(struct apple_isp *isp)
 {
 	int err, retries;
 
-	err = isp_coproc_ready(isp);
+	err = isp_reset_coproc(isp);
 	if (err < 0)
 		return err;
 
@@ -264,7 +266,7 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	args.ipc_iova = isp->ipc_surf->iova;
 	args.ipc_size = isp->ipc_surf->size;
 	args.shared_base = isp->fw.heap_top;
-	args.shared_size = 0x10000000 - isp->fw.heap_top;
+	args.shared_size = 0x10000000UL - isp->fw.heap_top;
 	args.extra_iova = isp->extra_surf->iova;
 	args.extra_size = isp->extra_surf->size;
 	args.platform_id = isp->hw->platform_id;
@@ -426,6 +428,7 @@ static int isp_firmware_boot_stage3(struct apple_isp *isp)
 			isp_iowrite(isp, msg_iova, &msg, sizeof(msg));
 		}
 	}
+	wmb();
 
 	/* Wait for ISP_GPIO_3 to 0x8042006 -> 0x0 */
 	isp_gpio_write32(isp, ISP_GPIO_3, 0x8042006);
