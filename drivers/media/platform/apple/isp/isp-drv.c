@@ -3,10 +3,6 @@
  * Apple Image Signal Processor driver
  *
  * Copyright (C) 2023 The Asahi Linux Contributors
- *
- * Based on aspeed/aspeed-video.c
- *  Copyright 2020 IBM Corp.
- *  Copyright (c) 2019-2020 Intel Corporation
  */
 
 #include <linux/iommu.h>
