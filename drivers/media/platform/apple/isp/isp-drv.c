@@ -19,6 +19,7 @@
 #include <linux/workqueue.h>
 
 #include "isp-cam.h"
+#include "isp-fw.h"
 #include "isp-iommu.h"
 #include "isp-v4l2.h"
 
@@ -202,26 +203,34 @@ static int apple_isp_probe(struct platform_device *pdev)
 		goto destroy_wq;
 	}
 
+	err = apple_isp_alloc_firmware_surface(isp);
+	if (err) {
+		dev_err(dev, "failed to alloc firmware surface: %d\n", err);
+		goto free_iommu;
+	}
+
 	pm_runtime_enable(dev);
 
 	err = apple_isp_detect_camera(isp);
 	if (err) {
 		dev_err(dev, "failed to detect camera: %d\n", err);
-		goto free_iommu;
+		goto free_surface;
 	}
 
 	err = apple_isp_setup_video(isp);
 	if (err) {
 		dev_err(dev, "failed to register video device: %d\n", err);
-		goto free_iommu;
+		goto free_surface;
 	}
 
 	dev_info(dev, "apple-isp probe!\n");
 
 	return 0;
 
-free_iommu:
+free_surface:
 	pm_runtime_disable(dev);
+	apple_isp_free_firmware_surface(isp);
+free_iommu:
 	apple_isp_free_iommu(isp);
 destroy_wq:
 	destroy_workqueue(isp->wq);
@@ -236,6 +245,7 @@ static void apple_isp_remove(struct platform_device *pdev)
 
 	apple_isp_remove_video(isp);
 	pm_runtime_disable(isp->dev);
+	apple_isp_free_firmware_surface(isp);
 	apple_isp_free_iommu(isp);
 	destroy_workqueue(isp->wq);
 	apple_isp_detach_genpd(isp);

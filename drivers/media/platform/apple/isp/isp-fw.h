@@ -6,6 +6,9 @@
 
 #include "isp-drv.h"
 
+int apple_isp_alloc_firmware_surface(struct apple_isp *isp);
+void apple_isp_free_firmware_surface(struct apple_isp *isp);
+
 int apple_isp_firmware_boot(struct apple_isp *isp);
 void apple_isp_firmware_shutdown(struct apple_isp *isp);
 

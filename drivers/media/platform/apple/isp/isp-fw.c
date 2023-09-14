@@ -214,11 +214,34 @@ static int isp_firmware_boot_stage1(struct apple_isp *isp)
 	return 0;
 }
 
-static void isp_firmware_shutdown_stage2(struct apple_isp *isp)
+int apple_isp_alloc_firmware_surface(struct apple_isp *isp)
+{
+	/* These are static, so let's do it once and for all */
+	isp->ipc_surf = isp_alloc_surface_vmap(isp, ISP_FIRMWARE_IPC_SIZE);
+	if (!isp->ipc_surf) {
+		isp_err(isp, "failed to alloc shared surface for ipc\n");
+		return -ENOMEM;
+	}
+
+	isp->data_surf = isp_alloc_surface_vmap(isp, ISP_FIRMWARE_DATA_SIZE);
+	if (!isp->data_surf) {
+		isp_err(isp, "failed to alloc shared surface for data files\n");
+		isp_free_surface(isp, isp->ipc_surf);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+void apple_isp_free_firmware_surface(struct apple_isp *isp)
 {
 	isp_free_surface(isp, isp->data_surf);
-	isp_free_surface(isp, isp->extra_surf);
 	isp_free_surface(isp, isp->ipc_surf);
+}
+
+static void isp_firmware_shutdown_stage2(struct apple_isp *isp)
+{
+	isp_free_surface(isp, isp->extra_surf);
 }
 
 static int isp_firmware_boot_stage2(struct apple_isp *isp)
@@ -241,22 +264,10 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 		dev_warn(isp->dev, "unexpected channel count (%d)\n",
 			 num_ipc_chans);
 
-	isp->ipc_surf = isp_alloc_surface_vmap(isp, ISP_FIRMWARE_IPC_SIZE);
-	if (!isp->ipc_surf) {
-		isp_err(isp, "failed to alloc surface for ipc\n");
-		return -ENOMEM;
-	}
-
 	isp->extra_surf = isp_alloc_surface_vmap(isp, extra_size);
 	if (!isp->extra_surf) {
 		isp_err(isp, "failed to alloc surface for extra heap\n");
-		goto free_ipc;
-	}
-
-	isp->data_surf = isp_alloc_surface_vmap(isp, ISP_FIRMWARE_DATA_SIZE);
-	if (!isp->data_surf) {
-		isp_err(isp, "failed to alloc surface for data files\n");
-		goto free_extra;
+		return -ENOMEM;
 	}
 
 	args_iova = isp->ipc_surf->iova + args_offset + 0x40;
@@ -297,17 +308,13 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 		isp_err(isp,
 			"never received second magic number from firmware\n");
 		err = -ENODEV;
-		goto free_file;
+		goto free_extra;
 	}
 
 	return 0;
 
-free_file:
-	isp_free_surface(isp, isp->data_surf);
 free_extra:
 	isp_free_surface(isp, isp->extra_surf);
-free_ipc:
-	isp_free_surface(isp, isp->ipc_surf);
 	return err;
 }
 
