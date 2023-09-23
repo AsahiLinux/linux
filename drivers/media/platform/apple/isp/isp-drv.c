@@ -121,7 +121,8 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 		return err;
 	}
 
-	drm_mm_init(&isp->iovad, isp->fw.heap_top, vm_size - heap_base);
+	// FIXME: refactor this, maybe use regular iova stuff?
+	drm_mm_init(&isp->iovad, isp->fw.heap_top, vm_size - (heap_base & 0xffffffff));
 
 	return 0;
 }
@@ -136,6 +137,10 @@ static int apple_isp_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct apple_isp *isp;
 	int err;
+
+	err = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(42));
+	if (err)
+		return err;
 
 	isp = devm_kzalloc(dev, sizeof(*isp), GFP_KERNEL);
 	if (!isp)

@@ -276,8 +276,8 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	memset(&args, 0, sizeof(args));
 	args.ipc_iova = isp->ipc_surf->iova;
 	args.ipc_size = isp->ipc_surf->size;
-	args.shared_base = isp->fw.heap_top;
-	args.shared_size = 0x10000000UL - isp->fw.heap_top;
+	args.shared_base = isp->fw.heap_top & 0xffffffff;
+	args.shared_size = 0x10000000UL - args.shared_base;
 	args.extra_iova = isp->extra_surf->iova;
 	args.extra_size = isp->extra_surf->size;
 	args.platform_id = isp->hw->platform_id;
@@ -288,7 +288,11 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	isp_iowrite(isp, args_iova, &args, sizeof(args));
 
 	isp_gpio_write32(isp, ISP_GPIO_0, args_iova);
-	isp_gpio_write32(isp, ISP_GPIO_1, 0x0);
+	/* TODO: handle this via Kconfig depends? hardware is only present on
+	 *       64-bit SoCs.
+	 */
+	if (IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT))
+		isp_gpio_write32(isp, ISP_GPIO_1, args_iova >> 32);
 	wmb();
 
 	/* Wait for ISP_GPIO_7 to 0xf7fbdff9 -> 0x8042006 */
@@ -344,7 +348,8 @@ static void isp_free_channel_info(struct apple_isp *isp)
 
 static int isp_fill_channel_info(struct apple_isp *isp)
 {
-	u32 table_iova = isp_gpio_read32(isp, ISP_GPIO_0);
+	u64 table_iova = isp_gpio_read32(isp, ISP_GPIO_0) |
+		((u64)isp_gpio_read32(isp, ISP_GPIO_1)) << 32;
 
 	isp->ipc_chans = kcalloc(isp->num_ipc_chans,
 				 sizeof(struct isp_channel *), GFP_KERNEL);
