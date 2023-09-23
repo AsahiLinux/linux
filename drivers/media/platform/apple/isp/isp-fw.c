@@ -47,7 +47,10 @@ struct isp_firmware_bootargs {
 	u64 extra_iova;
 	u64 extra_size;
 	u32 platform_id;
-	u32 pad_40[7];
+	u32 pad_40;
+	u64 logbuf_addr;
+	u64 logbuf_size;
+	u64 logbuf_entsize;
 	u32 ipc_size;
 	u32 pad_60[5];
 	u32 unk5;
@@ -280,9 +283,9 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	args.shared_size = 0x10000000UL - args.shared_base;
 	args.extra_iova = isp->extra_surf->iova;
 	args.extra_size = isp->extra_surf->size;
-	args.platform_id = isp->hw->platform_id;
+	args.platform_id = isp->platform_id;
 	args.unk5 = 0x40;
-	args.unk7 = 0x1;
+	args.unk7 = 0x1; // 0?
 	args.unk_iova1 = args_iova + sizeof(args) - 0xc;
 	args.unk9 = 0x3;
 	isp_iowrite(isp, args_iova, &args, sizeof(args));
@@ -506,13 +509,20 @@ static int isp_start_command_processor(struct apple_isp *isp)
 	if (err)
 		return err;
 
-	err = isp_cmd_set_dsid_clr_req_base2(
-		isp, isp->hw->dsid_clr_base0, isp->hw->dsid_clr_base1,
-		isp->hw->dsid_clr_base2, isp->hw->dsid_clr_base3,
-		isp->hw->dsid_clr_range0, isp->hw->dsid_clr_range1,
-		isp->hw->dsid_clr_range2, isp->hw->dsid_clr_range3);
-	if (err)
-		return err;
+	if (isp->hw->dsid_count == 1) {
+		err = isp_cmd_set_dsid_clr_req_base(
+			isp, isp->hw->dsid_clr_base0, isp->hw->dsid_clr_range0);
+		if (err)
+			return err;
+	} else {
+		err = isp_cmd_set_dsid_clr_req_base2(
+			isp, isp->hw->dsid_clr_base0, isp->hw->dsid_clr_base1,
+			isp->hw->dsid_clr_base2, isp->hw->dsid_clr_base3,
+			isp->hw->dsid_clr_range0, isp->hw->dsid_clr_range1,
+			isp->hw->dsid_clr_range2, isp->hw->dsid_clr_range3);
+		if (err)
+			return err;
+	}
 
 	err = isp_cmd_pmp_ctrl_set(
 		isp, isp->hw->clock_scratch, isp->hw->clock_base,

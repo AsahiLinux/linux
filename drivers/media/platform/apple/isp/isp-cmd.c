@@ -119,6 +119,17 @@ int isp_cmd_set_dsid_clr_req_base2(struct apple_isp *isp, u64 dsid_clr_base0,
 	return CISP_SEND_IN(isp, args);
 }
 
+int isp_cmd_set_dsid_clr_req_base(struct apple_isp *isp, u64 dsid_clr_base,
+				  u32 dsid_clr_range)
+{
+	struct cmd_set_dsid_clr_req_base args = {
+		.opcode = CISP_OPCODE(CISP_CMD_SET_DSID_CLR_REG_BASE),
+		.dsid_clr_base = dsid_clr_base,
+		.dsid_clr_range = dsid_clr_range,
+	};
+	return CISP_SEND_IN(isp, args);
+}
+
 int isp_cmd_pmp_ctrl_set(struct apple_isp *isp, u64 clock_scratch,
 			 u64 clock_base, u8 clock_bit, u8 clock_size,
 			 u64 bandwidth_scratch, u64 bandwidth_base,
@@ -218,16 +229,26 @@ int isp_cmd_ch_buffer_return(struct apple_isp *isp, u32 chan)
 	return CISP_SEND_IN(isp, args);
 }
 
-int isp_cmd_ch_set_file_load(struct apple_isp *isp, u32 chan, u32 addr,
+int isp_cmd_ch_set_file_load(struct apple_isp *isp, u32 chan, u64 addr,
 			     u32 size)
 {
-	struct cmd_ch_set_file_load args = {
-		.opcode = CISP_OPCODE(CISP_CMD_CH_SET_FILE_LOAD),
-		.chan = chan,
-		.addr = addr,
-		.size = size,
-	};
-	return CISP_SEND_IN(isp, args);
+	if (isp->hw->gen >= ISP_GEN_T8112) {
+		struct cmd_ch_set_file_load64 args = {
+			.opcode = CISP_OPCODE(CISP_CMD_CH_SET_FILE_LOAD),
+			.chan = chan,
+			.addr = addr,
+			.size = size,
+		};
+		return CISP_SEND_IN(isp, args);
+	} else {
+		struct cmd_ch_set_file_load args = {
+			.opcode = CISP_OPCODE(CISP_CMD_CH_SET_FILE_LOAD),
+			.chan = chan,
+			.addr = addr,
+			.size = size,
+		};
+		return CISP_SEND_IN(isp, args);
+	}
 }
 
 int isp_cmd_ch_sbs_enable(struct apple_isp *isp, u32 chan, u32 enable)
@@ -244,7 +265,8 @@ int isp_cmd_ch_crop_set(struct apple_isp *isp, u32 chan, u32 x1, u32 y1, u32 x2,
 			u32 y2)
 {
 	struct cmd_ch_crop_set args = {
-		.opcode = CISP_OPCODE(CISP_CMD_CH_CROP_SET),
+		.opcode = CISP_OPCODE(isp->hw->scl1 ? CISP_CMD_CH_CROP_SCL1_SET
+				      : CISP_CMD_CH_CROP_SET),
 		.chan = chan,
 		.x1 = x1,
 		.y1 = y1,
@@ -255,23 +277,22 @@ int isp_cmd_ch_crop_set(struct apple_isp *isp, u32 chan, u32 x1, u32 y1, u32 x2,
 }
 
 int isp_cmd_ch_output_config_set(struct apple_isp *isp, u32 chan, u32 width,
-				 u32 height, u32 colorspace, u32 format)
+				 u32 height, u32 strides[3], u32 colorspace, u32 format)
 {
 	struct cmd_ch_output_config_set args = {
-		.opcode = CISP_OPCODE(CISP_CMD_CH_OUTPUT_CONFIG_SET),
+		.opcode = CISP_OPCODE(isp->hw->scl1 ? CISP_CMD_CH_OUTPUT_CONFIG_SCL1_SET
+				      : CISP_CMD_CH_OUTPUT_CONFIG_SET),
 		.chan = chan,
 		.width = width,
 		.height = height,
 		.colorspace = colorspace,
 		.format = format,
-		.unk_w0 = width,
-		.unk_w1 = width,
-		.unk_24 = 0,
 		.padding_rows = 0,
 		.unk_h0 = height,
 		.compress = 0,
 		.unk_w2 = width,
 	};
+	memcpy(args.strides, strides, sizeof(args.strides));
 	return CISP_SEND_IN(isp, args);
 }
 
@@ -356,12 +377,14 @@ int isp_cmd_ch_buffer_pool_config_set(struct apple_isp *isp, u32 chan, u16 type)
 		.chan = chan,
 		.type = type,
 		.count = 16,
-		.meta_size0 = ISP_META_SIZE,
-		.meta_size1 = ISP_META_SIZE,
+		.meta_size0 = isp->hw->meta_size,
+		.meta_size1 = isp->hw->meta_size,
+		.unk0 = 0,
+		.unk1 = 0,
+		.unk2 = 0,
 		.data_blocks = 1,
 		.compress = 0,
 	};
-	memset(args.zero, 0, sizeof(u32) * 0x1f);
 	return CISP_SEND_INOUT(isp, args);
 }
 
@@ -541,4 +564,41 @@ int isp_cmd_ch_semantic_awb_enable(struct apple_isp *isp, u32 chan, u32 enable)
 		.enable = enable,
 	};
 	return CISP_SEND_IN(isp, args);
+}
+
+int isp_cmd_ch_lpdp_hs_receiver_tuning_set(struct apple_isp *isp, u32 chan, u32 unk1, u32 unk2)
+{
+	struct cmd_ch_lpdp_hs_receiver_tuning_set args = {
+		.opcode = CISP_OPCODE(CISP_CMD_CH_LPDP_HS_RECEIVER_TUNING_SET),
+		.chan = chan,
+		.unk1 = unk1,
+		.unk2 = unk2,
+	};
+	return CISP_SEND_IN(isp, args);
+}
+
+int isp_cmd_ch_property_write(struct apple_isp *isp, u32 chan, u32 prop, u32 val)
+{
+	struct cmd_ch_property_write args = {
+		.opcode = CISP_OPCODE(CISP_CMD_CH_PROPERTY_WRITE),
+		.chan = chan,
+		.prop = prop,
+		.val = val,
+	};
+	return CISP_SEND_IN(isp, args);
+}
+
+int isp_cmd_ch_property_read(struct apple_isp *isp, u32 chan, u32 prop, u32 *val)
+{
+	struct cmd_ch_property_write args = {
+		.opcode = CISP_OPCODE(CISP_CMD_CH_PROPERTY_READ),
+		.chan = chan,
+		.prop = prop,
+		.val = 0xdeadbeef,
+	};
+	int ret = CISP_SEND_OUT(isp, &args);
+
+	*val = args.val;
+
+	return ret;
 }

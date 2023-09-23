@@ -230,8 +230,8 @@ static void sm_malloc_deferred_worker(struct work_struct *work)
 	}
 
 #ifdef APPLE_ISP_DEBUG
-	/* Only enabled in debug builds so it shouldn't matter, but 
-	 * the LOG surface is always the first surface requested. 
+	/* Only enabled in debug builds so it shouldn't matter, but
+	 * the LOG surface is always the first surface requested.
 	 */
 	if (!test_bit(ISP_STATE_LOGGING, &isp->state))
 		set_bit(ISP_STATE_LOGGING, &isp->state);
@@ -306,9 +306,10 @@ int ipc_bt_handle(struct apple_isp *isp, struct isp_channel *chan)
 		   sizeof(meta_iova));
 
 	spin_lock(&isp->buf_lock);
-	list_for_each_entry_safe_reverse(buf, tmp, &isp->buffers, link) {
-		if (buf->meta->iova == meta_iova) {
+	list_for_each_entry_safe_reverse(buf, tmp, &isp->bufs_submitted, link) {
+		if ((u32)buf->meta->iova == (u32)meta_iova) {
 			enum vb2_buffer_state state = VB2_BUF_STATE_ERROR;
+
 			buf->vb.vb2_buf.timestamp = ktime_get_ns();
 			buf->vb.sequence = isp->sequence++;
 			buf->vb.field = V4L2_FIELD_NONE;

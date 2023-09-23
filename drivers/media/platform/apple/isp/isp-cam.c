@@ -8,6 +8,8 @@
 #include "isp-fw.h"
 #include "isp-iommu.h"
 
+#define ISP_MAX_PRESETS 32
+
 struct isp_setfile {
 	u32 version;
 	u32 magic;
@@ -15,74 +17,56 @@ struct isp_setfile {
 	size_t size;
 };
 
-struct isp_preset {
-	u32 index;
-	u32 width;
-	u32 height;
-	u32 x1;
-	u32 y1;
-	u32 x2;
-	u32 y2;
-	u32 orig_width;
-	u32 orig_height;
-};
-
 // clang-format off
 static const struct isp_setfile isp_setfiles[] = {
-	[ISP_IMX248_1820_01] = {0x248, 0x18200103, "isp/1820_01XX.dat", 0x442c},
-	[ISP_IMX248_1822_02] = {0x248, 0x18220201, "isp/1822_02XX.dat", 0x442c},
-	[ISP_IMX343_5221_02] = {0x343, 0x52210211, "isp/5221_02XX.dat", 0x4870},
-	[ISP_IMX354_9251_02] = {0x354, 0x92510208, "isp/9251_02XX.dat", 0xa5ec},
-	[ISP_IMX356_4820_01] = {0x356, 0x48200107, "isp/4820_01XX.dat", 0x9324},
-	[ISP_IMX356_4820_02] = {0x356, 0x48200206, "isp/4820_02XX.dat", 0x9324},
-	[ISP_IMX364_8720_01] = {0x364, 0x87200103, "isp/8720_01XX.dat", 0x36ac},
-	[ISP_IMX364_8723_01] = {0x364, 0x87230101, "isp/8723_01XX.dat", 0x361c},
-	[ISP_IMX372_3820_01] = {0x372, 0x38200108, "isp/3820_01XX.dat", 0xfdb0},
-	[ISP_IMX372_3820_02] = {0x372, 0x38200205, "isp/3820_02XX.dat", 0xfdb0},
-	[ISP_IMX372_3820_11] = {0x372, 0x38201104, "isp/3820_11XX.dat", 0xfdb0},
-	[ISP_IMX372_3820_12] = {0x372, 0x38201204, "isp/3820_12XX.dat", 0xfdb0},
-	[ISP_IMX405_9720_01] = {0x405, 0x97200102, "isp/9720_01XX.dat", 0x92c8},
-	[ISP_IMX405_9721_01] = {0x405, 0x97210102, "isp/9721_01XX.dat", 0x9818},
-	[ISP_IMX405_9723_01] = {0x405, 0x97230101, "isp/9723_01XX.dat", 0x92c8},
-	[ISP_IMX414_2520_01] = {0x414, 0x25200102, "isp/2520_01XX.dat", 0xa444},
-	[ISP_IMX503_7820_01] = {0x503, 0x78200109, "isp/7820_01XX.dat", 0xb268},
-	[ISP_IMX503_7820_02] = {0x503, 0x78200206, "isp/7820_02XX.dat", 0xb268},
-	[ISP_IMX505_3921_01] = {0x505, 0x39210102, "isp/3921_01XX.dat", 0x89b0},
-	[ISP_IMX514_2820_01] = {0x514, 0x28200108, "isp/2820_01XX.dat", 0xa198},
-	[ISP_IMX514_2820_02] = {0x514, 0x28200205, "isp/2820_02XX.dat", 0xa198},
-	[ISP_IMX514_2820_03] = {0x514, 0x28200305, "isp/2820_03XX.dat", 0xa198},
-	[ISP_IMX514_2820_04] = {0x514, 0x28200405, "isp/2820_04XX.dat", 0xa198},
-	[ISP_IMX558_1921_01] = {0x558, 0x19210106, "isp/1921_01XX.dat", 0xad40},
-	[ISP_IMX558_1922_02] = {0x558, 0x19220201, "isp/1922_02XX.dat", 0xad40},
-	[ISP_IMX603_7920_01] = {0x603, 0x79200109, "isp/7920_01XX.dat", 0xad2c},
-	[ISP_IMX603_7920_02] = {0x603, 0x79200205, "isp/7920_02XX.dat", 0xad2c},
-	[ISP_IMX603_7921_01] = {0x603, 0x79210104, "isp/7921_01XX.dat", 0xad90},
-	[ISP_IMX613_4920_01] = {0x613, 0x49200108, "isp/4920_01XX.dat", 0x9324},
-	[ISP_IMX613_4920_02] = {0x613, 0x49200204, "isp/4920_02XX.dat", 0x9324},
-	[ISP_IMX614_2921_01] = {0x614, 0x29210107, "isp/2921_01XX.dat", 0xed6c},
-	[ISP_IMX614_2921_02] = {0x614, 0x29210202, "isp/2921_02XX.dat", 0xed6c},
-	[ISP_IMX614_2922_02] = {0x614, 0x29220201, "isp/2922_02XX.dat", 0xed6c},
-	[ISP_IMX633_3622_01] = {0x633, 0x36220111, "isp/3622_01XX.dat", 0x100d4},
-	[ISP_IMX703_7721_01] = {0x703, 0x77210106, "isp/7721_01XX.dat", 0x936c},
-	[ISP_IMX703_7722_01] = {0x703, 0x77220106, "isp/7722_01XX.dat", 0xac20},
-	[ISP_IMX713_4721_01] = {0x713, 0x47210107, "isp/4721_01XX.dat", 0x936c},
-	[ISP_IMX713_4722_01] = {0x713, 0x47220109, "isp/4722_01XX.dat", 0x9218},
-	[ISP_IMX714_2022_01] = {0x714, 0x20220107, "isp/2022_01XX.dat", 0xa198},
-	[ISP_IMX772_3721_01] = {0x772, 0x37210106, "isp/3721_01XX.dat", 0xfdf8},
-	[ISP_IMX772_3721_11] = {0x772, 0x37211106, "isp/3721_11XX.dat", 0xfe14},
-	[ISP_IMX772_3722_01] = {0x772, 0x37220104, "isp/3722_01XX.dat", 0xfca4},
-	[ISP_IMX772_3723_01] = {0x772, 0x37230106, "isp/3723_01XX.dat", 0xfca4},
-	[ISP_IMX814_2123_01] = {0x814, 0x21230101, "isp/2123_01XX.dat", 0xed54},
-	[ISP_IMX853_7622_01] = {0x853, 0x76220112, "isp/7622_01XX.dat", 0x247f8},
-	[ISP_IMX913_7523_01] = {0x913, 0x75230107, "isp/7523_01XX.dat", 0x247f8},
-	[ISP_VD56G0_6221_01] = {0xd56, 0x62210102, "isp/6221_01XX.dat", 0x1b80},
-	[ISP_VD56G0_6222_01] = {0xd56, 0x62220102, "isp/6222_01XX.dat", 0x1b80},
-};
-
-// one day we will do this intelligently
-static const struct isp_preset isp_presets[] = {
-	[ISP_IMX248_1820_01] = {0, 1280,  720, 8, 8, 1280,  720, 1296,  736}, // J293AP
-	[ISP_IMX558_1921_01] = {1, 1920, 1080, 0, 0, 1920, 1080, 1920, 1080}, // J316sAP, J415AP
+	[ISP_IMX248_1820_01] = {0x248, 0x18200103, "apple/isp_1820_01XX.dat", 0x442c},
+	[ISP_IMX248_1822_02] = {0x248, 0x18220201, "apple/isp_1822_02XX.dat", 0x442c},
+	[ISP_IMX343_5221_02] = {0x343, 0x52210211, "apple/isp_5221_02XX.dat", 0x4870},
+	[ISP_IMX354_9251_02] = {0x354, 0x92510208, "apple/isp_9251_02XX.dat", 0xa5ec},
+	[ISP_IMX356_4820_01] = {0x356, 0x48200107, "apple/isp_4820_01XX.dat", 0x9324},
+	[ISP_IMX356_4820_02] = {0x356, 0x48200206, "apple/isp_4820_02XX.dat", 0x9324},
+	[ISP_IMX364_8720_01] = {0x364, 0x87200103, "apple/isp_8720_01XX.dat", 0x36ac},
+	[ISP_IMX364_8723_01] = {0x364, 0x87230101, "apple/isp_8723_01XX.dat", 0x361c},
+	[ISP_IMX372_3820_01] = {0x372, 0x38200108, "apple/isp_3820_01XX.dat", 0xfdb0},
+	[ISP_IMX372_3820_02] = {0x372, 0x38200205, "apple/isp_3820_02XX.dat", 0xfdb0},
+	[ISP_IMX372_3820_11] = {0x372, 0x38201104, "apple/isp_3820_11XX.dat", 0xfdb0},
+	[ISP_IMX372_3820_12] = {0x372, 0x38201204, "apple/isp_3820_12XX.dat", 0xfdb0},
+	[ISP_IMX405_9720_01] = {0x405, 0x97200102, "apple/isp_9720_01XX.dat", 0x92c8},
+	[ISP_IMX405_9721_01] = {0x405, 0x97210102, "apple/isp_9721_01XX.dat", 0x9818},
+	[ISP_IMX405_9723_01] = {0x405, 0x97230101, "apple/isp_9723_01XX.dat", 0x92c8},
+	[ISP_IMX414_2520_01] = {0x414, 0x25200102, "apple/isp_2520_01XX.dat", 0xa444},
+	[ISP_IMX503_7820_01] = {0x503, 0x78200109, "apple/isp_7820_01XX.dat", 0xb268},
+	[ISP_IMX503_7820_02] = {0x503, 0x78200206, "apple/isp_7820_02XX.dat", 0xb268},
+	[ISP_IMX505_3921_01] = {0x505, 0x39210102, "apple/isp_3921_01XX.dat", 0x89b0},
+	[ISP_IMX514_2820_01] = {0x514, 0x28200108, "apple/isp_2820_01XX.dat", 0xa198},
+	[ISP_IMX514_2820_02] = {0x514, 0x28200205, "apple/isp_2820_02XX.dat", 0xa198},
+	[ISP_IMX514_2820_03] = {0x514, 0x28200305, "apple/isp_2820_03XX.dat", 0xa198},
+	[ISP_IMX514_2820_04] = {0x514, 0x28200405, "apple/isp_2820_04XX.dat", 0xa198},
+	[ISP_IMX558_1921_01] = {0x558, 0x19210106, "apple/isp_1921_01XX.dat", 0xad40},
+	[ISP_IMX558_1922_02] = {0x558, 0x19220201, "apple/isp_1922_02XX.dat", 0xad40},
+	[ISP_IMX603_7920_01] = {0x603, 0x79200109, "apple/isp_7920_01XX.dat", 0xad2c},
+	[ISP_IMX603_7920_02] = {0x603, 0x79200205, "apple/isp_7920_02XX.dat", 0xad2c},
+	[ISP_IMX603_7921_01] = {0x603, 0x79210104, "apple/isp_7921_01XX.dat", 0xad90},
+	[ISP_IMX613_4920_01] = {0x613, 0x49200108, "apple/isp_4920_01XX.dat", 0x9324},
+	[ISP_IMX613_4920_02] = {0x613, 0x49200204, "apple/isp_4920_02XX.dat", 0x9324},
+	[ISP_IMX614_2921_01] = {0x614, 0x29210107, "apple/isp_2921_01XX.dat", 0xed6c},
+	[ISP_IMX614_2921_02] = {0x614, 0x29210202, "apple/isp_2921_02XX.dat", 0xed6c},
+	[ISP_IMX614_2922_02] = {0x614, 0x29220201, "apple/isp_2922_02XX.dat", 0xed6c},
+	[ISP_IMX633_3622_01] = {0x633, 0x36220111, "apple/isp_3622_01XX.dat", 0x100d4},
+	[ISP_IMX703_7721_01] = {0x703, 0x77210106, "apple/isp_7721_01XX.dat", 0x936c},
+	[ISP_IMX703_7722_01] = {0x703, 0x77220106, "apple/isp_7722_01XX.dat", 0xac20},
+	[ISP_IMX713_4721_01] = {0x713, 0x47210107, "apple/isp_4721_01XX.dat", 0x936c},
+	[ISP_IMX713_4722_01] = {0x713, 0x47220109, "apple/isp_4722_01XX.dat", 0x9218},
+	[ISP_IMX714_2022_01] = {0x714, 0x20220107, "apple/isp_2022_01XX.dat", 0xa198},
+	[ISP_IMX772_3721_01] = {0x772, 0x37210106, "apple/isp_3721_01XX.dat", 0xfdf8},
+	[ISP_IMX772_3721_11] = {0x772, 0x37211106, "apple/isp_3721_11XX.dat", 0xfe14},
+	[ISP_IMX772_3722_01] = {0x772, 0x37220104, "apple/isp_3722_01XX.dat", 0xfca4},
+	[ISP_IMX772_3723_01] = {0x772, 0x37230106, "apple/isp_3723_01XX.dat", 0xfca4},
+	[ISP_IMX814_2123_01] = {0x814, 0x21230101, "apple/isp_2123_01XX.dat", 0xed54},
+	[ISP_IMX853_7622_01] = {0x853, 0x76220112, "apple/isp_7622_01XX.dat", 0x247f8},
+	[ISP_IMX913_7523_01] = {0x913, 0x75230107, "apple/isp_7523_01XX.dat", 0x247f8},
+	[ISP_VD56G0_6221_01] = {0xd56, 0x62210102, "apple/isp_6221_01XX.dat", 0x1b80},
+	[ISP_VD56G0_6222_01] = {0xd56, 0x62220102, "apple/isp_6222_01XX.dat", 0x1b80},
 };
 // clang-format on
 
@@ -182,44 +166,6 @@ static int isp_ch_get_sensor_id(struct apple_isp *isp, u32 ch)
 	return err;
 }
 
-static int isp_ch_cache_sensor_info(struct apple_isp *isp, u32 ch)
-{
-	struct isp_format *fmt = isp_get_format(isp, ch);
-	int err = 0;
-
-	struct cmd_ch_info *args; /* Too big to allocate on stack */
-	args = kzalloc(sizeof(*args), GFP_KERNEL);
-	if (!args)
-		return -ENOMEM;
-
-	err = isp_cmd_ch_info_get(isp, ch, args);
-	if (err)
-		goto exit;
-
-	dev_info(isp->dev, "found sensor %x %s on ch %d\n", args->version,
-		 args->module_sn, ch);
-
-	fmt->version = args->version;
-	fmt->num_presets = args->num_presets;
-
-	pr_info("apple-isp: ch: CISP_CMD_CH_INFO_GET: %d\n", ch);
-	print_hex_dump(KERN_INFO, "apple-isp: ch: ", DUMP_PREFIX_NONE, 32, 4,
-		       args, sizeof(*args), false);
-
-	err = isp_ch_get_sensor_id(isp, ch);
-	if (err || (fmt->id != ISP_IMX248_1820_01 && fmt->id != ISP_IMX558_1921_01)) {
-		dev_err(isp->dev,
-			"ch %d: unsupported sensor. Please file a bug report with hardware info & dmesg trace.\n",
-			ch);
-		return -ENODEV;
-	}
-
-exit:
-	kfree(args);
-
-	return err;
-}
-
 static int isp_ch_get_camera_preset(struct apple_isp *isp, u32 ch, u32 ps)
 {
 	int err = 0;
@@ -243,64 +189,46 @@ exit:
 	return err;
 }
 
-static void isp_ch_dump_camera_presets(struct apple_isp *isp, u32 ch)
+static int isp_ch_cache_sensor_info(struct apple_isp *isp, u32 ch)
 {
 	struct isp_format *fmt = isp_get_format(isp, ch);
-	for (u32 ps = 0; ps < fmt->num_presets; ps++) {
+	int err = 0;
+
+	struct cmd_ch_info *args; /* Too big to allocate on stack */
+	args = kzalloc(sizeof(*args), GFP_KERNEL);
+	if (!args)
+		return -ENOMEM;
+
+	err = isp_cmd_ch_info_get(isp, ch, args);
+	if (err)
+		goto exit;
+
+	dev_info(isp->dev, "found sensor %x %s on ch %d\n", args->version,
+		 args->module_sn, ch);
+
+	fmt->version = args->version;
+
+	pr_info("apple-isp: ch: CISP_CMD_CH_INFO_GET: %d\n", ch);
+	print_hex_dump(KERN_INFO, "apple-isp: ch: ", DUMP_PREFIX_NONE, 32, 4,
+		       args, sizeof(*args), false);
+
+	err = isp_ch_get_sensor_id(isp, ch);
+	if (err ||
+	    (fmt->id != ISP_IMX248_1820_01 && fmt->id != ISP_IMX558_1921_01)) {
+		dev_err(isp->dev,
+			"ch %d: unsupported sensor. Please file a bug report with hardware info & dmesg trace.\n",
+			ch);
+		return -ENODEV;
+	}
+
+	for (u32 ps = 0; ps < args->num_presets; ps++) {
 		isp_ch_get_camera_preset(isp, ch, ps);
 	}
-}
 
-static int isp_ch_cache_camera_preset(struct apple_isp *isp, u32 ch)
-{
-	struct isp_format *fmt = isp_get_format(isp, ch);
-	const struct isp_preset *preset = &isp_presets[fmt->id];
-	size_t total_size;
+exit:
+	kfree(args);
 
-	isp_ch_dump_camera_presets(isp, ch);
-
-	fmt->preset = preset->index;
-
-	fmt->width = preset->width;
-	fmt->height = preset->height;
-
-	fmt->x1 = preset->x1;
-	fmt->y1 = preset->y1;
-	fmt->x2 = preset->x2;
-	fmt->y2 = preset->y2;
-
-	/* I really fucking hope they all use NV12. */
-	fmt->num_planes = 2;
-	fmt->plane_size[0] = fmt->width * fmt->height;
-	fmt->plane_size[1] = fmt->plane_size[0] / 2;
-
-	total_size = 0;
-	for (int i = 0; i < fmt->num_planes; i++)
-		total_size += fmt->plane_size[i];
-	fmt->total_size = total_size;
-
-	return 0;
-}
-
-static int isp_ch_cache_camera_info(struct apple_isp *isp, u32 ch)
-{
-	int err;
-
-	err = isp_ch_cache_sensor_info(isp, ch);
-	if (err) {
-		dev_err(isp->dev, "ch %d: failed to cache sensor info: %d\n",
-			ch, err);
-		return err;
-	}
-
-	err = isp_ch_cache_camera_preset(isp, ch);
-	if (err) {
-		dev_err(isp->dev, "ch %d: failed to cache camera preset: %d\n",
-			ch, err);
-		return err;
-	}
-
-	return 0;
+	return err;
 }
 
 static int isp_detect_camera(struct apple_isp *isp)
@@ -338,7 +266,13 @@ static int isp_detect_camera(struct apple_isp *isp)
 	isp->num_channels = args.num_channels;
 	isp->current_ch = 0;
 
-	return isp_ch_cache_camera_info(isp, isp->current_ch); /* I told you */
+	err = isp_ch_cache_sensor_info(isp, isp->current_ch);
+	if (err) {
+		dev_err(isp->dev, "failed to cache sensor info\n");
+		return err;
+	}
+
+	return 0;
 }
 
 int apple_isp_detect_camera(struct apple_isp *isp)
@@ -408,6 +342,12 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 			err);
 	}
 
+	if (isp->hw->gen >= ISP_GEN_T8112) {
+		err = isp_cmd_ch_lpdp_hs_receiver_tuning_set(isp, ch, 1, 15);
+		if (err)
+			return err;
+	}
+
 	err = isp_cmd_ch_sbs_enable(isp, ch, 1);
 	if (err)
 		return err;
@@ -421,17 +361,21 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err)
 		return err;
 
-	err = isp_cmd_ch_camera_config_select(isp, ch, fmt->preset);
+	err = isp_cmd_ch_camera_config_select(isp, ch, fmt->preset->index);
 	if (err)
 		return err;
 
-	err = isp_cmd_ch_crop_set(isp, ch, fmt->x1, fmt->y1, fmt->x2, fmt->y2);
+	err = isp_cmd_ch_crop_set(isp, ch, fmt->preset->crop_offset.x,
+				  fmt->preset->crop_offset.y,
+				  fmt->preset->crop_size.x,
+				  fmt->preset->crop_size.y);
 	if (err)
 		return err;
 
-	err = isp_cmd_ch_output_config_set(isp, ch, fmt->width, fmt->height,
-					   CISP_COLORSPACE_REC709,
-					   CISP_OUTPUT_FORMAT_NV12);
+	err = isp_cmd_ch_output_config_set(isp, ch, fmt->preset->output_dim.x,
+					   fmt->preset->output_dim.y,
+					   fmt->strides, CISP_COLORSPACE_REC709,
+					   CISP_OUTPUT_FORMAT_YUV_2PLANE);
 	if (err)
 		return err;
 
@@ -443,7 +387,7 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err)
 		return err;
 
-	err = isp_cmd_ch_mbnr_enable(isp, ch, 0, 1, 1);
+	err = isp_cmd_ch_mbnr_enable(isp, ch, 0, ISP_MBNR_MODE_ENABLE, 1);
 	if (err)
 		return err;
 

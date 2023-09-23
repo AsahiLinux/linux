@@ -13,10 +13,11 @@
 #include "isp-ipc.h"
 #include "isp-v4l2.h"
 
-#define ISP_MIN_FRAMES	     2
-#define ISP_MAX_PLANES	     4
-#define ISP_MAX_PIX_FORMATS  2
-#define ISP_BUFFER_TIMEOUT   msecs_to_jiffies(1500)
+#define ISP_MIN_FRAMES 2
+#define ISP_MAX_PLANES 4
+#define ISP_MAX_PIX_FORMATS 2
+#define ISP_BUFFER_TIMEOUT msecs_to_jiffies(1500)
+#define ISP_STRIDE_ALIGNMENT 64
 
 struct isp_h2t_buffer {
 	u64 iovas[ISP_MAX_PLANES];
@@ -40,7 +41,7 @@ static int isp_submit_buffers(struct apple_isp *isp)
 	struct isp_format *fmt = isp_get_current_format(isp);
 	struct isp_channel *chan = isp->chan_bh;
 	struct isp_message *req = &chan->req;
-	struct isp_buffer *buf;
+	struct isp_buffer *buf, *buf2, *tmp;
 	unsigned long flags;
 	size_t offset;
 	int err;
@@ -51,42 +52,75 @@ static int isp_submit_buffers(struct apple_isp *isp)
 		return -ENOMEM;
 
 	spin_lock_irqsave(&isp->buf_lock, flags);
-	buf = list_first_entry_or_null(&isp->buffers, struct isp_buffer, link);
-	if (!buf) {
+	while ((buf = list_first_entry_or_null(&isp->bufs_pending,
+					       struct isp_buffer, link))) {
+		args->meta.num_planes = 1;
+		args->meta.pool_type = 0;
+		args->meta.iovas[0] = buf->meta->iova;
+		args->meta.flags[0] = 0x40000000;
+
+		args->render.num_planes = fmt->num_planes;
+		args->render.pool_type = isp->hw->scl1 ?
+						 CISP_POOL_TYPE_RENDERED_SCL1 :
+						 CISP_POOL_TYPE_RENDERED;
+		offset = 0;
+		for (int j = 0; j < fmt->num_planes; j++) {
+			args->render.iovas[j] = buf->surfs[0].iova + offset;
+			args->render.flags[j] = 0x40000000;
+			offset += fmt->plane_size[j];
+		}
+
+		/*
+		 * Queue the buffer as submitted and release the lock for now.
+		 * We need to do this before actually submitting to avoid a
+		 * race with the buffer return codepath.
+		 */
+		list_move_tail(&buf->link, &isp->bufs_submitted);
 		spin_unlock_irqrestore(&isp->buf_lock, flags);
-		kfree(args);
-		return -EPROTO;
-	}
 
-	args->meta.num_planes = 1;
-	args->meta.pool_type = CISP_POOL_TYPE_META;
-	args->meta.iovas[0] = buf->meta->iova;
-	args->meta.flags[0] = 0x40000000;
+		args->enable = 0x1;
+		args->num_buffers = 2;
 
-	args->render.num_planes = fmt->num_planes;
-	args->render.pool_type = CISP_POOL_TYPE_RENDERED;
-	offset = 0;
-	for (int j = 0; j < fmt->num_planes; j++) {
-		args->render.iovas[j] = buf->surfs[0].iova + offset;
-		args->render.flags[j] = 0x40000000;
-		offset += fmt->plane_size[j];
+		req->arg0 = isp->cmd_iova;
+		req->arg1 = ISP_IPC_BUFEXC_STAT_SIZE;
+		req->arg2 = ISP_IPC_BUFEXC_FLAG_COMMAND;
+
+		isp_iowrite(isp, req->arg0, args, sizeof(*args));
+		err = ipc_chan_send(isp, chan, ISP_BUFFER_TIMEOUT);
+		if (err) {
+			/* If we fail, consider the buffer not submitted. */
+			dev_err(isp->dev,
+				"%s: failed to send bufs: [0x%llx, 0x%llx, 0x%llx]\n",
+				chan->name, req->arg0, req->arg1, req->arg2);
+
+			/*
+			 * Try to find the buffer in the list, and if it's
+			 * still there, move it back to the pending list.
+			 */
+			spin_lock_irqsave(&isp->buf_lock, flags);
+			list_for_each_entry_safe_reverse(
+				buf2, tmp, &isp->bufs_submitted, link) {
+				if (buf2 == buf) {
+					list_move_tail(&buf->link,
+						       &isp->bufs_pending);
+					spin_unlock_irqrestore(&isp->buf_lock,
+							       flags);
+					return err;
+				}
+			}
+			/*
+			 * We didn't find the buffer, which means it somehow was returned
+			 * by the firmware even though submission failed?
+			 */
+			dev_err(isp->dev,
+				"buffer submission failed but buffer was returned?\n");
+			spin_unlock_irqrestore(&isp->buf_lock, flags);
+			return err;
+		}
+
+		spin_lock_irqsave(&isp->buf_lock, flags);
 	}
 	spin_unlock_irqrestore(&isp->buf_lock, flags);
-
-	args->enable = 0x1;
-	args->num_buffers = 2;
-
-	req->arg0 = isp->cmd_iova;
-	req->arg1 = ISP_IPC_BUFEXC_STAT_SIZE;
-	req->arg2 = ISP_IPC_BUFEXC_FLAG_COMMAND;
-
-	isp_iowrite(isp, req->arg0, args, sizeof(*args));
-	err = ipc_chan_send(isp, chan, ISP_BUFFER_TIMEOUT);
-	if (err) {
-		dev_err(isp->dev,
-			"%s: failed to send bufs: [0x%llx, 0x%llx, 0x%llx]\n",
-			chan->name, req->arg0, req->arg1, req->arg2);
-	}
 
 	kfree(args);
 
@@ -140,7 +174,7 @@ static int isp_vb2_buf_init(struct vb2_buffer *vb)
 	unsigned int i;
 	int err;
 
-	buf->meta = isp_alloc_surface(isp, ISP_META_SIZE);
+	buf->meta = isp_alloc_surface(isp, isp->hw->meta_size);
 	if (!buf->meta)
 		return -ENOMEM;
 
@@ -179,9 +213,12 @@ static void isp_vb2_release_buffers(struct apple_isp *isp,
 	unsigned long flags;
 
 	spin_lock_irqsave(&isp->buf_lock, flags);
-	list_for_each_entry(buf, &isp->buffers, link)
+	list_for_each_entry(buf, &isp->bufs_submitted, link)
 		vb2_buffer_done(&buf->vb.vb2_buf, state);
-	INIT_LIST_HEAD(&isp->buffers);
+	INIT_LIST_HEAD(&isp->bufs_submitted);
+	list_for_each_entry(buf, &isp->bufs_pending, link)
+		vb2_buffer_done(&buf->vb.vb2_buf, state);
+	INIT_LIST_HEAD(&isp->bufs_pending);
 	spin_unlock_irqrestore(&isp->buf_lock, flags);
 }
 
@@ -194,8 +231,9 @@ static void isp_vb2_buf_queue(struct vb2_buffer *vb)
 	bool empty;
 
 	spin_lock_irqsave(&isp->buf_lock, flags);
-	empty = list_empty(&isp->buffers);
-	list_add_tail(&buf->link, &isp->buffers);
+	empty = list_empty(&isp->bufs_pending) &&
+		list_empty(&isp->bufs_submitted);
+	list_add_tail(&buf->link, &isp->bufs_pending);
 	spin_unlock_irqrestore(&isp->buf_lock, flags);
 
 	if (test_bit(ISP_STATE_STREAMING, &isp->state) && !empty)
@@ -249,14 +287,61 @@ static void isp_vb2_stop_streaming(struct vb2_queue *q)
 }
 
 static const struct vb2_ops isp_vb2_ops = {
-	.queue_setup     = isp_vb2_queue_setup,
-	.buf_init        = isp_vb2_buf_init,
-	.buf_cleanup     = isp_vb2_buf_cleanup,
-	.buf_prepare     = isp_vb2_buf_prepare,
-	.buf_queue       = isp_vb2_buf_queue,
+	.queue_setup = isp_vb2_queue_setup,
+	.buf_init = isp_vb2_buf_init,
+	.buf_cleanup = isp_vb2_buf_cleanup,
+	.buf_prepare = isp_vb2_buf_prepare,
+	.buf_queue = isp_vb2_buf_queue,
 	.start_streaming = isp_vb2_start_streaming,
-	.stop_streaming  = isp_vb2_stop_streaming,
+	.stop_streaming = isp_vb2_stop_streaming,
 };
+
+static int isp_set_preset(struct apple_isp *isp, struct isp_format *fmt,
+			  struct isp_preset *preset)
+{
+	int i;
+	size_t total_size;
+
+	fmt->preset = preset;
+
+	/* I really fucking hope they all use NV12. */
+	fmt->num_planes = 2;
+	fmt->strides[0] = ALIGN(preset->output_dim.x, ISP_STRIDE_ALIGNMENT);
+	/* UV subsampled interleaved */
+	fmt->strides[1] = ALIGN(preset->output_dim.x, ISP_STRIDE_ALIGNMENT);
+	fmt->plane_size[0] = fmt->strides[0] * preset->output_dim.y;
+	fmt->plane_size[1] = fmt->strides[1] * preset->output_dim.y / 2;
+
+	total_size = 0;
+	for (i = 0; i < fmt->num_planes; i++)
+		total_size += fmt->plane_size[i];
+	fmt->total_size = total_size;
+
+	return 0;
+}
+
+static struct isp_preset *isp_select_preset(struct apple_isp *isp, u32 width,
+				     u32 height)
+{
+	struct isp_preset *preset, *best = &isp->presets[0];
+	int i, score, best_score = INT_MAX;
+
+	/* Default if no dimensions */
+	if (width == 0 || height == 0)
+		return &isp->presets[0];
+
+	for (i = 0; i < isp->num_presets; i++) {
+		preset = &isp->presets[i];
+		score = abs((int)preset->output_dim.x - (int)width) +
+		abs((int)preset->output_dim.y - (int)height);
+		if (score < best_score) {
+			best = preset;
+			best_score = score;
+		}
+	}
+
+	return best;
+}
 
 /*
  * V4L2 ioctl section
@@ -288,29 +373,28 @@ static int isp_vidioc_enum_framesizes(struct file *file, void *fh,
 				      struct v4l2_frmsizeenum *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
-	struct isp_format *fmt = isp_get_current_format(isp);
 
-	if (f->index >= ISP_MAX_PIX_FORMATS)
+	if (f->index >= isp->num_presets)
 		return -EINVAL;
 
-	if ((!f->index && f->pixel_format != V4L2_PIX_FMT_NV12) ||
-	    (f->index && f->pixel_format != V4L2_PIX_FMT_NV12M))
+	if ((f->pixel_format != V4L2_PIX_FMT_NV12) ||
+	    (f->pixel_format != V4L2_PIX_FMT_NV12M))
 		return -EINVAL;
 
-	f->discrete.width = fmt->width;
-	f->discrete.height = fmt->height;
+	f->discrete.width = isp->presets[f->index].output_dim.x;
+	f->discrete.height = isp->presets[f->index].output_dim.y;
 	f->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 
 	return 0;
 }
 
-static inline void isp_set_sp_pix_format(struct apple_isp *isp,
-					 struct v4l2_format *f)
+static inline void isp_get_sp_pix_format(struct apple_isp *isp,
+					 struct v4l2_format *f,
+					 struct isp_format *fmt)
 {
-	struct isp_format *fmt = isp_get_current_format(isp);
-
-	f->fmt.pix.width = fmt->width;
-	f->fmt.pix.height = fmt->height;
+	f->fmt.pix.width = fmt->preset->output_dim.x;
+	f->fmt.pix.height = fmt->preset->output_dim.y;
+	f->fmt.pix.bytesperline = fmt->strides[0];
 	f->fmt.pix.sizeimage = fmt->total_size;
 
 	f->fmt.pix.field = V4L2_FIELD_NONE;
@@ -320,16 +404,17 @@ static inline void isp_set_sp_pix_format(struct apple_isp *isp,
 	f->fmt.pix.xfer_func = V4L2_XFER_FUNC_709;
 }
 
-static inline void isp_set_mp_pix_format(struct apple_isp *isp,
-					 struct v4l2_format *f)
+static inline void isp_get_mp_pix_format(struct apple_isp *isp,
+					 struct v4l2_format *f,
+					 struct isp_format *fmt)
 {
-	struct isp_format *fmt = isp_get_current_format(isp);
-
-	f->fmt.pix_mp.width = fmt->width;
-	f->fmt.pix_mp.height = fmt->height;
+	f->fmt.pix_mp.width = fmt->preset->output_dim.x;
+	f->fmt.pix_mp.height = fmt->preset->output_dim.y;
 	f->fmt.pix_mp.num_planes = fmt->num_planes;
-	for (int i = 0; i < fmt->num_planes; i++)
+	for (int i = 0; i < fmt->num_planes; i++) {
 		f->fmt.pix_mp.plane_fmt[i].sizeimage = fmt->plane_size[i];
+		f->fmt.pix_mp.plane_fmt[i].bytesperline = fmt->strides[i];
+	}
 
 	f->fmt.pix_mp.field = V4L2_FIELD_NONE;
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12M;
@@ -342,11 +427,12 @@ static int isp_vidioc_get_format(struct file *file, void *fh,
 				 struct v4l2_format *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
+	struct isp_format *fmt = isp_get_current_format(isp);
 
 	if (isp->multiplanar)
 		return -ENOTTY;
 
-	isp_set_sp_pix_format(isp, f);
+	isp_get_sp_pix_format(isp, f, fmt);
 
 	return 0;
 }
@@ -355,11 +441,19 @@ static int isp_vidioc_set_format(struct file *file, void *fh,
 				 struct v4l2_format *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
+	struct isp_format *fmt = isp_get_current_format(isp);
+	struct isp_preset *preset;
+	int err;
 
 	if (isp->multiplanar)
 		return -ENOTTY;
 
-	isp_set_sp_pix_format(isp, f); // no
+	preset = isp_select_preset(isp, f->fmt.pix.width, f->fmt.pix.height);
+	err = isp_set_preset(isp, fmt, preset);
+	if (err)
+		return err;
+
+	isp_get_sp_pix_format(isp, f, fmt);
 
 	return 0;
 }
@@ -368,11 +462,19 @@ static int isp_vidioc_try_format(struct file *file, void *fh,
 				 struct v4l2_format *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
+	struct isp_format fmt = *isp_get_current_format(isp);
+	struct isp_preset *preset;
+	int err;
 
 	if (isp->multiplanar)
 		return -ENOTTY;
 
-	isp_set_sp_pix_format(isp, f); // still no
+	preset = isp_select_preset(isp, f->fmt.pix.width, f->fmt.pix.height);
+	err = isp_set_preset(isp, &fmt, preset);
+	if (err)
+		return err;
+
+	isp_get_sp_pix_format(isp, f, &fmt);
 
 	return 0;
 }
@@ -381,11 +483,12 @@ static int isp_vidioc_get_format_mplane(struct file *file, void *fh,
 					struct v4l2_format *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
+	struct isp_format *fmt = isp_get_current_format(isp);
 
 	if (!isp->multiplanar)
 		return -ENOTTY;
 
-	isp_set_mp_pix_format(isp, f);
+	isp_get_mp_pix_format(isp, f, fmt);
 
 	return 0;
 }
@@ -394,11 +497,20 @@ static int isp_vidioc_set_format_mplane(struct file *file, void *fh,
 					struct v4l2_format *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
+	struct isp_format *fmt = isp_get_current_format(isp);
+	struct isp_preset *preset;
+	int err;
 
 	if (!isp->multiplanar)
 		return -ENOTTY;
 
-	isp_set_mp_pix_format(isp, f); // no
+	preset = isp_select_preset(isp, f->fmt.pix_mp.width,
+				   f->fmt.pix_mp.height);
+	err = isp_set_preset(isp, fmt, preset);
+	if (err)
+		return err;
+
+	isp_get_mp_pix_format(isp, f, fmt);
 
 	return 0;
 }
@@ -407,11 +519,20 @@ static int isp_vidioc_try_format_mplane(struct file *file, void *fh,
 					struct v4l2_format *f)
 {
 	struct apple_isp *isp = video_drvdata(file);
+	struct isp_format fmt = *isp_get_current_format(isp);
+	struct isp_preset *preset;
+	int err;
 
 	if (!isp->multiplanar)
 		return -ENOTTY;
 
-	isp_set_mp_pix_format(isp, f); // still no
+	preset = isp_select_preset(isp, f->fmt.pix_mp.width,
+				   f->fmt.pix_mp.height);
+	err = isp_set_preset(isp, &fmt, preset);
+	if (err)
+		return err;
+
+	isp_get_mp_pix_format(isp, f, &fmt);
 
 	return 0;
 }
@@ -470,6 +591,8 @@ static int isp_vidioc_set_param(struct file *file, void *fh,
 		return -EINVAL;
 
 	/* Not supporting frame rate sets. No use. Plus floats. */
+	a->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+	a->parm.capture.readbuffers = ISP_MIN_FRAMES;
 	a->parm.capture.timeperframe.numerator = ISP_FRAME_RATE_NUM;
 	a->parm.capture.timeperframe.denominator = ISP_FRAME_RATE_DEN;
 
@@ -477,59 +600,67 @@ static int isp_vidioc_set_param(struct file *file, void *fh,
 }
 
 static const struct v4l2_ioctl_ops isp_v4l2_ioctl_ops = {
-	.vidioc_querycap                = isp_vidioc_querycap,
+	.vidioc_querycap = isp_vidioc_querycap,
 
-	.vidioc_enum_fmt_vid_cap        = isp_vidioc_enum_format,
-	.vidioc_g_fmt_vid_cap           = isp_vidioc_get_format,
-	.vidioc_s_fmt_vid_cap           = isp_vidioc_set_format,
-	.vidioc_try_fmt_vid_cap         = isp_vidioc_try_format,
-	.vidioc_g_fmt_vid_cap_mplane    = isp_vidioc_get_format_mplane,
-	.vidioc_s_fmt_vid_cap_mplane    = isp_vidioc_set_format_mplane,
-	.vidioc_try_fmt_vid_cap_mplane  = isp_vidioc_try_format_mplane,
+	.vidioc_enum_fmt_vid_cap = isp_vidioc_enum_format,
+	.vidioc_g_fmt_vid_cap = isp_vidioc_get_format,
+	.vidioc_s_fmt_vid_cap = isp_vidioc_set_format,
+	.vidioc_try_fmt_vid_cap = isp_vidioc_try_format,
+	.vidioc_g_fmt_vid_cap_mplane = isp_vidioc_get_format_mplane,
+	.vidioc_s_fmt_vid_cap_mplane = isp_vidioc_set_format_mplane,
+	.vidioc_try_fmt_vid_cap_mplane = isp_vidioc_try_format_mplane,
 
-	.vidioc_enum_framesizes         = isp_vidioc_enum_framesizes,
-	.vidioc_enum_input              = isp_vidioc_enum_input,
-	.vidioc_g_input                 = isp_vidioc_get_input,
-	.vidioc_s_input                 = isp_vidioc_set_input,
-	.vidioc_g_parm                  = isp_vidioc_get_param,
-	.vidioc_s_parm                  = isp_vidioc_set_param,
+	.vidioc_enum_framesizes = isp_vidioc_enum_framesizes,
+	.vidioc_enum_input = isp_vidioc_enum_input,
+	.vidioc_g_input = isp_vidioc_get_input,
+	.vidioc_s_input = isp_vidioc_set_input,
+	.vidioc_g_parm = isp_vidioc_get_param,
+	.vidioc_s_parm = isp_vidioc_set_param,
 
-	.vidioc_reqbufs                 = vb2_ioctl_reqbufs,
-	.vidioc_querybuf                = vb2_ioctl_querybuf,
-	.vidioc_create_bufs             = vb2_ioctl_create_bufs,
-	.vidioc_qbuf                    = vb2_ioctl_qbuf,
-	.vidioc_expbuf                  = vb2_ioctl_expbuf,
-	.vidioc_dqbuf                   = vb2_ioctl_dqbuf,
-	.vidioc_prepare_buf             = vb2_ioctl_prepare_buf,
-	.vidioc_streamon                = vb2_ioctl_streamon,
-	.vidioc_streamoff               = vb2_ioctl_streamoff,
+	.vidioc_reqbufs = vb2_ioctl_reqbufs,
+	.vidioc_querybuf = vb2_ioctl_querybuf,
+	.vidioc_create_bufs = vb2_ioctl_create_bufs,
+	.vidioc_qbuf = vb2_ioctl_qbuf,
+	.vidioc_expbuf = vb2_ioctl_expbuf,
+	.vidioc_dqbuf = vb2_ioctl_dqbuf,
+	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
+	.vidioc_streamon = vb2_ioctl_streamon,
+	.vidioc_streamoff = vb2_ioctl_streamoff,
 };
 
 static const struct v4l2_file_operations isp_v4l2_fops = {
-	.owner          = THIS_MODULE,
-	.open           = v4l2_fh_open,
-	.release        = vb2_fop_release,
-	.read           = vb2_fop_read,
-	.poll           = vb2_fop_poll,
-	.mmap           = vb2_fop_mmap,
+	.owner = THIS_MODULE,
+	.open = v4l2_fh_open,
+	.release = vb2_fop_release,
+	.read = vb2_fop_read,
+	.poll = vb2_fop_poll,
+	.mmap = vb2_fop_mmap,
 	.unlocked_ioctl = video_ioctl2,
 };
 
 static const struct media_device_ops isp_media_device_ops = {
-	.link_notify    = v4l2_pipeline_link_notify,
+	.link_notify = v4l2_pipeline_link_notify,
 };
 
 int apple_isp_setup_video(struct apple_isp *isp)
 {
 	struct video_device *vdev = &isp->vdev;
 	struct vb2_queue *vbq = &isp->vbq;
+	struct isp_format *fmt = isp_get_current_format(isp);
 	int err;
+
+	err = isp_set_preset(isp, fmt, &isp->presets[0]);
+	if (err) {
+		dev_err(isp->dev, "failed to set default preset: %d\n", err);
+		return err;
+	}
 
 	media_device_init(&isp->mdev);
 	isp->v4l2_dev.mdev = &isp->mdev;
 	isp->mdev.ops = &isp_media_device_ops;
 	isp->mdev.dev = isp->dev;
-	strscpy(isp->mdev.model, APPLE_ISP_DEVICE_NAME, sizeof(isp->mdev.model));
+	strscpy(isp->mdev.model, APPLE_ISP_DEVICE_NAME,
+		sizeof(isp->mdev.model));
 
 	err = media_device_register(&isp->mdev);
 	if (err) {

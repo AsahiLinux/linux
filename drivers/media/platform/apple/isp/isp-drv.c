@@ -90,7 +90,8 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 		return -ENODEV;
 	isp->shift = __ffs(isp->domain->pgsize_bitmap);
 
-	idx = of_property_match_string(dev->of_node, "memory-region-names", "heap");
+	idx = of_property_match_string(dev->of_node, "memory-region-names",
+				       "heap");
 	mem_node = of_parse_phandle(dev->of_node, "memory-region", idx);
 	if (!mem_node) {
 		dev_err(dev, "No memory-region found for heap\n");
@@ -107,10 +108,9 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 
 	while (maps < end) {
 		maps++;
-		maps = of_translate_dma_region(dev->of_node, maps, &heap_base, &heap_size);
+		maps = of_translate_dma_region(dev->of_node, maps, &heap_base,
+					       &heap_size);
 	}
-
-	printk("heap: 0x%llx 0x%lx\n", heap_base, heap_size);
 
 	isp->fw.heap_top = heap_base + heap_size;
 
@@ -122,7 +122,8 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 	}
 
 	// FIXME: refactor this, maybe use regular iova stuff?
-	drm_mm_init(&isp->iovad, isp->fw.heap_top, vm_size - (heap_base & 0xffffffff));
+	drm_mm_init(&isp->iovad, isp->fw.heap_top,
+		    vm_size - (heap_base & 0xffffffff));
 
 	return 0;
 }
@@ -130,6 +131,83 @@ static int apple_isp_init_iommu(struct apple_isp *isp)
 static void apple_isp_free_iommu(struct apple_isp *isp)
 {
 	drm_mm_takedown(&isp->iovad);
+}
+
+static int isp_of_read_coord(struct device *dev, struct device_node *np,
+			     const char *prop, struct coord *val)
+{
+	u32 xy[2];
+	int ret;
+
+	ret = of_property_read_u32_array(np, prop, xy, 2);
+	if (ret) {
+		dev_err(dev, "failed to read '%s' property\n", prop);
+		return ret;
+	}
+
+	val->x = xy[0];
+	val->y = xy[1];
+	return 0;
+}
+
+static int apple_isp_init_presets(struct apple_isp *isp)
+{
+	struct device *dev = isp->dev;
+	struct isp_preset *preset;
+	int err = 0;
+
+	struct device_node *np __free(device_node) =
+		of_get_child_by_name(dev->of_node, "sensor-presets");
+	if (!np) {
+		dev_err(dev, "failed to get DT node 'presets'\n");
+		return -EINVAL;
+	}
+
+	isp->num_presets = of_get_child_count(np);
+	if (!isp->num_presets) {
+		dev_err(dev, "no sensor presets found\n");
+		return -EINVAL;
+	}
+
+	isp->presets = devm_kzalloc(
+		dev, sizeof(*isp->presets) * isp->num_presets, GFP_KERNEL);
+	if (!isp->presets)
+		return -ENOMEM;
+
+	preset = isp->presets;
+	for_each_child_of_node_scoped(np, child) {
+		u32 xywh[4];
+
+		err = of_property_read_u32(child, "apple,config-index",
+					   &preset->index);
+		if (err) {
+			dev_err(dev, "no apple,config-index property\n");
+			return err;
+		}
+
+		err = isp_of_read_coord(dev, child, "apple,input-size",
+					&preset->input_dim);
+		if (err)
+			return err;
+		err = isp_of_read_coord(dev, child, "apple,output-size",
+					&preset->output_dim);
+		if (err)
+			return err;
+
+		err = of_property_read_u32_array(child, "apple,crop", xywh, 4);
+		if (err) {
+			dev_err(dev, "failed to read 'apple,crop' property\n");
+			return err;
+		}
+		preset->crop_offset.x = xywh[0];
+		preset->crop_offset.y = xywh[1];
+		preset->crop_size.x = xywh[2];
+		preset->crop_size.y = xywh[3];
+
+		preset++;
+	}
+
+	return 0;
 }
 
 static int apple_isp_probe(struct platform_device *pdev)
@@ -150,6 +228,20 @@ static int apple_isp_probe(struct platform_device *pdev)
 	isp->hw = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, isp);
 	dev_set_drvdata(dev, isp);
+
+	err = of_property_read_u32(dev->of_node, "apple,platform-id",
+				   &isp->platform_id);
+	if (err) {
+		dev_err(dev, "failed to get 'apple,platform-id' property: %d\n",
+			err);
+		return err;
+	}
+
+	err = apple_isp_init_presets(isp);
+	if (err) {
+		dev_err(dev, "failed to initialize presets\n");
+		return err;
+	}
 
 	err = apple_isp_attach_genpd(isp);
 	if (err) {
@@ -190,7 +282,8 @@ static int apple_isp_probe(struct platform_device *pdev)
 	spin_lock_init(&isp->buf_lock);
 	init_waitqueue_head(&isp->wait);
 	INIT_LIST_HEAD(&isp->gc);
-	INIT_LIST_HEAD(&isp->buffers);
+	INIT_LIST_HEAD(&isp->bufs_pending);
+	INIT_LIST_HEAD(&isp->bufs_submitted);
 	isp->wq = alloc_workqueue("apple-isp-wq", WQ_UNBOUND, 0);
 	if (!isp->wq) {
 		dev_err(dev, "failed to create workqueue\n");
@@ -250,13 +343,13 @@ static void apple_isp_remove(struct platform_device *pdev)
 	apple_isp_free_iommu(isp);
 	destroy_workqueue(isp->wq);
 	apple_isp_detach_genpd(isp);
-	return 0;
 }
 
 static const struct apple_isp_hw apple_isp_hw_t8103 = {
-	.platform_id = 0x1,
+	.gen = ISP_GEN_T8103,
 	.pmu_base = 0x23b704000,
 
+	.dsid_count = 4,
 	.dsid_clr_base0 = 0x200014000,
 	.dsid_clr_base1 = 0x200054000,
 	.dsid_clr_base2 = 0x200094000,
@@ -274,12 +367,16 @@ static const struct apple_isp_hw apple_isp_hw_t8103 = {
 	.bandwidth_base = 0x23bc3c000,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x4,
+
+	.scl1 = false,
+	.meta_size = ISP_META_SIZE_T8103,
 };
 
 static const struct apple_isp_hw apple_isp_hw_t6000 = {
-	.platform_id = 0x3,
+	.gen = ISP_GEN_T8103,
 	.pmu_base = 0x28e584000,
 
+	.dsid_count = 1,
 	.dsid_clr_base0 = 0x200014000,
 	.dsid_clr_base1 = 0x200054000,
 	.dsid_clr_base2 = 0x200094000,
@@ -297,12 +394,16 @@ static const struct apple_isp_hw apple_isp_hw_t6000 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
+
+	.scl1 = false,
+	.meta_size = ISP_META_SIZE_T8103,
 };
 
 static const struct apple_isp_hw apple_isp_hw_t8110 = {
-	.platform_id = 0xe, // J413AP
+	.gen = ISP_GEN_T8112,
 	.pmu_base = 0x23b704000,
 
+	.dsid_count = 4,
 	.dsid_clr_base0 = 0x200014000, // TODO
 	.dsid_clr_base1 = 0x200054000,
 	.dsid_clr_base2 = 0x200094000,
@@ -320,29 +421,30 @@ static const struct apple_isp_hw apple_isp_hw_t8110 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
+
+	.scl1 = true,
+	.meta_size = ISP_META_SIZE_T8112,
 };
 
 static const struct apple_isp_hw apple_isp_hw_t6020 = {
-	.platform_id = 0x7, // J416cAP
+	.gen = ISP_GEN_T8112,
 	.pmu_base = 0x290284000,
 
-	.dsid_clr_base0 = 0x200014000, // TODO
-	.dsid_clr_base1 = 0x200054000,
-	.dsid_clr_base2 = 0x200094000,
-	.dsid_clr_base3 = 0x2000d4000,
+	.dsid_count = 1,
+	.dsid_clr_base0 = 0x200f14000,
 	.dsid_clr_range0 = 0x1000,
-	.dsid_clr_range1 = 0x1000,
-	.dsid_clr_range2 = 0x1000,
-	.dsid_clr_range3 = 0x1000,
 
-	.clock_scratch = 0x28e3d0868, // CHECK
+	.clock_scratch = 0x28e3d10a8,
 	.clock_base = 0x0,
 	.clock_bit = 0x0,
 	.clock_size = 0x8,
-	.bandwidth_scratch = 0x28e3d0980, // CHECK
+	.bandwidth_scratch = 0x28e3d1200,
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
+
+	.scl1 = true,
+	.meta_size = ISP_META_SIZE_T8112,
 };
 
 static const struct of_device_id apple_isp_of_match[] = {
@@ -362,7 +464,8 @@ static __maybe_unused int apple_isp_resume(struct device *dev)
 {
 	return 0;
 }
-DEFINE_RUNTIME_DEV_PM_OPS(apple_isp_pm_ops, apple_isp_suspend, apple_isp_resume, NULL);
+DEFINE_RUNTIME_DEV_PM_OPS(apple_isp_pm_ops, apple_isp_suspend, apple_isp_resume,
+			  NULL);
 
 static struct platform_driver apple_isp_driver = {
 	.driver	= {

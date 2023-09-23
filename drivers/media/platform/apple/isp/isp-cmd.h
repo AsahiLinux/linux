@@ -35,10 +35,14 @@
 #define CISP_CMD_CH_BUFFER_POOL_CONFIG_SET		     0x0117
 #define CISP_CMD_CH_CAMERA_MIPI_FREQUENCY_GET		     0x011a
 #define CISP_CMD_CH_CAMERA_PIX_FREQUENCY_GET		     0x011f
+#define CISP_CMD_CH_PROPERTY_WRITE			     0x0122
+#define CISP_CMD_CH_PROPERTY_READ			     0x0123
 #define CISP_CMD_CH_LOCAL_RAW_BUFFER_ENABLE		     0x0125
+#define CISP_CMD_CH_META_DATA_ENABLE			     0x0126
 #define CISP_CMD_CH_CAMERA_MIPI_FREQUENCY_TOTAL_GET	     0x0133
 #define CISP_CMD_CH_SBS_ENABLE				     0x013b
 #define CISP_CMD_CH_LSC_POLYNOMIAL_COEFF_GET		     0x0142
+#define CISP_CMD_CH_SET_META_DATA_REQUIRED		     0x014f
 #define CISP_CMD_CH_BUFFER_POOL_RETURN			     0x015b
 #define CISP_CMD_CH_CAMERA_AGILE_FREQ_ARRAY_CURRENT_GET	     0x015e
 #define CISP_CMD_CH_AE_START				     0x0200
@@ -52,25 +56,35 @@
 #define CISP_CMD_CH_SENSOR_NVM_GET			     0x0501
 #define CISP_CMD_CH_SENSOR_PERMODULE_LSC_INFO_GET	     0x0507
 #define CISP_CMD_CH_SENSOR_PERMODULE_LSC_GRID_GET	     0x0511
+#define CISP_CMD_CH_LPDP_HS_RECEIVER_TUNING_SET		     0x051b
 #define CISP_CMD_CH_FOCUS_LIMITS_GET			     0x0701
+#define CISP_CMD_CH_CROP_GET				     0x0800
 #define CISP_CMD_CH_CROP_SET				     0x0801
+#define CISP_CMD_CH_SCALER_CROP_SET			     0x080a
+#define CISP_CMD_CH_CROP_SCL1_GET			     0x080b
+#define CISP_CMD_CH_CROP_SCL1_SET			     0x080c
+#define CISP_CMD_CH_SCALER_CROP_SCL1_SET		     0x080d
 #define CISP_CMD_CH_ALS_ENABLE				     0x0a1c
 #define CISP_CMD_CH_ALS_DISABLE				     0x0a1d
 #define CISP_CMD_CH_CNR_START				     0x0a2f
 #define CISP_CMD_CH_MBNR_ENABLE				     0x0a3a
 #define CISP_CMD_CH_OUTPUT_CONFIG_SET			     0x0b01
+#define CISP_CMD_CH_OUTPUT_CONFIG_SCL1_SET		     0x0b09
 #define CISP_CMD_CH_PREVIEW_STREAM_SET			     0x0b0d
 #define CISP_CMD_CH_SEMANTIC_VIDEO_ENABLE		     0x0b17
 #define CISP_CMD_CH_SEMANTIC_AWB_ENABLE			     0x0b18
 #define CISP_CMD_CH_FACE_DETECTION_START		     0x0d00
+#define CISP_CMD_CH_FACE_DETECTION_STOP			     0x0d01
 #define CISP_CMD_CH_FACE_DETECTION_CONFIG_GET		     0x0d02
 #define CISP_CMD_CH_FACE_DETECTION_CONFIG_SET		     0x0d03
+#define CISP_CMD_CH_FACE_DETECTION_DISABLE		     0x0d04
 #define CISP_CMD_CH_FACE_DETECTION_ENABLE		     0x0d05
 #define CISP_CMD_CH_FID_START				     0x3000
 #define CISP_CMD_CH_FID_STOP				     0x3001
 #define CISP_CMD_IPC_ENDPOINT_SET2			     0x300c
 #define CISP_CMD_IPC_ENDPOINT_UNSET2			     0x300d
 #define CISP_CMD_SET_DSID_CLR_REG_BASE2			     0x3204
+#define CISP_CMD_SET_DSID_CLR_REG_BASE			     0x3205
 #define CISP_CMD_APPLE_CH_AE_METERING_MODE_SET		     0x8206
 #define CISP_CMD_APPLE_CH_AE_FD_SCENE_METERING_CONFIG_SET    0x820e
 #define CISP_CMD_APPLE_CH_AE_FLICKER_FREQ_UPDATE_CURRENT_SET 0x8212
@@ -86,10 +100,28 @@
 #define CISP_POOL_TYPE_FD				     0x2
 #define CISP_POOL_TYPE_RAW				     0x3
 #define CISP_POOL_TYPE_STAT				     0x4
+#define CISP_POOL_TYPE_RAW_AUX				     0x5
+#define CISP_POOL_TYPE_YCC				     0x6
+#define CISP_POOL_TYPE_CAPTURE_FULL_RES			     0x7
 #define CISP_POOL_TYPE_META_CAPTURE			     0x8
+#define CISP_POOL_TYPE_RENDERED_SCL1			     0x9
+#define CISP_POOL_TYPE_STAT_PIXELOUTPUT			     0x11
+#define CISP_POOL_TYPE_FSCL				     0x12
+#define CISP_POOL_TYPE_CAPTURE_FULL_RES_YCC		     0x13
+#define CISP_POOL_TYPE_RENDERED_RAW			     0x14
+#define CISP_POOL_TYPE_CAPTURE_PDC_RAW			     0x16
+#define CISP_POOL_TYPE_FPC_DATA				     0x17
+#define CISP_POOL_TYPE_AICAM_SEG			     0x19
+#define CISP_POOL_TYPE_SPD				     0x1a
+#define CISP_POOL_TYPE_META_DEPTH			     0x1c
+#define CISP_POOL_TYPE_JASPER_DEPTH			     0x1d
+#define CISP_POOL_TYPE_RAW_SIFR				     0x1f
+#define CISP_POOL_TYPE_FEP_THUMBNAIL_DYNAMIC_POOL_RAW	     0x21
 
 #define CISP_COLORSPACE_REC709				     0x1
-#define CISP_OUTPUT_FORMAT_NV12				     0x0
+#define CISP_OUTPUT_FORMAT_YUV_2PLANE			     0x0
+#define CISP_OUTPUT_FORMAT_YUV_1PLANE			     0x1
+#define CISP_OUTPUT_FORMAT_RGB				     0x2
 #define CISP_BUFFER_RECYCLE_MODE_EMPTY_ONLY		     0x1
 
 struct cmd_start {
@@ -144,6 +176,13 @@ struct cmd_set_dsid_clr_req_base2 {
 } __packed;
 static_assert(sizeof(struct cmd_set_dsid_clr_req_base2) == 0x38);
 
+struct cmd_set_dsid_clr_req_base {
+	u64 opcode;
+	u64 dsid_clr_base;
+	u32 dsid_clr_range;
+} __packed;
+static_assert(sizeof(struct cmd_set_dsid_clr_req_base) == 0x14);
+
 struct cmd_pmp_ctrl_set {
 	u64 opcode;
 	u64 clock_scratch;
@@ -169,12 +208,26 @@ struct cmd_fid_exit {
 } __packed;
 static_assert(sizeof(struct cmd_fid_exit) == 0x8);
 
+struct cmd_ipc_endpoint_set2 {
+	u64 opcode;
+	u32 unk;
+	u64 addr1;
+	u32 size1;
+	u64 addr2;
+	u32 size2;
+	u64 regs;
+	u32 unk2;
+} __packed;
+static_assert(sizeof(struct cmd_ipc_endpoint_set2) == 0x30);
+
 int isp_cmd_start(struct apple_isp *isp, u32 mode);
 int isp_cmd_suspend(struct apple_isp *isp);
 int isp_cmd_print_enable(struct apple_isp *isp, u32 enable);
 int isp_cmd_trace_enable(struct apple_isp *isp, u32 enable);
 int isp_cmd_config_get(struct apple_isp *isp, struct cmd_config_get *args);
 int isp_cmd_set_isp_pmu_base(struct apple_isp *isp, u64 pmu_base);
+int isp_cmd_set_dsid_clr_req_base(struct apple_isp *isp, u64 dsid_clr_base,
+				  u32 dsid_clr_range);
 int isp_cmd_set_dsid_clr_req_base2(struct apple_isp *isp, u64 dsid_clr_base0,
 				   u64 dsid_clr_base1, u64 dsid_clr_base2,
 				   u64 dsid_clr_base3, u32 dsid_clr_range0,
@@ -291,6 +344,14 @@ struct cmd_ch_set_file_load {
 } __packed;
 static_assert(sizeof(struct cmd_ch_set_file_load) == 0x14);
 
+struct cmd_ch_set_file_load64 {
+	u64 opcode;
+	u32 chan;
+	u64 addr;
+	u32 size;
+} __packed;
+static_assert(sizeof(struct cmd_ch_set_file_load64) == 0x18);
+
 struct cmd_ch_buffer_return {
 	u64 opcode;
 	u32 chan;
@@ -321,9 +382,7 @@ struct cmd_ch_output_config_set {
 	u32 height;
 	u32 colorspace;
 	u32 format;
-	u32 unk_w0;
-	u32 unk_w1;
-	u32 unk_24;
+	u32 strides[3];
 	u32 padding_rows;
 	u32 unk_h0;
 	u32 compress;
@@ -369,6 +428,24 @@ struct cmd_ch_sif_pixel_format_set {
 } __packed;
 static_assert(sizeof(struct cmd_ch_sif_pixel_format_set) == 0x14);
 
+struct cmd_ch_lpdp_hs_receiver_tuning_set {
+	u64 opcode;
+	u32 chan;
+	u32 unk1;
+	u32 unk2;
+} __packed;
+static_assert(sizeof(struct cmd_ch_lpdp_hs_receiver_tuning_set) == 0x14);
+
+struct cmd_ch_property_write {
+	u64 opcode;
+	u32 chan;
+	u32 prop;
+	u32 val;
+	u32 unk1;
+	u32 unk2;
+} __packed;
+static_assert(sizeof(struct cmd_ch_property_write) == 0x1c);
+
 int isp_cmd_ch_start(struct apple_isp *isp, u32 chan);
 int isp_cmd_ch_stop(struct apple_isp *isp, u32 chan);
 int isp_cmd_ch_info_get(struct apple_isp *isp, u32 chan,
@@ -379,20 +456,30 @@ int isp_cmd_ch_camera_config_current_get(struct apple_isp *isp, u32 chan,
 					 struct cmd_ch_camera_config *args);
 int isp_cmd_ch_camera_config_select(struct apple_isp *isp, u32 chan,
 				    u32 preset);
-int isp_cmd_ch_set_file_load(struct apple_isp *isp, u32 chan, u32 addr,
+int isp_cmd_ch_set_file_load(struct apple_isp *isp, u32 chan, u64 addr,
 			     u32 size);
 int isp_cmd_ch_buffer_return(struct apple_isp *isp, u32 chan);
 int isp_cmd_ch_sbs_enable(struct apple_isp *isp, u32 chan, u32 enable);
 int isp_cmd_ch_crop_set(struct apple_isp *isp, u32 chan, u32 x1, u32 y1, u32 x2,
 			u32 y2);
 int isp_cmd_ch_output_config_set(struct apple_isp *isp, u32 chan, u32 width,
-				 u32 height, u32 colorspace, u32 format);
+				 u32 height, u32 strides[3], u32 colorspace, u32 format);
 int isp_cmd_ch_preview_stream_set(struct apple_isp *isp, u32 chan, u32 stream);
 int isp_cmd_ch_als_disable(struct apple_isp *isp, u32 chan);
 int isp_cmd_ch_cnr_start(struct apple_isp *isp, u32 chan);
 int isp_cmd_ch_mbnr_enable(struct apple_isp *isp, u32 chan, u32 use_case,
 			   u32 mode, u32 enable_chroma);
 int isp_cmd_ch_sif_pixel_format_set(struct apple_isp *isp, u32 chan);
+int isp_cmd_ch_lpdp_hs_receiver_tuning_set(struct apple_isp *isp, u32 chan, u32 unk1, u32 unk2);
+
+int isp_cmd_ch_property_read(struct apple_isp *isp, u32 chan, u32 prop, u32 *val);
+int isp_cmd_ch_property_write(struct apple_isp *isp, u32 chan, u32 prop, u32 val);
+
+enum isp_mbnr_mode {
+	ISP_MBNR_MODE_DISABLE = 0,
+	ISP_MBNR_MODE_ENABLE = 1,
+	ISP_MBNR_MODE_BYPASS = 2,
+};
 
 struct cmd_ch_buffer_recycle_mode_set {
 	u64 opcode;
@@ -414,7 +501,10 @@ struct cmd_ch_buffer_pool_config_set {
 	u16 count;
 	u32 meta_size0;
 	u32 meta_size1;
-	u32 zero[0x1f];
+	u64 unk0;
+	u64 unk1;
+	u64 unk2;
+	u32 zero[0x19];
 	u32 data_blocks;
 	u32 compress;
 } __packed;
@@ -430,6 +520,8 @@ int isp_cmd_ch_buffer_recycle_mode_set(struct apple_isp *isp, u32 chan,
 				       u32 mode);
 int isp_cmd_ch_buffer_recycle_start(struct apple_isp *isp, u32 chan);
 int isp_cmd_ch_buffer_pool_config_set(struct apple_isp *isp, u32 chan,
+				      u16 type);
+int isp_cmd_ch_buffer_pool_config_get(struct apple_isp *isp, u32 chan,
 				      u16 type);
 int isp_cmd_ch_buffer_pool_return(struct apple_isp *isp, u32 chan);
 

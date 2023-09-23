@@ -20,7 +20,13 @@
 #define ISP_MAX_CHANNELS      6
 #define ISP_IPC_MESSAGE_SIZE  64
 #define ISP_IPC_FLAG_ACK      0x1
-#define ISP_META_SIZE	      0x4640
+#define ISP_META_SIZE_T8103      0x4640
+#define ISP_META_SIZE_T8112      0x4840
+
+enum isp_generation {
+	ISP_GEN_T8103,
+	ISP_GEN_T8112,
+};
 
 struct isp_surf {
 	struct drm_mm_node *mm;
@@ -62,10 +68,24 @@ struct isp_channel {
 	const struct isp_chan_ops *ops;
 };
 
+struct coord {
+	u32 x;
+	u32 y;
+};
+
+struct isp_preset {
+	u32 index;
+	struct coord input_dim;
+	struct coord output_dim;
+	struct coord crop_offset;
+	struct coord crop_size;
+};
+
 struct apple_isp_hw {
-	u32 platform_id;
+	enum isp_generation gen;
 	u64 pmu_base;
 
+	int dsid_count;
 	u64 dsid_clr_base0;
 	u64 dsid_clr_base1;
 	u64 dsid_clr_base2;
@@ -83,6 +103,9 @@ struct apple_isp_hw {
 	u64 bandwidth_base;
 	u8 bandwidth_bit;
 	u8 bandwidth_size;
+
+	u32 meta_size;
+	bool scl1;
 };
 
 enum isp_sensor_id {
@@ -139,15 +162,9 @@ enum isp_sensor_id {
 struct isp_format {
 	enum isp_sensor_id id;
 	u32 version;
-	u32 num_presets;
-	u32 preset;
-	u32 width;
-	u32 height;
-	u32 x1;
-	u32 y1;
-	u32 x2;
-	u32 y2;
+	struct isp_preset *preset;
 	unsigned int num_planes;
+	u32 strides[VB2_MAX_PLANES];
 	size_t plane_size[VB2_MAX_PLANES];
 	size_t total_size;
 };
@@ -155,6 +172,9 @@ struct isp_format {
 struct apple_isp {
 	struct device *dev;
 	const struct apple_isp_hw *hw;
+	u32 platform_id;
+	struct isp_preset *presets;
+	int num_presets;
 
 	int num_channels;
 	struct isp_format fmts[ISP_MAX_CHANNELS];
@@ -208,7 +228,8 @@ struct apple_isp {
 
 	unsigned long state;
 	spinlock_t buf_lock;
-	struct list_head buffers;
+	struct list_head bufs_pending;
+	struct list_head bufs_submitted;
 };
 
 struct isp_chan_ops {
