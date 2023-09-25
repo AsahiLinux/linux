@@ -27,6 +27,18 @@
 	power-domains = <&ps_disp0_cpu0>, <&ps_dptx_phy_ps>;
 };
 
+&display {
+	iommus = <&disp0_dart 0 0x100 0x0 0x10 0x0>,
+		<&dispext0_dart 0 0x100 0x0 0x10 0x0>;
+};
+
+/* HACK: keep dptx_phy_ps power-domain always-on
+ *       it is unclear how to sequence with dcp for the integrated display
+ */
+&ps_dptx_phy_ps {
+	apple,always-on;
+};
+
 &hpm0 {
 	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
 };
