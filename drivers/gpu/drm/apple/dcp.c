@@ -205,7 +205,7 @@ int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 {
 	struct platform_device *pdev = to_apple_crtc(crtc)->dcp;
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
-	struct drm_plane_state *new_state, *old_state;
+	struct drm_plane_state *new_state;
 	struct drm_plane *plane;
 	struct drm_crtc_state *crtc_state;
 	int plane_idx, plane_count = 0;
@@ -222,7 +222,7 @@ int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		return -EINVAL;
 	}
 
-	for_each_oldnew_plane_in_state(state, plane, old_state, new_state, plane_idx) {
+	for_each_new_plane_in_state(state, plane, new_state, plane_idx) {
 		/* skip planes not for this crtc */
 		if (new_state->crtc != crtc)
 			continue;
