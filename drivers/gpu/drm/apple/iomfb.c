@@ -25,6 +25,7 @@
 #include "dcp.h"
 #include "dcp-internal.h"
 #include "iomfb.h"
+#include "iomfb_internal.h"
 #include "parser.h"
 #include "trace.h"
 
