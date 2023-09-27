@@ -143,3 +143,10 @@
 	tp_accel {
 	};
 };
+
+&isp {
+	apple,platform-id = <7>;
+	/delete-node/ sensor-presets; /* Override j31[46] below */
+};
+
+#include "isp-imx558-cfg0.dtsi"
