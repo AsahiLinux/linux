@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * ISP configuration for platforms with IMX248 sensor.
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include "isp-common.dtsi"
+
+&isp {
+	apple,temporal-filter = <0>;
+
+	sensor-presets {
+		/* 1280x720 */
+		preset0 {
+			apple,config-index = <0>;
+			apple,input-size = <1296 736>;
+			apple,output-size = <1280 720>;
+			apple,crop = <8 8 1280 720>;
+		};
+	};
+};

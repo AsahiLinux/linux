@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * ISP configuration for platforms with IMX558 sensor.
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include "isp-common.dtsi"
+
+&isp {
+	apple,temporal-filter = <0>;
+
+	sensor-presets {
+		/* 1920x1080 */
+		preset0 {
+			apple,config-index = <1>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <1920 1080>;
+			apple,crop = <0 0 1920 1080>;
+		};
+		/* 1080x1920 */
+		preset1 {
+			apple,config-index = <2>;
+			apple,input-size = <1080 1920>;
+			apple,output-size = <1080 1920>;
+			apple,crop = <0 0 1080 1920>;
+		};
+		/* 1760x1328 */
+		preset2 {
+			apple,config-index = <3>;
+			apple,input-size = <1760 1328>;
+			apple,output-size = <1760 1328>;
+			apple,crop = <0 0 1760 1328>;
+		};
+		/* 1328x1760 */
+		preset3 {
+			apple,config-index = <4>;
+			apple,input-size = <1328 1760>;
+			apple,output-size = < 1328 1760>;
+			apple,crop = <0 0 1328 1760>;
+		};
+		/* 1152x1152 */
+		preset4 {
+			apple,config-index = <5>;
+			apple,input-size = <1152 1152>;
+			apple,output-size = <1152 1152>;
+			apple,crop = <0 0 1152 1152>;
+		};
+	};
+};
