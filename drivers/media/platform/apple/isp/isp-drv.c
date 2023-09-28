@@ -405,19 +405,14 @@ static const struct apple_isp_hw apple_isp_hw_t6000 = {
 	.meta_size = ISP_META_SIZE_T8103,
 };
 
-static const struct apple_isp_hw apple_isp_hw_t8110 = {
+static const struct apple_isp_hw apple_isp_hw_t8112 = {
 	.gen = ISP_GEN_T8112,
 	.pmu_base = 0x23b704000,
 
-	.dsid_count = 4,
-	.dsid_clr_base0 = 0x200014000, // TODO
-	.dsid_clr_base1 = 0x200054000,
-	.dsid_clr_base2 = 0x200094000,
-	.dsid_clr_base3 = 0x2000d4000,
+	// TODO: verify
+	.dsid_count = 1,
+	.dsid_clr_base0 = 0x200f14000,
 	.dsid_clr_range0 = 0x1000,
-	.dsid_clr_range1 = 0x1000,
-	.dsid_clr_range2 = 0x1000,
-	.dsid_clr_range3 = 0x1000,
 
 	.clock_scratch = 0x23b3d0560,
 	.clock_base = 0x0,
@@ -455,6 +450,7 @@ static const struct apple_isp_hw apple_isp_hw_t6020 = {
 
 static const struct of_device_id apple_isp_of_match[] = {
 	{ .compatible = "apple,t8103-isp", .data = &apple_isp_hw_t8103 },
+	{ .compatible = "apple,t8112-isp", .data = &apple_isp_hw_t8112 },
 	{ .compatible = "apple,t6000-isp", .data = &apple_isp_hw_t6000 },
 	{ .compatible = "apple,t6020-isp", .data = &apple_isp_hw_t6020 },
 	{},
