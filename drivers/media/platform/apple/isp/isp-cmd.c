@@ -395,7 +395,7 @@ int isp_cmd_ch_buffer_pool_config_set(struct apple_isp *isp, u32 chan, u16 type)
 		.opcode = CISP_OPCODE(CISP_CMD_CH_BUFFER_POOL_CONFIG_SET),
 		.chan = chan,
 		.type = type,
-		.count = 16,
+		.count = ISP_MAX_BUFFERS,
 		.meta_size0 = isp->hw->meta_size,
 		.meta_size1 = isp->hw->meta_size,
 		.unk0 = 0,

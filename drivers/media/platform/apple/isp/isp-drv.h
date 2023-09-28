@@ -23,6 +23,9 @@
 #define ISP_META_SIZE_T8103      0x4640
 #define ISP_META_SIZE_T8112      0x4840
 
+/* used to limit the user space buffers to the buffer_pool_config */
+#define ISP_MAX_BUFFERS 16
+
 enum isp_generation {
 	ISP_GEN_T8103,
 	ISP_GEN_T8112,

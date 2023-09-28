@@ -11,6 +11,7 @@
 
 #include "isp-cam.h"
 #include "isp-cmd.h"
+#include "isp-drv.h"
 #include "isp-iommu.h"
 #include "isp-ipc.h"
 #include "isp-v4l2.h"
@@ -142,6 +143,13 @@ static int isp_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
 {
 	struct apple_isp *isp = vb2_get_drv_priv(vq);
 	struct isp_format *fmt = isp_get_current_format(isp);
+
+	/* This is not strictly neccessary but makes it easy to enforce that
+	 * at most 16 buffers are submitted at once. ISP on t6001 (FW 12.3)
+	 * times out if more buffers are submitted than set in the buffer pool
+	 * config before streaming is started.
+	 */
+	*nbuffers = min_t(unsigned int, *nbuffers, ISP_MAX_BUFFERS);
 
 	if (*num_planes) {
 		if (sizes[0] < fmt->total_size)
