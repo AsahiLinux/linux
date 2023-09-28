@@ -23,10 +23,10 @@
 #define ISP_COPROC_IRQ_MASK_4  0x1400a10
 #define ISP_COPROC_IRQ_MASK_5  0x1400a14
 
-#define ISP_MBOX_IRQ_INTERRUPT 0x000
-#define ISP_MBOX_IRQ_ENABLE    0x004
-#define ISP_MBOX_IRQ_DOORBELL  0x3f0
-#define ISP_MBOX_IRQ_ACK       0x3fc
+#define ISP_MBOX_IRQ_INTERRUPT 0x00
+#define ISP_MBOX_IRQ_ENABLE    0x04
+#define ISP_MBOX2_IRQ_DOORBELL 0x00
+#define ISP_MBOX2_IRQ_ACK      0x0c
 
 #define ISP_GPIO_0	       0x00
 #define ISP_GPIO_1	       0x04
@@ -46,6 +46,11 @@ static inline u32 isp_mbox_read32(struct apple_isp *isp, u32 reg)
 static inline void isp_mbox_write32(struct apple_isp *isp, u32 reg, u32 val)
 {
 	writel(val, isp->mbox + reg);
+}
+
+static inline void isp_mbox2_write32(struct apple_isp *isp, u32 reg, u32 val)
+{
+	writel(val, isp->mbox2 + reg);
 }
 
 #endif /* __ISP_REGS_H__ */

@@ -123,7 +123,7 @@ static irqreturn_t apple_isp_isr(int irq, void *dev)
 {
 	struct apple_isp *isp = dev;
 
-	isp_mbox_write32(isp, ISP_MBOX_IRQ_ACK,
+	isp_mbox2_write32(isp, ISP_MBOX2_IRQ_ACK,
 			 isp_mbox_read32(isp, ISP_MBOX_IRQ_INTERRUPT));
 
 	return IRQ_WAKE_THREAD;

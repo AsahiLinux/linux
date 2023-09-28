@@ -267,6 +267,12 @@ static int apple_isp_probe(struct platform_device *pdev)
 		goto detach_genpd;
 	}
 
+	isp->mbox2 = devm_platform_ioremap_resource_byname(pdev, "mbox2");
+	if (IS_ERR(isp->mbox2)) {
+		err = PTR_ERR(isp->mbox2);
+		goto detach_genpd;
+	}
+
 	isp->irq = platform_get_irq(pdev, 0);
 	if (isp->irq < 0) {
 		err = isp->irq;

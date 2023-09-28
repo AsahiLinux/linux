@@ -199,6 +199,7 @@ struct apple_isp {
 	void __iomem *coproc;
 	void __iomem *mbox;
 	void __iomem *gpio;
+	void __iomem *mbox2;
 
 	struct iommu_domain *domain;
 	unsigned long shift;
