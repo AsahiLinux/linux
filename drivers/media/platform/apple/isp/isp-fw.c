@@ -94,6 +94,13 @@ static irqreturn_t apple_isp_isr(int irq, void *dev)
 	isp_mbox_write32(isp, ISP_MBOX_IRQ_ACK,
 			 isp_mbox_read32(isp, ISP_MBOX_IRQ_INTERRUPT));
 
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t apple_isp_isr_thread(int irq, void *dev)
+{
+	struct apple_isp *isp = dev;
+
 	wake_up_interruptible_all(&isp->wait);
 
 	ipc_chan_handle(isp, isp->chan_sm);
@@ -118,7 +125,8 @@ static int isp_enable_irq(struct apple_isp *isp)
 {
 	int err;
 
-	err = request_irq(isp->irq, apple_isp_isr, 0, "apple-isp", isp);
+	err = request_threaded_irq(isp->irq, apple_isp_isr,
+				   apple_isp_isr_thread, 0, "apple-isp", isp);
 	if (err < 0) {
 		isp_err(isp, "failed to request IRQ#%u (%d)\n", isp->irq, err);
 		return err;
