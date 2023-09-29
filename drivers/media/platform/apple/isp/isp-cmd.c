@@ -60,6 +60,23 @@ int isp_cmd_start(struct apple_isp *isp, u32 mode)
 	return CISP_SEND_IN(isp, args);
 }
 
+int isp_cmd_stop(struct apple_isp *isp, u32 mode)
+{
+	struct cmd_stop args = {
+		.opcode = CISP_OPCODE(CISP_CMD_STOP),
+		.mode = mode,
+	};
+	return CISP_SEND_IN(isp, args);
+}
+
+int isp_cmd_power_down(struct apple_isp *isp)
+{
+	struct cmd_power_down args = {
+		.opcode = CISP_OPCODE(CISP_CMD_POWER_DOWN),
+	};
+	return CISP_POST_INOUT(isp, args);
+}
+
 int isp_cmd_suspend(struct apple_isp *isp)
 {
 	struct cmd_suspend args = {

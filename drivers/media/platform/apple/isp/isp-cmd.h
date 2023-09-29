@@ -12,6 +12,7 @@
 #define CISP_CMD_PRINT_ENABLE				     0x0004
 #define CISP_CMD_BUILDINFO				     0x0006
 #define CISP_CMD_GET_BES_PARAM				     0x000f
+#define CISP_CMD_POWER_DOWN				     0x0010
 #define CISP_CMD_SET_ISP_PMU_BASE			     0x0011
 #define CISP_CMD_PMP_CTRL_SET				     0x001c
 #define CISP_CMD_TRACE_ENABLE				     0x001d
@@ -130,6 +131,17 @@ struct cmd_start {
 } __packed;
 static_assert(sizeof(struct cmd_start) == 0xc);
 
+struct cmd_stop {
+	u64 opcode;
+	u32 mode;
+} __packed;
+static_assert(sizeof(struct cmd_stop) == 0xc);
+
+struct cmd_power_down {
+	u64 opcode;
+} __packed;
+static_assert(sizeof(struct cmd_power_down) == 0x8);
+
 struct cmd_suspend {
 	u64 opcode;
 } __packed;
@@ -221,6 +233,8 @@ struct cmd_ipc_endpoint_set2 {
 static_assert(sizeof(struct cmd_ipc_endpoint_set2) == 0x30);
 
 int isp_cmd_start(struct apple_isp *isp, u32 mode);
+int isp_cmd_stop(struct apple_isp *isp, u32 mode);
+int isp_cmd_power_down(struct apple_isp *isp);
 int isp_cmd_suspend(struct apple_isp *isp);
 int isp_cmd_print_enable(struct apple_isp *isp, u32 enable);
 int isp_cmd_trace_enable(struct apple_isp *isp, u32 enable);
