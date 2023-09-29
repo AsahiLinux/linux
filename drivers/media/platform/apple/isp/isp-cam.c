@@ -323,7 +323,7 @@ static int isp_ch_load_setfile(struct apple_isp *isp, u32 ch)
 		return -EINVAL;
 	}
 
-	isp_iowrite(isp, isp->data_surf->iova, (void *)fw->data, setfile->size);
+	memcpy(isp->data_surf->virt, (void *)fw->data, setfile->size);
 	release_firmware(fw);
 
 	return isp_cmd_ch_set_file_load(isp, ch, isp->data_surf->iova,

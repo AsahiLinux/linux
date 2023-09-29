@@ -24,7 +24,7 @@ static int cisp_send(struct apple_isp *isp, void *args, u32 insize, u32 outsize)
 	req->arg1 = insize;
 	req->arg2 = outsize;
 
-	isp_iowrite(isp, isp->cmd_iova, args, insize);
+	memcpy(isp->cmd_virt, args, insize);
 	err = ipc_chan_send(isp, chan, CISP_TIMEOUT);
 	if (err) {
 		u64 opcode;
@@ -45,7 +45,8 @@ static int cisp_send_read(struct apple_isp *isp, void *args, u32 insize,
 	int err = cisp_send(isp, args, insize, outsize);
 	if (err)
 		return err;
-	isp_ioread(isp, isp->cmd_iova, args, outsize);
+
+	memcpy(args, isp->cmd_virt, outsize);
 	return 0;
 }
 

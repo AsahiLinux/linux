@@ -214,12 +214,6 @@ void isp_free_surface(struct apple_isp *isp, struct isp_surf *surf)
 	}
 }
 
-void *isp_iotranslate(struct apple_isp *isp, dma_addr_t iova)
-{
-	phys_addr_t phys = iommu_iova_to_phys(isp->domain, iova);
-	return phys_to_virt(phys);
-}
-
 int apple_isp_iommu_map_sgt(struct apple_isp *isp, struct isp_surf *surf,
 			    struct sg_table *sgt, u64 size)
 {

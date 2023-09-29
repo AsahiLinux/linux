@@ -32,6 +32,7 @@ struct isp_surf {
 	struct drm_mm_node *mm;
 	struct list_head head;
 	u64 size;
+	u64 type;
 	u32 num_pages;
 	struct page **pages;
 	struct sg_table sgt;
@@ -60,6 +61,7 @@ struct isp_channel {
 	u32 num;
 	u64 size;
 	dma_addr_t iova;
+	void *virt;
 	u32 doorbell;
 	u32 cursor;
 	spinlock_t lock;
@@ -210,6 +212,8 @@ struct apple_isp {
 	struct isp_surf *ipc_surf;
 	struct isp_surf *extra_surf;
 	struct isp_surf *data_surf;
+	struct isp_surf *log_surf;
+	struct isp_surf *bt_surf;
 	struct list_head gc;
 	struct workqueue_struct *wq;
 
@@ -225,6 +229,7 @@ struct apple_isp {
 
 	wait_queue_head_t wait;
 	dma_addr_t cmd_iova;
+	void *cmd_virt;
 
 	unsigned long state;
 	spinlock_t buf_lock;

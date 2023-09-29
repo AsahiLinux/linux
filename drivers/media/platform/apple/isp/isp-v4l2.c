@@ -91,7 +91,7 @@ static int isp_submit_buffers(struct apple_isp *isp)
 		req->arg1 = ISP_IPC_BUFEXC_STAT_SIZE;
 		req->arg2 = ISP_IPC_BUFEXC_FLAG_COMMAND;
 
-		isp_iowrite(isp, req->arg0, args, sizeof(*args));
+		memcpy(isp->cmd_virt, args, sizeof(*args));
 		err = ipc_chan_send(isp, chan, ISP_BUFFER_TIMEOUT);
 		if (err) {
 			/* If we fail, consider the buffer not submitted. */

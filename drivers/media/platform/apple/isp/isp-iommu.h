@@ -12,21 +12,6 @@ struct isp_surf *__isp_alloc_surface(struct apple_isp *isp, u64 size, bool gc);
 struct isp_surf *isp_alloc_surface_vmap(struct apple_isp *isp, u64 size);
 int isp_surf_vmap(struct apple_isp *isp, struct isp_surf *surf);
 void isp_free_surface(struct apple_isp *isp, struct isp_surf *surf);
-void *isp_iotranslate(struct apple_isp *isp, dma_addr_t iova);
-
-static inline void isp_ioread(struct apple_isp *isp, dma_addr_t iova,
-			      void *data, u64 size)
-{
-	void *virt = isp_iotranslate(isp, iova);
-	memcpy(data, virt, size);
-}
-
-static inline void isp_iowrite(struct apple_isp *isp, dma_addr_t iova,
-			       void *data, u64 size)
-{
-	void *virt = isp_iotranslate(isp, iova);
-	memcpy(virt, data, size);
-}
 
 int apple_isp_iommu_map_sgt(struct apple_isp *isp, struct isp_surf *surf,
 			    struct sg_table *sgt, u64 size);

@@ -4,6 +4,7 @@
 #include "isp-iommu.h"
 #include "isp-ipc.h"
 #include "isp-regs.h"
+#include "isp-fw.h"
 
 #define ISP_IPC_FLAG_TERMINAL_ACK	0x3
 #define ISP_IPC_BUFEXC_STAT_META_OFFSET 0x10
@@ -54,16 +55,16 @@ struct isp_bufexc_stat {
 } __packed;
 static_assert(sizeof(struct isp_bufexc_stat) == ISP_IPC_BUFEXC_STAT_SIZE);
 
-static inline dma_addr_t chan_msg_iova(struct isp_channel *chan, u32 index)
+static inline void *chan_msg_virt(struct isp_channel *chan, u32 index)
 {
-	return chan->iova + (index * ISP_IPC_MESSAGE_SIZE);
+	return chan->virt + (index * ISP_IPC_MESSAGE_SIZE);
 }
 
 static inline void chan_read_msg_index(struct apple_isp *isp,
 				       struct isp_channel *chan,
 				       struct isp_message *msg, u32 index)
 {
-	isp_ioread(isp, chan_msg_iova(chan, index), msg, sizeof(*msg));
+	memcpy(msg, chan_msg_virt(chan, index), sizeof(*msg));
 }
 
 static inline void chan_read_msg(struct apple_isp *isp,
@@ -77,7 +78,7 @@ static inline void chan_write_msg_index(struct apple_isp *isp,
 					struct isp_channel *chan,
 					struct isp_message *msg, u32 index)
 {
-	isp_iowrite(isp, chan_msg_iova(chan, index), msg, sizeof(*msg));
+	memcpy(chan_msg_virt(chan, index), msg, sizeof(*msg));
 }
 
 static inline void chan_write_msg(struct apple_isp *isp,
@@ -191,10 +192,14 @@ int ipc_tm_handle(struct apple_isp *isp, struct isp_channel *chan)
 	char buf[512];
 	dma_addr_t iova = req->arg0 & ~ISP_IPC_FLAG_TERMINAL_ACK;
 	u32 size = req->arg1;
-	if (iova && size && test_bit(ISP_STATE_LOGGING, &isp->state)) {
-		size = min_t(u32, size, 512);
-		isp_ioread(isp, iova, buf, size);
-		isp_dbg(isp, "ISPASC: %.*s", size, buf);
+	if (iova && size && size < sizeof(buf) &&
+	    test_bit(ISP_STATE_LOGGING, &isp->state)) {
+		void *p = apple_isp_translate(isp, isp->log_surf, iova, size);
+		if (p) {
+			size = min_t(u32, size, 512);
+			memcpy(buf, p, size);
+			isp_dbg(isp, "ISPASC: %.*s", size, buf);
+		}
 	}
 #endif
 
@@ -205,75 +210,50 @@ int ipc_tm_handle(struct apple_isp *isp, struct isp_channel *chan)
 	return 0;
 }
 
-/* The kernel accesses exactly two dynamically allocated shared surfaces:
- * 1) LOG: Surface for terminal logs. Optional, only enabled in debug builds.
- * 2) STAT: Surface for BUFT2H rendered frame stat buffer. We isp_ioread() in
- * the BUFT2H ISR below. Since the BUFT2H IRQ is triggered by the BUF_H2T
- * doorbell, the STAT vmap must complete before the first buffer submission
- * under VIDIOC_STREAMON(). The CISP_CMD_PRINT_ENABLE completion depends on the
- * STAT buffer SHAREDMALLOC ISR, which is part of the firmware initialization
- * sequence. We also call flush_workqueue(), so a fault should not occur.
- */
-static void sm_malloc_deferred_worker(struct work_struct *work)
-{
-	struct isp_sm_deferred_work *dwork =
-		container_of(work, struct isp_sm_deferred_work, work);
-	struct apple_isp *isp = dwork->isp;
-	struct isp_surf *surf = dwork->surf;
-	int err;
-
-	err = isp_surf_vmap(isp, surf); /* Can't vmap in interrupt ctx */
-	if (err < 0) {
-		isp_err(isp, "failed to vmap iova=0x%llx size=0x%llx\n",
-			surf->iova, surf->size);
-		goto out;
-	}
-
-#ifdef APPLE_ISP_DEBUG
-	/* Only enabled in debug builds so it shouldn't matter, but
-	 * the LOG surface is always the first surface requested.
-	 */
-	if (!test_bit(ISP_STATE_LOGGING, &isp->state))
-		set_bit(ISP_STATE_LOGGING, &isp->state);
-#endif
-
-out:
-	kfree(dwork);
-}
-
 int ipc_sm_handle(struct apple_isp *isp, struct isp_channel *chan)
 {
 	struct isp_message *req = &chan->req, *rsp = &chan->rsp;
+	int err;
 
 	if (req->arg0 == 0x0) {
-		struct isp_sm_deferred_work *dwork;
 		struct isp_surf *surf;
-
-		dwork = kzalloc(sizeof(*dwork), GFP_KERNEL);
-		if (!dwork)
-			return -ENOMEM;
-		dwork->isp = isp;
 
 		surf = isp_alloc_surface_gc(isp, req->arg1);
 		if (!surf) {
 			isp_err(isp, "failed to alloc requested size 0x%llx\n",
 				req->arg1);
-			kfree(dwork);
 			return -ENOMEM;
 		}
-		dwork->surf = surf;
+		surf->type = req->arg2;
 
 		rsp->arg0 = surf->iova | ISP_IPC_FLAG_ACK;
 		rsp->arg1 = 0x0;
 		rsp->arg2 = 0x0; /* macOS uses this to index surfaces */
 
-		INIT_WORK(&dwork->work, sm_malloc_deferred_worker);
-		if (!queue_work(isp->wq, &dwork->work)) {
-			isp_err(isp, "failed to queue deferred work\n");
-			isp_free_surface(isp, surf);
-			kfree(dwork);
-			return -ENOMEM;
+		err = isp_surf_vmap(isp, surf);
+		if (err < 0) {
+			isp_err(isp, "failed to vmap iova=0x%llx size=0x%llx\n",
+				surf->iova, surf->size);
+		} else {
+			switch (surf->type) {
+			case 0x4c4f47: /* "LOG" */
+				isp->log_surf = surf;
+				break;
+			case 0x4d495343: /* "MISC" */
+				/* Hacky... maybe there's a better way to identify this surface? */
+				if (surf->size == 0xc000)
+					isp->bt_surf = surf;
+				break;
+			}
 		}
+
+#ifdef APPLE_ISP_DEBUG
+		/* Only enabled in debug builds so it shouldn't matter, but
+		* the LOG surface is always the first surface requested.
+		*/
+		if (!test_bit(ISP_STATE_LOGGING, &isp->state))
+			set_bit(ISP_STATE_LOGGING, &isp->state);
+#endif
 		/* To the gc it goes... */
 
 	} else {
@@ -302,8 +282,15 @@ int ipc_bt_handle(struct apple_isp *isp, struct isp_channel *chan)
 
 	/* No need to read the whole struct */
 	u64 meta_iova;
-	isp_ioread(isp, req->arg0 + ISP_IPC_BUFEXC_STAT_META_OFFSET, &meta_iova,
-		   sizeof(meta_iova));
+	u64 *p_meta_iova = apple_isp_translate(
+		isp, isp->bt_surf, req->arg0 + ISP_IPC_BUFEXC_STAT_META_OFFSET,
+		sizeof(u64));
+
+	if (!p_meta_iova) {
+		dev_err(isp->dev, "Failed to find bufexc stat meta\n");
+		return -EIO;
+	}
+	meta_iova = *p_meta_iova;
 
 	spin_lock(&isp->buf_lock);
 	list_for_each_entry_safe_reverse(buf, tmp, &isp->bufs_submitted, link) {

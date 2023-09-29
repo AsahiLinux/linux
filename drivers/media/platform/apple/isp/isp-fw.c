@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright 2023 Eileen Yoon <eyn@gmx.com> */
 
+#include "isp-fw.h"
+
+#include <asm/io.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
 #include <linux/types.h>
@@ -37,6 +40,35 @@ static inline u32 isp_gpio_read32(struct apple_isp *isp, u32 reg)
 static inline void isp_gpio_write32(struct apple_isp *isp, u32 reg, u32 val)
 {
 	writel(val, isp->gpio + reg);
+}
+
+void *apple_isp_translate(struct apple_isp *isp, struct isp_surf *surf,
+			  dma_addr_t iova, size_t size)
+{
+	dma_addr_t end = iova + size;
+	if (!surf) {
+		dev_err(isp->dev,
+			"Failed to translate IPC iova 0x%llx (0x%zx): No surface\n",
+			(long long)iova, size);
+		return NULL;
+	}
+
+	if (end < iova || iova < surf->iova ||
+	    end > (surf->iova + surf->size)) {
+		dev_err(isp->dev,
+			"Failed to translate IPC iova 0x%llx (0x%zx): Out of bounds\n",
+			(long long)iova, size);
+		return NULL;
+	}
+
+	if (!surf->virt) {
+		dev_err(isp->dev,
+			"Failed to translate IPC iova 0x%llx (0x%zx): No VMap\n",
+			(long long)iova, size);
+		return NULL;
+	}
+
+	return surf->virt + (iova - surf->iova);
 }
 
 struct isp_firmware_bootargs {
@@ -233,6 +265,8 @@ int apple_isp_alloc_firmware_surface(struct apple_isp *isp)
 		isp_err(isp, "failed to alloc shared surface for ipc\n");
 		return -ENOMEM;
 	}
+	dev_info(isp->dev, "IPC surface iova: 0x%llx\n",
+		 (long long)isp->ipc_surf->iova);
 
 	isp->data_surf = isp_alloc_surface_vmap(isp, ISP_FIRMWARE_DATA_SIZE);
 	if (!isp->data_surf) {
@@ -240,6 +274,8 @@ int apple_isp_alloc_firmware_surface(struct apple_isp *isp)
 		isp_free_surface(isp, isp->ipc_surf);
 		return -ENOMEM;
 	}
+	dev_info(isp->dev, "Data surface iova: 0x%llx\n",
+		 (long long)isp->data_surf->iova);
 
 	return 0;
 }
@@ -259,6 +295,7 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 {
 	struct isp_firmware_bootargs args;
 	dma_addr_t args_iova;
+	void *args_virt;
 	int err, retries;
 
 	u32 num_ipc_chans = isp_gpio_read32(isp, ISP_GPIO_0);
@@ -282,7 +319,9 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	}
 
 	args_iova = isp->ipc_surf->iova + args_offset + 0x40;
+	args_virt = isp->ipc_surf->virt + args_offset + 0x40;
 	isp->cmd_iova = args_iova + sizeof(args) + 0x40;
+	isp->cmd_virt = args_virt + sizeof(args) + 0x40;
 
 	memset(&args, 0, sizeof(args));
 	args.ipc_iova = isp->ipc_surf->iova;
@@ -296,7 +335,7 @@ static int isp_firmware_boot_stage2(struct apple_isp *isp)
 	args.unk7 = 0x1; // 0?
 	args.unk_iova1 = args_iova + sizeof(args) - 0xc;
 	args.unk9 = 0x3;
-	isp_iowrite(isp, args_iova, &args, sizeof(args));
+	memcpy(args_virt, &args, sizeof(args));
 
 	isp_gpio_write32(isp, ISP_GPIO_0, args_iova);
 	/* TODO: handle this via Kconfig depends? hardware is only present on
@@ -360,7 +399,15 @@ static void isp_free_channel_info(struct apple_isp *isp)
 static int isp_fill_channel_info(struct apple_isp *isp)
 {
 	u64 table_iova = isp_gpio_read32(isp, ISP_GPIO_0) |
-		((u64)isp_gpio_read32(isp, ISP_GPIO_1)) << 32;
+			 ((u64)isp_gpio_read32(isp, ISP_GPIO_1)) << 32;
+	void *table_virt = apple_isp_ipc_translate(
+		isp, table_iova,
+		sizeof(struct isp_chan_desc) * isp->num_ipc_chans);
+
+	if (!table_virt) {
+		dev_err(isp->dev, "Failed to find channel table\n");
+		return -EIO;
+	}
 
 	isp->ipc_chans = kcalloc(isp->num_ipc_chans,
 				 sizeof(struct isp_channel *), GFP_KERNEL);
@@ -369,14 +416,14 @@ static int isp_fill_channel_info(struct apple_isp *isp)
 
 	for (int i = 0; i < isp->num_ipc_chans; i++) {
 		struct isp_chan_desc desc;
-		dma_addr_t desc_iova = table_iova + (i * sizeof(desc));
+		void *desc_virt = table_virt + (i * sizeof(desc));
 		struct isp_channel *chan =
 			kzalloc(sizeof(struct isp_channel), GFP_KERNEL);
 		if (!chan)
 			goto out;
 		isp->ipc_chans[i] = chan;
 
-		isp_ioread(isp, desc_iova, &desc, sizeof(desc));
+		memcpy(&desc, desc_virt, sizeof(desc));
 		chan->name = kstrdup(desc.name, GFP_KERNEL);
 		chan->type = desc.type;
 		chan->src = desc.src;
@@ -384,8 +431,15 @@ static int isp_fill_channel_info(struct apple_isp *isp)
 		chan->num = desc.num;
 		chan->size = desc.num * ISP_IPC_MESSAGE_SIZE;
 		chan->iova = desc.iova;
+		chan->virt =
+			apple_isp_ipc_translate(isp, desc.iova, chan->size);
 		chan->cursor = 0;
 		spin_lock_init(&chan->lock);
+
+		if (!chan->virt) {
+			dev_err(isp->dev, "Failed to find channel buffer\n");
+			goto out;
+		}
 
 		if ((chan->type != ISP_IPC_CHAN_TYPE_COMMAND) &&
 		    (chan->type != ISP_IPC_CHAN_TYPE_REPLY) &&
@@ -444,11 +498,11 @@ static int isp_firmware_boot_stage3(struct apple_isp *isp)
 			continue;
 		for (int j = 0; j < chan->num; j++) {
 			struct isp_message msg;
-			dma_addr_t msg_iova = chan->iova + (j * sizeof(msg));
+			void *msg_virt = chan->virt + (j * sizeof(msg));
 
 			memset(&msg, 0, sizeof(msg));
 			msg.arg0 = ISP_IPC_FLAG_ACK;
-			isp_iowrite(isp, msg_iova, &msg, sizeof(msg));
+			memcpy(msg_virt, &msg, sizeof(msg));
 		}
 	}
 	wmb();
@@ -552,6 +606,10 @@ static int isp_start_command_processor(struct apple_isp *isp)
 static void isp_collect_gc_surface(struct apple_isp *isp)
 {
 	struct isp_surf *tmp, *surf;
+
+	isp->log_surf = NULL;
+	isp->bt_surf = NULL;
+
 	list_for_each_entry_safe_reverse(surf, tmp, &isp->gc, head) {
 		isp_dbg(isp, "freeing iova: %pad size: 0x%llx virt: %pS\n",
 			&surf->iova, surf->size, (void *)surf->virt);
