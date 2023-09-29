@@ -1102,6 +1102,17 @@ static irqreturn_t apple_dart_t8110_irq(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t apple_dart_irq(int irq, void *dev)
+{
+	irqreturn_t ret;
+	struct apple_dart *dart = dev;
+
+	WARN_ON(pm_runtime_get_sync(dart->dev) < 0);
+	ret = dart->hw->irq_handler(irq, dev);
+	pm_runtime_put(dart->dev);
+	return ret;
+}
+
 static int apple_dart_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1174,7 +1185,7 @@ static int apple_dart_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk_disable;
 
-	ret = request_irq(dart->irq, dart->hw->irq_handler, IRQF_SHARED,
+	ret = request_irq(dart->irq, apple_dart_irq, IRQF_SHARED,
 			  "apple-dart fault handler", dart);
 	if (ret)
 		goto err_clk_disable;
