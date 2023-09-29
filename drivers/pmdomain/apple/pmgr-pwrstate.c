@@ -21,7 +21,8 @@
 #define APPLE_PMGR_AUTO_ENABLE  BIT(28)
 #define APPLE_PMGR_PS_AUTO      GENMASK(27, 24)
 #define APPLE_PMGR_PS_MIN       GENMASK(19, 16)
-#define APPLE_PMGR_PARENT_OFF   BIT(11)
+#define APPLE_PMGR_PS_RESET     BIT(12)
+#define APPLE_PMGR_BUSY         BIT(11)
 #define APPLE_PMGR_DEV_DISABLE  BIT(10)
 #define APPLE_PMGR_WAS_CLKGATED BIT(9)
 #define APPLE_PMGR_WAS_PWRGATED BIT(8)
@@ -44,6 +45,8 @@ struct apple_pmgr_ps {
 	struct regmap *regmap;
 	u32 offset;
 	u32 min_state;
+	bool force_disable;
+	bool force_reset;
 };
 
 #define genpd_to_apple_pmgr_ps(_genpd) container_of(_genpd, struct apple_pmgr_ps, genpd)
@@ -53,7 +56,7 @@ static int apple_pmgr_ps_set(struct generic_pm_domain *genpd, u32 pstate, bool a
 {
 	int ret;
 	struct apple_pmgr_ps *ps = genpd_to_apple_pmgr_ps(genpd);
-	u32 reg;
+	u32 reg, cur;
 
 	ret = regmap_read(ps->regmap, ps->offset, &reg);
 	if (ret < 0)
@@ -64,7 +67,29 @@ static int apple_pmgr_ps_set(struct generic_pm_domain *genpd, u32 pstate, bool a
 		dev_err(ps->dev, "PS %s: powering off with RESET active\n",
 			genpd->name);
 
-	reg &= ~(APPLE_PMGR_AUTO_ENABLE | APPLE_PMGR_FLAGS | APPLE_PMGR_PS_TARGET);
+	if (pstate != APPLE_PMGR_PS_ACTIVE && (ps->force_disable || ps->force_reset)) {
+		u32 reg_pre = reg & ~(APPLE_PMGR_AUTO_ENABLE | APPLE_PMGR_FLAGS);
+
+		if (ps->force_disable)
+			reg_pre |= APPLE_PMGR_DEV_DISABLE;
+		if (ps->force_reset)
+			reg_pre |= APPLE_PMGR_PS_RESET;
+
+		regmap_write(ps->regmap, ps->offset, reg_pre);
+
+		ret = regmap_read_poll_timeout_atomic(
+			ps->regmap, ps->offset, cur,
+			(cur & (APPLE_PMGR_DEV_DISABLE | APPLE_PMGR_PS_RESET)) ==
+			(reg_pre & (APPLE_PMGR_DEV_DISABLE | APPLE_PMGR_PS_RESET)), 1,
+			APPLE_PMGR_PS_SET_TIMEOUT);
+
+		if (ret < 0)
+			dev_err(ps->dev, "PS %s: Failed to set reset/disable bits (now: 0x%x)\n",
+				genpd->name, reg);
+	}
+
+	reg &= ~(APPLE_PMGR_DEV_DISABLE | APPLE_PMGR_PS_RESET |
+		 APPLE_PMGR_AUTO_ENABLE | APPLE_PMGR_FLAGS | APPLE_PMGR_PS_TARGET);
 	reg |= FIELD_PREP(APPLE_PMGR_PS_TARGET, pstate);
 
 	dev_dbg(ps->dev, "PS %s: pwrstate = 0x%x: 0x%x\n", genpd->name, pstate, reg);
@@ -72,16 +97,16 @@ static int apple_pmgr_ps_set(struct generic_pm_domain *genpd, u32 pstate, bool a
 	regmap_write(ps->regmap, ps->offset, reg);
 
 	ret = regmap_read_poll_timeout_atomic(
-		ps->regmap, ps->offset, reg,
-		(FIELD_GET(APPLE_PMGR_PS_ACTUAL, reg) == pstate), 1,
+		ps->regmap, ps->offset, cur,
+		FIELD_GET(APPLE_PMGR_PS_ACTUAL, cur) == pstate, 1,
 		APPLE_PMGR_PS_SET_TIMEOUT);
+
 	if (ret < 0)
 		dev_err(ps->dev, "PS %s: Failed to reach power state 0x%x (now: 0x%x)\n",
 			genpd->name, pstate, reg);
 
 	if (auto_enable) {
 		/* Not all devices implement this; this is a no-op where not implemented. */
-		reg &= ~APPLE_PMGR_FLAGS;
 		reg |= APPLE_PMGR_AUTO_ENABLE;
 		regmap_write(ps->regmap, ps->offset, reg);
 	}
@@ -243,6 +268,12 @@ static int apple_pmgr_ps_probe(struct platform_device *pdev)
 			active = apple_pmgr_ps_power_on(&ps->genpd) == 0;
 		}
 	}
+
+	if (of_property_read_bool(node, "apple,force-disable"))
+		ps->force_disable = true;
+
+	if (of_property_read_bool(node, "apple,force-reset"))
+		ps->force_reset = true;
 
 	/* Turn on auto-PM if the domain is already on */
 	if (active)
