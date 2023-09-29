@@ -340,6 +340,10 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err) {
 		dev_err(isp->dev, "warning: calibration data not loaded: %d\n",
 			err);
+
+		/* If this failed due to a signal, propagate */
+		if (err == -EINTR)
+			return err;
 	}
 
 	if (isp->hw->gen >= ISP_GEN_T8112) {
