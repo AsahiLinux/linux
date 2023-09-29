@@ -78,7 +78,14 @@ static inline void chan_write_msg_index(struct apple_isp *isp,
 					struct isp_channel *chan,
 					struct isp_message *msg, u32 index)
 {
-	memcpy(chan_msg_virt(chan, index), msg, sizeof(*msg));
+	u64 *p0 = chan_msg_virt(chan, index);
+	memcpy(p0 + 1, &msg->arg1, sizeof(*msg) - 8);
+
+	/* Make sure we write arg0 last, since that indicates message validity. */
+
+	dma_wmb();
+	*p0 = msg->arg0;
+	dma_wmb();
 }
 
 static inline void chan_write_msg(struct apple_isp *isp,
@@ -164,7 +171,7 @@ int ipc_chan_send(struct apple_isp *isp, struct isp_channel *chan,
 	long t;
 
 	chan_write_msg(isp, chan, &chan->req);
-	wmb();
+	dma_wmb();
 
 	isp_mbox_write32(isp, ISP_MBOX_IRQ_DOORBELL, chan->doorbell);
 
