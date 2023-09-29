@@ -168,6 +168,9 @@ int ipc_chan_send(struct apple_isp *isp, struct isp_channel *chan,
 
 	isp_mbox_write32(isp, ISP_MBOX_IRQ_DOORBELL, chan->doorbell);
 
+	if (!timeout)
+		return 0;
+
 	t = wait_event_interruptible_timeout(isp->wait, chan_tx_done(isp, chan),
 					     timeout);
 	if (t == 0) {

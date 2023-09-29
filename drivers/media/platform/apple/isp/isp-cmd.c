@@ -10,11 +10,12 @@
 #define CISP_OPCODE_GET(x)    (((u64)(x)) >> CISP_OPCODE_SHIFT)
 
 #define CISP_TIMEOUT	      msecs_to_jiffies(3000)
-#define CISP_SEND_IN(x, a)    (cisp_send((x), &(a), sizeof(a), 0))
-#define CISP_SEND_INOUT(x, a) (cisp_send((x), &(a), sizeof(a), sizeof(a)))
+#define CISP_SEND_IN(x, a)    (cisp_send((x), &(a), sizeof(a), 0, CISP_TIMEOUT))
+#define CISP_SEND_INOUT(x, a) (cisp_send((x), &(a), sizeof(a), sizeof(a), CISP_TIMEOUT))
 #define CISP_SEND_OUT(x, a)   (cisp_send_read((x), (a), sizeof(*a), sizeof(*a)))
+#define CISP_POST_IN(x, a)    (cisp_send((x), &(a), sizeof(a), 0, 0))
 
-static int cisp_send(struct apple_isp *isp, void *args, u32 insize, u32 outsize)
+static int cisp_send(struct apple_isp *isp, void *args, u32 insize, u32 outsize, int timeout)
 {
 	struct isp_channel *chan = isp->chan_io;
 	struct isp_message *req = &chan->req;
@@ -25,7 +26,7 @@ static int cisp_send(struct apple_isp *isp, void *args, u32 insize, u32 outsize)
 	req->arg2 = outsize;
 
 	memcpy(isp->cmd_virt, args, insize);
-	err = ipc_chan_send(isp, chan, CISP_TIMEOUT);
+	err = ipc_chan_send(isp, chan, timeout);
 	if (err) {
 		u64 opcode;
 		memcpy(&opcode, args, sizeof(opcode));
@@ -42,7 +43,7 @@ static int cisp_send_read(struct apple_isp *isp, void *args, u32 insize,
 			  u32 outsize)
 {
 	/* TODO do I need to lock the iova space? */
-	int err = cisp_send(isp, args, insize, outsize);
+	int err = cisp_send(isp, args, insize, outsize, CISP_TIMEOUT);
 	if (err)
 		return err;
 
