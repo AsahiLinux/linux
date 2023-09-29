@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright 2023 Eileen Yoon <eyn@gmx.com> */
 
+#include <linux/module.h>
+
 #include <media/media-device.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -18,6 +20,10 @@
 #define ISP_MAX_PIX_FORMATS 2
 #define ISP_BUFFER_TIMEOUT msecs_to_jiffies(1500)
 #define ISP_STRIDE_ALIGNMENT 64
+
+static bool multiplanar = false;
+module_param(multiplanar, bool, 0644);
+MODULE_PARM_DESC(multiplanar, "Enable multiplanar API");
 
 struct isp_h2t_buffer {
 	u64 iovas[ISP_MAX_PLANES];
@@ -358,13 +364,23 @@ static int isp_vidioc_querycap(struct file *file, void *priv,
 static int isp_vidioc_enum_format(struct file *file, void *fh,
 				  struct v4l2_fmtdesc *f)
 {
+	struct apple_isp *isp = video_drvdata(file);
+
 	if (f->index >= ISP_MAX_PIX_FORMATS)
 		return -EINVAL;
 
-	if (!f->index)
+	switch (f->index) {
+	case 0:
 		f->pixelformat = V4L2_PIX_FMT_NV12;
-	else
+		break;
+	case 1:
+		if (!isp->multiplanar)
+			return -EINVAL;
 		f->pixelformat = V4L2_PIX_FMT_NV12M;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -377,7 +393,7 @@ static int isp_vidioc_enum_framesizes(struct file *file, void *fh,
 	if (f->index >= isp->num_presets)
 		return -EINVAL;
 
-	if ((f->pixel_format != V4L2_PIX_FMT_NV12) ||
+	if ((f->pixel_format != V4L2_PIX_FMT_NV12) &&
 	    (f->pixel_format != V4L2_PIX_FMT_NV12M))
 		return -EINVAL;
 
@@ -429,9 +445,6 @@ static int isp_vidioc_get_format(struct file *file, void *fh,
 	struct apple_isp *isp = video_drvdata(file);
 	struct isp_format *fmt = isp_get_current_format(isp);
 
-	if (isp->multiplanar)
-		return -ENOTTY;
-
 	isp_get_sp_pix_format(isp, f, fmt);
 
 	return 0;
@@ -445,15 +458,14 @@ static int isp_vidioc_set_format(struct file *file, void *fh,
 	struct isp_preset *preset;
 	int err;
 
-	if (isp->multiplanar)
-		return -ENOTTY;
-
 	preset = isp_select_preset(isp, f->fmt.pix.width, f->fmt.pix.height);
 	err = isp_set_preset(isp, fmt, preset);
 	if (err)
 		return err;
 
 	isp_get_sp_pix_format(isp, f, fmt);
+
+	isp->vbq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	return 0;
 }
@@ -465,9 +477,6 @@ static int isp_vidioc_try_format(struct file *file, void *fh,
 	struct isp_format fmt = *isp_get_current_format(isp);
 	struct isp_preset *preset;
 	int err;
-
-	if (isp->multiplanar)
-		return -ENOTTY;
 
 	preset = isp_select_preset(isp, f->fmt.pix.width, f->fmt.pix.height);
 	err = isp_set_preset(isp, &fmt, preset);
@@ -511,6 +520,8 @@ static int isp_vidioc_set_format_mplane(struct file *file, void *fh,
 		return err;
 
 	isp_get_mp_pix_format(isp, f, fmt);
+
+	isp->vbq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
 	return 0;
 }
@@ -569,8 +580,9 @@ static int isp_vidioc_get_param(struct file *file, void *fh,
 {
 	struct apple_isp *isp = video_drvdata(file);
 
-	if (a->type != (isp->multiplanar ? V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE :
-					   V4L2_BUF_TYPE_VIDEO_CAPTURE))
+	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+	    (!isp->multiplanar ||
+	     a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
 		return -EINVAL;
 
 	a->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
@@ -586,8 +598,9 @@ static int isp_vidioc_set_param(struct file *file, void *fh,
 {
 	struct apple_isp *isp = video_drvdata(file);
 
-	if (a->type != (isp->multiplanar ? V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE :
-					   V4L2_BUF_TYPE_VIDEO_CAPTURE))
+	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+	    (!isp->multiplanar ||
+	     a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
 		return -EINVAL;
 
 	/* Not supporting frame rate sets. No use. Plus floats. */
@@ -668,7 +681,7 @@ int apple_isp_setup_video(struct apple_isp *isp)
 		goto media_cleanup;
 	}
 
-	isp->multiplanar = 0;
+	isp->multiplanar = multiplanar;
 
 	err = v4l2_device_register(isp->dev, &isp->v4l2_dev);
 	if (err) {
@@ -697,6 +710,8 @@ int apple_isp_setup_video(struct apple_isp *isp)
 	vdev->fops = &isp_v4l2_fops;
 	vdev->ioctl_ops = &isp_v4l2_ioctl_ops;
 	vdev->device_caps = V4L2_BUF_TYPE_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
+	if (isp->multiplanar)
+		vdev->device_caps |= V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 	vdev->v4l2_dev = &isp->v4l2_dev;
 	vdev->vfl_type = VFL_TYPE_VIDEO;
 	vdev->vfl_dir = VFL_DIR_RX;
