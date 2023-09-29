@@ -133,15 +133,15 @@ static irqreturn_t apple_isp_isr_thread(int irq, void *dev)
 {
 	struct apple_isp *isp = dev;
 
-	wake_up_interruptible_all(&isp->wait);
+	wake_up_all(&isp->wait);
 
 	ipc_chan_handle(isp, isp->chan_sm);
-	wake_up_interruptible_all(&isp->wait); /* Some commands depend on sm */
+	wake_up_all(&isp->wait); /* Some commands depend on sm */
 
 	ipc_chan_handle(isp, isp->chan_tm);
 
 	ipc_chan_handle(isp, isp->chan_bt);
-	wake_up_interruptible_all(&isp->wait);
+	wake_up_all(&isp->wait);
 
 	return IRQ_HANDLED;
 }

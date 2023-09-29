@@ -178,8 +178,7 @@ int ipc_chan_send(struct apple_isp *isp, struct isp_channel *chan,
 	if (!timeout)
 		return 0;
 
-	t = wait_event_interruptible_timeout(isp->wait, chan_tx_done(isp, chan),
-					     timeout);
+	t = wait_event_timeout(isp->wait, chan_tx_done(isp, chan), timeout);
 	if (t == 0) {
 		dev_err(isp->dev,
 			"%s: timed out on request [0x%llx, 0x%llx, 0x%llx]\n",
