@@ -346,7 +346,7 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 			return err;
 	}
 
-	if (isp->hw->gen >= ISP_GEN_T8112) {
+	if (isp->hw->lpdp) {
 		err = isp_cmd_ch_lpdp_hs_receiver_tuning_set(isp, ch, 1, 15);
 		if (err)
 			return err;
@@ -395,7 +395,7 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err)
 		return err;
 
-	err = isp_cmd_apple_ch_temporal_filter_start(isp, ch);
+	err = isp_cmd_apple_ch_temporal_filter_start(isp, ch, isp->temporal_filter);
 	if (err)
 		return err;
 

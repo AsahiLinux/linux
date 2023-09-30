@@ -237,6 +237,11 @@ static int apple_isp_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	err = of_property_read_u32(dev->of_node, "apple,temporal-filter",
+				   &isp->temporal_filter);
+	if (err)
+		isp->temporal_filter = 0;
+
 	err = apple_isp_init_presets(isp);
 	if (err) {
 		dev_err(dev, "failed to initialize presets\n");
@@ -375,6 +380,7 @@ static const struct apple_isp_hw apple_isp_hw_t8103 = {
 	.bandwidth_size = 0x4,
 
 	.scl1 = false,
+	.lpdp = false,
 	.meta_size = ISP_META_SIZE_T8103,
 };
 
@@ -402,6 +408,7 @@ static const struct apple_isp_hw apple_isp_hw_t6000 = {
 	.bandwidth_size = 0x8,
 
 	.scl1 = false,
+	.lpdp = false,
 	.meta_size = ISP_META_SIZE_T8103,
 };
 
@@ -409,7 +416,6 @@ static const struct apple_isp_hw apple_isp_hw_t8112 = {
 	.gen = ISP_GEN_T8112,
 	.pmu_base = 0x23b704000,
 
-	// TODO: verify
 	.dsid_count = 1,
 	.dsid_clr_base0 = 0x200f14000,
 	.dsid_clr_range0 = 0x1000,
@@ -423,7 +429,8 @@ static const struct apple_isp_hw apple_isp_hw_t8112 = {
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
 
-	.scl1 = true,
+	.scl1 = false,
+	.lpdp = false,
 	.meta_size = ISP_META_SIZE_T8112,
 };
 
@@ -445,6 +452,7 @@ static const struct apple_isp_hw apple_isp_hw_t6020 = {
 	.bandwidth_size = 0x8,
 
 	.scl1 = true,
+	.lpdp = true,
 	.meta_size = ISP_META_SIZE_T8112,
 };
 

@@ -577,7 +577,7 @@ struct cmd_apple_ch_temporal_filter_disable {
 } __packed;
 static_assert(sizeof(struct cmd_apple_ch_temporal_filter_disable) == 0xc);
 
-int isp_cmd_apple_ch_temporal_filter_start(struct apple_isp *isp, u32 chan);
+int isp_cmd_apple_ch_temporal_filter_start(struct apple_isp *isp, u32 chan, u32 arg);
 int isp_cmd_apple_ch_temporal_filter_stop(struct apple_isp *isp, u32 chan);
 int isp_cmd_apple_ch_motion_history_start(struct apple_isp *isp, u32 chan);
 int isp_cmd_apple_ch_motion_history_stop(struct apple_isp *isp, u32 chan);

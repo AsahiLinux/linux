@@ -416,13 +416,13 @@ int isp_cmd_ch_buffer_pool_return(struct apple_isp *isp, u32 chan)
 	return CISP_SEND_IN(isp, args);
 }
 
-int isp_cmd_apple_ch_temporal_filter_start(struct apple_isp *isp, u32 chan)
+int isp_cmd_apple_ch_temporal_filter_start(struct apple_isp *isp, u32 chan, u32 arg)
 {
 	struct cmd_apple_ch_temporal_filter_start args = {
 		.opcode = CISP_OPCODE(CISP_CMD_APPLE_CH_TEMPORAL_FILTER_START),
 		.chan = chan,
 		.unk_c = 1,
-		.unk_10 = 0,
+		.unk_10 = arg,
 	};
 	return CISP_SEND_IN(isp, args);
 }
