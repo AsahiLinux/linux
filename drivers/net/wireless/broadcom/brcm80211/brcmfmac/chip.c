@@ -162,6 +162,15 @@ struct sbconfig {
 #define	SRCI_SRBSZ_SHIFT	0
 #define SR_BSZ_BASE		14
 
+#define SYSMEM_SRCI_ROMNB_MASK		0x3e0
+#define SYSMEM_SRCI_ROMNB_SHIFT		5
+#define SYSMEM_SRCI_SRNB_MASK		0x1f
+#define SYSMEM_SRCI_SRNB_SHIFT		0
+#define SYSMEM_SRCI_NEW_ROMNB_MASK	0xff000000
+#define SYSMEM_SRCI_NEW_ROMNB_SHIFT	24
+#define SYSMEM_SRCI_NEW_SRNB_MASK	0xff0000
+#define SYSMEM_SRCI_NEW_SRNB_SHIFT	16
+
 struct sbsocramregs {
 	u32 coreinfo;
 	u32 bwalloc;
@@ -659,6 +668,7 @@ static u32 brcmf_chip_sysmem_ramsize(struct brcmf_core_priv *sysmem)
 	u32 memsize = 0;
 	u32 coreinfo;
 	u32 idx;
+	u32 nrb;
 	u32 nb;
 	u32 banksize;
 
@@ -666,10 +676,16 @@ static u32 brcmf_chip_sysmem_ramsize(struct brcmf_core_priv *sysmem)
 		brcmf_chip_resetcore(&sysmem->pub, 0, 0, 0);
 
 	coreinfo = brcmf_chip_core_read32(sysmem, SYSMEMREGOFFS(coreinfo));
-	nb = (coreinfo & SRCI_SRNB_MASK) >> SRCI_SRNB_SHIFT;
+	if (sysmem->pub.rev >= 12) {
+		nrb = (coreinfo & SYSMEM_SRCI_NEW_ROMNB_MASK) >> SYSMEM_SRCI_NEW_ROMNB_SHIFT;
+		nb = (coreinfo & SYSMEM_SRCI_NEW_SRNB_MASK) >> SYSMEM_SRCI_NEW_SRNB_SHIFT;
+	} else {
+		nrb = (coreinfo & SYSMEM_SRCI_ROMNB_MASK) >> SYSMEM_SRCI_ROMNB_SHIFT;
+		nb = (coreinfo & SYSMEM_SRCI_SRNB_MASK) >> SYSMEM_SRCI_SRNB_SHIFT;
+	}
 
 	for (idx = 0; idx < nb; idx++) {
-		brcmf_chip_socram_banksize(sysmem, idx, &banksize);
+		brcmf_chip_socram_banksize(sysmem, idx + nrb, &banksize);
 		memsize += banksize;
 	}
 
