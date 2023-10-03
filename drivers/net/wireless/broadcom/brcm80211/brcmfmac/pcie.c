@@ -743,8 +743,30 @@ static void brcmf_pcie_reset_device(struct brcmf_pciedev_info *devinfo)
 
 	/* Watchdog reset */
 	brcmf_pcie_select_core(devinfo, BCMA_CORE_CHIPCOMMON);
-	WRITECC32(devinfo, watchdog, 4);
-	msleep(100);
+	core = brcmf_chip_get_chipcommon(devinfo->ci);
+
+	if (core->rev >= 65) {
+		u32 mask = CC_WD_SSRESET_PCIE_F0_EN;
+
+		core = brcmf_chip_get_core(devinfo->ci, BCMA_CORE_PCIE2);
+		if (core->rev < 66)
+			mask |= CC_WD_SSRESET_PCIE_ALL_FN_EN;
+
+		val = READCC32(devinfo, watchdog);
+		val &= ~CC_WD_ENABLE_MASK;
+		val |= mask;
+		WRITECC32(devinfo, watchdog, val);
+		val &= ~CC_WD_COUNTER_MASK;
+		val |= 4;
+		WRITECC32(devinfo, watchdog, val);
+		msleep(10);
+		val = READCC32(devinfo, intstatus);
+		val |= mask;
+		WRITECC32(devinfo, intstatus, val);
+	} else {
+		WRITECC32(devinfo, watchdog, 4);
+		msleep(100);
+	}
 
 	/* Restore ASPM */
 	brcmf_pcie_select_core(devinfo, BCMA_CORE_PCIE2);
