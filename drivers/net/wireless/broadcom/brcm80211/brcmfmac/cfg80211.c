@@ -1094,6 +1094,7 @@ static void brcmf_scan_params_v2_to_v1(struct brcmf_scan_params_v2_le *params_v2
 }
 
 static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
+			     struct brcmf_if *ifp,
 			     struct brcmf_scan_params_v2_le *params_le,
 			     struct cfg80211_scan_request *request)
 {
@@ -1110,8 +1111,13 @@ static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
 
 	length = BRCMF_SCAN_PARAMS_V2_FIXED_SIZE;
 
-	params_le->version = cpu_to_le16(BRCMF_SCAN_PARAMS_VERSION_V2);
+	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V3))
+		params_le->version = cpu_to_le16(BRCMF_SCAN_PARAMS_VERSION_V3);
+	else
+		params_le->version = cpu_to_le16(BRCMF_SCAN_PARAMS_VERSION_V2);
+
 	params_le->bss_type = DOT11_BSSTYPE_ANY;
+	params_le->ssid_type = 0;
 	params_le->scan_type = cpu_to_le32(BRCMF_SCANTYPE_ACTIVE);
 	params_le->channel_num = 0;
 	params_le->nprobes = cpu_to_le32(-1);
@@ -1205,7 +1211,7 @@ s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 		/* Do a scan abort to stop the driver's scan engine */
 		brcmf_dbg(SCAN, "ABORT scan in firmware\n");
 
-		brcmf_escan_prep(cfg, &params_v2_le, NULL);
+		brcmf_escan_prep(cfg, ifp, &params_v2_le, NULL);
 
 		/* E-Scan (or anyother type) can be aborted by SCAN */
 		if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2)) {
@@ -1465,11 +1471,13 @@ brcmf_run_escan(struct brcmf_cfg80211_info *cfg, struct brcmf_if *ifp,
 		goto exit;
 	}
 	BUG_ON(params_size + sizeof("escan") >= BRCMF_DCMD_MEDLEN);
-	brcmf_escan_prep(cfg, &params->params_v2_le, request);
+	brcmf_escan_prep(cfg, ifp, &params->params_v2_le, request);
 
-	params->version = cpu_to_le32(BRCMF_ESCAN_REQ_VERSION_V2);
-
-	if (!brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2)) {
+	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V3)) {
+		params->version = cpu_to_le32(BRCMF_ESCAN_REQ_VERSION_V3);
+	} else if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2)) {
+		params->version = cpu_to_le32(BRCMF_ESCAN_REQ_VERSION_V2);
+	} else {
 		struct brcmf_escan_params_le *params_v1;
 
 		params_size -= BRCMF_SCAN_PARAMS_V2_FIXED_SIZE;

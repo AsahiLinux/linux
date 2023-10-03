@@ -289,6 +289,7 @@ static int brcmf_feat_fwcap_debugfs_read(struct seq_file *seq, void *data)
 void brcmf_feat_attach(struct brcmf_pub *drvr)
 {
 	struct brcmf_if *ifp = brcmf_get_ifp(drvr, 0);
+	struct brcmf_wl_scan_version_le scan_ver;
 	struct brcmf_pno_macaddr_le pfn_mac;
 	struct brcmf_gscan_config gscan_cfg;
 	u32 wowl_cap;
@@ -339,7 +340,20 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 		ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_RANDOM_MAC);
 
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_FWSUP, "sup_wpa");
-	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_SCAN_V2, "scan_ver");
+
+	err = brcmf_fil_iovar_data_get(ifp, "scan_ver", &scan_ver, sizeof(scan_ver));
+	if (!err) {
+		int ver = le16_to_cpu(scan_ver.scan_ver_major);
+
+		if (ver == 2) {
+			ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2);
+		} else if (ver == 3) {
+			/* We consider SCAN_V3 a subtype of SCAN_V2 since the
+			 * structure is essentially the same.
+			 */
+			ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2) | BIT(BRCMF_FEAT_SCAN_V3);
+		}
+	}
 
 	brcmf_feat_wlc_version_overrides(drvr);
 	brcmf_feat_firmware_overrides(drvr);

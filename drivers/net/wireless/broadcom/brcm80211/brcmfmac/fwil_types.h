@@ -52,6 +52,7 @@
 
 /* version of brcmf_scan_params structure */
 #define BRCMF_SCAN_PARAMS_VERSION_V2	2
+#define BRCMF_SCAN_PARAMS_VERSION_V3	3
 
 /* masks for channel and ssid count */
 #define BRCMF_SCAN_PARAMS_COUNT_MASK	0x0000ffff
@@ -72,6 +73,7 @@
 #define DOT11_BSSTYPE_ANY		2
 #define BRCMF_ESCAN_REQ_VERSION		1
 #define BRCMF_ESCAN_REQ_VERSION_V2	2
+#define BRCMF_ESCAN_REQ_VERSION_V3	3
 
 #define BRCMF_MAXRATES_IN_SET		16	/* max # of rates in rateset */
 
@@ -414,7 +416,7 @@ struct brcmf_scan_params_v2_le {
 	s8 bss_type;		/* default: any,
 				 * DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
 				 */
-	u8 pad;
+	u8 ssid_type;		/* v3 only */
 	__le32 scan_type;	/* flags, 0 use default */
 	__le32 nprobes;		/* -1 use default, number of probes per channel */
 	__le32 active_time;	/* -1 use default, dwell time per channel for
@@ -832,6 +834,17 @@ struct brcmf_wlc_version_le {
 	__le16 wlc_ver_major;
 	__le16 wlc_ver_minor;
 };
+
+/**
+ * struct brcmf_wl_scan_version_le - scan interface version
+ */
+struct brcmf_wl_scan_version_le {
+        __le16  version;
+        __le16  length;
+        __le16  scan_ver_major;
+};
+
+#define BRCMF_WL_SCAN_VERSION_VERSION 1
 
 /**
  * struct brcmf_assoclist_le - request assoc list.
