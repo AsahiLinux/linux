@@ -2488,6 +2488,14 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 	 */
 	brcmf_pcie_adjust_ramsize(devinfo, (u8 *)fw->data, fw->size);
 
+	/* Newer firmwares will signal firmware boot via MSI, so make sure we
+	 * initialize that upfront.
+	 */
+	brcmf_pcie_select_core(devinfo, BCMA_CORE_PCIE2);
+	ret = brcmf_pcie_request_irq(devinfo);
+	if (ret)
+		goto fail;
+
 	ret = brcmf_pcie_download_fw_nvram(devinfo, fw, fwsig, nvram, nvram_len);
 	if (ret)
 		goto fail;
@@ -2503,9 +2511,6 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 		goto fail;
 
 	brcmf_pcie_select_core(devinfo, BCMA_CORE_PCIE2);
-	ret = brcmf_pcie_request_irq(devinfo);
-	if (ret)
-		goto fail;
 
 	/* hook the commonrings in the bus structure. */
 	for (i = 0; i < BRCMF_NROF_COMMON_MSGRINGS; i++)
