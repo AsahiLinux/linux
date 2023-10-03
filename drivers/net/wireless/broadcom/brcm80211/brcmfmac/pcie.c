@@ -392,6 +392,7 @@ struct brcmf_pciedev_info {
 	bool in_irq;
 	struct pci_dev *pdev;
 	char fw_name[BRCMF_FW_NAME_LEN];
+	char sig_name[BRCMF_FW_NAME_LEN];
 	char nvram_name[BRCMF_FW_NAME_LEN];
 	char clm_name[BRCMF_FW_NAME_LEN];
 	char txcap_name[BRCMF_FW_NAME_LEN];
@@ -400,8 +401,7 @@ struct brcmf_pciedev_info {
 	const struct brcmf_pcie_reginfo *reginfo;
 	void __iomem *regs;
 	void __iomem *tcm;
-	u32 ram_base;
-	u32 ram_size;
+	u32 fw_size;
 	struct brcmf_chip *ci;
 	u32 coreid;
 	struct brcmf_pcie_shared_info shared;
@@ -1811,26 +1811,164 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 	return 0;
 }
 
-struct brcmf_random_seed_footer {
+struct brcmf_rtlv_footer {
 	__le32 length;
 	__le32 magic;
 };
 
+struct brcmf_fw_memmap {
+	u32 pad1[8];
+	u32 vstatus_start;
+	u32 vstatus_end;
+	u32 fw_start;
+	u32 fw_end;
+	u32 sig_start;
+	u32 sig_end;
+	u32 heap_start;
+	u32 heap_end;
+	u32 pad2[6];
+};
+
+
+#define BRCMF_BL_HEAP_START_GAP		0x1000
+#define BRCMF_BL_HEAP_SIZE		0x10000
 #define BRCMF_RANDOM_SEED_MAGIC		0xfeedc0de
 #define BRCMF_RANDOM_SEED_LENGTH	0x100
+#define BRCMF_SIG_MAGIC			0xfeedfe51
+#define BRCMF_VSTATUS_MAGIC		0xfeedfe54
+#define BRCMF_VSTATUS_SIZE		0x28
+#define BRCMF_MEMMAP_MAGIC		0xfeedfe53
+#define BRCMF_END_MAGIC			0xfeed0e2d
 
-static noinline_for_stack void
-brcmf_pcie_provide_random_bytes(struct brcmf_pciedev_info *devinfo, u32 address)
+static int brcmf_alloc_rtlv(struct brcmf_pciedev_info *devinfo, u32 *address, u32 type, size_t length)
 {
+	struct brcmf_bus *bus = dev_get_drvdata(&devinfo->pdev->dev);
+	u32 boundary = devinfo->ci->rambase + devinfo->fw_size +
+		BRCMF_BL_HEAP_START_GAP + BRCMF_BL_HEAP_SIZE;
+	u32 start_addr;
+	struct brcmf_rtlv_footer footer = {
+		.magic = type,
+	};
+
+	length = ALIGN(length, 4);
+	start_addr = *address - length - sizeof(struct brcmf_rtlv_footer);
+
+	if (length > 0xffff || start_addr > *address || start_addr < boundary) {
+		brcmf_err(bus, "failed to allocate 0x%zx bytes for rTLV type 0x%x\n",
+			  length, type);
+		return -ENOMEM;
+	}
+
+	/* Random seed does not use the length check code */
+	if (type == BRCMF_RANDOM_SEED_MAGIC)
+		footer.length = length;
+	else
+		footer.length = length | ((length ^ 0xffff) << 16);
+
+	memcpy_toio(devinfo->tcm + *address - sizeof(struct brcmf_rtlv_footer),
+		    &footer, sizeof(struct brcmf_rtlv_footer));
+
+	*address = start_addr;
+
+	return 0;
+}
+
+static noinline_for_stack int
+brcmf_pcie_add_random_seed(struct brcmf_pciedev_info *devinfo, u32 *address)
+{
+	int err;
 	u8 randbuf[BRCMF_RANDOM_SEED_LENGTH];
 
+	err = brcmf_alloc_rtlv(devinfo, address,
+			       BRCMF_RANDOM_SEED_MAGIC, BRCMF_RANDOM_SEED_LENGTH);
+	if (err)
+		return err;
+
+	/* Some Apple chips/firmwares expect a buffer of random
+	 * data to be present before NVRAM
+	 */
+	brcmf_dbg(PCIE, "Download random seed\n");
+
 	get_random_bytes(randbuf, BRCMF_RANDOM_SEED_LENGTH);
-	memcpy_toio(devinfo->tcm + address, randbuf, BRCMF_RANDOM_SEED_LENGTH);
+	memcpy_toio(devinfo->tcm + *address, randbuf, BRCMF_RANDOM_SEED_LENGTH);
+
+	return 0;
+}
+
+static int brcmf_pcie_add_signature(struct brcmf_pciedev_info *devinfo,
+				    u32 *address, const struct firmware *fwsig)
+{
+	int err;
+	struct brcmf_fw_memmap memmap;
+
+	brcmf_dbg(PCIE, "Download firmware signature\n");
+
+	memset(&memmap, 0, sizeof(memmap));
+
+	memmap.sig_end = *address;
+	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_SIG_MAGIC, fwsig->size);
+	if (err)
+		return err;
+	memmap.sig_start = *address;
+
+	memmap.vstatus_end = *address;
+	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_VSTATUS_MAGIC, BRCMF_VSTATUS_SIZE);
+	if (err)
+		return err;
+	memmap.vstatus_start = *address;
+
+	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_MEMMAP_MAGIC, sizeof(memmap));
+	if (err)
+		return err;
+
+	memmap.fw_start = devinfo->ci->rambase;
+	memmap.fw_end = memmap.fw_start + devinfo->fw_size;
+	memmap.heap_start = memmap.fw_end + BRCMF_BL_HEAP_START_GAP;
+	memmap.heap_end = memmap.heap_start + BRCMF_BL_HEAP_SIZE;
+
+	if (memmap.heap_end > *address)
+		return -ENOMEM;
+
+	memcpy_toio(devinfo->tcm + memmap.sig_start, fwsig->data, fwsig->size);
+	memset_io(devinfo->tcm + memmap.vstatus_start, 0, BRCMF_VSTATUS_SIZE);
+	memcpy_toio(devinfo->tcm + *address, &memmap, sizeof(memmap));
+
+	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_END_MAGIC, 0);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+static int brcmf_pcie_populate_footers(struct brcmf_pciedev_info *devinfo,
+				       u32 *address, const struct firmware *fwsig)
+{
+	int err;
+
+	/* We only do this for Apple firmwares. If any other
+	 * production firmwares are found to need this, the condition
+	 * needs to be adjusted.
+	 */
+	if (!devinfo->fwseed)
+		return 0;
+
+	err = brcmf_pcie_add_random_seed(devinfo, address);
+	if (err)
+		return err;
+
+	if (fwsig) {
+		err = brcmf_pcie_add_signature(devinfo, address, fwsig);
+		if (err)
+			return err;
+	}
+
+	return 0;
 }
 
 static int brcmf_pcie_download_fw_nvram(struct brcmf_pciedev_info *devinfo,
-					const struct firmware *fw, void *nvram,
-					u32 nvram_len)
+					const struct firmware *fw,
+					const struct firmware *fwsig,
+					void *nvram, u32 nvram_len)
 {
 	struct brcmf_bus *bus = dev_get_drvdata(&devinfo->pdev->dev);
 	u32 sharedram_addr;
@@ -1850,6 +1988,7 @@ static int brcmf_pcie_download_fw_nvram(struct brcmf_pciedev_info *devinfo,
 		    (void *)fw->data, fw->size);
 
 	resetintr = get_unaligned_le32(fw->data);
+	devinfo->fw_size = fw->size;
 	release_firmware(fw);
 
 	/* reset last 4 bytes of RAM address. to be used for shared
@@ -1857,36 +1996,30 @@ static int brcmf_pcie_download_fw_nvram(struct brcmf_pciedev_info *devinfo,
 	 */
 	brcmf_pcie_write_ram32(devinfo, devinfo->ci->ramsize - 4, 0);
 
+	address = devinfo->ci->rambase + devinfo->ci->ramsize;
+
 	if (nvram) {
 		brcmf_dbg(PCIE, "Download NVRAM %s\n", devinfo->nvram_name);
-		address = devinfo->ci->rambase + devinfo->ci->ramsize -
-			  nvram_len;
+		address -= nvram_len;
 		memcpy_toio(devinfo->tcm + address, nvram, nvram_len);
 		brcmf_fw_nvram_free(nvram);
 
-		if (devinfo->fwseed) {
-			size_t rand_len = BRCMF_RANDOM_SEED_LENGTH;
-			struct brcmf_random_seed_footer footer = {
-				.length = cpu_to_le32(rand_len),
-				.magic = cpu_to_le32(BRCMF_RANDOM_SEED_MAGIC),
-			};
-
-			/* Some chips/firmwares expect a buffer of random
-			 * data to be present before NVRAM
-			 */
-			brcmf_dbg(PCIE, "Download random seed\n");
-
-			address -= sizeof(footer);
-			memcpy_toio(devinfo->tcm + address, &footer,
-				    sizeof(footer));
-
-			address -= rand_len;
-			brcmf_pcie_provide_random_bytes(devinfo, address);
-		}
+		err = brcmf_pcie_populate_footers(devinfo, &address, fwsig);
+		if (err)
+			brcmf_err(bus, "failed to populate firmware footers err=%d\n", err);
 	} else {
 		brcmf_dbg(PCIE, "No matching NVRAM file found %s\n",
 			  devinfo->nvram_name);
 	}
+
+	release_firmware(fwsig);
+
+	/* Clear free TCM. This isn't really necessary, but it
+	 * makes debugging memory dumps a lot easier since we
+	 * don't get a bunch of junk filling up the free space.
+	 */
+	memset_io(devinfo->tcm + devinfo->ci->rambase + devinfo->fw_size,
+		  0, address - devinfo->fw_size - devinfo->ci->rambase);
 
 	sharedram_addr_written = brcmf_pcie_read_ram32(devinfo,
 						       devinfo->ci->ramsize -
@@ -2273,11 +2406,12 @@ static int brcmf_pcie_read_otp(struct brcmf_pciedev_info *devinfo)
 #define BRCMF_PCIE_FW_NVRAM	1
 #define BRCMF_PCIE_FW_CLM	2
 #define BRCMF_PCIE_FW_TXCAP	3
+#define BRCMF_PCIE_FW_SIG	4
 
 static void brcmf_pcie_setup(struct device *dev, int ret,
 			     struct brcmf_fw_request *fwreq)
 {
-	const struct firmware *fw;
+	const struct firmware *fw, *fwsig;
 	void *nvram;
 	struct brcmf_bus *bus;
 	struct brcmf_pciedev *pcie_bus_dev;
@@ -2296,6 +2430,7 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 	brcmf_pcie_attach(devinfo);
 
 	fw = fwreq->items[BRCMF_PCIE_FW_CODE].binary;
+	fwsig = fwreq->items[BRCMF_PCIE_FW_SIG].binary;
 	nvram = fwreq->items[BRCMF_PCIE_FW_NVRAM].nv_data.data;
 	nvram_len = fwreq->items[BRCMF_PCIE_FW_NVRAM].nv_data.len;
 	devinfo->clm_fw = fwreq->items[BRCMF_PCIE_FW_CLM].binary;
@@ -2306,6 +2441,7 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 	if (ret) {
 		brcmf_err(bus, "Failed to get RAM info\n");
 		release_firmware(fw);
+		release_firmware(fwsig);
 		brcmf_fw_nvram_free(nvram);
 		goto fail;
 	}
@@ -2317,7 +2453,7 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 	 */
 	brcmf_pcie_adjust_ramsize(devinfo, (u8 *)fw->data, fw->size);
 
-	ret = brcmf_pcie_download_fw_nvram(devinfo, fw, nvram, nvram_len);
+	ret = brcmf_pcie_download_fw_nvram(devinfo, fw, fwsig, nvram, nvram_len);
 	if (ret)
 		goto fail;
 
@@ -2381,6 +2517,7 @@ brcmf_pcie_prepare_fw_request(struct brcmf_pciedev_info *devinfo)
 		{ ".txt", devinfo->nvram_name },
 		{ ".clm_blob", devinfo->clm_name },
 		{ ".txcap_blob", devinfo->txcap_name },
+		{ ".sig", devinfo->sig_name },
 	};
 
 	fwreq = brcmf_fw_alloc_request(devinfo->ci->chip, devinfo->ci->chiprev,
@@ -2391,6 +2528,8 @@ brcmf_pcie_prepare_fw_request(struct brcmf_pciedev_info *devinfo)
 		return NULL;
 
 	fwreq->items[BRCMF_PCIE_FW_CODE].type = BRCMF_FW_TYPE_BINARY;
+	fwreq->items[BRCMF_PCIE_FW_SIG].type = BRCMF_FW_TYPE_BINARY;
+	fwreq->items[BRCMF_PCIE_FW_SIG].flags = BRCMF_FW_REQF_OPTIONAL;
 	fwreq->items[BRCMF_PCIE_FW_NVRAM].type = BRCMF_FW_TYPE_NVRAM;
 	fwreq->items[BRCMF_PCIE_FW_NVRAM].flags = BRCMF_FW_REQF_OPTIONAL;
 	fwreq->items[BRCMF_PCIE_FW_CLM].type = BRCMF_FW_TYPE_BINARY;
