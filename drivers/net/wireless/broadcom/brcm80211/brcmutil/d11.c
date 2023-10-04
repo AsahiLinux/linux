@@ -117,7 +117,9 @@ static void brcmu_d11n_decchspec(struct brcmu_chan *ch)
 		}
 		break;
 	default:
-		WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+		WARN_ONCE(1,
+			  "Invalid chanspec - unknown 11n bandwidth 0x%04x\n",
+			  ch->chspec);
 		break;
 	}
 
@@ -129,7 +131,8 @@ static void brcmu_d11n_decchspec(struct brcmu_chan *ch)
 		ch->band = BRCMU_CHAN_BAND_2G;
 		break;
 	default:
-		WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+		WARN_ONCE(1, "Invalid chanspec - unknown 11n band 0x%04x\n",
+			  ch->chspec);
 		break;
 	}
 }
@@ -156,7 +159,10 @@ static void brcmu_d11ac_decchspec(struct brcmu_chan *ch)
 			ch->sb = BRCMU_CHAN_SB_U;
 			ch->control_ch_num += CH_10MHZ_APART;
 		} else {
-			WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+			WARN_ONCE(
+				1,
+				"Invalid chanspec - unknown 11ac channel distance 0x%04x\n",
+				ch->chspec);
 		}
 		break;
 	case BRCMU_CHSPEC_D11AC_BW_80:
@@ -177,7 +183,10 @@ static void brcmu_d11ac_decchspec(struct brcmu_chan *ch)
 			ch->control_ch_num += CH_30MHZ_APART;
 			break;
 		default:
-			WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+			WARN_ONCE(
+				1,
+				"Invalid chanspec - unknown 11ac channel distance 0x%04x\n",
+				ch->chspec);
 			break;
 		}
 		break;
@@ -211,17 +220,26 @@ static void brcmu_d11ac_decchspec(struct brcmu_chan *ch)
 			ch->control_ch_num += CH_70MHZ_APART;
 			break;
 		default:
-			WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+			WARN_ONCE(
+				1,
+				"Invalid chanspec - unknown 11ac channel distance 0x%04x\n",
+				ch->chspec);
 			break;
 		}
 		break;
 	case BRCMU_CHSPEC_D11AC_BW_8080:
 	default:
-		WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+		WARN_ONCE(
+			1,
+			"Invalid chanspec - unknown 11ac channel bandwidth 0x%04x\n",
+			ch->chspec);
 		break;
 	}
 
 	switch (ch->chspec & BRCMU_CHSPEC_D11AC_BND_MASK) {
+	case BRCMU_CHSPEC_D11AC_BND_6G:
+		ch->band = BRCMU_CHAN_BAND_6G;
+		break;
 	case BRCMU_CHSPEC_D11AC_BND_5G:
 		ch->band = BRCMU_CHAN_BAND_5G;
 		break;
@@ -229,7 +247,10 @@ static void brcmu_d11ac_decchspec(struct brcmu_chan *ch)
 		ch->band = BRCMU_CHAN_BAND_2G;
 		break;
 	default:
-		WARN_ONCE(1, "Invalid chanspec 0x%04x\n", ch->chspec);
+		WARN_ONCE(
+			1,
+			"Invalid chanspec - unknown 11ac channel band 0x%04x\n",
+			ch->chspec);
 		break;
 	}
 }
