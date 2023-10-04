@@ -600,11 +600,26 @@ static int isp_stop_command_processor(struct apple_isp *isp)
 {
 	int retries;
 
+#if 0
+	int res = isp_cmd_stop(isp, 0);
+	if (res) {
+		isp_err(isp, "isp_cmd_stop() failed\n");
+		return res;
+	}
+
 	/* Wait for ISP_GPIO_0 to 0xf7fbdff9 -> 0x8042006 */
 	isp_gpio_write32(isp, ISP_GPIO_0, 0xf7fbdff9);
 
-	/* Their CISP_CMD_STOP implementation is buggy */
-	isp_cmd_suspend(isp);
+	isp_cmd_power_down(isp);
+#else
+	isp_gpio_write32(isp, ISP_GPIO_0, 0xf7fbdff9);
+
+	int res = isp_cmd_suspend(isp);
+	if (res) {
+		isp_err(isp, "isp_cmd_suspend() failed\n");
+		return res;
+	}
+#endif
 
 	for (retries = 0; retries < ISP_FIRMWARE_MAX_TRIES; retries++) {
 		u32 val = isp_gpio_read32(isp, ISP_GPIO_0);
