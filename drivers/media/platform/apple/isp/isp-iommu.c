@@ -113,7 +113,7 @@ static int isp_surf_iommu_map(struct apple_isp *isp, struct isp_surf *surf)
 	}
 
 	size = iommu_map_sgtable(isp->domain, surf->iova, &surf->sgt,
-				 IOMMU_READ | IOMMU_WRITE);
+				 IOMMU_READ | IOMMU_WRITE | IOMMU_CACHE);
 	if (size < surf->size) {
 		dev_err(isp->dev, "failed to iommu_map sgt to iova %pad\n",
 			&surf->iova);
@@ -232,7 +232,7 @@ int apple_isp_iommu_map_sgt(struct apple_isp *isp, struct isp_surf *surf,
 	}
 
 	mapped = iommu_map_sgtable(isp->domain, surf->iova, sgt,
-				   IOMMU_READ | IOMMU_WRITE);
+				   IOMMU_READ | IOMMU_WRITE | IOMMU_CACHE);
 	if (mapped < surf->size) {
 		dev_err(isp->dev, "failed to iommu_map sgt to iova %pad\n",
 			&surf->iova);
