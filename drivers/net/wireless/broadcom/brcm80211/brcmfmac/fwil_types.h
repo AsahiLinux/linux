@@ -1249,4 +1249,31 @@ struct brcmf_mkeep_alive_pkt_le {
 	u8   data[];
 } __packed;
 
+enum event_msgs_ext_command {
+	EVENTMSGS_NONE		=	0,
+	EVENTMSGS_SET_BIT	=	1,
+	EVENTMSGS_RESET_BIT	=	2,
+	EVENTMSGS_SET_MASK	=	3
+};
+
+#define EVENTMSGS_VER 1
+
+/**
+ * struct brcmf_eventmsgs_ext_le - new event message mask commands
+ *
+ * @version: EVENTMSGS_VER
+ * @command: one of enum event_msgs_ext_command
+ * @len: for set, the mask size from the application to the firmware.
+ *       for get, the actual firmware mask size.
+ * @maxgetsize: for get, the max size that the application can read from
+ *              the firmware.
+ */
+struct brcmf_eventmsgs_ext_le {
+	u8	version;
+	u8	command;
+	u8	len;
+	u8	maxgetsize;
+	u8	mask[];
+};
+
 #endif /* FWIL_TYPES_H_ */
