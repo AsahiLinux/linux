@@ -271,15 +271,21 @@ static void isp_firmware_shutdown_stage1(struct apple_isp *isp)
 static int isp_firmware_boot_stage1(struct apple_isp *isp)
 {
 	int err, retries;
+	u32 val;
+
 	err = apple_isp_power_up_domains(isp);
 	if (err < 0)
 		return err;
 
-	err = isp_reset_coproc(isp);
-	if (err < 0)
-		return err;
 
 	isp_gpio_write32(isp, ISP_GPIO_CLOCK_EN, 0x1);
+
+	val = isp_gpio_read32(isp, ISP_GPIO_1);
+	if (val == 0xfeedbabe) {
+		err = isp_reset_coproc(isp);
+		if (err < 0)
+			return err;
+	}
 
 	isp_gpio_write32(isp, ISP_GPIO_0, 0x0);
 	isp_gpio_write32(isp, ISP_GPIO_1, 0x0);
@@ -296,7 +302,6 @@ static int isp_firmware_boot_stage1(struct apple_isp *isp)
 	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x10);
 
 	/* Wait for ISP_GPIO_7 to 0x0 -> 0x8042006 */
-	isp_gpio_write32(isp, ISP_GPIO_7, 0x0);
 	for (retries = 0; retries < ISP_FIRMWARE_MAX_TRIES; retries++) {
 		u32 val = isp_gpio_read32(isp, ISP_GPIO_7);
 		if (val == 0x8042006) {
