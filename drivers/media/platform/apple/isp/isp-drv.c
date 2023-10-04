@@ -54,6 +54,12 @@ static int apple_isp_attach_genpd(struct apple_isp *isp)
 		return -ENOMEM;
 
 	for (int i = 0; i < isp->pd_count; i++) {
+		int flags = DL_FLAG_STATELESS;
+
+		/* Primary power domain uses RPM integration */
+		if (i == 0)
+			flags |= DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE;
+
 		isp->pd_dev[i] = dev_pm_domain_attach_by_id(dev, i);
 		if (IS_ERR(isp->pd_dev[i])) {
 			apple_isp_detach_genpd(isp);
@@ -61,9 +67,8 @@ static int apple_isp_attach_genpd(struct apple_isp *isp)
 		}
 
 		isp->pd_link[i] =
-			device_link_add(dev, isp->pd_dev[i],
-					DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME |
-						DL_FLAG_RPM_ACTIVE);
+			device_link_add(dev, isp->pd_dev[i], flags);
+
 		if (!isp->pd_link[i]) {
 			apple_isp_detach_genpd(isp);
 			return -EINVAL;

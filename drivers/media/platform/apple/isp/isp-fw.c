@@ -42,6 +42,46 @@ static inline void isp_gpio_write32(struct apple_isp *isp, u32 reg, u32 val)
 	writel(val, isp->gpio + reg);
 }
 
+int apple_isp_power_up_domains(struct apple_isp *isp)
+static int apple_isp_power_up_domains(struct apple_isp *isp)
+	int ret;
+
+	if (isp->pds_active)
+		return 0;
+
+	for (int i = 1; i < isp->pd_count; i++) {
+		ret = pm_runtime_get_sync(isp->pd_dev[i]);
+		if (ret < 0) {
+			dev_err(isp->dev,
+				"Failed to power up power domain %d: %d\n", i, ret);
+			while (--i != 1)
+				pm_runtime_put_sync(isp->pd_dev[i]);
+			return ret;
+		}
+	}
+
+	isp->pds_active = true;
+
+	return 0;
+}
+
+void apple_isp_power_down_domains(struct apple_isp *isp)
+static void apple_isp_power_down_domains(struct apple_isp *isp)
+	int ret;
+
+	if (!isp->pds_active)
+		return;
+
+	for (int i = isp->pd_count - 1; i >= 1; i--) {
+		ret = pm_runtime_put_sync(isp->pd_dev[i]);
+		if (ret < 0)
+			dev_err(isp->dev,
+				"Failed to power up power domain %d: %d\n", i, ret);
+	}
+
+	isp->pds_active = false;
+}
+
 void *apple_isp_translate(struct apple_isp *isp, struct isp_surf *surf,
 			  dma_addr_t iova, size_t size)
 {
@@ -210,11 +250,16 @@ static int isp_reset_coproc(struct apple_isp *isp)
 static void isp_firmware_shutdown_stage1(struct apple_isp *isp)
 {
 	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x0);
+
+	apple_isp_power_down_domains(isp);
 }
 
 static int isp_firmware_boot_stage1(struct apple_isp *isp)
 {
 	int err, retries;
+	err = apple_isp_power_up_domains(isp);
+	if (err < 0)
+		return err;
 
 	err = isp_reset_coproc(isp);
 	if (err < 0)

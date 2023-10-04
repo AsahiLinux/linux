@@ -198,6 +198,7 @@ struct apple_isp {
 	int pd_count;
 	struct device **pd_dev;
 	struct device_link **pd_link;
+	bool pds_active;
 
 	int irq;
 
