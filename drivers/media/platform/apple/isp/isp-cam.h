@@ -8,6 +8,7 @@
 
 #define ISP_FRAME_RATE_NUM 256
 #define ISP_FRAME_RATE_DEN 7680
+#define ISP_FRAME_RATE_DEN2 3840
 
 int apple_isp_detect_camera(struct apple_isp *isp);
 

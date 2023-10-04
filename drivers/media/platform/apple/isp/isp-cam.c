@@ -289,6 +289,12 @@ int apple_isp_detect_camera(struct apple_isp *isp)
 	}
 
 	err = isp_detect_camera(isp);
+
+	isp_cmd_flicker_sensor_set(isp, 0);
+
+	isp_cmd_ch_stop(isp, 0);
+	isp_cmd_ch_buffer_return(isp, isp->current_ch);
+
 	apple_isp_firmware_shutdown(isp);
 
 	return err;
@@ -335,6 +341,8 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	struct isp_format *fmt = isp_get_format(isp, ch);
 	int err;
 
+	isp_cmd_flicker_sensor_set(isp, 0);
+
 	/* The setfile isn't requisite but then we don't get calibration */
 	err = isp_ch_load_setfile(isp, ch);
 	if (err) {
@@ -356,16 +364,16 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err)
 		return err;
 
+	err = isp_cmd_ch_camera_config_select(isp, ch, fmt->preset->index);
+	if (err)
+		return err;
+
 	err = isp_cmd_ch_buffer_recycle_mode_set(
 		isp, ch, CISP_BUFFER_RECYCLE_MODE_EMPTY_ONLY);
 	if (err)
 		return err;
 
 	err = isp_cmd_ch_buffer_recycle_start(isp, ch);
-	if (err)
-		return err;
-
-	err = isp_cmd_ch_camera_config_select(isp, ch, fmt->preset->index);
 	if (err)
 		return err;
 
@@ -395,18 +403,6 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err)
 		return err;
 
-	err = isp_cmd_apple_ch_temporal_filter_start(isp, ch, isp->temporal_filter);
-	if (err)
-		return err;
-
-	err = isp_cmd_apple_ch_motion_history_start(isp, ch);
-	if (err)
-		return err;
-
-	err = isp_cmd_apple_ch_temporal_filter_enable(isp, ch);
-	if (err)
-		return err;
-
 	err = isp_cmd_apple_ch_ae_fd_scene_metering_config_set(isp, ch);
 	if (err)
 		return err;
@@ -431,7 +427,19 @@ static int isp_ch_configure_capture(struct apple_isp *isp, u32 ch)
 	if (err)
 		return err;
 
-	err = isp_cmd_ch_ae_frame_rate_min_set(isp, ch, ISP_FRAME_RATE_DEN);
+	err = isp_cmd_ch_ae_frame_rate_min_set(isp, ch, ISP_FRAME_RATE_DEN2);
+	if (err)
+		return err;
+
+	err = isp_cmd_apple_ch_temporal_filter_start(isp, ch, isp->temporal_filter);
+	if (err)
+		return err;
+
+	err = isp_cmd_apple_ch_motion_history_start(isp, ch);
+	if (err)
+		return err;
+
+	err = isp_cmd_apple_ch_temporal_filter_enable(isp, ch);
 	if (err)
 		return err;
 
