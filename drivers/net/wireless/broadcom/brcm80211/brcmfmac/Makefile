@@ -25,6 +25,7 @@ brcmfmac-objs += \
 		btcoex.o \
 		vendor.o \
 		pno.o \
+		join_param.o \
 		scan_param.o \
 		xtlv.o
 

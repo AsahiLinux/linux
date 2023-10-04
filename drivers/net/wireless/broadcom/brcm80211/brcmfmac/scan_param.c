@@ -423,19 +423,19 @@ int brcmf_scan_param_setup_for_version(struct brcmf_pub *drvr, u8 version)
 	drvr->scan_param_handler.version = version;
 	switch (version) {
 	case 1: {
-		drvr->scan_param_handler.get_prepped_struct =
+		drvr->scan_param_handler.get_struct_for_request =
 			brcmf_scan_param_get_prepped_struct_v1;
 	} break;
 	case 2: {
-		drvr->scan_param_handler.get_prepped_struct =
+		drvr->scan_param_handler.get_struct_for_request =
 			brcmf_scan_param_get_prepped_struct_v2;
 	} break;
 	case 3: {
-		drvr->scan_param_handler.get_prepped_struct =
+		drvr->scan_param_handler.get_struct_for_request =
 			brcmf_scan_param_get_prepped_struct_v3;
 	} break;
 	case 4: {
-		drvr->scan_param_handler.get_prepped_struct =
+		drvr->scan_param_handler.get_struct_for_request =
 			brcmf_scan_param_get_prepped_struct_v4;
 
 	} break;
