@@ -67,7 +67,7 @@
 #define BRCMF_WSEC_MAX_PSK_LEN		32
 #define	BRCMF_WSEC_PASSPHRASE		BIT(0)
 
-#define BRCMF_WSEC_MAX_SAE_PASSWORD_LEN 128
+#define BRCMF_WSEC_MAX_SAE_PASSWORD_LEN	256
 
 /* primary (ie tx) key */
 #define BRCMF_PRIMARY_KEY		(1 << 1)
@@ -611,11 +611,15 @@ struct brcmf_wsec_key_le {
  * @key_len: number of octets in key material.
  * @flags: key handling qualifiers.
  * @key: PMK key material.
+ * @opt_len: optional field length
+ * @opt_tlvs: optional fields in TLV format
  */
 struct brcmf_wsec_pmk_le {
 	__le16  key_len;
 	__le16  flags;
 	u8 key[BRCMF_WSEC_MAX_SAE_PASSWORD_LEN];
+	__le16  opt_len;
+	u8   opt_tlvs[];
 };
 
 /**
