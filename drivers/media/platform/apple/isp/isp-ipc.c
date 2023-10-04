@@ -157,6 +157,8 @@ int ipc_chan_handle(struct apple_isp *isp, struct isp_channel *chan)
 
 static inline bool chan_tx_done(struct apple_isp *isp, struct isp_channel *chan)
 {
+	dma_rmb();
+
 	chan_read_msg(isp, chan, &chan->rsp);
 	if ((chan->rsp.arg0) == (chan->req.arg0 | ISP_IPC_FLAG_ACK)) {
 		chan_update_cursor(chan);
