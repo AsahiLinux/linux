@@ -216,6 +216,7 @@ static int isp_reset_coproc(struct apple_isp *isp)
 {
 	int retries;
 	u32 status;
+	u32 val;
 
 	isp_coproc_write32(isp, ISP_COPROC_EDPRCR, 0x2);
 
@@ -230,6 +231,18 @@ static int isp_reset_coproc(struct apple_isp *isp)
 	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_3, 0xffffffff);
 	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_4, 0xffffffff);
 	isp_coproc_write32(isp, ISP_COPROC_IRQ_MASK_5, 0xffffffff);
+
+	for (retries = 0; retries < 128; retries++) {
+		val = isp_coproc_read32(isp, 0x818);
+		if (val == 0)
+			break;
+	}
+
+	for (retries = 0; retries < 128; retries++) {
+		val = isp_coproc_read32(isp, 0x81c);
+		if (val == 0)
+			break;
+	}
 
 	for (retries = 0; retries < ISP_FIRMWARE_MAX_TRIES; retries++) {
 		status = isp_coproc_read32(isp, ISP_COPROC_STATUS);
