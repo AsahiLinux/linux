@@ -14,6 +14,7 @@
 #define CISP_SEND_INOUT(x, a) (cisp_send((x), &(a), sizeof(a), sizeof(a), CISP_TIMEOUT))
 #define CISP_SEND_OUT(x, a)   (cisp_send_read((x), (a), sizeof(*a), sizeof(*a)))
 #define CISP_POST_IN(x, a)    (cisp_send((x), &(a), sizeof(a), 0, 0))
+#define CISP_POST_INOUT(x, a)    (cisp_send((x), &(a), sizeof(a), sizeof(a), 0))
 
 static int cisp_send(struct apple_isp *isp, void *args, u32 insize, u32 outsize, int timeout)
 {
@@ -202,6 +203,15 @@ int isp_cmd_ch_stop(struct apple_isp *isp, u32 chan)
 		.chan = chan,
 	};
 	return CISP_SEND_IN(isp, args);
+}
+
+int isp_cmd_flicker_sensor_set(struct apple_isp *isp, u32 mode)
+{
+	struct cmd_flicker_sensor_set args = {
+		.opcode = CISP_OPCODE(CISP_CMD_FLICKER_SENSOR_SET),
+		.mode = mode,
+	};
+	return CISP_SEND_INOUT(isp, args);
 }
 
 int isp_cmd_ch_info_get(struct apple_isp *isp, u32 chan,

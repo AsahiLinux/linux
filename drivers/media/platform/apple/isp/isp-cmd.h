@@ -232,6 +232,12 @@ struct cmd_ipc_endpoint_set2 {
 } __packed;
 static_assert(sizeof(struct cmd_ipc_endpoint_set2) == 0x30);
 
+struct cmd_flicker_sensor_set {
+	u64 opcode;
+	u32 mode;
+} __packed;
+static_assert(sizeof(struct cmd_flicker_sensor_set) == 0xc);
+
 int isp_cmd_start(struct apple_isp *isp, u32 mode);
 int isp_cmd_stop(struct apple_isp *isp, u32 mode);
 int isp_cmd_power_down(struct apple_isp *isp);
@@ -253,6 +259,7 @@ int isp_cmd_pmp_ctrl_set(struct apple_isp *isp, u64 clock_scratch,
 			 u8 bandwidth_bit, u8 bandwidth_size);
 int isp_cmd_fid_enter(struct apple_isp *isp);
 int isp_cmd_fid_exit(struct apple_isp *isp);
+int isp_cmd_flicker_sensor_set(struct apple_isp *isp, u32 mode);
 
 struct cmd_ch_start {
 	u64 opcode;
