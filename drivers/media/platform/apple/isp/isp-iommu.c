@@ -22,7 +22,7 @@ static int isp_surf_alloc_pages(struct isp_surf *surf)
 		return -ENOMEM;
 
 	for (u32 i = 0; i < surf->num_pages; i++) {
-		surf->pages[i] = alloc_page(GFP_KERNEL);
+		surf->pages[i] = alloc_page(GFP_KERNEL | __GFP_ZERO);
 		if (surf->pages[i] == NULL)
 			goto free_pages;
 	}
