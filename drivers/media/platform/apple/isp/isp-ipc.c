@@ -204,7 +204,7 @@ int ipc_tm_handle(struct apple_isp *isp, struct isp_channel *chan)
 	dma_addr_t iova = req->arg0 & ~ISP_IPC_FLAG_TERMINAL_ACK;
 	u32 size = req->arg1;
 	if (iova && size && size < sizeof(buf) &&
-	    test_bit(ISP_STATE_LOGGING, &isp->state)) {
+	    isp->log_surf) {
 		void *p = apple_isp_translate(isp, isp->log_surf, iova, size);
 		if (p) {
 			size = min_t(u32, size, 512);
@@ -241,42 +241,31 @@ int ipc_sm_handle(struct apple_isp *isp, struct isp_channel *chan)
 		rsp->arg1 = 0x0;
 		rsp->arg2 = 0x0; /* macOS uses this to index surfaces */
 
+		switch (surf->type) {
+		case 0x4c4f47: /* "LOG" */
+			isp->log_surf = surf;
+			break;
+		case 0x4d495343: /* "MISC" */
+			/* Hacky... maybe there's a better way to identify this surface? */
+			if (surf->size == 0xc000)
+				isp->bt_surf = surf;
+			break;
+		default:
+			// skip vmap
+			return 0;
+		}
+
 		err = isp_surf_vmap(isp, surf);
 		if (err < 0) {
 			isp_err(isp, "failed to vmap iova=0x%llx size=0x%llx\n",
 				surf->iova, surf->size);
-		} else {
-			switch (surf->type) {
-			case 0x4c4f47: /* "LOG" */
-				isp->log_surf = surf;
-				break;
-			case 0x4d495343: /* "MISC" */
-				/* Hacky... maybe there's a better way to identify this surface? */
-				if (surf->size == 0xc000)
-					isp->bt_surf = surf;
-				break;
-			}
 		}
-
-#ifdef APPLE_ISP_DEBUG
-		/* Only enabled in debug builds so it shouldn't matter, but
-		* the LOG surface is always the first surface requested.
-		*/
-		if (!test_bit(ISP_STATE_LOGGING, &isp->state))
-			set_bit(ISP_STATE_LOGGING, &isp->state);
-#endif
-		/* To the gc it goes... */
-
 	} else {
 		/* This should be the shared surface free request, but
 		 * 1) The fw doesn't request to free all of what it requested
 		 * 2) The fw continues to access the surface after
 		 * So we link it to the gc, which runs after fw shutdown
 		 */
-#ifdef APPLE_ISP_DEBUG
-		if (test_bit(ISP_STATE_LOGGING, &isp->state))
-			clear_bit(ISP_STATE_LOGGING, &isp->state);
-#endif
 		rsp->arg0 = req->arg0 | ISP_IPC_FLAG_ACK;
 		rsp->arg1 = 0x0;
 		rsp->arg2 = 0x0;
