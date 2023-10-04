@@ -43,6 +43,7 @@ struct isp_surf {
 	void *virt;
 	refcount_t refcount;
 	bool gc;
+	bool submitted;
 };
 
 struct isp_message {
@@ -221,6 +222,7 @@ struct apple_isp {
 	struct isp_surf *data_surf;
 	struct isp_surf *log_surf;
 	struct isp_surf *bt_surf;
+	struct isp_surf *meta_surfs[ISP_MAX_BUFFERS];
 	struct list_head gc;
 	struct workqueue_struct *wq;
 
@@ -252,7 +254,6 @@ struct isp_buffer {
 	struct vb2_v4l2_buffer vb;
 	struct list_head link;
 	struct isp_surf surfs[VB2_MAX_PLANES];
-	struct isp_surf *meta;
 };
 
 #define to_isp_buffer(x) container_of((x), struct isp_buffer, vb)

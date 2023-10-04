@@ -13,6 +13,7 @@
 #include "isp-iommu.h"
 #include "isp-ipc.h"
 #include "isp-regs.h"
+#include "isp-v4l2.h"
 
 #define ISP_FIRMWARE_MDELAY    1
 #define ISP_FIRMWARE_MAX_TRIES 1000

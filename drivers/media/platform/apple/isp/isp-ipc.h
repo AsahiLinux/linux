@@ -21,6 +21,5 @@ int ipc_chan_send(struct apple_isp *isp, struct isp_channel *chan,
 
 int ipc_tm_handle(struct apple_isp *isp, struct isp_channel *chan);
 int ipc_sm_handle(struct apple_isp *isp, struct isp_channel *chan);
-int ipc_bt_handle(struct apple_isp *isp, struct isp_channel *chan);
 
 #endif /* __ISP_IPC_H__ */
