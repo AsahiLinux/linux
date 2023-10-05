@@ -546,9 +546,6 @@
 			<&ps_isp_set7>, <&ps_isp_set8>;
 		apple,dart-vm-size = <0x0 0xa0000000>;
 
-		memory-region = <&isp_heap>;
-		memory-region-names = "heap";
-
 		status = "disabled";
 	};
 

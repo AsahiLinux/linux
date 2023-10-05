@@ -450,12 +450,5 @@
 			reg = <0 0 0 0>;
 			no-map;
 		};
-
-		isp_heap: isp-heap {
-			compatible = "apple,asc-mem";
-			/* Filled in by bootloder */
-			reg = <0 0 0 0>;
-			no-map;
-		};
 	};
 };
