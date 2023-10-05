@@ -446,7 +446,7 @@ static struct isp_preset *isp_select_preset(struct apple_isp *isp, u32 width,
 static int isp_vidioc_querycap(struct file *file, void *priv,
 			       struct v4l2_capability *cap)
 {
-	strscpy(cap->card, APPLE_ISP_DEVICE_NAME, sizeof(cap->card));
+	strscpy(cap->card, APPLE_ISP_CARD_NAME, sizeof(cap->card));
 	strscpy(cap->driver, APPLE_ISP_DEVICE_NAME, sizeof(cap->driver));
 
 	return 0;

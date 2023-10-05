@@ -16,6 +16,7 @@
 
 /* #define APPLE_ISP_DEBUG */
 #define APPLE_ISP_DEVICE_NAME "apple-isp"
+#define APPLE_ISP_CARD_NAME "FaceTime HD Camera"
 
 #define ISP_MAX_CHANNELS      6
 #define ISP_IPC_MESSAGE_SIZE  64
