@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Common ISP configuration for Apple silicon platforms.
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/ {
+	aliases {
+		isp = &isp;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		isp_heap: isp-heap {
+			compatible = "apple,asc-mem";
+			/* Filled in by bootloder */
+			reg = <0 0 0 0>;
+			no-map;
+		};
+	};
+};
+
+&isp {
+	memory-region = <&isp_heap>;
+	memory-region-names = "heap";
+	status = "okay";
+};
+
+&isp_dart0 {
+	status = "okay";
+};
+
+&isp_dart1 {
+	status = "okay";
+};
+
+&isp_dart2 {
+	status = "okay";
+};

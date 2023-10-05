@@ -5,27 +5,9 @@
  * Copyright The Asahi Linux Contributors
  */
 
-/ {
-	aliases {
-		isp = &isp;
-	};
-};
-
-&isp_dart0 {
-	status = "okay";
-};
-
-&isp_dart1 {
-	status = "okay";
-};
-
-&isp_dart2 {
-	status = "okay";
-};
+#include "isp-common.dtsi"
 
 &isp {
-	status = "okay";
-
 	sensor-presets {
 		/* 1280x720 */
 		preset0 {
