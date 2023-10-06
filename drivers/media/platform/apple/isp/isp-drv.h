@@ -32,6 +32,13 @@ enum isp_generation {
 	ISP_GEN_T8112,
 };
 
+enum isp_firmware_version {
+	ISP_FIRMWARE_V_UNKNOWN,
+	ISP_FIRMWARE_V_12_3,
+	ISP_FIRMWARE_V_12_4,
+	ISP_FIRMWARE_V_13_5,
+};
+
 struct isp_surf {
 	struct drm_mm_node *mm;
 	struct list_head head;
@@ -180,6 +187,7 @@ struct isp_format {
 struct apple_isp {
 	struct device *dev;
 	const struct apple_isp_hw *hw;
+	enum isp_firmware_version fw_compat;
 	u32 platform_id;
 	u32 temporal_filter;
 	struct isp_preset *presets;

@@ -2,6 +2,7 @@
 /* Copyright 2023 Eileen Yoon <eyn@gmx.com> */
 
 #include "isp-cmd.h"
+#include "isp-drv.h"
 #include "isp-iommu.h"
 #include "isp-ipc.h"
 
@@ -261,7 +262,7 @@ int isp_cmd_ch_buffer_return(struct apple_isp *isp, u32 chan)
 int isp_cmd_ch_set_file_load(struct apple_isp *isp, u32 chan, u64 addr,
 			     u32 size)
 {
-	if (isp->hw->gen >= ISP_GEN_T8112) {
+	if (isp->fw_compat >= ISP_FIRMWARE_V_13_5) {
 		struct cmd_ch_set_file_load64 args = {
 			.opcode = CISP_OPCODE(CISP_CMD_CH_SET_FILE_LOAD),
 			.chan = chan,

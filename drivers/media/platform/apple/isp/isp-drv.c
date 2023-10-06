@@ -215,6 +215,72 @@ static int apple_isp_init_presets(struct apple_isp *isp)
 	return 0;
 }
 
+static const char * isp_fw2str(enum isp_firmware_version version)
+{
+	switch (version) {
+	case ISP_FIRMWARE_V_12_3:
+		return "12.3";
+	case ISP_FIRMWARE_V_12_4:
+		return "12.4";
+	case ISP_FIRMWARE_V_13_5:
+		return "13.5";
+	default:
+		return "unknown";
+	}
+}
+
+#define ISP_FW_VERSION_MIN_LEN	3
+#define ISP_FW_VERSION_MAX_LEN	5
+
+static enum isp_firmware_version isp_read_fw_version(struct device *dev,
+						     const char *name)
+{
+	u32 ver[ISP_FW_VERSION_MAX_LEN];
+	int len = of_property_read_variable_u32_array(dev->of_node, name, ver,
+						      ISP_FW_VERSION_MIN_LEN,
+						      ISP_FW_VERSION_MAX_LEN);
+
+	switch (len) {
+	case 3:
+		if (ver[0] == 12 && ver[1] == 3 && ver[2] <= 1)
+			return ISP_FIRMWARE_V_12_3;
+		else if (ver[0] == 12 && ver[1] == 4 && ver[2] == 0)
+			return ISP_FIRMWARE_V_12_4;
+		else if (ver[0] == 13 && ver[1] == 5 && ver[2] == 0)
+			return ISP_FIRMWARE_V_13_5;
+
+		dev_warn(dev, "unknown %s: %d.%d.%d\n", name, ver[0], ver[1], ver[2]);
+		break;
+	case 4:
+		dev_warn(dev, "unknown %s: %d.%d.%d.%d\n", name, ver[0], ver[1],
+			 ver[2], ver[3]);
+		break;
+	case 5:
+		dev_warn(dev, "unknown %s: %d.%d.%d.%d.%d\n", name, ver[0],
+			 ver[1], ver[2], ver[3], ver[4]);
+		break;
+	default:
+		dev_warn(dev, "could not parse %s: %d\n", name, len);
+		break;
+	}
+
+	return ISP_FIRMWARE_V_UNKNOWN;
+}
+
+static enum isp_firmware_version isp_check_firmware_version(struct device *dev)
+{
+	enum isp_firmware_version version, compat;
+
+	/* firmware version is just informative */
+	version = isp_read_fw_version(dev, "apple,firmware-version");
+	compat = isp_read_fw_version(dev, "apple,firmware-compat");
+
+	dev_info(dev, "ISP firmware-compat: %s (FW: %s)\n", isp_fw2str(compat),
+		 isp_fw2str(version));
+
+	return compat;
+}
+
 static int apple_isp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -233,6 +299,11 @@ static int apple_isp_probe(struct platform_device *pdev)
 	isp->hw = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, isp);
 	dev_set_drvdata(dev, isp);
+
+	/* Differences between firmware versions are rather minor so try to work
+	 * with unknown firmware.
+	 */
+	isp->fw_compat = isp_check_firmware_version(dev);
 
 	err = of_property_read_u32(dev->of_node, "apple,platform-id",
 				   &isp->platform_id);
