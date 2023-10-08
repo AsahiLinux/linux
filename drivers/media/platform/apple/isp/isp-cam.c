@@ -212,6 +212,10 @@ static int isp_ch_cache_sensor_info(struct apple_isp *isp, u32 ch)
 	print_hex_dump(KERN_INFO, "apple-isp: ch: ", DUMP_PREFIX_NONE, 32, 4,
 		       args, sizeof(*args), false);
 
+	for (u32 ps = 0; ps < args->num_presets; ps++) {
+		isp_ch_get_camera_preset(isp, ch, ps);
+	}
+
 	err = isp_ch_get_sensor_id(isp, ch);
 	if (err ||
 	    (fmt->id != ISP_IMX248_1820_01 && fmt->id != ISP_IMX558_1921_01)) {
@@ -219,10 +223,6 @@ static int isp_ch_cache_sensor_info(struct apple_isp *isp, u32 ch)
 			"ch %d: unsupported sensor. Please file a bug report with hardware info & dmesg trace.\n",
 			ch);
 		return -ENODEV;
-	}
-
-	for (u32 ps = 0; ps < args->num_presets; ps++) {
-		isp_ch_get_camera_preset(isp, ch, ps);
 	}
 
 exit:
