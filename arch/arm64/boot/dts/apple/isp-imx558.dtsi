@@ -46,5 +46,47 @@
 			apple,output-size = <1152 1152>;
 			apple,crop = <0 0 1152 1152>;
 		};
+		/* 1280x720 */
+		preset5 {
+			apple,config-index = <1>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <1280 720>;
+			apple,crop = <0 0 1920 1080>;
+		};
+		/* 720x1280 */
+		preset6 {
+			apple,config-index = <2>;
+			apple,input-size = <1080 1920>;
+			apple,output-size = <720 1280>;
+			apple,crop = <0 0 1080 1920>;
+		};
+		/* 1280x960 */
+		preset7 {
+			apple,config-index = <3>;
+			apple,input-size = <1760 1328>;
+			apple,output-size = <1280 960>;
+			apple,crop = <0 4 1760 1320>;
+		};
+		/* 960x1280 */
+		preset8 {
+			apple,config-index = <4>;
+			apple,input-size = <1328 1760>;
+			apple,output-size = <960 1280>;
+			apple,crop = <4 0 1320 1760>;
+		};
+		/* 640x480 */
+		preset9 {
+			apple,config-index = <3>;
+			apple,input-size = <1760 1328>;
+			apple,output-size = <640 480>;
+			apple,crop = <0 4 1760 1320>;
+		};
+		/* 480x640 */
+		preset10 {
+			apple,config-index = <4>;
+			apple,input-size = <1328 1760>;
+			apple,output-size = <480 640>;
+			apple,crop = <4 0 1320 1760>;
+		};
 	};
 };
