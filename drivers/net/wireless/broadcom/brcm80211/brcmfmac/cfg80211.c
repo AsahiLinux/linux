@@ -7302,7 +7302,7 @@ static void brcmf_get_bwcap(struct brcmf_if *ifp, u32 bw_cap[])
 }
 
 static void brcmf_update_ht_cap(struct ieee80211_supported_band *band,
-				u32 bw_cap[2], u32 nchain)
+				u32 bw_cap[2], u32 nrxchain)
 {
 	band->ht_cap.ht_supported = true;
 	if (bw_cap[band->band] & WLC_BW_40MHZ_BIT) {
@@ -7313,7 +7313,7 @@ static void brcmf_update_ht_cap(struct ieee80211_supported_band *band,
 	band->ht_cap.cap |= IEEE80211_HT_CAP_DSSSCCK40;
 	band->ht_cap.ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K;
 	band->ht_cap.ampdu_density = IEEE80211_HT_MPDU_DENSITY_16;
-	memset(band->ht_cap.mcs.rx_mask, 0xff, nchain);
+	memset(band->ht_cap.mcs.rx_mask, 0xff, nrxchain);
 	band->ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
 }
 
@@ -7402,7 +7402,9 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 	u32 vhtmode = 0;
 	u32 bw_cap[2] = { WLC_BW_20MHZ_BIT, WLC_BW_20MHZ_BIT };
 	u32 rxchain;
-	u32 nchain;
+	u32 txchain;
+	u32 nrxchain;
+	u32 ntxchain;
 	int err;
 	s32 i;
 	struct ieee80211_supported_band *band;
@@ -7436,12 +7438,31 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 		else
 			bphy_err(drvr, "rxchain error (%d)\n", err);
 
-		nchain = 1;
+		nrxchain = 1;
+		rxchain = 1;
 	} else {
-		for (nchain = 0; rxchain; nchain++)
+		for (nrxchain = 0; rxchain; nrxchain++)
 			rxchain = rxchain & (rxchain - 1);
 	}
-	brcmf_dbg(INFO, "nchain=%d\n", nchain);
+	brcmf_dbg(INFO, "nrxchain=%d\n", nrxchain);
+	err = brcmf_fil_iovar_int_get(ifp, "txchain", &txchain);
+	if (err) {
+		/* rxchain unsupported by firmware of older chips */
+		if (err == -EBADE)
+			bphy_info_once(drvr, "rxchain unsupported\n");
+		else
+			bphy_err(drvr, "rxchain error (%d)\n", err);
+
+		ntxchain = 1;
+		txchain = 1;
+	} else {
+		for (ntxchain = 0; txchain; ntxchain++)
+			txchain = txchain & (txchain - 1);
+	}
+	brcmf_dbg(INFO, "ntxchain=%d\n", ntxchain);
+
+	wiphy->available_antennas_rx = nrxchain;
+	wiphy->available_antennas_tx = ntxchain;
 
 	err = brcmf_construct_chaninfo(cfg, bw_cap);
 	if (err) {
@@ -7464,7 +7485,7 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 			continue;
 
 		if (nmode)
-			brcmf_update_ht_cap(band, bw_cap, nchain);
+			brcmf_update_ht_cap(band, bw_cap, nrxchain);
 		if (vhtmode)
 			brcmf_update_vht_cap(band, bw_cap, txstreams, rxstreams,
 					     txbf_bfe_cap, txbf_bfr_cap,
