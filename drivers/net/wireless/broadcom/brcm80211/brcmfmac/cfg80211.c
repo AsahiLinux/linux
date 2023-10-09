@@ -7317,20 +7317,22 @@ static void brcmf_update_ht_cap(struct ieee80211_supported_band *band,
 	band->ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
 }
 
-static __le16 brcmf_get_mcs_map(u32 nchain, enum ieee80211_vht_mcs_support supp)
+static __le16 brcmf_get_mcs_map(u32 nstreams,
+				enum ieee80211_vht_mcs_support supp)
 {
 	u16 mcs_map;
 	int i;
 
-	for (i = 0, mcs_map = 0xFFFF; i < nchain; i++)
+	for (i = 0, mcs_map = 0xFFFF; i < nstreams; i++)
 		mcs_map = (mcs_map << 2) | supp;
 
 	return cpu_to_le16(mcs_map);
 }
 
 static void brcmf_update_vht_cap(struct ieee80211_supported_band *band,
-				 u32 bw_cap[2], u32 nchain, u32 txstreams,
-				 u32 txbf_bfe_cap, u32 txbf_bfr_cap)
+				 u32 bw_cap[2], u32 txstreams, u32 rxstreams,
+				 u32 txbf_bfe_cap, u32 txbf_bfr_cap,
+				 u32 ldpc_cap, u32 stbc_rx, u32 stbc_tx)
 {
 	__le16 mcs_map;
 
@@ -7339,6 +7341,21 @@ static void brcmf_update_vht_cap(struct ieee80211_supported_band *band,
 		return;
 
 	band->vht_cap.vht_supported = true;
+	band->vht_cap.vht_mcs.tx_highest = cpu_to_le16(433 * txstreams);
+	band->vht_cap.vht_mcs.rx_highest = cpu_to_le16(433 * rxstreams);
+
+	band->vht_cap.cap |= IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN |
+			     IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN;
+
+	if (ldpc_cap)
+		band->vht_cap.cap |= IEEE80211_VHT_CAP_RXLDPC;
+	if (stbc_tx)
+		band->vht_cap.cap |= IEEE80211_VHT_CAP_TXSTBC;
+
+	if (stbc_rx)
+		band->vht_cap.cap |=
+			(stbc_rx << IEEE80211_VHT_CAP_RXSTBC_SHIFT);
+
 	/* 80MHz is mandatory */
 	band->vht_cap.cap |= IEEE80211_VHT_CAP_SHORT_GI_80;
 	if (bw_cap[band->band] & WLC_BW_160MHZ_BIT) {
@@ -7346,8 +7363,10 @@ static void brcmf_update_vht_cap(struct ieee80211_supported_band *band,
 		band->vht_cap.cap |= IEEE80211_VHT_CAP_SHORT_GI_160;
 	}
 	/* all support 256-QAM */
-	mcs_map = brcmf_get_mcs_map(nchain, IEEE80211_VHT_MCS_SUPPORT_0_9);
+	mcs_map = brcmf_get_mcs_map(rxstreams, IEEE80211_VHT_MCS_SUPPORT_0_9);
 	band->vht_cap.vht_mcs.rx_mcs_map = mcs_map;
+	mcs_map = brcmf_get_mcs_map(txstreams, IEEE80211_VHT_MCS_SUPPORT_0_9);
+
 	band->vht_cap.vht_mcs.tx_mcs_map = mcs_map;
 
 	/* Beamforming support information */
@@ -7363,11 +7382,15 @@ static void brcmf_update_vht_cap(struct ieee80211_supported_band *band,
 	if ((txbf_bfe_cap || txbf_bfr_cap) && (txstreams > 1)) {
 		band->vht_cap.cap |=
 			(2 << IEEE80211_VHT_CAP_BEAMFORMEE_STS_SHIFT);
-		band->vht_cap.cap |= ((txstreams - 1) <<
-				IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_SHIFT);
+		band->vht_cap.cap |=
+			((txstreams - 1)
+			 << IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_SHIFT);
 		band->vht_cap.cap |=
 			IEEE80211_VHT_CAP_VHT_LINK_ADAPTATION_VHT_MRQ_MFB;
 	}
+	/* AMPDU length limit, support max 1MB (2 ^ (13 + 7)) */
+	band->vht_cap.cap |=
+		(7 << IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT);
 }
 
 static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
@@ -7384,10 +7407,17 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 	s32 i;
 	struct ieee80211_supported_band *band;
 	u32 txstreams = 0;
+	u32 rxstreams = 0;
 	u32 txbf_bfe_cap = 0;
 	u32 txbf_bfr_cap = 0;
+	u32 ldpc_cap = 0;
+	u32 stbc_rx = 0;
+	u32 stbc_tx = 0;
 
 	(void)brcmf_fil_iovar_int_get(ifp, "vhtmode", &vhtmode);
+	(void)brcmf_fil_iovar_int_get(ifp, "ldpc_cap", &ldpc_cap);
+	(void)brcmf_fil_iovar_int_get(ifp, "stbc_rx", &stbc_rx);
+	(void)brcmf_fil_iovar_int_get(ifp, "stbc_tx", &stbc_tx);
 	err = brcmf_fil_iovar_int_get(ifp, "nmode", &nmode);
 	if (err) {
 		bphy_err(drvr, "nmode error (%d)\n", err);
@@ -7420,6 +7450,7 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 	}
 
 	if (vhtmode) {
+		(void)brcmf_fil_iovar_int_get(ifp, "rxstreams", &rxstreams);
 		(void)brcmf_fil_iovar_int_get(ifp, "txstreams", &txstreams);
 		(void)brcmf_fil_iovar_int_get(ifp, "txbf_bfe_cap",
 					      &txbf_bfe_cap);
@@ -7435,8 +7466,9 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 		if (nmode)
 			brcmf_update_ht_cap(band, bw_cap, nchain);
 		if (vhtmode)
-			brcmf_update_vht_cap(band, bw_cap, nchain, txstreams,
-					     txbf_bfe_cap, txbf_bfr_cap);
+			brcmf_update_vht_cap(band, bw_cap, txstreams, rxstreams,
+					     txbf_bfe_cap, txbf_bfr_cap,
+					     ldpc_cap, stbc_rx, stbc_tx);
 	}
 
 	return 0;
