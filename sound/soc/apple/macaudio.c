@@ -55,11 +55,29 @@
  */
 #define MACAUDIO_MAX_BCLK_FREQ	24576000
 
+#define SPEAKER_MAGIC_VALUE (s32)0xdec1be15
+/* milliseconds */
+#define SPEAKER_LOCK_TIMEOUT 250
+
+#define MAX_LIMITS 6
+
+struct macaudio_limit_cfg {
+	const char *match;
+	int max_limited;
+	int max_unlimited;
+};
+
+struct macaudio_platform_cfg {
+	struct macaudio_limit_cfg limits[MAX_LIMITS];
+	int (*fixup)(struct snd_soc_card *card);
+};
+
 struct macaudio_snd_data {
 	struct snd_soc_card card;
 	struct snd_soc_jack jack;
 	int jack_plugin_state;
 
+	const struct macaudio_platform_cfg *cfg;
 	bool has_speakers;
 	unsigned int max_channels;
 
@@ -76,6 +94,18 @@ struct macaudio_snd_data {
 
 	int speaker_sample_rate;
 	struct snd_kcontrol *speaker_sample_rate_kctl;
+
+	bool speaker_volume_unlocked;
+	bool speaker_volume_was_locked;
+	struct snd_kcontrol *speaker_lock_kctl;
+	struct snd_ctl_file *speaker_lock_owner;
+	u64 bes_active;
+	bool speaker_lock_timeout_enabled;
+	ktime_t speaker_lock_timeout;
+	ktime_t speaker_lock_remain;
+	struct delayed_work lock_timeout_work;
+	struct work_struct lock_update_work;
+
 };
 
 static bool please_blow_up_my_speakers;
@@ -164,6 +194,159 @@ static struct macaudio_link_props macaudio_fe_link_props[] = {
 		.is_sense = 1,
 	}
 };
+
+static void macaudio_vlimit_unlock(struct macaudio_snd_data *ma, bool unlock)
+{
+	int i, ret, max;
+
+	for (i = 0; i < ARRAY_SIZE(ma->cfg->limits); i++) {
+		const struct macaudio_limit_cfg *limit = &ma->cfg->limits[i];
+
+		if (!limit->match)
+			break;
+
+		if (unlock)
+			max = limit->max_unlimited;
+		else
+			max = limit->max_limited;
+
+		ret = snd_soc_limit_volume(&ma->card, limit->match, max);
+		if (ret < 0)
+			dev_err(ma->card.dev, "Failed to %slock volume %s: %d\n",
+				unlock ? "un" : "", limit->match, ret);
+	}
+}
+
+static void macaudio_vlimit_update(struct macaudio_snd_data *ma)
+{
+	int i;
+	bool unlock = true;
+	struct snd_kcontrol *kctl;
+	const char *reason;
+
+	/* Do nothing if there are no limits configured */
+	if (!ma->cfg->limits[0].match)
+		return;
+
+	/* Check that someone is holding the main lock */
+	if (!ma->speaker_lock_owner) {
+		reason = "Main control not locked";
+		unlock = false;
+	}
+
+	/* Check that the control has been pinged within the timeout */
+	if (ma->speaker_lock_remain <= 0) {
+		reason = "Lock timeout";
+		unlock = false;
+	}
+
+	/* Check that *every* limited control is locked by the same owner */
+	list_for_each_entry(kctl, &ma->card.snd_card->controls, list) {
+		bool is_limit = false;
+
+		for (i = 0; i < ARRAY_SIZE(ma->cfg->limits); i++) {
+			const struct macaudio_limit_cfg *limit = &ma->cfg->limits[i];
+			if (!limit->match)
+				break;
+
+			is_limit = snd_soc_control_matches(kctl, limit->match);
+			if (is_limit)
+				break;
+		}
+
+		if (!is_limit)
+			continue;
+
+		for (i = 0; i < kctl->count; i++) {
+			if (kctl->vd[i].owner != ma->speaker_lock_owner) {
+				reason = "Not all child controls locked by the same process";
+				unlock = false;
+			}
+		}
+	}
+
+
+	if (unlock != ma->speaker_volume_unlocked) {
+		if (unlock) {
+			dev_info(ma->card.dev, "Speaker volumes unlocked\n");
+		} else  {
+			dev_info(ma->card.dev, "Speaker volumes locked: %s\n", reason);
+			ma->speaker_volume_was_locked = true;
+		}
+
+		macaudio_vlimit_unlock(ma, unlock);
+		ma->speaker_volume_unlocked = unlock;
+	}
+}
+
+static void macaudio_vlimit_enable_timeout(struct macaudio_snd_data *ma)
+{
+	if (ma->speaker_lock_timeout_enabled)
+		return;
+
+	down_write(&ma->card.snd_card->controls_rwsem);
+
+	if (ma->speaker_lock_remain > 0) {
+		ma->speaker_lock_timeout = ktime_add(ktime_get(), ma->speaker_lock_remain);
+		schedule_delayed_work(&ma->lock_timeout_work, usecs_to_jiffies(ktime_to_us(ma->speaker_lock_remain)));
+		dev_dbg(ma->card.dev, "Enabling volume limit timeout: %ld us left\n",
+			(long)ktime_to_us(ma->speaker_lock_remain));
+	}
+
+	macaudio_vlimit_update(ma);
+
+	up_write(&ma->card.snd_card->controls_rwsem);
+	ma->speaker_lock_timeout_enabled = true;
+}
+
+static void macaudio_vlimit_disable_timeout(struct macaudio_snd_data *ma)
+{
+	ktime_t now = ktime_get();
+
+	if (!ma->speaker_lock_timeout_enabled)
+		return;
+
+	down_write(&ma->card.snd_card->controls_rwsem);
+
+	cancel_delayed_work(&ma->lock_timeout_work);
+
+	if (ktime_after(now, ma->speaker_lock_timeout))
+		ma->speaker_lock_remain = 0;
+	else if (ma->speaker_lock_remain > 0)
+		ma->speaker_lock_remain = ktime_sub(ma->speaker_lock_timeout, now);
+
+	dev_dbg(ma->card.dev, "Disabling volume limit timeout: %ld us left\n",
+		(long)ktime_to_us(ma->speaker_lock_remain));
+
+	macaudio_vlimit_update(ma);
+
+	up_write(&ma->card.snd_card->controls_rwsem);
+	ma->speaker_lock_timeout_enabled = false;
+}
+
+static void macaudio_vlimit_timeout_work(struct work_struct *wrk)
+{
+        struct macaudio_snd_data *ma = container_of(to_delayed_work(wrk),
+						    struct macaudio_snd_data, lock_timeout_work);
+
+	down_write(&ma->card.snd_card->controls_rwsem);
+
+	ma->speaker_lock_remain = 0;
+	macaudio_vlimit_update(ma);
+
+	up_write(&ma->card.snd_card->controls_rwsem);
+}
+
+static void macaudio_vlimit_update_work(struct work_struct *wrk)
+{
+        struct macaudio_snd_data *ma = container_of(wrk,
+						    struct macaudio_snd_data, lock_update_work);
+
+	if (ma->bes_active)
+		macaudio_vlimit_enable_timeout(ma);
+	else
+		macaudio_vlimit_disable_timeout(ma);
+}
 
 static int macaudio_copy_link(struct device *dev, struct snd_soc_dai_link *target,
 			       struct snd_soc_dai_link *source)
@@ -623,7 +806,34 @@ static int macaudio_be_hw_free(struct snd_pcm_substream *substream)
 		ma->speaker_sample_rate = 0;
 		snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
 			       &ma->speaker_sample_rate_kctl->id);
+	}
 
+	return 0;
+}
+
+static int macaudio_be_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(rtd->card);
+	struct macaudio_link_props *props = &ma->link_props[rtd->dai_link->id];
+
+	if (props->is_speakers && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		switch (cmd) {
+		case SNDRV_PCM_TRIGGER_START:
+		case SNDRV_PCM_TRIGGER_RESUME:
+		case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+			ma->bes_active |= BIT(rtd->dai_link->id);
+			break;
+		case SNDRV_PCM_TRIGGER_SUSPEND:
+		case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		case SNDRV_PCM_TRIGGER_STOP:
+			ma->bes_active &= ~BIT(rtd->dai_link->id);
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		schedule_work(&ma->lock_update_work);
 	}
 
 	return 0;
@@ -639,6 +849,7 @@ static const struct snd_soc_ops macaudio_be_ops = {
 	.hw_free	= macaudio_be_hw_free,
 	.shutdown	= macaudio_dpcm_shutdown,
 	.hw_params	= macaudio_dpcm_hw_params,
+	.trigger	= macaudio_be_trigger,
 };
 
 static int macaudio_be_assign_tdm(struct snd_soc_pcm_runtime *rtd)
@@ -868,9 +1079,13 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 	}
 
 	ma->speaker_sample_rate_kctl = snd_soc_card_get_kcontrol(card, "Speaker Sample Rate");
+	ma->speaker_lock_kctl = snd_soc_card_get_kcontrol(card, "Speaker Volume Unlock");
 
 	return 0;
 }
+
+#define TAS2764_0DB 201
+#define TAS2764_DB_REDUCTION(x) (TAS2764_0DB - 2 * (x))
 
 #define CHECK(call, pattern, value) \
 	{ \
@@ -882,7 +1097,6 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 		dev_dbg(card->dev, "%s on '%s': %d hits\n", #call, pattern, ret); \
 	}
 
-
 static int macaudio_j274_fixup_controls(struct snd_soc_card *card)
 {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
@@ -893,6 +1107,10 @@ static int macaudio_j274_fixup_controls(struct snd_soc_card *card)
 
 	return 0;	
 }
+
+struct macaudio_platform_cfg macaudio_j274_cfg = {
+	.fixup = macaudio_j274_fixup_controls,
+};
 
 static int macaudio_j313_fixup_controls(struct snd_soc_card *card) {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
@@ -919,10 +1137,16 @@ static int macaudio_j313_fixup_controls(struct snd_soc_card *card) {
 		 */
 		CHECK(snd_soc_deactivate_kctl, "* VSENSE Switch", 0);
 		CHECK(snd_soc_deactivate_kctl, "* ISENSE Switch", 0);
+
+		macaudio_vlimit_update(ma);
 	}
 
 	return 0;
 }
+
+struct macaudio_platform_cfg macaudio_j313_cfg = {
+	.fixup = macaudio_j313_fixup_controls,
+};
 
 static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 {
@@ -957,10 +1181,40 @@ static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 		CHECK(snd_soc_deactivate_kctl, "* VSENSE Switch", 0);
 		CHECK(snd_soc_deactivate_kctl, "* ISENSE Switch", 0);
 #endif
+
+		macaudio_vlimit_update(ma);
 	}
 
 	return 0;
 }
+
+
+struct macaudio_platform_cfg macaudio_j314_cfg = {
+	.fixup = macaudio_j314_fixup_controls,
+	.limits = {
+		{.match = "* Tweeter Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
+		{.match = "* Woofer Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
+	}
+};
+
+struct macaudio_platform_cfg macaudio_j413_cfg = {
+	.fixup = macaudio_j314_fixup_controls,
+	.limits = {
+		/* Min gain: -17.47 dB */
+		{.match = "* Tweeter Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
+		/* Min gain: -10.63 dB */
+		{.match = "* Woofer Speaker Volume", TAS2764_DB_REDUCTION(14), TAS2764_0DB},
+	}
+};
+
+struct macaudio_platform_cfg macaudio_j415_cfg = {
+	.fixup = macaudio_j314_fixup_controls,
+	.limits = {
+		{.match = "* Tweeter Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
+		{.match = "* Woofer 1 Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
+		{.match = "* Woofer 2 Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
+	}
+};
 
 static int macaudio_j375_fixup_controls(struct snd_soc_card *card)
 {
@@ -973,10 +1227,16 @@ static int macaudio_j375_fixup_controls(struct snd_soc_card *card)
 		}
 
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 14); // 20 set by macOS, this is 3 dB below
+
+		macaudio_vlimit_update(ma);
 	}
 
 	return 0;
 }
+
+struct macaudio_platform_cfg macaudio_j375_cfg = {
+	.fixup = macaudio_j375_fixup_controls,
+};
 
 static int macaudio_j493_fixup_controls(struct snd_soc_card *card)
 {
@@ -989,10 +1249,16 @@ static int macaudio_j493_fixup_controls(struct snd_soc_card *card)
 		}
 
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
+
+		macaudio_vlimit_update(ma);
 	}
 
 	return 0;	
 }
+
+struct macaudio_platform_cfg macaudio_j493_cfg = {
+	.fixup = macaudio_j493_fixup_controls
+};
 
 static int macaudio_fallback_fixup_controls(struct snd_soc_card *card)
 {
@@ -1005,6 +1271,10 @@ static int macaudio_fallback_fixup_controls(struct snd_soc_card *card)
 
 	return 0;
 }
+
+struct macaudio_platform_cfg macaudio_fallback_cfg = {
+	.fixup = macaudio_fallback_fixup_controls
+};
 
 #undef CHECK
 
@@ -1069,10 +1339,91 @@ static int macaudio_sss_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 	return 0;
 }
 
+static int macaudio_slk_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = INT_MIN;
+	uinfo->value.integer.max = INT_MAX;
+
+	return 0;
+}
+
+static int macaudio_slk_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *uvalue)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	if (!ma->speaker_lock_owner)
+		return -EPERM;
+
+	if (uvalue->value.integer.value[0] != SPEAKER_MAGIC_VALUE)
+		return -EINVAL;
+
+	/* Serves as a notification that the lock was lost at some point */
+	if (ma->speaker_volume_was_locked) {
+		ma->speaker_volume_was_locked = false;
+		return -ETIMEDOUT;
+	}
+
+	cancel_delayed_work(&ma->lock_timeout_work);
+
+	ma->speaker_lock_remain = ms_to_ktime(SPEAKER_LOCK_TIMEOUT);
+	ma->speaker_lock_timeout = ktime_add(ktime_get(), ma->speaker_lock_remain);
+	macaudio_vlimit_update(ma);
+
+	if (ma->speaker_lock_timeout_enabled) {
+		dev_dbg(ma->card.dev, "Volume limit timeout ping: %ld us left\n",
+			(long)ktime_to_us(ma->speaker_lock_remain));
+		schedule_delayed_work(&ma->lock_timeout_work, usecs_to_jiffies(ktime_to_us(ma->speaker_lock_remain)));
+	}
+
+	return 0;
+}
+
+int macaudio_slk_lock(struct snd_kcontrol *kcontrol, struct snd_ctl_file *owner)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	ma->speaker_lock_owner = owner;
+	macaudio_vlimit_update(ma);
+
+	/*
+	 * Reset the unintended lock flag when the control is first locked.
+	 * At this point the state is locked and cannot be unlocked until
+	 * userspace writes to this control, so this cannot spuriously become
+	 * true again until that point.
+	 */
+	ma->speaker_volume_was_locked = false;
+
+	return 0;
+}
+
+static void macaudio_slk_unlock(struct snd_kcontrol *kcontrol)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	ma->speaker_lock_owner = NULL;
+	ma->speaker_lock_timeout = 0;
+	macaudio_vlimit_update(ma);
+}
+
+/* Speaker limit controls go last */
+#define MACAUDIO_NUM_SPEAKER_LIMIT_CONTROLS 2
+
 static const struct snd_kcontrol_new macaudio_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Speaker"),
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.access = SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.name = "Speaker Volume Unlock",
+		.info = macaudio_slk_info, .put = macaudio_slk_put,
+		.lock = macaudio_slk_lock, .unlock = macaudio_slk_unlock,
+	},
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
@@ -1103,13 +1454,13 @@ static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
 };
 
 static const struct of_device_id macaudio_snd_device_id[]  = {
-	{ .compatible = "apple,j274-macaudio", .data = macaudio_j274_fixup_controls },
-	{ .compatible = "apple,j313-macaudio", .data = macaudio_j313_fixup_controls },
-	{ .compatible = "apple,j314-macaudio", .data = macaudio_j314_fixup_controls },
-	{ .compatible = "apple,j375-macaudio", .data = macaudio_j375_fixup_controls },
-	{ .compatible = "apple,j413-macaudio", .data = macaudio_j314_fixup_controls },
-	{ .compatible = "apple,j415-macaudio", .data = macaudio_j314_fixup_controls },
-	{ .compatible = "apple,j493-macaudio", .data = macaudio_j493_fixup_controls },
+	{ .compatible = "apple,j274-macaudio", .data = &macaudio_j274_cfg },
+	{ .compatible = "apple,j313-macaudio", .data = &macaudio_j313_cfg },
+	{ .compatible = "apple,j314-macaudio", .data = &macaudio_j314_cfg },
+	{ .compatible = "apple,j375-macaudio", .data = &macaudio_j375_cfg },
+	{ .compatible = "apple,j413-macaudio", .data = &macaudio_j413_cfg },
+	{ .compatible = "apple,j415-macaudio", .data = &macaudio_j415_cfg },
+	{ .compatible = "apple,j493-macaudio", .data = &macaudio_j493_cfg },
 	{ .compatible = "apple,macaudio"},
 	{ }
 };
@@ -1134,6 +1485,7 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	card = &data->card;
 	snd_soc_card_set_drvdata(card, data);
+	dev_set_drvdata(&pdev->dev, data);
 
 	card->owner = THIS_MODULE;
 	card->driver_name = "macaudio";
@@ -1150,9 +1502,15 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 	card->fully_routed = true;
 
 	if (of_id->data)
-		card->fixup_controls = of_id->data;
+		data->cfg = of_id->data;
 	else
-		card->fixup_controls = macaudio_fallback_fixup_controls;
+		data->cfg = &macaudio_fallback_cfg;
+
+	/* Remove speaker safety controls if we have no declared limits */
+	if (!data->cfg->limits[0].match)
+		card->num_controls -= MACAUDIO_NUM_SPEAKER_LIMIT_CONTROLS;
+
+	card->fixup_controls = data->cfg->fixup;
 
 	ret = macaudio_parse_of(data);
 	if (ret)
@@ -1169,11 +1527,22 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 		}
 	}
 
+	INIT_WORK(&data->lock_update_work, macaudio_vlimit_update_work);
+	INIT_DELAYED_WORK(&data->lock_timeout_work, macaudio_vlimit_timeout_work);
+
 	return devm_snd_soc_register_card(dev, card);
+}
+
+static void macaudio_snd_platform_remove(struct platform_device *pdev)
+{
+	struct macaudio_snd_data *ma = dev_get_drvdata(&pdev->dev);
+
+	cancel_delayed_work_sync(&ma->lock_timeout_work);
 }
 
 static struct platform_driver macaudio_snd_driver = {
 	.probe = macaudio_snd_platform_probe,
+	.remove = macaudio_snd_platform_remove,
 	.driver = {
 		.name = DRIVER_NAME,
 		.of_match_table = macaudio_snd_device_id,
