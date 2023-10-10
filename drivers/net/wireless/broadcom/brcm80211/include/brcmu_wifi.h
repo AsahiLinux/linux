@@ -215,6 +215,13 @@ static inline bool ac_bitmap_tst(u8 bitmap, int prec)
 #define CRYPTO_ALGO_AES_RESERVED1	5
 #define CRYPTO_ALGO_AES_RESERVED2	6
 #define CRYPTO_ALGO_NALG		7
+#define CRYPTO_ALGO_AES_GCM     14  /* 128 bit GCM */
+#define CRYPTO_ALGO_AES_CCM256  15  /* 256 bit CCM */
+#define CRYPTO_ALGO_AES_GCM256  16  /* 256 bit GCM */
+#define CRYPTO_ALGO_BIP_CMAC256 17  /* 256 bit BIP CMAC */
+#define CRYPTO_ALGO_BIP_GMAC    18  /* 128 bit BIP GMAC */
+#define CRYPTO_ALGO_BIP_GMAC256 19  /* 256 bit BIP GMAC */
+
 
 /* wireless security bitvec */
 

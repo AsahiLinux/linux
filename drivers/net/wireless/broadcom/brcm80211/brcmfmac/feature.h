@@ -32,6 +32,11 @@
  * DUMP_OBSS: Firmware has capable to dump obss info to support ACS
  * SCAN_V2: Version 2 scan params
  * SAE_EXT: SAE authentication handled by user-space supplicant
+ * SCAN_v3: Version 3 scan params
+ * PMKID_V2: Version 2 PMKID
+ * PMKID_V3: Version 3 PMKID
+ * JOIN_V1: Version 1 join struct
+ * GCMP: GCMP Cipher suite support
  */
 #define BRCMF_FEAT_LIST \
 	BRCMF_FEAT_DEF(MBSS) \
@@ -62,6 +67,7 @@
 	BRCMF_FEAT_DEF(PMKID_V3) \
 	BRCMF_FEAT_DEF(SAE_EXT) \
 	BRCMF_FEAT_DEF(EVENT_MSGS_EXT) \
+	BRCMF_FEAT_DEF(GCMP)
 
 /*
  * Quirks:

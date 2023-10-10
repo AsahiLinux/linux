@@ -1309,4 +1309,22 @@ struct brcmf_eventmsgs_ext_le {
 	u8	mask[];
 };
 
+/* version of the brcmf_wl_wsec_info structure */
+#define BRCMF_WSEC_INFO_VER 1
+
+/* tlv used to return wl_wsec_info properties */
+struct brcmf_wsec_info_tlv {
+	u16 type;
+	u16 len; /* data length */
+	u8 data[1]; /* data follows */
+};
+
+/* input/output data type for wsec_info iovar */
+struct brcmf_wsec_info {
+	u8 version; /* structure version */
+	u8 pad[2];
+	u8 num_tlvs;
+	struct brcmf_wsec_info_tlv tlvs[1]; /* tlv data follows */
+};
+
 #endif /* FWIL_TYPES_H_ */
