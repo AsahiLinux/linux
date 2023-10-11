@@ -495,6 +495,18 @@ static int isp_vidioc_enum_framesizes(struct file *file, void *fh,
 	return 0;
 }
 
+static int isp_vidioc_enum_frameintervals(struct file *filp, void *priv,
+					  struct v4l2_frmivalenum *interval)
+{
+	if (interval->index != 0)
+		return -EINVAL;
+
+	interval->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	interval->discrete.numerator = 1;
+	interval->discrete.denominator = 30;
+	return 0;
+}
+
 static inline void isp_get_sp_pix_format(struct apple_isp *isp,
 					 struct v4l2_format *f,
 					 struct isp_format *fmt)
@@ -715,6 +727,7 @@ static const struct v4l2_ioctl_ops isp_v4l2_ioctl_ops = {
 	.vidioc_try_fmt_vid_cap_mplane = isp_vidioc_try_format_mplane,
 
 	.vidioc_enum_framesizes = isp_vidioc_enum_framesizes,
+	.vidioc_enum_frameintervals = isp_vidioc_enum_frameintervals,
 	.vidioc_enum_input = isp_vidioc_enum_input,
 	.vidioc_g_input = isp_vidioc_get_input,
 	.vidioc_s_input = isp_vidioc_set_input,
