@@ -47,6 +47,7 @@ struct apple_pmgr_ps {
 	u32 min_state;
 	bool force_disable;
 	bool force_reset;
+	bool externally_clocked;
 };
 
 #define genpd_to_apple_pmgr_ps(_genpd) container_of(_genpd, struct apple_pmgr_ps, genpd)
@@ -96,10 +97,21 @@ static int apple_pmgr_ps_set(struct generic_pm_domain *genpd, u32 pstate, bool a
 
 	regmap_write(ps->regmap, ps->offset, reg);
 
-	ret = regmap_read_poll_timeout_atomic(
-		ps->regmap, ps->offset, cur,
-		FIELD_GET(APPLE_PMGR_PS_ACTUAL, cur) == pstate, 1,
-		APPLE_PMGR_PS_SET_TIMEOUT);
+	if (ps->externally_clocked && pstate == APPLE_PMGR_PS_ACTIVE) {
+		/*
+		 * If this clock domain requires an external clock, then
+		 * consider the "clock gated" state to be good enough.
+		 */
+		ret = regmap_read_poll_timeout_atomic(
+			ps->regmap, ps->offset, cur,
+			FIELD_GET(APPLE_PMGR_PS_ACTUAL, cur) >= APPLE_PMGR_PS_CLKGATE, 1,
+			APPLE_PMGR_PS_SET_TIMEOUT);
+	} else {
+		ret = regmap_read_poll_timeout_atomic(
+			ps->regmap, ps->offset, cur,
+			FIELD_GET(APPLE_PMGR_PS_ACTUAL, cur) == pstate, 1,
+			APPLE_PMGR_PS_SET_TIMEOUT);
+	}
 
 	if (ret < 0)
 		dev_err(ps->dev, "PS %s: Failed to reach power state 0x%x (now: 0x%x)\n",
@@ -259,6 +271,15 @@ static int apple_pmgr_ps_probe(struct platform_device *pdev)
 		regmap_update_bits(regmap, ps->offset, APPLE_PMGR_FLAGS | APPLE_PMGR_PS_MIN,
 				   FIELD_PREP(APPLE_PMGR_PS_MIN, ps->min_state));
 
+	if (of_property_read_bool(node, "apple,force-disable"))
+		ps->force_disable = true;
+
+	if (of_property_read_bool(node, "apple,force-reset"))
+		ps->force_reset = true;
+
+	if (of_property_read_bool(node, "apple,externally-clocked"))
+		ps->externally_clocked = true;
+
 	active = apple_pmgr_ps_is_active(ps);
 	if (of_property_read_bool(node, "apple,always-on")) {
 		ps->genpd.flags |= GENPD_FLAG_ALWAYS_ON;
@@ -268,12 +289,6 @@ static int apple_pmgr_ps_probe(struct platform_device *pdev)
 			active = apple_pmgr_ps_power_on(&ps->genpd) == 0;
 		}
 	}
-
-	if (of_property_read_bool(node, "apple,force-disable"))
-		ps->force_disable = true;
-
-	if (of_property_read_bool(node, "apple,force-reset"))
-		ps->force_reset = true;
 
 	/* Turn on auto-PM if the domain is already on */
 	if (active)
