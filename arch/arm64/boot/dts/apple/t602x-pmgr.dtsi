@@ -1677,6 +1677,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca0);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_mca1): power-controller@3a0 {
@@ -1686,6 +1687,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca1);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_mca2): power-controller@3a8 {
@@ -1695,6 +1697,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca2);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_mca3): power-controller@3b0 {
@@ -1704,6 +1707,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca3);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_dpa0): power-controller@3b8 {
