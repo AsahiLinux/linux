@@ -493,6 +493,7 @@
 		#reset-cells = <0>;
 		label = "mca0";
 		power-domains = <&ps_audio_p>, <&ps_sio_adma>;
+		apple,externally-clocked;
 	};
 
 	ps_mca1: power-controller@2c0 {
@@ -502,6 +503,7 @@
 		#reset-cells = <0>;
 		label = "mca1";
 		power-domains = <&ps_audio_p>, <&ps_sio_adma>;
+		apple,externally-clocked;
 	};
 
 	ps_mca2: power-controller@2c8 {
@@ -511,6 +513,7 @@
 		#reset-cells = <0>;
 		label = "mca2";
 		power-domains = <&ps_audio_p>, <&ps_sio_adma>;
+		apple,externally-clocked;
 	};
 
 	ps_mca3: power-controller@2d0 {
@@ -520,6 +523,7 @@
 		#reset-cells = <0>;
 		label = "mca3";
 		power-domains = <&ps_audio_p>, <&ps_sio_adma>;
+		apple,externally-clocked;
 	};
 
 	ps_mca4: power-controller@2d8 {
@@ -529,6 +533,7 @@
 		#reset-cells = <0>;
 		label = "mca4";
 		power-domains = <&ps_audio_p>, <&ps_sio_adma>;
+		apple,externally-clocked;
 	};
 
 	ps_mca5: power-controller@2e0 {
@@ -538,6 +543,7 @@
 		#reset-cells = <0>;
 		label = "mca5";
 		power-domains = <&ps_audio_p>, <&ps_sio_adma>;
+		apple,externally-clocked;
 	};
 
 	ps_dpa0: power-controller@2e8 {
