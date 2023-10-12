@@ -1139,15 +1139,6 @@ static int macaudio_j313_fixup_controls(struct snd_soc_card *card) {
 		 */
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 14);
 
-		/*
-		 * Since we don't set the right slots yet to avoid
-		 * driver conflict on the I2S bus sending ISENSE/VSENSE
-		 * samples from the codecs back to us, disable the
-		 * controls.
-		 */
-		CHECK(snd_soc_deactivate_kctl, "* VSENSE Switch", 0);
-		CHECK(snd_soc_deactivate_kctl, "* ISENSE Switch", 0);
-
 		macaudio_vlimit_update(ma);
 	}
 
@@ -1175,17 +1166,6 @@ static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 		 */
 		CHECK(snd_soc_set_enum_kctl, "* OCE Handling", "Retry");
 		CHECK(snd_soc_deactivate_kctl, "* OCE Handling", 0);
-
-		/*
-		 * Since we don't set the right slots yet to avoid
-		 * driver conflict on the I2S bus sending ISENSE/VSENSE
-		 * samples from the codecs back to us, disable the
-		 * controls.
-		 */
-#if 0
-		CHECK(snd_soc_deactivate_kctl, "* VSENSE Switch", 0);
-		CHECK(snd_soc_deactivate_kctl, "* ISENSE Switch", 0);
-#endif
 
 		macaudio_vlimit_update(ma);
 	}
