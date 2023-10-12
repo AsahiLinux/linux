@@ -70,6 +70,7 @@ struct macaudio_limit_cfg {
 struct macaudio_platform_cfg {
 	struct macaudio_limit_cfg limits[MAX_LIMITS];
 	int (*fixup)(struct snd_soc_card *card);
+	bool enable_speakers;
 };
 
 struct macaudio_snd_data {
@@ -487,7 +488,6 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 	if (!card->dai_link || !ma->link_props)
 		return -ENOMEM;
 
-	card->num_links = num_links;
 	link = card->dai_link;
 	link_props = ma->link_props;
 
@@ -502,6 +502,9 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 	for (i = 0; i < num_links; i++)
 		card->dai_link[i].id = i;
+
+	/* We might disable the speakers, so count again */
+	num_links = ARRAY_SIZE(macaudio_fe_links);
 
 	/* Fill in the BEs */
 	for_each_available_child_of_node(dev->of_node, np) {
@@ -520,8 +523,13 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 		speakers = !strcmp(link_name, "Speaker")
 			   || !strcmp(link_name, "Speakers");
-		if (speakers)
+		if (speakers) {
+			if (!ma->cfg->enable_speakers  && !please_blow_up_my_speakers) {
+				dev_err(card->dev, "driver can't assure safety on this model, disabling speakers\n");
+				continue;
+			}
 			ma->has_speakers = 1;
+		}
 
 		cpu = of_get_child_by_name(np, "cpu");
 		codec = of_get_child_by_name(np, "codec");
@@ -615,10 +623,14 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 		of_node_put(codec);
 		of_node_put(cpu);
 		cpu = codec = NULL;
+
+		num_links += num_bes;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(macaudio_fe_links); i++)
 		card->dai_link[i].platforms->of_node = platform;
+
+	card->num_links = num_links;
 
 	return 0;
 
@@ -1112,17 +1124,13 @@ static int macaudio_j274_fixup_controls(struct snd_soc_card *card)
 
 struct macaudio_platform_cfg macaudio_j274_cfg = {
 	.fixup = macaudio_j274_fixup_controls,
+	.enable_speakers = true,
 };
 
 static int macaudio_j313_fixup_controls(struct snd_soc_card *card) {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
-		if (!please_blow_up_my_speakers) {
-			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
-			return -EINVAL;
-		}
-
 		CHECK(snd_soc_set_enum_kctl, "* ASI1 Sel", "Left");
 		CHECK(snd_soc_deactivate_kctl, "* ASI1 Sel", 0);
 
@@ -1155,11 +1163,6 @@ static int macaudio_j314_fixup_controls(struct snd_soc_card *card)
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
-		if (!please_blow_up_my_speakers) {
-			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
-			return -EINVAL;
-		}
-
 		CHECK(snd_soc_set_enum_kctl, "* ASI1 Sel", "Left");
 		CHECK(snd_soc_deactivate_kctl, "* ASI1 Sel", 0);
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
@@ -1223,11 +1226,6 @@ static int macaudio_j375_fixup_controls(struct snd_soc_card *card)
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
-		if (!please_blow_up_my_speakers) {
-			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
-			return -EINVAL;
-		}
-
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 14); // 20 set by macOS, this is 3 dB below
 
 		macaudio_vlimit_update(ma);
@@ -1245,11 +1243,6 @@ static int macaudio_j493_fixup_controls(struct snd_soc_card *card)
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
 	if (ma->has_speakers) {
-		if (!please_blow_up_my_speakers) {
-			dev_err(card->dev, "driver can't assure safety on this model, refusing probe\n");
-			return -EINVAL;
-		}
-
 		CHECK(snd_soc_limit_volume, "* Amp Gain Volume", 9); // 15 set by macOS, this is 3 dB below
 
 		macaudio_vlimit_update(ma);
