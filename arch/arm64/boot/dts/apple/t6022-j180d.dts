@@ -542,6 +542,8 @@
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "Tweeter";
 		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
 	};
 
 	speaker_woofer: codec@39 {
@@ -551,6 +553,8 @@
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "Woofer";
 		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
 	};
 };
 
