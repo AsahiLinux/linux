@@ -276,6 +276,8 @@ static void macaudio_vlimit_update(struct macaudio_snd_data *ma)
 
 		macaudio_vlimit_unlock(ma, unlock);
 		ma->speaker_volume_unlocked = unlock;
+		snd_ctl_notify(ma->card.snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
+			       &ma->speaker_lock_kctl->id);
 	}
 }
 
@@ -1381,7 +1383,17 @@ static int macaudio_slk_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 	return 0;
 }
 
-int macaudio_slk_lock(struct snd_kcontrol *kcontrol, struct snd_ctl_file *owner)
+static int macaudio_slk_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *uvalue)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+
+	uvalue->value.integer.value[0] = ma->speaker_volume_unlocked ? 1 : 0;
+
+	return 0;
+}
+
+static int macaudio_slk_lock(struct snd_kcontrol *kcontrol, struct snd_ctl_file *owner)
 {
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
@@ -1419,9 +1431,12 @@ static const struct snd_kcontrol_new macaudio_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.access = SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			SNDRV_CTL_ELEM_ACCESS_WRITE |
+			SNDRV_CTL_ELEM_ACCESS_VOLATILE,
 		.name = "Speaker Volume Unlock",
-		.info = macaudio_slk_info, .put = macaudio_slk_put,
+		.info = macaudio_slk_info,
+		.put = macaudio_slk_put, .get = macaudio_slk_get,
 		.lock = macaudio_slk_lock, .unlock = macaudio_slk_unlock,
 	},
 	{
