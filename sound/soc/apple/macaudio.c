@@ -1186,7 +1186,8 @@ struct macaudio_platform_cfg macaudio_j413_cfg = {
 		/* Min gain: -17.47 dB */
 		{.match = "* Tweeter Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
 		/* Min gain: -10.63 dB */
-		{.match = "* Woofer Speaker Volume", TAS2764_DB_REDUCTION(14), TAS2764_0DB},
+		/* FIXME: These structures are aliased so we can't set different max volumes */
+		{.match = "* Woofer Speaker Volume", TAS2764_DB_REDUCTION(20), TAS2764_0DB},
 	}
 };
 
