@@ -20,7 +20,7 @@
  * reparenting of live BEs.)
  */
 
-#define DEBUG
+/* #define DEBUG */
 
 #include <linux/module.h>
 #include <linux/of_device.h>
