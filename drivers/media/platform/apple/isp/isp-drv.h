@@ -270,6 +270,7 @@ struct isp_buffer {
 enum {
 	ISP_STATE_STREAMING,
 	ISP_STATE_LOGGING,
+	ISP_STATE_SLEEPING,
 };
 
 #ifdef APPLE_ISP_DEBUG

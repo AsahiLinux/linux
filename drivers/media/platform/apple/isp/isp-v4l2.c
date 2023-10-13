@@ -337,12 +337,9 @@ static void isp_vb2_buf_queue(struct vb2_buffer *vb)
 		isp_submit_buffers(isp);
 }
 
-static int isp_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
+static int apple_isp_start_streaming(struct apple_isp *isp)
 {
-	struct apple_isp *isp = vb2_get_drv_priv(q);
 	int err;
-
-	isp->sequence = 0;
 
 	err = apple_isp_start_camera(isp);
 	if (err) {
@@ -373,14 +370,53 @@ release_buffers:
 	return err;
 }
 
+static void apple_isp_stop_streaming(struct apple_isp *isp)
+{
+	clear_bit(ISP_STATE_STREAMING, &isp->state);
+	apple_isp_stop_capture(isp);
+	apple_isp_stop_camera(isp);
+}
+
+static int isp_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
+{
+	struct apple_isp *isp = vb2_get_drv_priv(q);
+
+	isp->sequence = 0;
+
+	return apple_isp_start_streaming(isp);
+}
+
 static void isp_vb2_stop_streaming(struct vb2_queue *q)
 {
 	struct apple_isp *isp = vb2_get_drv_priv(q);
 
-	clear_bit(ISP_STATE_STREAMING, &isp->state);
-	apple_isp_stop_capture(isp);
-	apple_isp_stop_camera(isp);
+	apple_isp_stop_streaming(isp);
 	isp_vb2_release_buffers(isp, VB2_BUF_STATE_ERROR);
+}
+
+int apple_isp_video_suspend(struct apple_isp *isp)
+{
+	/* Swap into STATE_SLEEPING as isp_vb2_buf_queue() submits on
+	 * STATE_STREAMING.
+	 */
+	if (test_bit(ISP_STATE_STREAMING, &isp->state)) {
+		/* Signal buffers to be recycled for clean shutdown */
+		isp_vb2_release_buffers(isp, VB2_BUF_STATE_QUEUED);
+		apple_isp_stop_streaming(isp);
+		set_bit(ISP_STATE_SLEEPING, &isp->state);
+	}
+
+	return 0;
+}
+
+int apple_isp_video_resume(struct apple_isp *isp)
+{
+	if (test_bit(ISP_STATE_SLEEPING, &isp->state)) {
+		clear_bit(ISP_STATE_SLEEPING, &isp->state);
+		apple_isp_start_streaming(isp);
+	}
+
+	return 0;
 }
 
 static const struct vb2_ops isp_vb2_ops = {

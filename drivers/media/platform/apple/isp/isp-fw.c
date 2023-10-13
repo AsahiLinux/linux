@@ -43,8 +43,8 @@ static inline void isp_gpio_write32(struct apple_isp *isp, u32 reg, u32 val)
 	writel(val, isp->gpio + reg);
 }
 
-int apple_isp_power_up_domains(struct apple_isp *isp)
 static int apple_isp_power_up_domains(struct apple_isp *isp)
+{
 	int ret;
 
 	if (isp->pds_active)
@@ -66,8 +66,8 @@ static int apple_isp_power_up_domains(struct apple_isp *isp)
 	return 0;
 }
 
-void apple_isp_power_down_domains(struct apple_isp *isp)
 static void apple_isp_power_down_domains(struct apple_isp *isp)
+{
 	int ret;
 
 	if (!isp->pds_active)
@@ -271,7 +271,7 @@ static void isp_firmware_shutdown_stage1(struct apple_isp *isp)
 static int isp_firmware_boot_stage1(struct apple_isp *isp)
 {
 	int err, retries;
-	u32 val;
+	// u32 val;
 
 	err = apple_isp_power_up_domains(isp);
 	if (err < 0)
@@ -280,12 +280,19 @@ static int isp_firmware_boot_stage1(struct apple_isp *isp)
 
 	isp_gpio_write32(isp, ISP_GPIO_CLOCK_EN, 0x1);
 
+#if 0
+	/* This doesn't work well with system sleep */
 	val = isp_gpio_read32(isp, ISP_GPIO_1);
 	if (val == 0xfeedbabe) {
 		err = isp_reset_coproc(isp);
 		if (err < 0)
 			return err;
 	}
+#endif
+
+	err = isp_reset_coproc(isp);
+	if (err < 0)
+		return err;
 
 	isp_gpio_write32(isp, ISP_GPIO_0, 0x0);
 	isp_gpio_write32(isp, ISP_GPIO_1, 0x0);

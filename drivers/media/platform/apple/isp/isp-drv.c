@@ -541,17 +541,42 @@ static const struct of_device_id apple_isp_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, apple_isp_of_match);
 
+static __maybe_unused int apple_isp_runtime_suspend(struct device *dev)
+{
+	/* RPM sleep is called when the V4L2 file handle is closed */
+	return 0;
+}
+
+static __maybe_unused int apple_isp_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+
 static __maybe_unused int apple_isp_suspend(struct device *dev)
 {
+	struct apple_isp *isp = dev_get_drvdata(dev);
+
+	/* We must restore V4L2 context on system resume. If we were streaming
+	 * before, we (essentially) stop streaming and start streaming again.
+	 */
+	apple_isp_video_suspend(isp);
+
 	return 0;
 }
 
 static __maybe_unused int apple_isp_resume(struct device *dev)
 {
+	struct apple_isp *isp = dev_get_drvdata(dev);
+
+	apple_isp_video_resume(isp);
+
 	return 0;
 }
-DEFINE_RUNTIME_DEV_PM_OPS(apple_isp_pm_ops, apple_isp_suspend, apple_isp_resume,
-			  NULL);
+
+static const struct dev_pm_ops apple_isp_pm_ops = {
+	SYSTEM_SLEEP_PM_OPS(apple_isp_suspend, apple_isp_resume)
+	RUNTIME_PM_OPS(apple_isp_runtime_suspend, apple_isp_runtime_resume, NULL)
+};
 
 static struct platform_driver apple_isp_driver = {
 	.driver	= {
