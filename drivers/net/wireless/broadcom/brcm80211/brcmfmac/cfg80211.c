@@ -7079,7 +7079,6 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 	if (band)
 		for (i = 0; i < band->n_channels; i++)
 			band->channels[i].flags = IEEE80211_CHAN_DISABLED;
-
 	total = le32_to_cpu(list->count);
 	if (total > BRCMF_MAX_CHANSPEC_LIST) {
 		bphy_err(drvr, "Invalid count of channel Spec. (%u)\n",

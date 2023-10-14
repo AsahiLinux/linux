@@ -31,6 +31,7 @@
 /* bandstate array indices */
 #define BAND_2G_INDEX		0	/* wlc->bandstate[x] index */
 #define BAND_5G_INDEX		1	/* wlc->bandstate[x] index */
+#define BAND_6G_INDEX		2	/* wlc->bandstate[x] index */
 
 /*
  * max # supported channels. The max channel no is 216, this is that + 1
@@ -48,17 +49,22 @@
 #define WL_CHANSPEC_CTL_SB_UPPER	0x0200
 #define WL_CHANSPEC_CTL_SB_NONE		0x0300
 
-#define WL_CHANSPEC_BW_MASK		0x0C00
-#define WL_CHANSPEC_BW_SHIFT		    10
+#define WL_CHANSPEC_BW_MASK		0x3800
+#define WL_CHANSPEC_BW_SHIFT	11
 #define WL_CHANSPEC_BW_10		0x0400
 #define WL_CHANSPEC_BW_20		0x0800
 #define WL_CHANSPEC_BW_40		0x0C00
 #define WL_CHANSPEC_BW_80		0x2000
+#define WL_CHANSPEC_BW_160	0x2800
+#define WL_CHANSPEC_BW_8080 0x3000
+#define WL_CHANSPEC_BW_320  0x0000
 
-#define WL_CHANSPEC_BAND_MASK		0xf000
-#define WL_CHANSPEC_BAND_SHIFT		12
-#define WL_CHANSPEC_BAND_5G		0x1000
-#define WL_CHANSPEC_BAND_2G		0x2000
+#define WL_CHANSPEC_BAND_MASK		0xc000
+#define WL_CHANSPEC_BAND_SHIFT		14
+#define WL_CHANSPEC_BAND_2G		0x0000
+#define WL_CHANSPEC_BAND_4G		0x8000
+#define WL_CHANSPEC_BAND_5G		0xc000
+#define WL_CHANSPEC_BAND_6G		0x4000
 #define INVCHANSPEC			255
 
 #define WL_CHAN_VALID_HW		(1 << 0) /* valid with current HW */
@@ -93,6 +99,7 @@
 #define	WLC_BAND_5G			1	/* 5 Ghz */
 #define	WLC_BAND_2G			2	/* 2.4 Ghz */
 #define	WLC_BAND_ALL			3	/* all bands */
+#define WLC_BAND_6G			4	/* 6 Ghz */
 
 #define WLC_AP_IOV_OP_MANUAL_AP_BSSCFG_CREATE	2
 
@@ -113,6 +120,12 @@
 
 #define CHSPEC_IS80(chspec) \
 	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_80)
+
+#define CHSPEC_IS160(chspec) \
+	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_160)
+
+#define CHSPEC_IS6G(chspec) \
+	(((chspec) & WL_CHANSPEC_BAND_MASK) == WL_CHANSPEC_BAND_6G)
 
 #define CHSPEC_IS5G(chspec) \
 	(((chspec) & WL_CHANSPEC_BAND_MASK) == WL_CHANSPEC_BAND_5G)
