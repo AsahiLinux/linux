@@ -41,6 +41,7 @@
 };
 
 &sound {
+	compatible = "apple,j474-macaudio", "apple,j473-macaudio", "apple,macaudio";
 	model = "Mac mini J474";
 };
 
