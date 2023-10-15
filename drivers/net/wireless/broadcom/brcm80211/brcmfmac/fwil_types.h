@@ -1336,4 +1336,96 @@ struct brcmf_wsec_info {
 	struct brcmf_wsec_info_tlv tlvs[1]; /* tlv data follows */
 };
 
+/* HE top level command IDs */
+enum {
+	BRCMF_HE_CMD_ENABLE = 0,
+	BRCMF_HE_CMD_FEATURES = 1,
+	BRCMF_HE_CMD_SR = 2,
+	BRCMF_HE_CMD_TESTBED = 3,
+	BRCMF_HE_CMD_BSR_SUPPORT = 4,
+	BRCMF_HE_CMD_BSSCOLOR = 5,
+	BRCMF_HE_CMD_PARTIAL_BSSCOLOR = 6,
+	BRCMF_HE_CMD_CAP = 7,
+	BRCMF_HE_CMD_OMI = 8,
+	BRCMF_HE_CMD_RANGE_EXT = 9,
+	BRCMF_HE_CMD_RTSDURTHRESH = 10,
+	BRCMF_HE_CMD_PEDURATION = 11,
+	BRCMF_HE_CMD_MUEDCA = 12,
+	BRCMF_HE_CMD_DYNFRAG = 13,
+	BRCMF_HE_CMD_PPET = 14,
+	BRCMF_HE_CMD_HTC = 15,
+	BRCMF_HE_CMD_AXMODE = 16,
+	BRCMF_HE_CMD_FRAGTX = 17,
+	BRCMF_HE_CMD_DEFCAP = 18,
+};
+
+#define BRCMF_HE_VER_1 1
+
+struct brcmf_he_bsscolor {
+	u8 color; /* 1..63, on get returns currently in use color */
+	u8 disabled; /* 0/1, 0 means disabled is false, so coloring is enabled */
+	u8 switch_count; /* 0, immediate programming, 1 .. 255 beacon count down */
+	u8 PAD;
+};
+
+struct brcmf_he_omi {
+	u8 peer[ETH_ALEN]; /* leave it all 0s' for non-AP */
+	u8 rx_nss; /* 0..7 */
+	u8 channel_width; /* 0:20, 1:40, 2:80, 3:160 */
+	u8 ul_mu_disable; /* 0|1 */
+	u8 tx_nsts; /* 0..7 */
+	u8 er_su_disable; /* 0|1 */
+	u8 dl_mumimo_resound; /* 0|1 */
+	u8 ul_mu_data_disable; /* 0|1 */
+	u8 tx_override; /* 0, only used for testbed AP */
+	u8 PAD[2];
+};
+
+struct brcmf_he_edca_v1 {
+	u8 aci_aifsn;
+	u8 ecw_min_max;
+	u8 muedca_timer;
+	u8 PAD;
+};
+
+#define BRCMF_AC_COUNT 4
+struct brcmf_he_muedca_v1 {
+	/* structure control */
+	__le16 version; /* structure version */
+	__le16 length; /* data length (starting after this field) */
+	struct brcmf_he_edca_v1 ac_param_ap[BRCMF_AC_COUNT];
+	struct brcmf_he_edca_v1 ac_param_sta[BRCMF_AC_COUNT];
+};
+
+#define BRCMF_HE_SR_VER_1 1
+
+#define SRC_PSR_DIS 0x01
+#define SRC_NON_SRG_OBSS_PD_SR_DIS 0x02
+#define SRC_NON_SRG_OFFSET_PRESENT 0x04
+#define SRC_SRG_INFORMATION_PRESENT 0x08
+#define SRC_HESIGA_SPATIAL_REUSE_VALUE15_ALLOWED 0x10
+
+#define HE_SR_SRG_INFO_LEN 18
+
+struct brcmf_he_sr_v1 {
+	/* structure control */
+	__le16 version; /* structure version */
+	__le16 length; /* data length (starting after this field) */
+	u8 enabled;
+	u8 src; /* SR control, see above defines. */
+	u8 non_srg_offset; /* Non-SRG Offset */
+	u8 srg[HE_SR_SRG_INFO_LEN]; /* SRG Information */
+};
+
+#define BRCMF_HE_DEFCAP_VER_1 1
+
+struct brcmf_he_defcap {
+	__le16 version; /* structure version */
+	__le16 length; /* data length (starting after this field) */
+	u8 bsscfg_type;
+	u8 bsscfg_subtype;
+	u8 mac_cap[6];
+	u8 phy_cap[11];
+};
+
 #endif /* FWIL_TYPES_H_ */
