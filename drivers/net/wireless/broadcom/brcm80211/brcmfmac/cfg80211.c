@@ -1108,6 +1108,28 @@ static void brcmf_scan_params_v2_to_v1(struct brcmf_scan_params_v2_le *params_v2
 	       &params_v2_le->channel_list[0], params_size);
 }
 
+static u32 brcmf_nl80211_scan_flags_to_scan_flags(u32 nl80211_flags)
+{
+	u32 scan_flags = 0;
+	if (nl80211_flags & NL80211_SCAN_FLAG_LOW_SPAN) {
+		scan_flags |= BRCMF_SCANFLAGS_LOW_SPAN;
+		brcmf_dbg(SCAN, "requested low span scan\n");
+	}
+	if (nl80211_flags & NL80211_SCAN_FLAG_HIGH_ACCURACY) {
+		scan_flags |= BRCMF_SCANFLAGS_HIGH_ACCURACY;
+		brcmf_dbg(SCAN, "requested high accuracy scan\n");
+	}
+	if (nl80211_flags & NL80211_SCAN_FLAG_LOW_POWER) {
+		scan_flags |= BRCMF_SCANFLAGS_LOW_POWER;
+		brcmf_dbg(SCAN, "requested low power scan\n");
+	}
+	if (nl80211_flags & NL80211_SCAN_FLAG_LOW_PRIORITY) {
+		scan_flags |= BRCMF_SCANFLAGS_LOW_PRIO;
+		brcmf_dbg(SCAN, "requested low priority scan\n");
+	}
+	return scan_flags;
+}
+
 static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
 			     struct brcmf_if *ifp,
 			     struct brcmf_scan_params_v2_le *params_le,
@@ -1121,6 +1143,7 @@ static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
 	char *ptr;
 	int length;
 	struct brcmf_ssid_le ssid_le;
+	u32 scan_type = BRCMF_SCANTYPE_ACTIVE;
 
 	eth_broadcast_addr(params_le->bssid);
 
@@ -1133,7 +1156,6 @@ static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
 
 	params_le->bss_type = DOT11_BSSTYPE_ANY;
 	params_le->ssid_type = 0;
-	params_le->scan_type = cpu_to_le32(BRCMF_SCANTYPE_ACTIVE);
 	params_le->channel_num = 0;
 	params_le->nprobes = cpu_to_le32(-1);
 	params_le->active_time = cpu_to_le32(-1);
@@ -1193,9 +1215,17 @@ static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
 		}
 	} else {
 		brcmf_dbg(SCAN, "Performing passive scan\n");
-		params_le->scan_type = cpu_to_le32(BRCMF_SCANTYPE_PASSIVE);
+		scan_type = BRCMF_SCANTYPE_PASSIVE;
 	}
+	scan_type |= brcmf_nl80211_scan_flags_to_scan_flags(request->flags);
+	params_le->scan_type = cpu_to_le32(scan_type);
 	params_le->length = cpu_to_le16(length);
+
+	/* Include RNR results if requested */
+	if (request->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ) {
+		params_le->ssid_type |= BRCMF_SCANSSID_INC_RNR;
+	}
+
 	/* Adding mask to channel numbers */
 	params_le->channel_num =
 		cpu_to_le32((n_ssids << BRCMF_SCAN_PARAMS_NSSID_SHIFT) |
@@ -7935,6 +7965,13 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 	}
 	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SAE_EXT))
 		wiphy->features |= NL80211_FEATURE_SAE;
+
+	/* High accuracy and low power scans are always supported. */
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_HIGH_ACCURACY_SCAN);
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_LOW_POWER_SCAN);
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_LOW_SPAN_SCAN);
+	wiphy->features |= NL80211_FEATURE_LOW_PRIORITY_SCAN;
+
 	wiphy->mgmt_stypes = brcmf_txrx_stypes;
 	wiphy->max_remain_on_channel_duration = 5000;
 	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_PNO)) {

@@ -64,6 +64,15 @@
 #define BRCMF_SCANTYPE_ACTIVE		0
 #define BRCMF_SCANTYPE_PASSIVE		1
 
+/* Additional scanning flags */
+#define BRCMF_SCANFLAGS_LOW_PRIO 	0x2
+#define BRCMF_SCANFLAGS_LOW_POWER	0x1000
+#define BRCMF_SCANFLAGS_HIGH_ACCURACY	0x2000
+#define BRCMF_SCANFLAGS_LOW_SPAN	0x4000
+
+/* scan ssid_type flags */
+#define BRCMF_SCANSSID_INC_RNR		0x02 /* Include RNR channels*/
+
 #define BRCMF_WSEC_MAX_PSK_LEN		32
 #define	BRCMF_WSEC_PASSPHRASE		BIT(0)
 
