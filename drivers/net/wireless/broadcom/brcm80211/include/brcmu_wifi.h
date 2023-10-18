@@ -254,6 +254,13 @@ static inline bool ac_bitmap_tst(u8 bitmap, int prec)
 #define WPA2_AUTH_PSK_SHA256	0x8000	/* PSK with SHA256 key derivation */
 
 #define WPA3_AUTH_SAE_PSK	0x40000	/* SAE with 4-way handshake */
+#define WPA3_AUTH_OWE		0x100000 /* OWE */
+#define WFA_AUTH_DPP		0x200000 /* WFA DPP AUTH */
+#define WPA3_AUTH_1X_SUITE_B_SHA384	0x400000 /* Suite B-192 SHA384 */
+
+
+#define WFA_OUI			"\x50\x6F\x9A"	/* WFA OUI */
+#define DPP_VER			0x1A	/* WFA DPP v1.0 */
 
 #define WFA_AUTH_DPP		0x200000 /* WFA DPP AUTH */
 
