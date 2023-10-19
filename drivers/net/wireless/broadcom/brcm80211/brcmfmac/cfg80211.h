@@ -354,6 +354,7 @@ struct brcmf_cfg80211_wowl {
  * @dongle_up: indicate whether dongle up or not.
  * @roam_on: on/off switch for dongle self-roaming.
  * @scan_tried: indicates if first scan attempted.
+ * @force_band_setup: indicates if we should force band setup
  * @dcmd_buf: dcmd buffer.
  * @extra_buf: mainly to grab assoc information.
  * @debugfsdir: debugfs folder for this device.
@@ -384,6 +385,7 @@ struct brcmf_cfg80211_info {
 	bool pwr_save;
 	bool dongle_up;
 	bool scan_tried;
+	bool force_band_setup;
 	u8 *dcmd_buf;
 	u8 *extra_buf;
 	struct dentry *debugfsdir;

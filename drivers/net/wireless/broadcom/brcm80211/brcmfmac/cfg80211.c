@@ -7319,18 +7319,34 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 		goto fail_pbuf;
 	}
 
+	/* Changing regulatory domain may change power limits upwards.
+	 * To ensure that we correctly set the new band info, copy the original
+	 * info first.
+	 */
 	band = wiphy->bands[NL80211_BAND_2GHZ];
-	if (band)
+	if (band) {
+		memcpy(band->channels, &__wl_2ghz_channels,
+		       sizeof(__wl_2ghz_channels));
+		band->n_channels = ARRAY_SIZE(__wl_2ghz_channels);
 		for (i = 0; i < band->n_channels; i++)
 			band->channels[i].flags = IEEE80211_CHAN_DISABLED;
+	}
 	band = wiphy->bands[NL80211_BAND_5GHZ];
-	if (band)
+	if (band) {
+		memcpy(band->channels, &__wl_5ghz_channels,
+		       sizeof(__wl_5ghz_channels));
+		band->n_channels = ARRAY_SIZE(__wl_5ghz_channels);
 		for (i = 0; i < band->n_channels; i++)
 			band->channels[i].flags = IEEE80211_CHAN_DISABLED;
+	}
 	band = wiphy->bands[NL80211_BAND_6GHZ];
-	if (band)
+	if (band) {
+		memcpy(band->channels, &__wl_6ghz_channels,
+		       sizeof(__wl_6ghz_channels));
+		band->n_channels = ARRAY_SIZE(__wl_6ghz_channels);
 		for (i = 0; i < band->n_channels; i++)
 			band->channels[i].flags = IEEE80211_CHAN_DISABLED;
+	}
 	total = le32_to_cpu(list->count);
 	if (total > BRCMF_MAX_CHANSPEC_LIST) {
 		bphy_err(drvr, "Invalid count of channel Spec. (%u)\n",
@@ -8791,9 +8807,17 @@ static void brcmf_cfg80211_reg_notifier(struct wiphy *wiphy,
 	}
 
 	err = brcmf_translate_country_code(ifp->drvr, req->alpha2, &ccreq);
-	if (err)
-		return;
-
+	if (err) {
+		/* Because we ignore the default country code above,
+		 * we will start out in our custom reg domain, but the chip
+		 * may already be set to the right country.
+		 * As such, we force the bands to be re-set the first
+		 * time we try to set a country for real.
+		 */
+		if (err != -EAGAIN || !cfg->force_band_setup)
+			return;
+	}
+	cfg->force_band_setup = false;
 	err = brcmf_fil_iovar_data_set(ifp, "country", &ccreq, sizeof(ccreq));
 	if (err) {
 		bphy_err(drvr, "Firmware rejected country setting\n");
@@ -8860,6 +8884,7 @@ struct brcmf_cfg80211_info *brcmf_cfg80211_attach(struct brcmf_pub *drvr,
 	cfg->pub = drvr;
 	init_vif_event(&cfg->vif_event);
 	INIT_LIST_HEAD(&cfg->vif_list);
+	cfg->force_band_setup = true;
 
 	vif = brcmf_alloc_vif(cfg, NL80211_IFTYPE_STATION);
 	if (IS_ERR(vif))
