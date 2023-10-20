@@ -7331,6 +7331,7 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 				break;
 			}
 		}
+
 		if (!channel) {
 			/* It seems firmware supports some channel we never
 			 * considered. Something new in IEEE standard?
@@ -7403,17 +7404,25 @@ static int brcmf_enable_bw40_2g(struct brcmf_cfg80211_info *cfg)
 	struct brcmu_chan ch;
 	u32 num_chan;
 	int i, j;
+	s32 updown;
 
 	/* verify support for bw_cap command */
-	val = WLC_BAND_5G;
+	val = WLC_BAND_2G;
 	err = brcmf_fil_iovar_int_query(ifp, "bw_cap", &val);
-
+	brcmf_dbg(INFO, "Check bw_cap support:%d\n", err);
 	if (!err) {
+		/* Setting the bw_cap is DOWN restricted. */
+		updown = 0;
+		brcmf_fil_cmd_data_set(ifp, BRCMF_C_DOWN, &updown, sizeof(s32));
 		/* only set 2G bandwidth using bw_cap command */
 		band_bwcap.band = cpu_to_le32(WLC_BAND_2G);
 		band_bwcap.bw_cap = cpu_to_le32(WLC_BW_CAP_40MHZ);
 		err = brcmf_fil_iovar_data_set(ifp, "bw_cap", &band_bwcap,
 					       sizeof(band_bwcap));
+		brcmf_dbg(INFO, "set bw_cap support:%d\n", err);
+		brcmf_c_set_joinpref_default(ifp);
+		updown = 1;
+		brcmf_fil_cmd_data_set(ifp, BRCMF_C_UP, &updown, sizeof(s32));
 	} else {
 		brcmf_dbg(INFO, "fallback to mimo_bw_cap\n");
 		val = WLC_N_BW_40ALL;
@@ -7475,7 +7484,7 @@ static int brcmf_enable_bw40_2g(struct brcmf_cfg80211_info *cfg)
 	return err;
 }
 
-static void brcmf_get_bwcap(struct brcmf_if *ifp, u32 bw_cap[], bool has_6g)
+static void brcmf_get_bwcap(struct brcmf_if *ifp, u32 bw_cap[4], bool has_6g)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
 	u32 band, mimo_bwcap;
@@ -7529,7 +7538,7 @@ fallback:
 }
 
 static void brcmf_update_ht_cap(struct ieee80211_supported_band *band,
-				u32 bw_cap[2], u32 nrxchain)
+				u32 bw_cap[4], u32 nrxchain)
 {
 	/* Not supported in 6G band */
 	if (band->band == NL80211_BAND_6GHZ)
@@ -7560,7 +7569,7 @@ static __le16 brcmf_get_mcs_map(u32 nstreams,
 }
 
 static void brcmf_update_vht_cap(struct ieee80211_supported_band *band,
-				 u32 bw_cap[2], u32 txstreams, u32 rxstreams,
+				 u32 bw_cap[4], u32 txstreams, u32 rxstreams,
 				 u32 txbf_bfe_cap, u32 txbf_bfr_cap,
 				 u32 ldpc_cap, u32 stbc_rx, u32 stbc_tx)
 {
@@ -7745,7 +7754,7 @@ static int brcmf_setup_wiphybands(struct brcmf_cfg80211_info *cfg)
 	u32 nmode;
 	u32 vhtmode = 0;
 	/* 2GHZ, 5GHZ, 60GHZ, 6GHZ */
-	u32 bw_cap[4] = { WLC_BW_20MHZ_BIT, WLC_BW_20MHZ_BIT, 0, 0 };
+	u32 bw_cap[4] = { 0, 0, 0, 0 };
 	u32 rxchain;
 	u32 txchain;
 	u32 nrxchain;
