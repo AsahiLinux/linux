@@ -96,6 +96,7 @@ struct macaudio_snd_data {
 	int speaker_sample_rate;
 	struct snd_kcontrol *speaker_sample_rate_kctl;
 
+	struct mutex volume_lock_mutex;
 	bool speaker_volume_unlocked;
 	bool speaker_volume_was_locked;
 	struct snd_kcontrol *speaker_lock_kctl;
@@ -284,10 +285,12 @@ static void macaudio_vlimit_update(struct macaudio_snd_data *ma)
 
 static void macaudio_vlimit_enable_timeout(struct macaudio_snd_data *ma)
 {
-	if (ma->speaker_lock_timeout_enabled)
-		return;
+	mutex_lock(&ma->volume_lock_mutex);
 
-	down_write(&ma->card.snd_card->controls_rwsem);
+	if (ma->speaker_lock_timeout_enabled) {
+		mutex_unlock(&ma->volume_lock_mutex);
+		return;
+	}
 
 	if (ma->speaker_lock_remain > 0) {
 		ma->speaker_lock_timeout = ktime_add(ktime_get(), ma->speaker_lock_remain);
@@ -298,18 +301,22 @@ static void macaudio_vlimit_enable_timeout(struct macaudio_snd_data *ma)
 
 	macaudio_vlimit_update(ma);
 
-	up_write(&ma->card.snd_card->controls_rwsem);
 	ma->speaker_lock_timeout_enabled = true;
+	mutex_unlock(&ma->volume_lock_mutex);
 }
 
 static void macaudio_vlimit_disable_timeout(struct macaudio_snd_data *ma)
 {
-	ktime_t now = ktime_get();
+	ktime_t now;
 
-	if (!ma->speaker_lock_timeout_enabled)
+	mutex_lock(&ma->volume_lock_mutex);
+
+	if (!ma->speaker_lock_timeout_enabled) {
+		mutex_unlock(&ma->volume_lock_mutex);
 		return;
+	}
 
-	down_write(&ma->card.snd_card->controls_rwsem);
+	now = ktime_get();
 
 	cancel_delayed_work(&ma->lock_timeout_work);
 
@@ -323,8 +330,9 @@ static void macaudio_vlimit_disable_timeout(struct macaudio_snd_data *ma)
 
 	macaudio_vlimit_update(ma);
 
-	up_write(&ma->card.snd_card->controls_rwsem);
 	ma->speaker_lock_timeout_enabled = false;
+
+	mutex_unlock(&ma->volume_lock_mutex);
 }
 
 static void macaudio_vlimit_timeout_work(struct work_struct *wrk)
@@ -332,12 +340,12 @@ static void macaudio_vlimit_timeout_work(struct work_struct *wrk)
         struct macaudio_snd_data *ma = container_of(to_delayed_work(wrk),
 						    struct macaudio_snd_data, lock_timeout_work);
 
-	down_write(&ma->card.snd_card->controls_rwsem);
+	mutex_lock(&ma->volume_lock_mutex);
 
 	ma->speaker_lock_remain = 0;
 	macaudio_vlimit_update(ma);
 
-	up_write(&ma->card.snd_card->controls_rwsem);
+	mutex_unlock(&ma->volume_lock_mutex);
 }
 
 static void macaudio_vlimit_update_work(struct work_struct *wrk)
@@ -1095,7 +1103,9 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 	ma->speaker_sample_rate_kctl = snd_soc_card_get_kcontrol(card, "Speaker Sample Rate");
 	ma->speaker_lock_kctl = snd_soc_card_get_kcontrol(card, "Speaker Volume Unlock");
 
+	mutex_lock(&ma->volume_lock_mutex);
 	macaudio_vlimit_unlock(ma, false);
+	mutex_unlock(&ma->volume_lock_mutex);
 
 	return 0;
 }
@@ -1336,6 +1346,8 @@ static int macaudio_slk_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 		return -ETIMEDOUT;
 	}
 
+	mutex_lock(&ma->volume_lock_mutex);
+
 	cancel_delayed_work(&ma->lock_timeout_work);
 
 	ma->speaker_lock_remain = ms_to_ktime(SPEAKER_LOCK_TIMEOUT);
@@ -1347,6 +1359,8 @@ static int macaudio_slk_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 			(long)ktime_to_us(ma->speaker_lock_remain));
 		schedule_delayed_work(&ma->lock_timeout_work, usecs_to_jiffies(ktime_to_us(ma->speaker_lock_remain)));
 	}
+
+	mutex_unlock(&ma->volume_lock_mutex);
 
 	return 0;
 }
@@ -1366,6 +1380,7 @@ static int macaudio_slk_lock(struct snd_kcontrol *kcontrol, struct snd_ctl_file 
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
 
+	mutex_lock(&ma->volume_lock_mutex);
 	ma->speaker_lock_owner = owner;
 	macaudio_vlimit_update(ma);
 
@@ -1376,6 +1391,8 @@ static int macaudio_slk_lock(struct snd_kcontrol *kcontrol, struct snd_ctl_file 
 	 * true again until that point.
 	 */
 	ma->speaker_volume_was_locked = false;
+
+	mutex_unlock(&ma->volume_lock_mutex);
 
 	return 0;
 }
@@ -1469,6 +1486,7 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 	card = &data->card;
 	snd_soc_card_set_drvdata(card, data);
 	dev_set_drvdata(&pdev->dev, data);
+	mutex_init(&data->volume_lock_mutex);
 
 	card->owner = THIS_MODULE;
 	card->driver_name = "macaudio";
