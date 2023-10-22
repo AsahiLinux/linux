@@ -98,6 +98,7 @@ struct brcmf_rev_info {
 };
 
 struct brcmf_pno_info;
+enum nl80211_band;
 /**
  * struct pno_struct_handler
  */
@@ -113,6 +114,13 @@ struct pno_struct_handler {
 	int (*get_result_info)(void *data, int result_idx,
 			       u8 (*ssid)[IEEE80211_MAX_SSID_LEN], u8 *ssid_len,
 			       u8 *channel, enum nl80211_band *band);
+};
+struct cfg80211_scan_request;
+struct scan_param_struct_handler {
+	u8 version;
+	void *(*get_prepped_struct)(struct brcmf_cfg80211_info *cfg,
+				    u32 *struct_size,
+				    struct cfg80211_scan_request *request);
 };
 
 /* Common structure for module and instance linkage */
@@ -165,6 +173,7 @@ struct brcmf_pub {
 	void *vdata;
 	u16 cnt_ver;
 	struct pno_struct_handler pno_handler;
+	struct scan_param_struct_handler scan_param_handler;
 };
 
 /* forward declarations */

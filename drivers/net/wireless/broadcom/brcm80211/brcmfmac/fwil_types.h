@@ -47,13 +47,10 @@
 #define BRCMF_STA_DWDS_CAP		0x01000000	/* DWDS CAP */
 #define BRCMF_STA_DWDS			0x02000000	/* DWDS active */
 
-/* size of brcmf_scan_params not including variable length array */
-#define BRCMF_SCAN_PARAMS_FIXED_SIZE	64
-#define BRCMF_SCAN_PARAMS_V2_FIXED_SIZE	72
-
 /* version of brcmf_scan_params structure */
 #define BRCMF_SCAN_PARAMS_VERSION_V2	2
 #define BRCMF_SCAN_PARAMS_VERSION_V3	3
+#define BRCMF_SCAN_PARAMS_VERSION_V4	4
 
 /* masks for channel and ssid count */
 #define BRCMF_SCAN_PARAMS_COUNT_MASK	0x0000ffff
@@ -406,23 +403,23 @@ struct brcmf_ssid8_le {
 };
 
 struct brcmf_scan_params_le {
-	struct brcmf_ssid_le ssid_le;	/* default: {0, ""} */
-	u8 bssid[ETH_ALEN];	/* default: bcast */
-	s8 bss_type;		/* default: any,
+	struct brcmf_ssid_le ssid_le; /* default: {0, ""} */
+	u8 bssid[ETH_ALEN]; 	/* default: bcast */
+	s8 bss_type; 		/* default: any,
 				 * DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
 				 */
-	u8 scan_type;	/* flags, 0 use default */
-	__le32 nprobes;	  /* -1 use default, number of probes per channel */
-	__le32 active_time;	/* -1 use default, dwell time per channel for
+	u8 scan_type; 		/* flags, 0 use default */
+	__le32 nprobes; 	/* -1 use default, number of probes per channel */
+	__le32 active_time; 	/* -1 use default, dwell time per channel for
 				 * active scanning
 				 */
-	__le32 passive_time;	/* -1 use default, dwell time per channel
+	__le32 passive_time; 	/* -1 use default, dwell time per channel
 				 * for passive scanning
 				 */
 	__le32 home_time;	/* -1 use default, dwell time for the
 				 * home channel between channel scans
 				 */
-	__le32 channel_num;	/* count of channels and ssids that follow
+	__le32 channel_num; 	/* count of channels and ssids that follow
 				 *
 				 * low half is count of channels in
 				 * channel_list, 0 means default (use all
@@ -438,56 +435,125 @@ struct brcmf_scan_params_le {
 				 * fixed parameter portion is assumed, otherwise
 				 * ssid in the fixed portion is ignored
 				 */
-	union {
-		__le16 padding;	/* Reserve space for at least 1 entry for abort
-				 * which uses an on stack brcmf_scan_params_le
-				 */
-		DECLARE_FLEX_ARRAY(__le16, channel_list);	/* chanspecs */
-	};
+	__le16 channel_list[]; /* chanspecs */
 };
 
 struct brcmf_scan_params_v2_le {
-	__le16 version;		/* structure version */
-	__le16 length;		/* structure length */
-	struct brcmf_ssid_le ssid_le;	/* default: {0, ""} */
-	u8 bssid[ETH_ALEN];	/* default: bcast */
-	s8 bss_type;		/* default: any,
-				 * DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
-				 */
-	u8 ssid_type;		/* v3 only */
-	__le32 scan_type;	/* flags, 0 use default */
-	__le32 nprobes;		/* -1 use default, number of probes per channel */
-	__le32 active_time;	/* -1 use default, dwell time per channel for
-				 * active scanning
-				 */
-	__le32 passive_time;	/* -1 use default, dwell time per channel
-				 * for passive scanning
-				 */
-	__le32 home_time;	/* -1 use default, dwell time for the
-				 * home channel between channel scans
-				 */
-	__le32 channel_num;	/* count of channels and ssids that follow
-				 *
-				 * low half is count of channels in
-				 * channel_list, 0 means default (use all
-				 * available channels)
-				 *
-				 * high half is entries in struct brcmf_ssid
-				 * array that follows channel_list, aligned for
-				 * s32 (4 bytes) meaning an odd channel count
-				 * implies a 2-byte pad between end of
-				 * channel_list and first ssid
-				 *
-				 * if ssid count is zero, single ssid in the
-				 * fixed parameter portion is assumed, otherwise
-				 * ssid in the fixed portion is ignored
-				 */
-	union {
-		__le16 padding;	/* Reserve space for at least 1 entry for abort
-				 * which uses an on stack brcmf_scan_params_v2_le
-				 */
-		DECLARE_FLEX_ARRAY(__le16, channel_list);	/* chanspecs */
-	};
+	__le16 version; /* structure version */
+	__le16 length; /* structure length */
+	struct brcmf_ssid_le ssid_le;  /* default: {0, ""} */
+	u8 bssid[ETH_ALEN];	       /* default: bcast */
+	s8 bss_type; 		       /* default: any,
+					* DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
+					*/
+	u8 PAD;
+	__le32 scan_type; 	       /* flags, 0 use default */
+	__le32 nprobes; 	       /* -1 use default, number of probes per channel */
+	__le32 active_time; 	       /* -1 use default, dwell time per channel for
+					* active scanning
+					*/
+	__le32 passive_time;	       /* -1 use default, dwell time per channel
+					* for passive scanning
+					*/
+	__le32 home_time;	       /* -1 use default, dwell time for the
+					* home channel between channel scans
+					*/
+	__le32 channel_num;	       /* count of channels and ssids that follow
+					*
+					* low half is count of channels in
+					* channel_list, 0 means default (use all
+					* available channels)
+					*
+					* high half is entries in struct brcmf_ssid
+					* array that follows channel_list, aligned for
+					* s32 (4 bytes) meaning an odd channel count
+					* implies a 2-byte pad between end of
+					* channel_list and first ssid
+					*
+					* if ssid count is zero, single ssid in the
+					* fixed parameter portion is assumed, otherwise
+					* ssid in the fixed portion is ignored
+					*/
+	__le16 channel_list[]; 		/* chanspecs */
+};
+
+struct brcmf_scan_params_v3_le {
+	__le16 version; 	       /* structure version */
+	__le16 length; 		       /* structure length */
+	struct brcmf_ssid_le ssid_le;  /* default: {0, ""} */
+	u8 bssid[ETH_ALEN]; 	       /* default: bcast */
+	s8 bss_type; 		       /* default: any,
+					* DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
+					*/
+	u8 ssid_type;		       /* short vs regular SSID */
+	__le32 scan_type; 	       /* flags, 0 use default */
+	__le32 nprobes;		       /* -1 use default, number of probes per channel */
+	__le32 active_time; 	       /* -1 use default, dwell time per channel for
+					* active scanning
+					*/
+	__le32 passive_time;	       /* -1 use default, dwell time per channel
+					* for passive scanning
+					*/
+	__le32 home_time; 	       /* -1 use default, dwell time for the
+					* home channel between channel scans
+					*/
+	__le32 channel_num; 	       /* count of channels and ssids that follow
+					*
+					* low half is count of channels in
+					* channel_list, 0 means default (use all
+					* available channels)
+					*
+					* high half is entries in struct brcmf_ssid
+					* array that follows channel_list, aligned for
+					* s32 (4 bytes) meaning an odd channel count
+					* implies a 2-byte pad between end of
+					* channel_list and first ssid
+					*
+					* if ssid count is zero, single ssid in the
+					* fixed parameter portion is assumed, otherwise
+					* ssid in the fixed portion is ignored
+					*/
+	__le16 channel_list[]; 		/* chanspecs */
+};
+
+struct brcmf_scan_params_v4_le {
+	__le16 version; 	       /* structure version */
+	__le16 length; 		       /* structure length */
+	struct brcmf_ssid_le ssid_le;  /* default: {0, ""} */
+	u8 bssid[ETH_ALEN]; 	       /* default: bcast */
+	s8 bss_type;		       /* default: any,
+					* DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
+					*/
+	u8 ssid_type; 		       /* short vs regular SSID */
+	__le32 scan_type;	       /* flags, 0 use default */
+	__le32 scan_type_ext;	       /* ext flags, 0 use default */
+	__le32 nprobes; 	       /* -1 use default, number of probes per channel */
+	__le32 active_time;	       /* -1 use default, dwell time per channel for
+					* active scanning
+					*/
+	__le32 passive_time; 	       /* -1 use default, dwell time per channel
+					* for passive scanning
+					*/
+	__le32 home_time; 	       /* -1 use default, dwell time for the
+					* home channel between channel scans
+					*/
+	__le32 channel_num;	       /* count of channels and ssids that follow
+					*
+					* low half is count of channels in
+					* channel_list, 0 means default (use all
+					* available channels)
+					*
+					* high half is entries in struct brcmf_ssid
+					* array that follows channel_list, aligned for
+					* s32 (4 bytes) meaning an odd channel count
+					* implies a 2-byte pad between end of
+					* channel_list and first ssid
+					*
+					* if ssid count is zero, single ssid in the
+					* fixed parameter portion is assumed, otherwise
+					* ssid in the fixed portion is ignored
+					*/
+	__le16 channel_list[]; 	       /* chanspecs */
 };
 
 struct brcmf_scan_results {
@@ -504,6 +570,8 @@ struct brcmf_escan_params_le {
 	union {
 		struct brcmf_scan_params_le params_le;
 		struct brcmf_scan_params_v2_le params_v2_le;
+		struct brcmf_scan_params_v3_le params_v3_le;
+		struct brcmf_scan_params_v4_le params_v4_le;
 	};
 };
 
@@ -880,13 +948,13 @@ struct brcmf_wlc_version_le {
 /**
  * struct brcmf_wl_scan_version_le - scan interface version
  */
-struct brcmf_wl_scan_version_le {
+struct brcmf_scan_version_le {
         __le16  version;
         __le16  length;
         __le16  scan_ver_major;
 };
 
-#define BRCMF_WL_SCAN_VERSION_VERSION 1
+#define BRCMF_SCAN_VERSION_VERSION 1
 
 /**
  * struct brcmf_assoclist_le - request assoc list.
