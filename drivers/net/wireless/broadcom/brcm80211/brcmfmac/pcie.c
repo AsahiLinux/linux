@@ -1872,35 +1872,58 @@ struct brcmf_rtlv_footer {
 	__le32 magic;
 };
 
-struct brcmf_fw_memmap {
-	u32 pad1[8];
-	u32 vstatus_start;
-	u32 vstatus_end;
-	u32 fw_start;
-	u32 fw_end;
-	u32 sig_start;
-	u32 sig_end;
-	u32 heap_start;
-	u32 heap_end;
-	u32 pad2[6];
+/** struct brcmf_fw_memmap_region - start/end of memory regions for chip
+ */
+struct brcmf_fw_memmap_region {
+	u32 start;
+	u32 end;
 };
 
+/** struct brcmf_fw_memmap
+ *
+ * @reset_vec - Reset vector - read only
+ * @int_vec - copied from ram, jumps here on success
+ * @rom - bootloader at rom start
+ * @mmap - struct/memory map written by host
+ * @vstatus - verification status
+ * @fw - firmware
+ * @sig - firwmare signature
+ * @heap - region for heap allocations
+ * @stack - region for stack allocations
+ * @prng - PRNG data, may be 0 length
+ * @nvram - NVRAM data
+ */
+struct brcmf_fw_memmap {
+	struct brcmf_fw_memmap_region reset_vec;
+	struct brcmf_fw_memmap_region int_vec;
+	struct brcmf_fw_memmap_region rom;
+	struct brcmf_fw_memmap_region mmap;
+	struct brcmf_fw_memmap_region vstatus;
+	struct brcmf_fw_memmap_region fw;
+	struct brcmf_fw_memmap_region sig;
+	struct brcmf_fw_memmap_region heap;
+	struct brcmf_fw_memmap_region stack;
+	struct brcmf_fw_memmap_region prng;
+	struct brcmf_fw_memmap_region nvram;
+};
 
 #define BRCMF_BL_HEAP_START_GAP		0x1000
 #define BRCMF_BL_HEAP_SIZE		0x10000
 #define BRCMF_RANDOM_SEED_MAGIC		0xfeedc0de
 #define BRCMF_RANDOM_SEED_LENGTH	0x100
-#define BRCMF_SIG_MAGIC			0xfeedfe51
+#define BRCMF_FW_SIG_MAGIC		0xfeedfe51
+#define BRCMF_NVRAM_SIG_MAGIC		0xfeedfe52
+#define BRCMF_MEMMAP_MAGIC		0xfeedfe53
 #define BRCMF_VSTATUS_MAGIC		0xfeedfe54
 #define BRCMF_VSTATUS_SIZE		0x28
-#define BRCMF_MEMMAP_MAGIC		0xfeedfe53
 #define BRCMF_END_MAGIC			0xfeed0e2d
 
-static int brcmf_alloc_rtlv(struct brcmf_pciedev_info *devinfo, u32 *address, u32 type, size_t length)
+static int brcmf_alloc_rtlv(struct brcmf_pciedev_info *devinfo, u32 *address, u32 type, u32 length)
 {
 	struct brcmf_bus *bus = dev_get_drvdata(&devinfo->pdev->dev);
-	u32 boundary = devinfo->ci->rambase + devinfo->fw_size +
-		BRCMF_BL_HEAP_START_GAP + BRCMF_BL_HEAP_SIZE;
+	u32 fw_top = devinfo->ci->rambase + devinfo->fw_size;
+	u32 ram_start = ALIGN(fw_top + BRCMF_BL_HEAP_START_GAP, 4);
+	u32 ram_end = ram_start + BRCMF_BL_HEAP_SIZE;
 	u32 start_addr;
 	struct brcmf_rtlv_footer footer = {
 		.magic = type,
@@ -1909,8 +1932,8 @@ static int brcmf_alloc_rtlv(struct brcmf_pciedev_info *devinfo, u32 *address, u3
 	length = ALIGN(length, 4);
 	start_addr = *address - length - sizeof(struct brcmf_rtlv_footer);
 
-	if (length > 0xffff || start_addr > *address || start_addr < boundary) {
-		brcmf_err(bus, "failed to allocate 0x%zx bytes for rTLV type 0x%x\n",
+	if (length > 0xffff || start_addr > *address || start_addr < ram_end) {
+		brcmf_err(bus, "failed to allocate 0x%x bytes for rTLV type 0x%x\n",
 			  length, type);
 		return -ENOMEM;
 	}
@@ -1961,32 +1984,32 @@ static int brcmf_pcie_add_signature(struct brcmf_pciedev_info *devinfo,
 
 	memset(&memmap, 0, sizeof(memmap));
 
-	memmap.sig_end = *address;
-	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_SIG_MAGIC, fwsig->size);
+	memmap.sig.end = *address;
+	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_FW_SIG_MAGIC, fwsig->size);
 	if (err)
 		return err;
-	memmap.sig_start = *address;
+	memmap.sig.start = *address;
 
-	memmap.vstatus_end = *address;
+	memmap.vstatus.end = *address;
 	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_VSTATUS_MAGIC, BRCMF_VSTATUS_SIZE);
 	if (err)
 		return err;
-	memmap.vstatus_start = *address;
+	memmap.vstatus.start = *address;
 
 	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_MEMMAP_MAGIC, sizeof(memmap));
 	if (err)
 		return err;
 
-	memmap.fw_start = devinfo->ci->rambase;
-	memmap.fw_end = memmap.fw_start + devinfo->fw_size;
-	memmap.heap_start = memmap.fw_end + BRCMF_BL_HEAP_START_GAP;
-	memmap.heap_end = memmap.heap_start + BRCMF_BL_HEAP_SIZE;
+	memmap.fw.start = devinfo->ci->rambase;
+	memmap.fw.end = memmap.fw.start + devinfo->fw_size;
+	memmap.heap.start = ALIGN(memmap.fw.end + BRCMF_BL_HEAP_START_GAP, 4);
+	memmap.heap.end = memmap.heap.start + BRCMF_BL_HEAP_SIZE;
 
-	if (memmap.heap_end > *address)
+	if (memmap.heap.end > *address)
 		return -ENOMEM;
 
-	memcpy_toio(devinfo->tcm + memmap.sig_start, fwsig->data, fwsig->size);
-	memset_io(devinfo->tcm + memmap.vstatus_start, 0, BRCMF_VSTATUS_SIZE);
+	memcpy_toio(devinfo->tcm + memmap.sig.start, fwsig->data, fwsig->size);
+	memset_io(devinfo->tcm + memmap.vstatus.start, 0, BRCMF_VSTATUS_SIZE);
 	memcpy_toio(devinfo->tcm + *address, &memmap, sizeof(memmap));
 
 	err = brcmf_alloc_rtlv(devinfo, address, BRCMF_END_MAGIC, 0);
