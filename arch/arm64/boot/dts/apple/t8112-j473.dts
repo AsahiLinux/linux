@@ -19,18 +19,50 @@
 
 	aliases {
 		bluetooth0 = &bluetooth0;
+		/delete-property/ dcp;
+		dcpext = &dcpext;
 		ethernet0 = &ethernet0;
 		wifi0 = &wifi0;
 	};
 };
 
 &framebuffer0 {
-	power-domains = <&ps_disp0_cpu0>, <&ps_dptx_ext_phy>;
+	power-domains = <&ps_dispext_cpu0>, <&ps_dptx_ext_phy>;
 };
 
-/* disable dcp until it is supported */
+&dptxphy {
+	status = "okay";
+};
+
 &dcp {
 	status = "disabled";
+};
+
+&display {
+	iommus = <&dispext0_dart 0 0x0 0x0 0xf 0xffff0000>;
+};
+&dispext0_dart {
+	status = "okay";
+};
+&dcpext_dart {
+	status = "okay";
+};
+&dcpext_mbox {
+	status = "okay";
+};
+&dcpext {
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 49 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 21 GPIO_ACTIVE_HIGH>;
+	dp2hdmi-pwren-gpios = <&smc_gpio 22 GPIO_ACTIVE_HIGH>;
+
+	phys = <&dptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <5>;
 };
 
 /*
