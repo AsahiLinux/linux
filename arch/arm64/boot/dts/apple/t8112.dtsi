@@ -1062,6 +1062,17 @@
 			};
 		};
 
+		dptxphy: phy@23c500000 {
+			compatible = "apple,t8112-dptx-phy", "apple,dptx-phy";
+			reg = <0x2 0x3c500000 0x0 0x4000>,
+				<0x2 0x3c540000 0x0 0xc000>;
+			reg-names = "core", "dptx";
+			power-domains = <&ps_dptx_ext_phy>;
+			#phy-cells = <0>;
+			#reset-cells = <0>;
+			status = "disabled"; /* only used on j473 */
+		};
+
 		pinctrl_nub: pinctrl@23d1f0000 {
 			compatible = "apple,t8112-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x3d1f0000 0x0 0x4000>;
