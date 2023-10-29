@@ -254,6 +254,17 @@
 		#interrupt-cells = <2>;
 	};
 
+	DIE_NODE(lpdptxphy): phy@39c000000 {
+		compatible = "apple,t6020-dptx-phy", "apple,dptx-phy";
+		reg = <0x3 0x9c000000 0x0 0x4000>,
+			<0x3 0x9c040000 0x0 0xc000>;
+		reg-names = "core", "dptx";
+		power-domains = <&DIE_NODE(ps_dptx_phy_ps)>;
+		#phy-cells = <0>;
+		#reset-cells = <0>;
+		status = "disabled"; /* only exposed on desktop devices */
+	};
+
 	DIE_NODE(pmgr_gfx): power-management@404e80000 {
 		compatible = "apple,t6020-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
 		#address-cells = <1>;
