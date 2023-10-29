@@ -69,4 +69,14 @@ u64 brcmf_pno_find_reqid_by_bucket(struct brcmf_pno_info *pi, u32 bucket);
 u32 brcmf_pno_get_bucket_map(struct brcmf_pno_info *pi,
 			     struct brcmf_pno_net_info_le *netinfo);
 
+/**
+ * brcmf_pno_get_bucket_map_v3 - determine bucket map for given netinfo_v3.
+ *
+ * @pi: pno instance used.
+ * @netinfo: netinfo to compare with bucket configuration.
+ */
+u32 brcmf_pno_get_bucket_map_v3(struct brcmf_pno_info *pi,
+			     struct brcmf_pno_net_info_v3_le *netinfo);
+
+
 #endif /* _BRCMF_PNO_H */

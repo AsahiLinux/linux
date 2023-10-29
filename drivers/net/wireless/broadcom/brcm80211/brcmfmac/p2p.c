@@ -1793,8 +1793,8 @@ bool brcmf_p2p_send_action_frame(struct brcmf_cfg80211_info *cfg,
 		/* do not configure anything. it will be */
 		/* sent with a default configuration     */
 	} else {
-		bphy_err(drvr, "Unknown Frame: category 0x%x, action 0x%x\n",
-			 category, action);
+		bphy_info_once(drvr, "Unknown Frame: category 0x%x, action 0x%x\n",
+			       category, action);
 		return false;
 	}
 

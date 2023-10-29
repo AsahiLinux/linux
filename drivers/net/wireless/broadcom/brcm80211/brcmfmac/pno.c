@@ -12,8 +12,10 @@
 #include "fwil_types.h"
 #include "cfg80211.h"
 #include "pno.h"
+#include "feature.h"
 
-#define BRCMF_PNO_VERSION		2
+#define BRCMF_PNO_VERSION_2		2
+#define BRCMF_PNO_VERSION_3		3
 #define BRCMF_PNO_REPEAT		4
 #define BRCMF_PNO_FREQ_EXPO_MAX		3
 #define BRCMF_PNO_IMMEDIATE_SCAN_BIT	3
@@ -99,17 +101,18 @@ static int brcmf_pno_channel_config(struct brcmf_if *ifp,
 	return brcmf_fil_iovar_data_set(ifp, "pfn_cfg", cfg, sizeof(*cfg));
 }
 
-static int brcmf_pno_config(struct brcmf_if *ifp, u32 scan_freq,
-			    u32 mscan, u32 bestn)
+static int brcmf_pno_config_v3(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			       u32 bestn)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
-	struct brcmf_pno_param_le pfn_param;
+	struct brcmf_pno_param_v3_le pfn_param;
 	u16 flags;
 	u32 pfnmem;
 	s32 err;
 
 	memset(&pfn_param, 0, sizeof(pfn_param));
-	pfn_param.version = cpu_to_le32(BRCMF_PNO_VERSION);
+	pfn_param.version = cpu_to_le16(BRCMF_PNO_VERSION_3);
+	pfn_param.length = cpu_to_le16(sizeof(struct brcmf_pno_param_v3_le));
 
 	/* set extra pno params */
 	flags = BIT(BRCMF_PNO_IMMEDIATE_SCAN_BIT) |
@@ -150,6 +153,69 @@ static int brcmf_pno_config(struct brcmf_if *ifp, u32 scan_freq,
 
 exit:
 	return err;
+}
+
+static int brcmf_pno_config_v2(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			       u32 bestn)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_pno_param_le pfn_param;
+	u16 flags;
+	u32 pfnmem;
+	s32 err;
+
+	memset(&pfn_param, 0, sizeof(pfn_param));
+	pfn_param.version = cpu_to_le32(BRCMF_PNO_VERSION_2);
+
+	/* set extra pno params */
+	flags = BIT(BRCMF_PNO_IMMEDIATE_SCAN_BIT) |
+		BIT(BRCMF_PNO_ENABLE_ADAPTSCAN_BIT);
+	pfn_param.repeat = BRCMF_PNO_REPEAT;
+	pfn_param.exp = BRCMF_PNO_FREQ_EXPO_MAX;
+
+	/* set up pno scan fr */
+	pfn_param.scan_freq = cpu_to_le32(scan_freq);
+
+	if (mscan) {
+		pfnmem = bestn;
+
+		/* set bestn in firmware */
+		err = brcmf_fil_iovar_int_set(ifp, "pfnmem", pfnmem);
+		if (err < 0) {
+			bphy_err(drvr, "failed to set pfnmem\n");
+			goto exit;
+		}
+		/* get max mscan which the firmware supports */
+		err = brcmf_fil_iovar_int_get(ifp, "pfnmem", &pfnmem);
+		if (err < 0) {
+			bphy_err(drvr, "failed to get pfnmem\n");
+			goto exit;
+		}
+		mscan = min_t(u32, mscan, pfnmem);
+		pfn_param.mscan = mscan;
+		pfn_param.bestn = bestn;
+		flags |= BIT(BRCMF_PNO_ENABLE_BD_SCAN_BIT);
+		brcmf_dbg(INFO, "mscan=%d, bestn=%d\n", mscan, bestn);
+	}
+
+	pfn_param.flags = cpu_to_le16(flags);
+	err = brcmf_fil_iovar_data_set(ifp, "pfn_set", &pfn_param,
+				       sizeof(pfn_param));
+	if (err)
+		bphy_err(drvr, "pfn_set failed, err=%d\n", err);
+
+exit:
+	return err;
+}
+
+static int brcmf_pno_config(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			    u32 bestn)
+{
+	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_PFN_V3)) {
+		return brcmf_pno_config_v3(ifp, scan_freq, mscan, bestn);
+	}
+
+	return brcmf_pno_config_v2(ifp, scan_freq, mscan, bestn);
 }
 
 static int brcmf_pno_set_random(struct brcmf_if *ifp, struct brcmf_pno_info *pi)
@@ -564,6 +630,38 @@ u64 brcmf_pno_find_reqid_by_bucket(struct brcmf_pno_info *pi, u32 bucket)
 
 u32 brcmf_pno_get_bucket_map(struct brcmf_pno_info *pi,
 			     struct brcmf_pno_net_info_le *ni)
+{
+	struct cfg80211_sched_scan_request *req;
+	struct cfg80211_match_set *ms;
+	u32 bucket_map = 0;
+	int i, j;
+
+	mutex_lock(&pi->req_lock);
+	for (i = 0; i < pi->n_reqs; i++) {
+		req = pi->reqs[i];
+
+		if (!req->n_match_sets)
+			continue;
+		for (j = 0; j < req->n_match_sets; j++) {
+			ms = &req->match_sets[j];
+			if (ms->ssid.ssid_len == ni->SSID_len &&
+			    !memcmp(ms->ssid.ssid, ni->SSID, ni->SSID_len)) {
+				bucket_map |= BIT(i);
+				break;
+			}
+			if (is_valid_ether_addr(ms->bssid) &&
+			    !memcmp(ms->bssid, ni->bssid, ETH_ALEN)) {
+				bucket_map |= BIT(i);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&pi->req_lock);
+	return bucket_map;
+}
+
+u32 brcmf_pno_get_bucket_map_v3(struct brcmf_pno_info *pi,
+			     struct brcmf_pno_net_info_v3_le *ni)
 {
 	struct cfg80211_sched_scan_request *req;
 	struct cfg80211_match_set *ms;

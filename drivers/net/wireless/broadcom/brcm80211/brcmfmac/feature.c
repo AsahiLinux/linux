@@ -135,6 +135,7 @@ struct brcmf_feat_wlcfeat {
 static const struct brcmf_feat_wlcfeat brcmf_feat_wlcfeat_map[] = {
 	{ 12, 0, BIT(BRCMF_FEAT_PMKID_V2) },
 	{ 13, 0, BIT(BRCMF_FEAT_PMKID_V3) },
+	{ 17, 0, BIT(BRCMF_FEAT_JOIN_V1) },
 };
 
 static void brcmf_feat_wlc_version_overrides(struct brcmf_pub *drv)
@@ -287,6 +288,8 @@ static int brcmf_feat_fwcap_debugfs_read(struct seq_file *seq, void *data)
 void brcmf_feat_attach(struct brcmf_pub *drvr)
 {
 	struct brcmf_if *ifp = brcmf_get_ifp(drvr, 0);
+	struct brcmf_wl_scan_version_le scan_ver;
+	struct brcmf_pno_param_v3_le pno_params;
 	struct brcmf_pno_macaddr_le pfn_mac;
 	struct brcmf_gscan_config gscan_cfg;
 	u32 wowl_cap;
@@ -329,6 +332,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_TDLS, "tdls_enable");
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_MFP, "mfp");
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_DUMP_OBSS, "dump_obss");
+	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_EVENT_MSGS_EXT, "event_msgs_ext");
 
 	pfn_mac.version = BRCMF_PFN_MACADDR_CFG_VER;
 	err = brcmf_fil_iovar_data_get(ifp, "pfn_macaddr", &pfn_mac,
@@ -337,7 +341,29 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 		ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_RANDOM_MAC);
 
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_FWSUP, "sup_wpa");
-	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_SCAN_V2, "scan_ver");
+
+	err = brcmf_fil_iovar_data_get(ifp, "scan_ver", &scan_ver, sizeof(scan_ver));
+	if (!err) {
+		int ver = le16_to_cpu(scan_ver.scan_ver_major);
+
+		if (ver == 2) {
+			ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2);
+		} else if (ver == 3) {
+			/* We consider SCAN_V3 a subtype of SCAN_V2 since the
+			 * structure is essentially the same.
+			 */
+			ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2) | BIT(BRCMF_FEAT_SCAN_V3);
+		}
+	}
+
+	/* See what version of PFN scan is supported*/
+	err = brcmf_fil_iovar_data_get(ifp, "pno_set", &pno_params,
+				       sizeof(pno_params));
+	if (!err) {
+		if (pno_params.version == 3) {
+			ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_PFN_V3);
+		}
+	}
 
 	if (drvr->settings->feature_disable) {
 		brcmf_dbg(INFO, "Features: 0x%02x, disable: 0x%02x\n",
