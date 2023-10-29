@@ -179,6 +179,9 @@ struct thread_struct {
 	u64			sctlr_user;
 	u64			svcr;
 	u64			tpidr2_el0;
+#ifdef CONFIG_ARM64_ACTLR_STATE
+	u64			actlr;
+#endif
 };
 
 static inline unsigned int thread_get_vl(struct thread_struct *thread,

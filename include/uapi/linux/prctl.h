@@ -305,4 +305,9 @@ struct prctl_mm_map {
 # define PR_RISCV_V_VSTATE_CTRL_NEXT_MASK	0xc
 # define PR_RISCV_V_VSTATE_CTRL_MASK		0x1f
 
+#define PR_GET_MEM_MODEL	0x6d4d444c
+#define PR_SET_MEM_MODEL	0x4d4d444c
+# define PR_SET_MEM_MODEL_DEFAULT	0
+# define PR_SET_MEM_MODEL_TSO		1
+
 #endif /* _LINUX_PRCTL_H */
