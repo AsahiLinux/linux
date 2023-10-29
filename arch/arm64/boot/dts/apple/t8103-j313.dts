@@ -84,11 +84,22 @@
 	};
 };
 
+/* Virtual regulator representing the shared shutdown GPIO */
+/ {
+	speaker_sdz: fixed-regulator-tas5770-sdz {
+		compatible = "regulator-fixed";
+		regulator-name = "tas5770-sdz";
+		startup-delay-us = <5000>;
+		gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
 &i2c1 {
 	speaker_left: codec@31 {
 		compatible = "ti,tas5770l", "ti,tas2770";
 		reg = <0x31>;
-		shutdown-gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		SDZ-supply = <&speaker_sdz>;
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "Left";
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
@@ -102,7 +113,7 @@
 	speaker_right: codec@34 {
 		compatible = "ti,tas5770l", "ti,tas2770";
 		reg = <0x34>;
-		shutdown-gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		SDZ-supply = <&speaker_sdz>;
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "Right";
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
