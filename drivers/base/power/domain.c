@@ -7,6 +7,7 @@
 #define pr_fmt(fmt) "PM: " fmt
 
 #include <linux/delay.h>
+#include <linux/fwnode.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
@@ -130,6 +131,7 @@ static const struct genpd_lock_ops genpd_spin_ops = {
 #define genpd_is_active_wakeup(genpd)	(genpd->flags & GENPD_FLAG_ACTIVE_WAKEUP)
 #define genpd_is_cpu_domain(genpd)	(genpd->flags & GENPD_FLAG_CPU_DOMAIN)
 #define genpd_is_rpm_always_on(genpd)	(genpd->flags & GENPD_FLAG_RPM_ALWAYS_ON)
+#define genpd_is_defer_off(genpd)	(genpd->flags & GENPD_FLAG_DEFER_OFF)
 
 static inline bool irq_safe_dev_in_sleep_domain(struct device *dev,
 		const struct generic_pm_domain *genpd)
@@ -655,6 +657,27 @@ static void genpd_queue_power_off_work(struct generic_pm_domain *genpd)
 }
 
 /**
+ * genpd_must_defer - Check whether the genpd cannot be safely powered off.
+ * @genpd: PM domain about to be powered down.
+ * @one_dev_probing: True if we are being called from RPM callbacks on a device that
+ * is probing, to allow poweroff if that device is the sole remaining consumer probing.
+ *
+ * Returns true if the @genpd has the GENPD_FLAG_DEFER_OFF flag and there
+ * are any consumer devices which either do not exist yet (only represented
+ * by fwlinks) or whose drivers have not probed yet.
+ */
+static bool genpd_must_defer(struct generic_pm_domain *genpd, bool one_dev_probing)
+{
+	if (genpd_is_defer_off(genpd) && genpd->has_provider) {
+		int absent = fw_devlink_count_absent_consumers(genpd->provider);
+
+		if (absent > (one_dev_probing ? 1 : 0))
+			return true;
+	}
+	return false;
+}
+
+/**
  * genpd_power_off - Remove power from a given PM domain.
  * @genpd: PM domain to power down.
  * @one_dev_on: If invoked from genpd's ->runtime_suspend|resume() callback, the
@@ -667,7 +690,7 @@ static void genpd_queue_power_off_work(struct generic_pm_domain *genpd)
  * have been powered down, remove power from @genpd.
  */
 static int genpd_power_off(struct generic_pm_domain *genpd, bool one_dev_on,
-			   unsigned int depth)
+			   bool one_dev_probing, unsigned int depth)
 {
 	struct pm_domain_data *pdd;
 	struct gpd_link *link;
@@ -717,6 +740,14 @@ static int genpd_power_off(struct generic_pm_domain *genpd, bool one_dev_on,
 	if (not_suspended > 1 || (not_suspended == 1 && !one_dev_on))
 		return -EBUSY;
 
+	/*
+	 * Do not allow PM domain to be powered off if it is marked
+	 * as GENPD_FLAG_DEFER_OFF and there are consumer devices
+	 * which have not probed yet.
+	 */
+	if (genpd_must_defer(genpd, one_dev_probing))
+		return -EBUSY;
+
 	if (genpd->gov && genpd->gov->power_down_ok) {
 		if (!genpd->gov->power_down_ok(&genpd->domain))
 			return -EAGAIN;
@@ -743,7 +774,7 @@ static int genpd_power_off(struct generic_pm_domain *genpd, bool one_dev_on,
 	list_for_each_entry(link, &genpd->child_links, child_node) {
 		genpd_sd_counter_dec(link->parent);
 		genpd_lock_nested(link->parent, depth + 1);
-		genpd_power_off(link->parent, false, depth + 1);
+		genpd_power_off(link->parent, false, false, depth + 1);
 		genpd_unlock(link->parent);
 	}
 
@@ -801,7 +832,7 @@ static int genpd_power_on(struct generic_pm_domain *genpd, unsigned int depth)
 					child_node) {
 		genpd_sd_counter_dec(link->parent);
 		genpd_lock_nested(link->parent, depth + 1);
-		genpd_power_off(link->parent, false, depth + 1);
+		genpd_power_off(link->parent, false, false, depth + 1);
 		genpd_unlock(link->parent);
 	}
 
@@ -868,7 +899,7 @@ static void genpd_power_off_work_fn(struct work_struct *work)
 	genpd = container_of(work, struct generic_pm_domain, power_off_work);
 
 	genpd_lock(genpd);
-	genpd_power_off(genpd, false, 0);
+	genpd_power_off(genpd, false, false, 0);
 	genpd_unlock(genpd);
 }
 
@@ -933,6 +964,7 @@ static int genpd_runtime_suspend(struct device *dev)
 	struct generic_pm_domain_data *gpd_data = dev_gpd_data(dev);
 	struct gpd_timing_data *td = gpd_data->td;
 	bool runtime_pm = pm_runtime_enabled(dev);
+	bool probing = dev->links.status != DL_DEV_DRIVER_BOUND;
 	ktime_t time_start = 0;
 	s64 elapsed_ns;
 	int ret;
@@ -987,7 +1019,7 @@ static int genpd_runtime_suspend(struct device *dev)
 		return 0;
 
 	genpd_lock(genpd);
-	genpd_power_off(genpd, true, 0);
+	genpd_power_off(genpd, true, probing, 0);
 	gpd_data->rpm_pstate = genpd_drop_performance_state(dev);
 	genpd_unlock(genpd);
 
@@ -1008,6 +1040,7 @@ static int genpd_runtime_resume(struct device *dev)
 	struct generic_pm_domain_data *gpd_data = dev_gpd_data(dev);
 	struct gpd_timing_data *td = gpd_data->td;
 	bool timed = td && pm_runtime_enabled(dev);
+	bool probing = dev->links.status != DL_DEV_DRIVER_BOUND;
 	ktime_t time_start = 0;
 	s64 elapsed_ns;
 	int ret;
@@ -1065,7 +1098,7 @@ err_stop:
 err_poweroff:
 	if (!pm_runtime_is_irq_safe(dev) || genpd_is_irq_safe(genpd)) {
 		genpd_lock(genpd);
-		genpd_power_off(genpd, true, 0);
+		genpd_power_off(genpd, true, probing, 0);
 		gpd_data->rpm_pstate = genpd_drop_performance_state(dev);
 		genpd_unlock(genpd);
 	}
@@ -1129,6 +1162,9 @@ static void genpd_sync_power_off(struct generic_pm_domain *genpd, bool use_lock,
 
 	if (genpd->suspended_count != genpd->device_count
 	    || atomic_read(&genpd->sd_count) > 0)
+		return;
+
+	if (genpd_must_defer(genpd, false))
 		return;
 
 	/* Check that the children are in their deepest (powered-off) state. */
@@ -2094,6 +2130,12 @@ int pm_genpd_init(struct generic_pm_domain *genpd,
 			!genpd_status_on(genpd)) {
 		pr_err("always-on PM domain %s is not on\n", genpd->name);
 		return -EINVAL;
+	}
+
+	/* Deferred-off power domains should be powered on at initialization. */
+	if (genpd_is_defer_off(genpd) && !genpd_status_on(genpd)) {
+		pr_warn("deferred-off PM domain %s is not on at init\n", genpd->name);
+		genpd->flags &= ~GENPD_FLAG_DEFER_OFF;
 	}
 
 	/* Multiple states but no governor doesn't make sense. */

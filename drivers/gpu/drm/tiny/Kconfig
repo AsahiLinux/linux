@@ -85,6 +85,7 @@ config DRM_SIMPLEDRM
 	select APERTURE_HELPERS
 	select DRM_GEM_SHMEM_HELPER
 	select DRM_KMS_HELPER
+	select BACKLIGHT_CLASS_DEVICE
 	help
 	  DRM driver for simple platform-provided framebuffers.
 
@@ -95,6 +96,13 @@ config DRM_SIMPLEDRM
 
 	  On x86 BIOS or UEFI systems, you should also select SYSFB_SIMPLEFB
 	  to use UEFI and VESA framebuffers.
+
+config DRM_SIMPLEDRM_BACKLIGHT
+	bool "Backlight support for simpledrm"
+	depends on DRM_SIMPLEDRM && !DRM_APPLE
+	select BACKLIGHT_CLASS_DEVICE
+	help
+	  Enable backlight support for simpledrm.
 
 config TINYDRM_HX8357D
 	tristate "DRM support for HX8357D display panels"
