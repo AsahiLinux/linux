@@ -105,7 +105,7 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <0>;
 		ti,vmon-slot-no = <2>;
-		ti,sdout-force-zero-mask = <0xf0>;
+		ti,sdout-zero-fill;
 	};
 };
 
@@ -119,7 +119,7 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <4>;
 		ti,vmon-slot-no = <6>;
-		ti,sdout-force-zero-mask = <0x0f>;
+		ti,sdout-zero-fill;
 	};
 
 	jack_codec: codec@48 {
