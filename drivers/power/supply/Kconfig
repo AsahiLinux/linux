@@ -951,4 +951,11 @@ config CHARGER_QCOM_SMB2
 	  adds support for the SMB2 switch mode battery charger found
 	  in PMI8998 and related PMICs.
 
+config CHARGER_MACSMC
+	tristate "Apple SMC Charger / Battery support"
+	depends on APPLE_SMC
+	help
+	  Say Y here to enable support for the charger and battery controls on
+	  Apple SMC controllers, as used on Apple Silicon Macs.
+
 endif # POWER_SUPPLY
