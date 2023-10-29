@@ -101,10 +101,8 @@
 #![feature(async_iterator)]
 #![feature(coerce_unsized)]
 #![cfg_attr(not(no_global_oom_handling), feature(const_alloc_error))]
-#![feature(const_box)]
 #![cfg_attr(not(no_global_oom_handling), feature(const_btree_len))]
 #![cfg_attr(not(no_borrow), feature(const_cow_is_borrowed))]
-#![feature(const_convert)]
 #![feature(const_size_of_val)]
 #![feature(const_align_of_val)]
 #![feature(const_ptr_read)]
@@ -170,7 +168,6 @@
 #![feature(allow_internal_unstable)]
 #![feature(associated_type_bounds)]
 #![feature(cfg_sanitize)]
-#![feature(const_deref)]
 #![feature(const_mut_refs)]
 #![feature(const_ptr_write)]
 #![feature(const_precise_live_drops)]
@@ -206,6 +203,7 @@
 // that the feature-gate isn't enabled. Ideally, it wouldn't check for the feature gate for docs
 // from other crates, but since this can only appear for lang items, it doesn't seem worth fixing.
 #![feature(intra_doc_pointers)]
+#![feature(cfg_version)]
 
 // Allow testing this library
 #[cfg(test)]

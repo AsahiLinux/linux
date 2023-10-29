@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config RUST_DRM_SCHED
+	bool
+	select DRM_SCHED
+
+config RUST_DRM_GEM_SHMEM_HELPER
+	bool
+	select DRM_GEM_SHMEM_HELPER
+
+config RUST_APPLE_RTKIT
+	bool
+	select APPLE_RTKIT
+	select APPLE_MBOX
+
+config DRM_ASAHI
+	tristate "Asahi (DRM support for Apple AGX GPUs)"
+	depends on RUST
+	depends on DRM
+	depends on (ARM64 && ARCH_APPLE) || (COMPILE_TEST && !GENERIC_ATOMIC64)
+	depends on MMU
+	select RUST_DRM_SCHED
+	select IOMMU_SUPPORT
+	select IOMMU_IO_PGTABLE_LPAE
+	select RUST_DRM_GEM_SHMEM_HELPER
+	select RUST_APPLE_RTKIT
+	help
+	  DRM driver for Apple AGX GPUs (G13x, found in the M1 SoC family)
+
+config DRM_ASAHI_DEBUG_ALLOCATOR
+	bool "Use debug allocator"
+	depends on DRM_ASAHI
+	help
+	  Use an alternate, simpler allocator which significantly reduces
+	  performance, but can help find firmware- or GPU-side memory safety
+	  issues. However, it can also trigger firmware bugs more easily,
+	  so expect GPU crashes.
+
+	  Say N unless you are debugging firmware structures or porting to a
+	  new firmware version.

@@ -18,6 +18,11 @@ use core::ops::Deref;
 use core::ptr::{self, NonNull};
 use core::slice::{self};
 
+#[cfg(version("1.70"))]
+type AdvanceRet = core::num::NonZeroUsize;
+#[cfg(not(version("1.70")))]
+type AdvanceRet = usize;
+
 /// An iterator that moves out of a vector.
 ///
 /// This `struct` is created by the `into_iter` method on [`Vec`](super::Vec)
@@ -215,7 +220,7 @@ impl<T, A: Allocator> Iterator for IntoIter<T, A> {
     }
 
     #[inline]
-    fn advance_by(&mut self, n: usize) -> Result<(), usize> {
+    fn advance_by(&mut self, n: usize) -> Result<(), AdvanceRet> {
         let step_size = self.len().min(n);
         let to_drop = ptr::slice_from_raw_parts_mut(self.ptr as *mut T, step_size);
         if T::IS_ZST {
@@ -230,6 +235,9 @@ impl<T, A: Allocator> Iterator for IntoIter<T, A> {
             ptr::drop_in_place(to_drop);
         }
         if step_size < n {
+            #[cfg(version("1.70"))]
+            return Err(AdvanceRet::new(step_size).unwrap());
+            #[cfg(not(version("1.70")))]
             return Err(step_size);
         }
         Ok(())
@@ -315,7 +323,7 @@ impl<T, A: Allocator> DoubleEndedIterator for IntoIter<T, A> {
     }
 
     #[inline]
-    fn advance_back_by(&mut self, n: usize) -> Result<(), usize> {
+    fn advance_back_by(&mut self, n: usize) -> Result<(), AdvanceRet> {
         let step_size = self.len().min(n);
         if T::IS_ZST {
             // SAFETY: same as for advance_by()
@@ -330,6 +338,9 @@ impl<T, A: Allocator> DoubleEndedIterator for IntoIter<T, A> {
             ptr::drop_in_place(to_drop);
         }
         if step_size < n {
+            #[cfg(version("1.70"))]
+            return Err(AdvanceRet::new(step_size).unwrap());
+            #[cfg(not(version("1.70")))]
             return Err(step_size);
         }
         Ok(())
