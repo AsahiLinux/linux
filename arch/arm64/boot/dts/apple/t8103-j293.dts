@@ -125,6 +125,7 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <8>;
 		ti,vmon-slot-no = <10>;
+		ti,pdm-slot-no = <12>;
 	};
 
 	speaker_left_front: codec@32 {
@@ -136,7 +137,8 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <0>;
 		ti,vmon-slot-no = <2>;
-		ti,sdout-force-zero-mask = <0xf0f0>;
+		ti,pdm-slot-no = <4>;
+		ti,sdout-pull-down;
 	};
 };
 
@@ -165,6 +167,7 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <12>;
 		ti,vmon-slot-no = <14>;
+		ti,pdm-slot-no = <16>;
 	};
 
 	speaker_right_front: codec@35 {
@@ -176,7 +179,8 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <4>;
 		ti,vmon-slot-no = <6>;
-		ti,sdout-force-zero-mask = <0x0f0f>;
+		ti,pdm-slot-no = <8>;
+		ti,sdout-pull-down;
 	};
 };
 
