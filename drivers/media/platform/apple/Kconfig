@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+comment "Apple media platform drivers"
+
+source "drivers/media/platform/apple/isp/Kconfig"

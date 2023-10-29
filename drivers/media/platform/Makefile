@@ -8,6 +8,7 @@
 obj-y += allegro-dvt/
 obj-y += amlogic/
 obj-y += amphion/
+obj-y += apple/
 obj-y += aspeed/
 obj-y += atmel/
 obj-y += cadence/
