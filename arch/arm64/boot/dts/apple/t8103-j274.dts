@@ -82,6 +82,7 @@
 		#sound-dai-cells = <0>;
 		ti,imon-slot-no = <0>;
 		ti,vmon-slot-no = <2>;
+		ti,sdout-zero-fill;
 	};
 };
 
