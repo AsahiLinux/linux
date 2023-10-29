@@ -26,8 +26,9 @@
 
 #define DART1_MAX_ADDR_BITS	36
 
-#define DART_MAX_TABLES		4
-#define DART_LEVELS		2
+#define DART_MAX_TABLE_BITS	2
+#define DART_MAX_TABLES		BIT(DART_MAX_TABLE_BITS)
+#define DART_MAX_LEVELS		4 /* Includes TTBR level */
 
 /* Struct accessors */
 #define io_pgtable_to_data(x)						\
@@ -67,6 +68,7 @@
 struct dart_io_pgtable {
 	struct io_pgtable	iop;
 
+	int			levels;
 	int			tbl_bits;
 	int			bits_per_level;
 
@@ -106,8 +108,7 @@ static phys_addr_t iopte_to_paddr(dart_iopte pte,
 	return paddr;
 }
 
-static void *__dart_alloc_pages(size_t size, gfp_t gfp,
-				    struct io_pgtable_cfg *cfg)
+static void *__dart_alloc_pages(size_t size, gfp_t gfp)
 {
 	int order = get_order(size);
 	struct page *p;
@@ -170,44 +171,45 @@ static dart_iopte dart_install_table(dart_iopte *table,
 	return old;
 }
 
-static int dart_get_table(struct dart_io_pgtable *data, unsigned long iova)
+static int dart_get_index(struct dart_io_pgtable *data, unsigned long iova, int level)
 {
-	return (iova >> (3 * data->bits_per_level + ilog2(sizeof(dart_iopte)))) &
-		((1 << data->tbl_bits) - 1);
+	return (iova >> (level * data->bits_per_level + ilog2(sizeof(dart_iopte)))) &
+		((1 << data->bits_per_level) - 1);
 }
 
-static int dart_get_l1_index(struct dart_io_pgtable *data, unsigned long iova)
-{
-
-	return (iova >> (2 * data->bits_per_level + ilog2(sizeof(dart_iopte)))) &
-		 ((1 << data->bits_per_level) - 1);
-}
-
-static int dart_get_l2_index(struct dart_io_pgtable *data, unsigned long iova)
+static int dart_get_last_index(struct dart_io_pgtable *data, unsigned long iova)
 {
 
 	return (iova >> (data->bits_per_level + ilog2(sizeof(dart_iopte)))) &
 		 ((1 << data->bits_per_level) - 1);
 }
 
-static  dart_iopte *dart_get_l2(struct dart_io_pgtable *data, unsigned long iova)
+static dart_iopte *dart_get_last(struct dart_io_pgtable *data, unsigned long iova)
 {
 	dart_iopte pte, *ptep;
-	int tbl = dart_get_table(data, iova);
+	int level = data->levels;
+	int tbl = dart_get_index(data, iova, level);
+
+	if (tbl > (1 << data->tbl_bits))
+		return NULL;
 
 	ptep = data->pgd[tbl];
 	if (!ptep)
 		return NULL;
 
-	ptep += dart_get_l1_index(data, iova);
-	pte = READ_ONCE(*ptep);
+	while (--level > 1) {
+		ptep += dart_get_index(data, iova, level);
+		pte = READ_ONCE(*ptep);
 
-	/* Valid entry? */
-	if (!pte)
-		return NULL;
+		/* Valid entry? */
+		if (!pte)
+			return NULL;
 
-	/* Deref to get level 2 table */
-	return iopte_deref(pte, data);
+		/* Deref to get next level table */
+		ptep = iopte_deref(pte, data);
+	}
+
+	return ptep;
 }
 
 static dart_iopte dart_prot_to_pte(struct dart_io_pgtable *data,
@@ -243,6 +245,7 @@ static int dart_map_pages(struct io_pgtable_ops *ops, unsigned long iova,
 	int ret = 0, tbl, num_entries, max_entries, map_idx_start;
 	dart_iopte pte, *cptep, *ptep;
 	dart_iopte prot;
+	int level = data->levels;
 
 	if (WARN_ON(pgsize != cfg->pgsize_bitmap))
 		return -EINVAL;
@@ -254,31 +257,36 @@ static int dart_map_pages(struct io_pgtable_ops *ops, unsigned long iova,
 	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
 		return 0;
 
-	tbl = dart_get_table(data, iova);
+	tbl = dart_get_index(data, iova, level);
+
+	if (tbl > (1 << data->tbl_bits))
+		return -ENOMEM;
 
 	ptep = data->pgd[tbl];
-	ptep += dart_get_l1_index(data, iova);
-	pte = READ_ONCE(*ptep);
-
-	/* no L2 table present */
-	if (!pte) {
-		cptep = __dart_alloc_pages(tblsz, gfp, cfg);
-		if (!cptep)
-			return -ENOMEM;
-
-		pte = dart_install_table(cptep, ptep, 0, data);
-		if (pte)
-			free_pages((unsigned long)cptep, get_order(tblsz));
-
-		/* L2 table is present (now) */
+	while (--level > 1) {
+		ptep += dart_get_index(data, iova, level);
 		pte = READ_ONCE(*ptep);
-	}
 
-	ptep = iopte_deref(pte, data);
+		/* no table present */
+		if (!pte) {
+			cptep = __dart_alloc_pages(tblsz, gfp);
+			if (!cptep)
+				return -ENOMEM;
+
+			pte = dart_install_table(cptep, ptep, 0, data);
+			if (pte)
+				free_pages((unsigned long)cptep, get_order(tblsz));
+
+			/* L2 table is present (now) */
+			pte = READ_ONCE(*ptep);
+		}
+
+		ptep = iopte_deref(pte, data);
+	}
 
 	/* install a leaf entries into L2 table */
 	prot = dart_prot_to_pte(data, iommu_prot);
-	map_idx_start = dart_get_l2_index(data, iova);
+	map_idx_start = dart_get_last_index(data, iova);
 	max_entries = DART_PTES_PER_TABLE(data) - map_idx_start;
 	num_entries = min_t(int, pgcount, max_entries);
 	ptep += map_idx_start;
@@ -307,13 +315,13 @@ static size_t dart_unmap_pages(struct io_pgtable_ops *ops, unsigned long iova,
 	if (WARN_ON(pgsize != cfg->pgsize_bitmap || !pgcount))
 		return 0;
 
-	ptep = dart_get_l2(data, iova);
+	ptep = dart_get_last(data, iova);
 
 	/* Valid L2 IOPTE pointer? */
 	if (WARN_ON(!ptep))
 		return 0;
 
-	unmap_idx_start = dart_get_l2_index(data, iova);
+	unmap_idx_start = dart_get_last_index(data, iova);
 	ptep += unmap_idx_start;
 
 	max_entries = DART_PTES_PER_TABLE(data) - unmap_idx_start;
@@ -344,13 +352,13 @@ static phys_addr_t dart_iova_to_phys(struct io_pgtable_ops *ops,
 	struct dart_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	dart_iopte pte, *ptep;
 
-	ptep = dart_get_l2(data, iova);
+	ptep = dart_get_last(data, iova);
 
 	/* Valid L2 IOPTE pointer? */
 	if (!ptep)
 		return 0;
 
-	ptep += dart_get_l2_index(data, iova);
+	ptep += dart_get_last_index(data, iova);
 
 	pte = READ_ONCE(*ptep);
 	/* Found translation */
@@ -367,21 +375,37 @@ static struct dart_io_pgtable *
 dart_alloc_pgtable(struct io_pgtable_cfg *cfg)
 {
 	struct dart_io_pgtable *data;
-	int tbl_bits, bits_per_level, va_bits, pg_shift;
+	int levels, max_tbl_bits, tbl_bits, bits_per_level, va_bits, pg_shift;
+
+	/*
+	 * Old 4K page DARTs can use up to 4 top-level tables.
+	 * Newer ones only ever use a maximum of 1.
+	 */
+	if (cfg->pgsize_bitmap == SZ_4K)
+		max_tbl_bits = DART_MAX_TABLE_BITS;
+	else
+		max_tbl_bits = 0;
 
 	pg_shift = __ffs(cfg->pgsize_bitmap);
 	bits_per_level = pg_shift - ilog2(sizeof(dart_iopte));
 
 	va_bits = cfg->ias - pg_shift;
 
-	tbl_bits = max_t(int, 0, va_bits - (bits_per_level * DART_LEVELS));
-	if ((1 << tbl_bits) > DART_MAX_TABLES)
+	levels = max_t(int, 2, (va_bits - max_tbl_bits + bits_per_level - 1) / bits_per_level);
+
+	if (levels > (DART_MAX_LEVELS - 1))
+		return NULL;
+
+	tbl_bits = max_t(int, 0, va_bits - (bits_per_level * levels));
+
+	if (tbl_bits > max_tbl_bits)
 		return NULL;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return NULL;
 
+	data->levels = levels + 1; /* Table level counts as one level */
 	data->tbl_bits = tbl_bits;
 	data->bits_per_level = bits_per_level;
 
@@ -417,10 +441,10 @@ apple_dart_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 		return NULL;
 
 	cfg->apple_dart_cfg.n_ttbrs = 1 << data->tbl_bits;
+	cfg->apple_dart_cfg.n_levels = data->levels;
 
 	for (i = 0; i < cfg->apple_dart_cfg.n_ttbrs; ++i) {
-		data->pgd[i] = __dart_alloc_pages(DART_GRANULE(data), GFP_KERNEL,
-					   cfg);
+		data->pgd[i] = __dart_alloc_pages(DART_GRANULE(data), GFP_KERNEL);
 		if (!data->pgd[i])
 			goto out_free_data;
 		cfg->apple_dart_cfg.ttbr[i] = virt_to_phys(data->pgd[i]);
@@ -436,28 +460,32 @@ out_free_data:
 	return NULL;
 }
 
-static void apple_dart_free_pgtable(struct io_pgtable *iop)
+static void apple_dart_free_pgtables(struct dart_io_pgtable *data, dart_iopte *ptep, int level)
 {
-	struct dart_io_pgtable *data = io_pgtable_to_data(iop);
-	dart_iopte *ptep, *end;
-	int i;
+	dart_iopte *end;
 
-	for (i = 0; i < (1 << data->tbl_bits) && data->pgd[i]; ++i) {
-		ptep = data->pgd[i];
+	if (level > 1) {
 		end = (void *)ptep + DART_GRANULE(data);
 
 		while (ptep != end) {
 			dart_iopte pte = *ptep++;
 
-			if (pte) {
-				unsigned long page =
-					(unsigned long)iopte_deref(pte, data);
-
-				free_pages(page, get_order(DART_GRANULE(data)));
-			}
+			if (pte)
+				apple_dart_free_pgtables(data, iopte_deref(pte, data), level - 1);
 		}
-		free_pages((unsigned long)data->pgd[i],
-			   get_order(DART_GRANULE(data)));
+	}
+	free_pages((unsigned long)ptep, get_order(DART_GRANULE(data)));
+}
+
+static void apple_dart_free_pgtable(struct io_pgtable *iop)
+{
+	struct dart_io_pgtable *data = io_pgtable_to_data(iop);
+	dart_iopte *ptep;
+	int i;
+
+	for (i = 0; i < (1 << data->tbl_bits) && data->pgd[i]; ++i) {
+		ptep = data->pgd[i];
+		apple_dart_free_pgtables(data, data->pgd[i], data->levels - 1);
 	}
 
 	kfree(data);
