@@ -1794,9 +1794,8 @@ static s32 brcmf_cfg80211_join_ibss(struct wiphy *wiphy,
 
 		/* set chanspec */
 		err = brcmf_fil_iovar_int_set(ifp, "chanspec", chanspec);
-
 		if (err) {
-			bphy_err(drvr, "WLC_SET_CHANNEL failed (%d)\n", err);
+			bphy_err(drvr, "Setting chanspec failed (%d)\n", err);
 			goto done;
 		}
 	}
