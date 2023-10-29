@@ -880,7 +880,8 @@ void drm_kms_helper_poll_disable(struct drm_device *dev)
 	if (dev->mode_config.poll_running)
 		drm_kms_helper_disable_hpd(dev);
 
-	cancel_delayed_work_sync(&dev->mode_config.output_poll_work);
+	if (dev->mode_config.poll_enabled)
+		cancel_delayed_work_sync(&dev->mode_config.output_poll_work);
 
 	dev->mode_config.poll_running = false;
 }
