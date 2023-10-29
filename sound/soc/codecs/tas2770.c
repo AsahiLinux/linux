@@ -71,23 +71,21 @@ static int tas2770_codec_suspend(struct snd_soc_component *component)
 	struct tas2770_priv *tas2770 = snd_soc_component_get_drvdata(component);
 	int ret = 0;
 
+	ret = snd_soc_component_update_bits(component, TAS2770_PWR_CTRL,
+					    TAS2770_PWR_CTRL_MASK,
+					    TAS2770_PWR_CTRL_SHUTDOWN);
+	if (ret < 0)
+		return ret;
+
+	if (tas2770->sdz_gpio)
+		gpiod_set_value_cansleep(tas2770->sdz_gpio, 0);
+
+	regulator_disable(tas2770->sdz_reg);
+
 	regcache_cache_only(tas2770->regmap, true);
 	regcache_mark_dirty(tas2770->regmap);
 
-	if (tas2770->sdz_gpio) {
-		gpiod_set_value_cansleep(tas2770->sdz_gpio, 0);
-	} else {
-		ret = snd_soc_component_update_bits(component, TAS2770_PWR_CTRL,
-						    TAS2770_PWR_CTRL_MASK,
-						    TAS2770_PWR_CTRL_SHUTDOWN);
-		if (ret < 0) {
-			regcache_cache_only(tas2770->regmap, false);
-			regcache_sync(tas2770->regmap);
-			return ret;
-		}
-
-		ret = 0;
-	}
+	usleep_range(6000, 7000);
 
 	return ret;
 }
@@ -97,18 +95,26 @@ static int tas2770_codec_resume(struct snd_soc_component *component)
 	struct tas2770_priv *tas2770 = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	if (tas2770->sdz_gpio) {
-		gpiod_set_value_cansleep(tas2770->sdz_gpio, 1);
-		usleep_range(1000, 2000);
-	} else {
-		ret = tas2770_update_pwr_ctrl(tas2770);
-		if (ret < 0)
-			return ret;
+	ret = regulator_enable(tas2770->sdz_reg);
+
+	if (ret) {
+		dev_err(tas2770->dev, "Failed to enable regulator\n");
+		return ret;
 	}
+
+	if (tas2770->sdz_gpio)
+		gpiod_set_value_cansleep(tas2770->sdz_gpio, 1);
+
+
+	usleep_range(1000, 2000);
 
 	regcache_cache_only(tas2770->regmap, false);
 
-	return regcache_sync(tas2770->regmap);
+	ret = regcache_sync(tas2770->regmap);
+	if (ret < 0)
+		return ret;
+
+	return tas2770_update_pwr_ctrl(tas2770);
 }
 #else
 #define tas2770_codec_suspend NULL
@@ -719,10 +725,17 @@ static int tas2770_codec_probe(struct snd_soc_component *component)
 
 	tas2770->component = component;
 
+	ret = regulator_enable(tas2770->sdz_reg);
+	if (ret != 0) {
+		dev_err(tas2770->dev, "Failed to enable regulator: %d\n", ret);
+		return ret;
+	}
+
 	if (tas2770->sdz_gpio) {
 		gpiod_set_value_cansleep(tas2770->sdz_gpio, 1);
-		usleep_range(1000, 2000);
 	}
+
+	usleep_range(1000, 2000);
 
 	tas2770_reset(tas2770);
 	regmap_reinit_cache(tas2770->regmap, &tas2770_i2c_regmap);
@@ -745,6 +758,13 @@ static int tas2770_codec_probe(struct snd_soc_component *component)
 	return 0;
 }
 
+static void tas2770_codec_remove(struct snd_soc_component *component)
+{
+	struct tas2770_priv *tas2770 = snd_soc_component_get_drvdata(component);
+
+	regulator_disable(tas2770->sdz_reg);
+}
+
 static DECLARE_TLV_DB_SCALE(tas2770_digital_tlv, 1100, 50, 0);
 static DECLARE_TLV_DB_SCALE(tas2770_playback_volume, -10050, 50, 0);
 
@@ -757,6 +777,7 @@ static const struct snd_kcontrol_new tas2770_snd_controls[] = {
 
 static const struct snd_soc_component_driver soc_component_driver_tas2770 = {
 	.probe			= tas2770_codec_probe,
+	.remove			= tas2770_codec_remove,
 	.suspend		= tas2770_codec_suspend,
 	.resume			= tas2770_codec_resume,
 	.controls		= tas2770_snd_controls,
@@ -885,6 +906,11 @@ static int tas2770_parse_dt(struct device *dev, struct tas2770_priv *tas2770)
 				      &tas2770->pdm_slot);
 	if (rc)
 		tas2770->pdm_slot = -1;
+
+	tas2770->sdz_reg = devm_regulator_get(dev, "SDZ");
+	if (IS_ERR(tas2770->sdz_reg))
+		return dev_err_probe(dev, PTR_ERR(tas2770->sdz_reg),
+				     "Failed to get SDZ supply\n");
 
 	tas2770->sdz_gpio = devm_gpiod_get_optional(dev, "shutdown", GPIOD_OUT_HIGH);
 	if (IS_ERR(tas2770->sdz_gpio)) {
