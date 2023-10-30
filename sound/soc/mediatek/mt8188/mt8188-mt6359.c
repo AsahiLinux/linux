@@ -979,7 +979,7 @@ static struct snd_kcontrol *ctl_find(struct snd_card *card, const char *name)
 	return snd_ctl_find_id(card, &sid);
 }
 
-static void mt8188_fixup_controls(struct snd_soc_card *card)
+static int mt8188_fixup_controls(struct snd_soc_card *card)
 {
 	struct mt8188_mt6359_priv *priv = snd_soc_card_get_drvdata(card);
 	struct mt8188_card_data *card_data = (struct mt8188_card_data *)priv->private_data;
@@ -1001,6 +1001,8 @@ static void mt8188_fixup_controls(struct snd_soc_card *card)
 		else
 			dev_warn(card->dev, "Cannot find ctl : Headphone Switch\n");
 	}
+
+	return 0;
 }
 
 static struct snd_soc_card mt8188_mt6359_soc_card = {
