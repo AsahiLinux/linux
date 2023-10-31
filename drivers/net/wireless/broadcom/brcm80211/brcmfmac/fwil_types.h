@@ -824,13 +824,17 @@ struct brcmf_channel_info_le {
 	__le32 scan_channel;
 };
 
+#define BRCMF_MAX_ASSOC_OUI_NUM 6
+#define BRCMF_ASSOC_OUI_LEN 3
 struct brcmf_sta_info_le {
 	__le16 ver;		/* version of this struct */
 	__le16 len;		/* length in bytes of this structure */
 	__le16 cap;		/* sta's advertised capabilities */
+	u16 PAD;
 	__le32 flags;		/* flags defined below */
 	__le32 idle;		/* time since data pkt rx'd from sta */
 	u8 ea[ETH_ALEN];		/* Station address */
+	u16 PAD2;
 	__le32 count;			/* # rates in this set */
 	u8 rates[BRCMF_MAXRATES_IN_SET];	/* rates in 500kbps units */
 						/* w/hi bit set if basic */
@@ -862,6 +866,7 @@ struct brcmf_sta_info_le {
 	__le16 aid;                    /* association ID */
 	__le16 ht_capabilities;        /* advertised ht caps */
 	__le16 vht_flags;              /* converted vht flags */
+	u16 PAD3;
 	__le32 tx_pkts_retry_cnt;      /* # of frames where a retry was
 					 * exhausted.
 					 */
@@ -914,6 +919,13 @@ struct brcmf_sta_info_le {
 			__le32 tx_rspec;	/* Rate of last successful tx frame */
 			__le32 rx_rspec;	/* Rate of last successful rx frame */
 			__le32 wnm_cap;		/* wnm capabilities */
+			__le16 he_flags;	/* converted he flags */
+			u16 PAD;
+			struct {
+				u8 count;
+				u8 oui[BRCMF_MAX_ASSOC_OUI_NUM][BRCMF_ASSOC_OUI_LEN];
+			} vendor_oui;
+			u8 link_bw;
 		} v7;
 	};
 };

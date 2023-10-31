@@ -36,6 +36,7 @@
 #include "feature.h"
 #include "fwvid.h"
 #include "xtlv.h"
+#include "ratespec.h"
 
 #define BRCMF_SCAN_IE_LEN_MAX		2048
 
@@ -3180,6 +3181,70 @@ brcmf_cfg80211_get_station_ibss(struct brcmf_if *ifp,
 	return 0;
 }
 
+static void brcmf_convert_ratespec_to_rateinfo(u32 ratespec,
+					       struct rate_info *rateinfo)
+{
+	/* First extract the bandwidth info */
+	switch (ratespec & BRCMF_RSPEC_BW_MASK) {
+	case BRCMF_RSPEC_BW_20MHZ:
+		rateinfo->bw = RATE_INFO_BW_20;
+		break;
+	case BRCMF_RSPEC_BW_40MHZ:
+		rateinfo->bw = RATE_INFO_BW_40;
+		break;
+	case BRCMF_RSPEC_BW_80MHZ:
+		rateinfo->bw = RATE_INFO_BW_80;
+		break;
+	case BRCMF_RSPEC_BW_160MHZ:
+		rateinfo->bw = RATE_INFO_BW_160;
+		break;
+	case BRCMF_RSPEC_BW_320MHZ:
+		rateinfo->bw = RATE_INFO_BW_320;
+		break;
+	default:
+		/* Fill in nothing */
+		break;
+	}
+	if (BRCMF_RSPEC_ISHT(ratespec)) {
+		rateinfo->flags |= RATE_INFO_FLAGS_MCS;
+		rateinfo->mcs = ratespec & BRCMF_RSPEC_HT_MCS_MASK;
+	} else if (BRCMF_RSPEC_ISVHT(ratespec)) {
+		rateinfo->flags |= RATE_INFO_FLAGS_VHT_MCS;
+		rateinfo->mcs = ratespec & BRCMF_RSPEC_VHT_MCS_MASK;
+		rateinfo->nss = (ratespec & BRCMF_RSPEC_VHT_NSS_MASK) >>
+				BRCMF_RSPEC_VHT_NSS_SHIFT;
+	} else if (BRCMF_RSPEC_ISHE(ratespec)) {
+		u32 ltf_gi = BRCMF_RSPEC_HE_LTF_GI(ratespec);
+
+		rateinfo->flags |= RATE_INFO_FLAGS_HE_MCS;
+		rateinfo->mcs = ratespec & BRCMF_RSPEC_HE_MCS_MASK;
+		rateinfo->nss = (ratespec & BRCMF_RSPEC_HE_NSS_MASK) >>
+				BRCMF_RSPEC_HE_NSS_SHIFT;
+		rateinfo->he_dcm = BRCMF_RSPEC_HE_DCM(ratespec);
+		if (HE_IS_GI_0_8us(ltf_gi)) {
+			rateinfo->he_gi = NL80211_RATE_INFO_HE_GI_0_8;
+		} else if (HE_IS_GI_1_6us(ltf_gi)) {
+			rateinfo->he_gi = NL80211_RATE_INFO_HE_GI_1_6;
+		} else if (HE_IS_GI_3_2us(ltf_gi)) {
+			rateinfo->he_gi = NL80211_RATE_INFO_HE_GI_3_2;
+		}
+	} else if (BRCMF_RSPEC_ISEHT(ratespec)) {
+		u32 ltf_gi = BRCMF_RSPEC_EHT_LTF_GI(ratespec);
+
+		rateinfo->flags |= RATE_INFO_FLAGS_EHT_MCS;
+		rateinfo->mcs = ratespec & BRCMF_RSPEC_EHT_MCS_MASK;
+		rateinfo->nss = (ratespec & BRCMF_RSPEC_EHT_NSS_MASK) >>
+				BRCMF_RSPEC_EHT_NSS_SHIFT;
+		if (EHT_IS_GI_0_8us(ltf_gi)) {
+			rateinfo->eht_gi = NL80211_RATE_INFO_EHT_GI_0_8;
+		} else if (EHT_IS_GI_1_6us(ltf_gi)) {
+			rateinfo->eht_gi = NL80211_RATE_INFO_EHT_GI_1_6;
+		} else if (EHT_IS_GI_3_2us(ltf_gi)) {
+			rateinfo->eht_gi = NL80211_RATE_INFO_EHT_GI_3_2;
+		}
+	}
+}
+
 static s32
 brcmf_cfg80211_get_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 			   const u8 *mac, struct station_info *sinfo)
@@ -3197,6 +3262,8 @@ brcmf_cfg80211_get_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 	s32 count_rssi = 0;
 	int rssi;
 	u32 i;
+	u16 struct_ver;
+	u16 info_len;
 
 	brcmf_dbg(TRACE, "Enter, MAC %pM\n", mac);
 	if (!check_vif_up(ifp->vif))
@@ -3220,7 +3287,9 @@ brcmf_cfg80211_get_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 			goto done;
 		}
 	}
-	brcmf_dbg(TRACE, "version %d\n", le16_to_cpu(sta_info_le.ver));
+	info_len = le16_to_cpu(sta_info_le.len);
+	struct_ver = le16_to_cpu(sta_info_le.ver);
+	brcmf_dbg(TRACE, "version %d\n", struct_ver);
 	sinfo->filled = BIT_ULL(NL80211_STA_INFO_INACTIVE_TIME);
 	sinfo->inactive_time = le32_to_cpu(sta_info_le.idle) * 1000;
 	sta_flags = le32_to_cpu(sta_info_le.flags);
@@ -3254,12 +3323,13 @@ brcmf_cfg80211_get_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 			sinfo->rxrate.legacy =
 				le32_to_cpu(sta_info_le.rx_rate) / 100;
 		}
-		if (le16_to_cpu(sta_info_le.ver) >= 4) {
+		if (struct_ver >= 4) {
 			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BYTES);
 			sinfo->tx_bytes = le64_to_cpu(sta_info_le.tx_tot_bytes);
 			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_RX_BYTES);
 			sinfo->rx_bytes = le64_to_cpu(sta_info_le.rx_tot_bytes);
 		}
+
 		for (i = 0; i < BRCMF_ANT_MAX; i++) {
 			if (sta_info_le.rssi[i] == 0 ||
 			    sta_info_le.rx_lastpkt_rssi[i] == 0)
@@ -3295,6 +3365,25 @@ brcmf_cfg80211_get_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 				sinfo->filled |= BIT_ULL(NL80211_STA_INFO_SIGNAL);
 				sinfo->signal = rssi;
 				brcmf_dbg(CONN, "RSSI %d dBm\n", rssi);
+			}
+		}
+	}
+	/* Some version 7 structs have ratespecs from the last packet. */
+	if (struct_ver >= 7) {
+		if (info_len >= sizeof(sta_info_le)) {
+			brcmf_convert_ratespec_to_rateinfo(
+				le32_to_cpu(sta_info_le.v7.tx_rspec),
+				&sinfo->txrate);
+			brcmf_convert_ratespec_to_rateinfo(
+				le32_to_cpu(sta_info_le.v7.rx_rspec),
+				&sinfo->rxrate);
+		} else {
+			/* We didn't get the fields we were expecting, fallback to nrate */
+			u32 nrate = 0;
+			err = brcmf_fil_iovar_int_get(ifp, "nrate", &nrate);
+			if (!err) {
+				brcmf_convert_ratespec_to_rateinfo(
+					nrate, &sinfo->txrate);
 			}
 		}
 	}
