@@ -102,8 +102,10 @@ enum brcmf_feat_quirk {
  * brcmf_feat_attach() - determine features and quirks.
  *
  * @drvr: driver instance.
+ *
+ * Return: 0 in case of success, error code otherwise.
  */
-void brcmf_feat_attach(struct brcmf_pub *drvr);
+int brcmf_feat_attach(struct brcmf_pub *drvr);
 
 /**
  * brcmf_feat_debugfs_create() - create debugfs entries.
