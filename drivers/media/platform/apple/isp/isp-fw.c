@@ -498,7 +498,7 @@ static int isp_fill_channel_info(struct apple_isp *isp)
 		chan->virt =
 			apple_isp_ipc_translate(isp, desc.iova, chan->size);
 		chan->cursor = 0;
-		spin_lock_init(&chan->lock);
+		mutex_init(&chan->lock);
 
 		if (!chan->virt) {
 			dev_err(isp->dev, "Failed to find channel buffer\n");

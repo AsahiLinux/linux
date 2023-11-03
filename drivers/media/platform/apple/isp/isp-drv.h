@@ -76,7 +76,7 @@ struct isp_channel {
 	void *virt;
 	u32 doorbell;
 	u32 cursor;
-	spinlock_t lock;
+	struct mutex lock;
 	struct isp_message req;
 	struct isp_message rsp;
 	const struct isp_chan_ops *ops;

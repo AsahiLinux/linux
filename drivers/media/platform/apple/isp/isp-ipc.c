@@ -138,7 +138,7 @@ int ipc_chan_handle(struct apple_isp *isp, struct isp_channel *chan)
 {
 	int err = 0;
 
-	spin_lock(&chan->lock);
+	mutex_lock(&chan->lock);
 	while (1) {
 		chan_read_msg(isp, chan, &chan->req);
 		if (chan_rx_done(isp, chan)) {
@@ -150,7 +150,7 @@ int ipc_chan_handle(struct apple_isp *isp, struct isp_channel *chan)
 			break;
 		}
 	}
-	spin_unlock(&chan->lock);
+	mutex_unlock(&chan->lock);
 
 	return err;
 }
