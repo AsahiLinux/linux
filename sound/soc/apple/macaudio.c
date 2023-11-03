@@ -105,6 +105,7 @@ struct macaudio_snd_data {
 
 	const struct macaudio_platform_cfg *cfg;
 	bool has_speakers;
+	bool has_sense;
 	bool has_safety;
 	unsigned int max_channels;
 
@@ -569,6 +570,8 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 				continue;
 			}
 			ma->has_speakers = 1;
+			if (ma->cfg->amp != AMP_SSM3515 && ma->cfg->safe_vol != 0)
+				ma->has_sense = 1;
 		}
 
 		cpu = of_get_child_by_name(np, "cpu");
@@ -669,6 +672,18 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 	for (i = 0; i < ARRAY_SIZE(macaudio_fe_links); i++)
 		card->dai_link[i].platforms->of_node = platform;
+
+	/* Skip the speaker sense PCM link if this amp has no sense (or no speakers) */
+	if (!ma->has_sense) {
+		for (i = 0; i < ARRAY_SIZE(macaudio_fe_links); i++) {
+			if (ma->link_props[i].is_sense) {
+				memmove(&card->dai_link[i], &card->dai_link[i + 1],
+					(num_links - i - 1) * sizeof (struct snd_soc_dai_link));
+				num_links--;
+				break;
+			}
+		}
+	}
 
 	card->num_links = num_links;
 
