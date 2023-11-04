@@ -9,11 +9,48 @@
  * Copyright The Asahi Linux Contributors
  */
 
-/* disable unused display node */
+/ {
+	aliases {
+		dcpext4 = &dcpext0_die1;
+		disp0 = &display;
+	};
+};
+
+&lpdptxphy_die1 {
+	status = "okay";
+};
 
 &display {
-	status = "disabled";
-	iommus = <>; /* <&dispext0_dart_die1 0>; */
+	iommus = <&dispext0_dart_die1 0 0x100 0x0 0x10 0x0>;
+};
+
+&dispext0_dart_die1 {
+	status = "okay";
+};
+
+&dcpext0_dart_die1 {
+	status = "okay";
+};
+
+&dcpext0_mbox_die1 {
+	status = "okay";
+};
+
+&dcpext0_die1 {
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 41 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+	// J180 misses "function-dp2hdmi_pwr_en"
+	// dp2hdmi-pwren-gpios = <&smc_gpio 25 GPIO_ACTIVE_HIGH>;
+
+	phys = <&lpdptxphy_die1>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <4>;
+	apple,dptx-die = <1>;
 };
 
 /* delete missing dcp0/disp0 */

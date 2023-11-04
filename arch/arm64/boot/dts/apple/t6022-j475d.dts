@@ -22,11 +22,17 @@
 	aliases {
 		atcphy4 = &atcphy0_die1;
 		atcphy5 = &atcphy1_die1;
+		/delete-property/ dcp;
 	};
 };
 
 &framebuffer0 {
 	power-domains = <&ps_dispext0_cpu0_die1>, <&ps_dptx_phy_ps_die1>;
+};
+
+&dcpext0_die1 {
+	// J180 misses "function-dp2hdmi_pwr_en"
+	dp2hdmi-pwren-gpios = <&smc_gpio 25 GPIO_ACTIVE_HIGH>;
 };
 
 /* enable PCIe port01 with SDHCI */
