@@ -812,6 +812,7 @@
 		#reset-cells = <0>;
 		label = "isp_sys";
 		power-domains = <&ps_rmx>;
+		status = "disabled";
 	};
 
 	ps_venc_sys: power-controller@408 {

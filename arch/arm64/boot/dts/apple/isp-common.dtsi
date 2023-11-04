@@ -41,3 +41,7 @@
 &isp_dart2 {
 	status = "okay";
 };
+
+&ps_isp_sys {
+	status = "okay";
+};
