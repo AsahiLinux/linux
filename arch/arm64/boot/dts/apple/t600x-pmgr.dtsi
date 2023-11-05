@@ -396,6 +396,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(dispext0_cpu0);
 		power-domains = <&DIE_NODE(ps_dispext0_fe)>;
+		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_dispext1_cpu0): power-controller@2a8 {
@@ -405,6 +406,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(dispext1_cpu0);
 		power-domains = <&DIE_NODE(ps_dispext1_fe)>;
+		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_ane_sys_cpu): power-controller@2c8 {
@@ -1792,6 +1794,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(dispext2_cpu0);
 		power-domains = <&DIE_NODE(ps_dispext2_fe)>;
+		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_dispext3_fe): power-controller@210 {
@@ -1810,6 +1813,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(dispext3_cpu0);
 		power-domains = <&DIE_NODE(ps_dispext3_fe)>;
+		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_msr1): power-controller@250 {
