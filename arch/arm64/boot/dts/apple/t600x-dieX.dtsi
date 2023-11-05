@@ -308,6 +308,14 @@
 		power-domains = <&DIE_NODE(ps_atc0_usb)>;
 	};
 
+	DIE_NODE(atcphy0_xbar): mux@70304c000 {
+		compatible = "apple,t6000-display-crossbar";
+		reg = <0x7 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc0_usb)>;
+		status = "disabled";
+	};
+
 	DIE_NODE(dwc3_1): usb@b02280000 {
 		compatible = "apple,t6000-dwc3", "apple,t8103-dwc3";
 		reg = <0xb 0x02280000 0x0 0xcd00>, <0xb 0x0228cd00 0x0 0x3200>;
@@ -359,6 +367,14 @@
 		orientation-switch;
 		mode-switch;
 		power-domains = <&DIE_NODE(ps_atc1_usb)>;
+	};
+
+	DIE_NODE(atcphy1_xbar): mux@b0304c000 {
+		compatible = "apple,t6000-display-crossbar";
+		reg = <0xb 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc1_usb)>;
+		status = "disabled";
 	};
 
 	DIE_NODE(dwc3_2): usb@f02280000 {
@@ -414,6 +430,14 @@
 		power-domains = <&DIE_NODE(ps_atc2_usb)>;
 	};
 
+	DIE_NODE(atcphy2_xbar): mux@f0304c000 {
+		compatible = "apple,t6000-display-crossbar";
+		reg = <0xf 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc2_usb)>;
+		status = "disabled";
+	};
+
 	DIE_NODE(dwc3_3): usb@1302280000 {
 		compatible = "apple,t6000-dwc3", "apple,t8103-dwc3";
 		reg = <0x13 0x02280000 0x0 0xcd00>, <0x13 0x0228cd00 0x0 0x3200>;
@@ -465,5 +489,13 @@
 		orientation-switch;
 		mode-switch;
 		power-domains = <&DIE_NODE(ps_atc3_usb)>;
+	};
+
+	DIE_NODE(atcphy3_xbar): mux@130304c000 {
+		compatible = "apple,t6000-display-crossbar";
+		reg = <0x13 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc3_usb)>;
+		status = "disabled";
 	};
 };

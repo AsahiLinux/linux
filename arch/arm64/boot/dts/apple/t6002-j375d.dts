@@ -197,11 +197,13 @@
 /delete-node/ &dwc3_2_dart_1_die1;
 /delete-node/ &dwc3_2_die1;
 /delete-node/ &atcphy2_die1;
+/delete-node/ &atcphy2_xbar_die1;
 
 /delete-node/ &dwc3_3_dart_0_die1;
 /delete-node/ &dwc3_3_dart_1_die1;
 /delete-node/ &dwc3_3_die1;
 /delete-node/ &atcphy3_die1;
+/delete-node/ &atcphy3_xbar_die1;
 
 /* delete unused always-on power-domains on die 1 */
 
