@@ -611,8 +611,6 @@ static bool afk_recv(struct apple_dcp_afkep *ep)
 	channel = le32_to_cpu(hdr->channel);
 	type = le32_to_cpu(hdr->type);
 
-	afk_recv_handle(ep, channel, type, hdr->data, size);
-
 	rptr = ALIGN(rptr + sizeof(*hdr) + size, 1 << BLOCK_SHIFT);
 	if (WARN_ON(rptr > ep->rxbfr.bufsz))
 		rptr = 0;
@@ -623,6 +621,15 @@ static bool afk_recv(struct apple_dcp_afkep *ep)
 
 	ep->rxbfr.hdr->rptr = cpu_to_le32(rptr);
 	trace_afk_recv_rwptr_post(ep, rptr, wptr);
+
+	/*
+	 * TODO: this is theoretically unsafe since DCP could overwrite data
+	 *       after the read pointer was updated above. Do it anyway since
+	 *       it avoids 2 problems in the DCP tracer:
+	 *       1. the tracer sees replies before the the notifies from dcp
+	 *       2. the tracer tries to read buffers after they are unmapped.
+	 */
+	afk_recv_handle(ep, channel, type, hdr->data, size);
 
 	return true;
 }
