@@ -1330,9 +1330,14 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		dcp_set_digital_out_mode(dcp, false, &dcp->mode,
 					 complete_set_digital_out_mode, cookie);
 
+		/*
+		 * The DCP firmware has an internal timeout of ~8 seconds for
+		 * modesets. Add an extra 500ms to safe side that the modeset
+		 * call has returned.
+		 */
 		dev_dbg(dcp->dev, "%s - wait for modeset", __func__);
 		ret = wait_for_completion_timeout(&cookie->done,
-						  msecs_to_jiffies(2500));
+						  msecs_to_jiffies(8500));
 
 		kref_put(&cookie->refcount, release_wait_cookie);
 
