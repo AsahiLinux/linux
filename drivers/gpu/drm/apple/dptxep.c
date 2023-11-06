@@ -36,6 +36,13 @@ struct dptxport_apcall_lane_count {
 	u8 _unk1[8];
 } __attribute__((packed));
 
+struct dptxport_apcall_set_active_lane_count {
+	__le32 retcode;
+	u8 _unk0[12];
+	__le64 lane_count;
+	u8 _unk1[8];
+} __packed;
+
 struct dptxport_apcall_get_support {
 	__le32 retcode;
 	u8 _unk0[12];
@@ -177,6 +184,51 @@ static int dptxport_call_get_max_lane_count(struct apple_epic_service *service,
 	reply->lane_count = cpu_to_le64(4);
 
 	return 0;
+}
+
+static int dptxport_call_set_active_lane_count(struct apple_epic_service *service,
+					       const void *data, size_t data_size,
+					       void *reply_, size_t reply_size)
+{
+	struct dptx_port *dptx = service->cookie;
+	const struct dptxport_apcall_set_active_lane_count *request = data;
+	struct dptxport_apcall_set_active_lane_count *reply = reply_;
+	int ret = 0;
+	int retcode = 0;
+
+	if (reply_size < sizeof(*reply))
+		return -1;
+	if (data_size < sizeof(*request))
+		return -1;
+
+	u64 lane_count = le64_to_cpu(request->lane_count);
+
+	switch (lane_count) {
+	case 0 ... 2:
+	case 4:
+		dptx->phy_ops.dp.lanes = lane_count;
+		dptx->phy_ops.dp.set_lanes = 1;
+		break;
+	default:
+		dev_err(service->ep->dcp->dev, "set_active_lane_count: invalid lane count:%llu\n", lane_count);
+		retcode = 1;
+		lane_count = 0;
+		break;
+	}
+
+	if (dptx->phy_ops.dp.set_lanes) {
+		if (dptx->atcphy) {
+			ret = phy_configure(dptx->atcphy, &dptx->phy_ops);
+			if (ret)
+				return ret;
+		}
+		dptx->phy_ops.dp.set_lanes = 0;
+	}
+
+	reply->retcode = cpu_to_le32(retcode);
+	reply->lane_count = cpu_to_le64(lane_count);
+
+	return ret;
 }
 
 static int dptxport_call_get_link_rate(struct apple_epic_service *service,
@@ -334,6 +386,9 @@ static int dptxport_call(struct apple_epic_service *service, u32 idx,
 						   reply, reply_size);
 	case DPTX_APCALL_GET_MAX_LANE_COUNT:
 		return dptxport_call_get_max_lane_count(service, reply, reply_size);
+        case DPTX_APCALL_SET_ACTIVE_LANE_COUNT:
+		return dptxport_call_set_active_lane_count(service, data, data_size,
+							   reply, reply_size);
 	case DPTX_APCALL_GET_SUPPORTS_HPD:
 		return dptxport_call_get_supports_hpd(service, reply,
 						      reply_size);
