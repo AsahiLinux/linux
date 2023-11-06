@@ -601,7 +601,6 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	enum dcp_firmware_version fw_compat;
 	struct device *dev = &pdev->dev;
 	struct apple_dcp *dcp;
-	int ret;
 
 	fw_compat = dcp_check_firmware_version(dev);
 	if (fw_compat == DCP_FIRMWARE_UNKNOWN)
@@ -615,12 +614,6 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	dcp->dev = dev;
 
 	platform_set_drvdata(pdev, dcp);
-
-	ret = devm_of_platform_populate(dev);
-	if (ret) {
-		dev_err(dev, "failed to populate child devices: %d\n", ret);
-		return ret;
-	}
 
 	return component_add(&pdev->dev, &dcp_comp_ops);
 }
