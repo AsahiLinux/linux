@@ -21,11 +21,6 @@
 	power-domains = <&ps_dispext0_cpu0>, <&ps_dptx_phy_ps>;
 };
 
-/* disable dcp until it is supported */
-&dcp {
-	status = "disabled";
-};
-
 &hpm0 {
 	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
 };
