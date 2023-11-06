@@ -39,6 +39,11 @@
 	apple,always-on;
 };
 
+&dcpext0 {
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 25 GPIO_ACTIVE_HIGH>;
+};
+
 &hpm0 {
 	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
 };
