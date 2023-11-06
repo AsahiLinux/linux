@@ -90,6 +90,7 @@ int dptxport_connect(struct apple_epic_service *service, u8 core, u8 atc,
 {
 	struct dptx_port *dptx = service->cookie;
 	struct dcpdptx_connection_cmd cmd, resp;
+	u32 unk_field = 0x0; // seen as 0x100 under some conditions
 	int ret;
 	u32 target = FIELD_PREP(DCPDPTX_REMOTE_PORT_CORE, core) |
 		     FIELD_PREP(DCPDPTX_REMOTE_PORT_ATC, atc) |
@@ -99,7 +100,7 @@ int dptxport_connect(struct apple_epic_service *service, u8 core, u8 atc,
 	trace_dptxport_connect(dptx, core, atc, die);
 
 	cmd.target = cpu_to_le32(target);
-	cmd.unk = cpu_to_le32(0x100);
+	cmd.unk = cpu_to_le32(unk_field);
 	ret = afk_service_call(service, 0, 11, &cmd, sizeof(cmd), 24, &resp,
 			       sizeof(resp), 24);
 	if (ret)
@@ -107,8 +108,9 @@ int dptxport_connect(struct apple_epic_service *service, u8 core, u8 atc,
 
 	if (le32_to_cpu(resp.target) != target)
 		return -EINVAL;
-	if (le32_to_cpu(resp.unk) != 0x100)
-		return -EINVAL;
+	if (le32_to_cpu(resp.unk) != unk_field)
+		dev_notice(service->ep->dcp->dev, "unexpected unk field in reply: 0x%x (0x%x)\n",
+			  le32_to_cpu(resp.unk), unk_field);
 
 	return 0;
 }
