@@ -558,7 +558,6 @@ int iomfb_start_rtkit(struct apple_dcp *dcp)
 	dcp->shmem = dma_alloc_coherent(dcp->dev, DCP_SHMEM_SIZE, &shmem_iova,
 					GFP_KERNEL);
 
-	shmem_iova |= dcp->asc_dram_mask;
 	dcp_send_message(dcp, IOMFB_ENDPOINT, dcpep_set_shmem(shmem_iova));
 
 	return 0;

@@ -145,8 +145,7 @@ static int dcp_rtk_shmem_setup(void *cookie, struct apple_rtkit_shmem *bfr)
 			return -ENOMEM;
 
 		// TODO: get map from device-tree
-		phy_addr = iommu_iova_to_phys(domain,
-					      bfr->iova & ~dcp->asc_dram_mask);
+		phy_addr = iommu_iova_to_phys(domain, bfr->iova);
 		if (!phy_addr)
 			return -ENOMEM;
 
@@ -166,8 +165,6 @@ static int dcp_rtk_shmem_setup(void *cookie, struct apple_rtkit_shmem *bfr)
 		if (!bfr->buffer)
 			return -ENOMEM;
 
-		bfr->iova |= dcp->asc_dram_mask;
-
 		dev_info(dcp->dev, "shmem_setup: iova: %lx, buffer: %lx",
 			 (uintptr_t)bfr->iova, (uintptr_t)bfr->buffer);
 	}
@@ -182,8 +179,7 @@ static void dcp_rtk_shmem_destroy(void *cookie, struct apple_rtkit_shmem *bfr)
 	if (bfr->is_mapped)
 		memunmap(bfr->buffer);
 	else
-		dma_free_coherent(dcp->dev, bfr->size, bfr->buffer,
-				  bfr->iova & ~dcp->asc_dram_mask);
+		dma_free_coherent(dcp->dev, bfr->size, bfr->buffer, bfr->iova);
 }
 
 static struct apple_rtkit_ops rtkit_ops = {
@@ -535,12 +531,6 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	if (IS_ERR(dcp->clk))
 		return dev_err_probe(dev, PTR_ERR(dcp->clk),
 				     "Unable to find clock\n");
-
-	ret = of_property_read_u64(dev->of_node, "apple,asc-dram-mask",
-				   &dcp->asc_dram_mask);
-	if (ret)
-		dev_warn(dev, "failed read 'apple,asc-dram-mask': %d\n", ret);
-	dev_dbg(dev, "'apple,asc-dram-mask': 0x%011llx\n", dcp->asc_dram_mask);
 
 	bitmap_zero(dcp->memdesc_map, DCP_MAX_MAPPINGS);
 	// TDOD: mem_desc IDs start at 1, for simplicity just skip '0' entry

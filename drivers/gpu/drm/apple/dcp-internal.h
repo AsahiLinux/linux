@@ -108,9 +108,6 @@ struct apple_dcp {
 	/* Coprocessor control register */
 	void __iomem *coproc_reg;
 
-	/* mask for DCP IO virtual addresses shared over rtkit */
-	u64 asc_dram_mask;
-
 	/* DCP has crashed */
 	bool crashed;
 
