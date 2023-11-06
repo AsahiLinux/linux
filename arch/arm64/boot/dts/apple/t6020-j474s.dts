@@ -63,6 +63,57 @@
 	model = "Mac mini J474";
 };
 
+&lpdptxphy {
+	status = "okay";
+};
+
+#define USE_DCPEXT0 1
+
+#if USE_DCPEXT0
+/ {
+	aliases {
+		dcpext0 = &dcpext0;
+		/delete-property/ dcp;
+	};
+};
+
+&framebuffer0 {
+	power-domains = <&ps_dispext0_cpu0>, <&ps_dptx_phy_ps>;
+};
+
+&dcp {
+	status = "disabled";
+};
+&display {
+	iommus = <&dispext0_dart 0 0x100 0x0 0x10 0x0>;
+};
+&dispext0_dart {
+	status = "okay";
+};
+&dcpext0_dart {
+	status = "okay";
+};
+&dcpext0_mbox {
+	status = "okay";
+};
+&dcpext0 {
+#else
+&dcp {
+#endif
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 25 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+	dp2hdmi-pwren-gpios = <&smc_gpio 25 GPIO_ACTIVE_HIGH>;
+
+	phys = <&lpdptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <4>;
+};
+
 &gpu {
 	/* Apple does not do this, but they probably should */
 	apple,perf-base-pstate = <3>;
