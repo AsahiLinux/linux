@@ -238,6 +238,7 @@ impl super::Queue::ver {
         if cmdbuf.flags
             & !(uapi::ASAHI_RENDER_NO_CLEAR_PIPELINE_TEXTURES
                 | uapi::ASAHI_RENDER_SET_WHEN_RELOADING_Z_OR_S
+                | uapi::ASAHI_RENDER_VERTEX_SPILLS
                 | uapi::ASAHI_RENDER_PROCESS_EMPTY_TILES
                 | uapi::ASAHI_RENDER_NO_VERTEX_CLUSTERING
                 | uapi::ASAHI_RENDER_MSAA_ZS) as u64
@@ -1491,7 +1492,9 @@ impl super::Queue::ver {
                     unk_560: 0,
                     sync_grow: 0,
                     unk_568: 0,
-                    unk_56c: 0,
+                    spills: (cmdbuf.flags
+                        & uapi::ASAHI_RENDER_VERTEX_SPILLS as u64
+                        != 0) as u32,
                     meta <- try_init!(fw::job::raw::JobMeta {
                         unk_0: 0,
                         unk_2: 0,

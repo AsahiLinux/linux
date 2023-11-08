@@ -141,7 +141,7 @@ pub(crate) mod raw {
         pub(crate) unk_560: u32,
         pub(crate) sync_grow: u32,
         pub(crate) unk_568: u32,
-        pub(crate) unk_56c: u32,
+        pub(crate) spills: u32,
         pub(crate) meta: job::raw::JobMeta,
         pub(crate) unk_after_meta: u32,
         pub(crate) unk_buf_0: U64,
