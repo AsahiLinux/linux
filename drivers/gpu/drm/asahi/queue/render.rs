@@ -485,6 +485,7 @@ impl super::Queue::ver {
             | (((tile_info.tiles_x - 1) as u64) << 44)
             | (((tile_info.tiles_y - 1) as u64) << 53)
             | (if unk1 { 0 } else { 0x20_00000000 })
+            | (if cmdbuf.layers > 1 { 0x1_00000000 } else { 0 })
             | ((utile_config as u64 & 0xf000) << 28);
 
         let frag_result = result_writer
@@ -1443,7 +1444,7 @@ impl super::Queue::ver {
                             r.add(0x10171, tile_info.params.unk_24.into());
                             r.add(0x10169, tile_info.params.unk_28.into()); // TA_RENDER_TARGET_MAX
                             r.add(0x12099, unks.vtx_unk_118);
-                            r.add(0x1c9e8, 0);
+                            r.add(0x1c9e8, (tile_info.params.unk_28 & 0x4fff).into());
                             /*
                             r.add(0x10209, 0x100); // Some kind of counter?? Does this matter?
                             r.add(0x1c9f0, 0x100); // Some kind of counter?? Does this matter?
