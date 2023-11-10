@@ -111,6 +111,8 @@ pub(crate) struct Scene {
     // Note: these are dead code only on some version variants.
     // It's easier to do this than to propagate the version conditionals everywhere.
     #[allow(dead_code)]
+    meta1_off: usize,
+    #[allow(dead_code)]
     meta2_off: usize,
     #[allow(dead_code)]
     meta3_off: usize,
@@ -208,13 +210,22 @@ impl Scene::ver {
             .map(|c| c.tilemaps.gpu_pointer())
     }
 
+    /// Returns the GPU pointer to the clustering layer metadata buffer, if clustering is enabled.
+    #[allow(dead_code)]
+    pub(crate) fn tvb_cluster_layermeta_pointer(&self) -> Option<GpuPointer<'_, &'_ [u8]>> {
+        self.object
+            .clustering
+            .as_ref()
+            .map(|c| c.meta.gpu_pointer())
+    }
+
     /// Returns the GPU pointer to the clustering metadata 1 buffer, if clustering is enabled.
     #[allow(dead_code)]
     pub(crate) fn meta_1_pointer(&self) -> Option<GpuPointer<'_, &'_ [u8]>> {
         self.object
             .clustering
             .as_ref()
-            .map(|c| c.meta.gpu_pointer())
+            .map(|c| c.meta.gpu_offset_pointer(self.meta1_off))
     }
 
     /// Returns the GPU pointer to the clustering metadata 2 buffer, if clustering is enabled.
@@ -590,6 +601,7 @@ impl Buffer::ver {
             }
         };
 
+        let mut clmeta_size = 0;
         let mut meta1_size = 0;
         let mut meta2_size = 0;
         let mut meta3_size = 0;
@@ -597,6 +609,7 @@ impl Buffer::ver {
         let clustering = if inner.num_clusters > 1 {
             let cfg = inner.cfg.clustering.as_ref().unwrap();
 
+            clmeta_size = tile_info.layermeta_size * cfg.max_splits;
             // Maybe: (4x4 macro tiles + 1 global page)*n, 32bit each (17*4*n)
             // Unused on t602x?
             meta1_size = align(tile_info.meta1_blocks as usize * cfg.meta1_blocksize, 0x80);
@@ -604,7 +617,7 @@ impl Buffer::ver {
             meta3_size = align(cfg.meta3_size, 0x80);
             let meta4_size = cfg.meta4_size;
 
-            let meta_size = meta1_size + meta2_size + meta3_size + meta4_size;
+            let meta_size = clmeta_size + meta1_size + meta2_size + meta3_size + meta4_size;
 
             mod_pr_debug!("Buffer: Allocating clustering buffers\n");
             let tilemaps = inner
@@ -690,9 +703,10 @@ impl Buffer::ver {
             rebind,
             preempt2_off: inner.preempt1_size,
             preempt3_off: inner.preempt1_size + inner.preempt2_size,
-            meta2_off: meta1_size,
-            meta3_off: meta1_size + meta2_size,
-            meta4_off: meta1_size + meta2_size + meta3_size,
+            meta1_off: clmeta_size,
+            meta2_off: clmeta_size + meta1_size,
+            meta3_off: clmeta_size + meta1_size + meta2_size,
+            meta4_off: clmeta_size + meta1_size + meta2_size + meta3_size,
         })
     }
 

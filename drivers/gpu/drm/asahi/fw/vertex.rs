@@ -49,7 +49,7 @@ pub(crate) mod raw {
         pub(crate) ppp_multisamplectl: U64,
         pub(crate) tvb_layermeta: GpuPointer<'a, &'a [u8]>,
         #[ver(G < G14)]
-        pub(crate) unk_60: U64,
+        pub(crate) tvb_cluster_layermeta: Option<GpuPointer<'a, &'a [u8]>>,
         #[ver(G < G14)]
         pub(crate) core_mask: Array<2, u32>,
         pub(crate) preempt_buf1: GpuPointer<'a, &'a [u8]>,

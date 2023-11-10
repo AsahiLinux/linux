@@ -1310,7 +1310,7 @@ impl super::Queue::ver {
                         ppp_multisamplectl: U64(cmdbuf.ppp_multisamplectl), // fixed
                         tvb_layermeta: inner.scene.tvb_layermeta_pointer(),
                         #[ver(G < G14)]
-                        unk_60: U64(0x0), // fixed
+                        tvb_cluster_layermeta: inner.scene.tvb_cluster_layermeta_pointer(),
                         #[ver(G < G14)]
                         core_mask: Array::new([
                             *core_masks.first().unwrap_or(&0),
@@ -1403,8 +1403,10 @@ impl super::Queue::ver {
                             r.add(0x1c918, unks.tiling_control_2);
                             r.add(0x1c079, inner.scene.tvb_layermeta_pointer().into());
                             r.add(0x1c9d8, inner.scene.tvb_layermeta_pointer().into());
-                            r.add(0x1c089, 0);
-                            r.add(0x1c9e0, 0);
+                            let cl_layermeta_pointer =
+                                inner.scene.tvb_cluster_layermeta_pointer().map_or(0, |a| a.into());
+                            r.add(0x1c089, cl_layermeta_pointer);
+                            r.add(0x1c9e0, cl_layermeta_pointer);
                             let cl_meta_4_pointer =
                                 inner.scene.meta_4_pointer().map_or(0, |a| a.into());
                             r.add(0x16c41, cl_meta_4_pointer); // tvb_cluster_meta4
