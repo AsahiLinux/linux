@@ -575,7 +575,7 @@ impl Allocator for SimpleAllocator {
             true,
         )?;
 
-        let ptr = unsafe { p.add(offset) } as *mut u8;
+        let ptr = unsafe { p.add(offset) };
         let gpu_ptr = (iova + offset) as u64;
 
         mod_dev_dbg!(

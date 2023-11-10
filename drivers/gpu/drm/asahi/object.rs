@@ -111,7 +111,7 @@ macro_rules! inner_ptr {
     ($gpuva:expr, $($f:tt)*) => ({
         // This mirrors kernel::offset_of(), except we use type inference to avoid having to know
         // the type of the pointer explicitly.
-        fn uninit_from<'a, T: GpuStruct>(_: GpuPointer<'a, T>) -> core::mem::MaybeUninit<T::Raw<'static>> {
+        fn uninit_from<T: GpuStruct>(_: GpuPointer<'_, T>) -> core::mem::MaybeUninit<T::Raw<'static>> {
             core::mem::MaybeUninit::uninit()
         }
         let tmp = uninit_from($gpuva);
@@ -634,7 +634,7 @@ impl<T: Copy, U: Allocation<T>> GpuArray<T, U> {
 impl<T: Default, U: Allocation<T>> GpuArray<T, U> {
     /// Allocate a new GPU array, initializing each element to its default.
     pub(crate) fn empty(alloc: U, count: usize) -> Result<GpuArray<T, U>> {
-        let p = alloc.ptr().ok_or(EINVAL)?.as_ptr() as *mut T;
+        let p = alloc.ptr().ok_or(EINVAL)?.as_ptr();
         let inner = GpuOnlyArray::new(alloc, count)?;
         let mut pi = p;
         for _i in 0..count {
