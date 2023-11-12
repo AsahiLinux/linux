@@ -35,6 +35,7 @@
  * SCAN_v3: Version 3 scan params
  * PMKID_V2: Version 2 PMKID
  * PMKID_V3: Version 3 PMKID
+ * EVENT_MSGS_EXT: Event messages extension
  * JOIN_V1: Version 1 join struct
  * GCMP: GCMP Cipher suite support
  */
