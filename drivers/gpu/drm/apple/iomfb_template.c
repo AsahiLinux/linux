@@ -33,11 +33,7 @@
 #include "version_utils.h"
 
 /* Register defines used in bandwidth setup structure */
-#define REG_SCRATCH (0x14)
-#define REG_SCRATCH_T600X (0x988)
-#define REG_SCRATCH_T602X (0x1208)
-#define REG_DOORBELL (0x0)
-#define REG_DOORBELL_BIT (2)
+#define REG_DOORBELL_BIT(idx) (2 + (idx))
 
 struct dcp_wait_cookie {
 	struct kref refcount;
@@ -665,34 +661,31 @@ static struct dcp_allocate_bandwidth_resp dcpep_cb_allocate_bandwidth(struct app
 
 static struct dcp_rt_bandwidth dcpep_cb_rt_bandwidth(struct apple_dcp *dcp)
 {
-	if (dcp->disp_registers[5] && dcp->disp_registers[6]) {
-		return (struct dcp_rt_bandwidth){
-			.reg_scratch =
-				dcp->disp_registers[5]->start + REG_SCRATCH,
-			.reg_doorbell =
-				dcp->disp_registers[6]->start + REG_DOORBELL,
-			.doorbell_bit = REG_DOORBELL_BIT,
-
-			.padding[3] = 0x4, // XXX: required by 11.x firmware
-		};
-	} else if (dcp->disp_registers[4]) {
-		u32 offset = REG_SCRATCH_T600X;
-		if (of_device_is_compatible(dcp->dev->of_node, "apple,t6020-dcp"))
-			offset = REG_SCRATCH_T602X;
-
-		return (struct dcp_rt_bandwidth){
-			.reg_scratch = dcp->disp_registers[4]->start +
-				       offset,
-			.reg_doorbell = 0,
-			.doorbell_bit = 0,
-		};
-	} else {
-		return (struct dcp_rt_bandwidth){
+	struct dcp_rt_bandwidth rt_bw = (struct dcp_rt_bandwidth){
 			.reg_scratch = 0,
 			.reg_doorbell = 0,
 			.doorbell_bit = 0,
-		};
+	};
+
+	if (dcp->disp_bw_scratch_index) {
+		u32 offset = dcp->disp_bw_scratch_offset;
+		u32 index = dcp->disp_bw_scratch_index;
+		rt_bw.reg_scratch = dcp->disp_registers[index]->start + offset;
 	}
+
+	if (dcp->disp_bw_doorbell_index) {
+		u32 index = dcp->disp_bw_doorbell_index;
+		rt_bw.reg_doorbell = dcp->disp_registers[index]->start;
+		rt_bw.doorbell_bit = REG_DOORBELL_BIT(dcp->index);
+		/*
+		 * This is most certainly not padding. t8103-dcp crashes without
+		 * setting this immediately during modeset on 12.3 and 13.5
+		 * firmware.
+		 */
+		rt_bw.padding[3] = 0x4;
+	}
+
+	return rt_bw;
 }
 
 static struct dcp_set_frame_sync_props_resp

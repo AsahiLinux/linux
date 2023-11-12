@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
@@ -471,11 +472,108 @@ err_destroy_pdev:
 	return ret;
 }
 
+static int dcp_get_bw_scratch_reg(struct apple_dcp *dcp, u32 expected)
+{
+	struct of_phandle_args ph_args;
+	u32 addr_idx, disp_idx, offset;
+	int ret;
+
+	ret = of_parse_phandle_with_args(dcp->dev->of_node, "apple,bw-scratch",
+				   "#apple,bw-scratch-cells", 0, &ph_args);
+	if (ret < 0) {
+		dev_err(dcp->dev, "Failed to read 'apple,bw-scratch': %d\n", ret);
+		return ret;
+	}
+
+	if (ph_args.args_count != 3) {
+		dev_err(dcp->dev, "Unexpected 'apple,bw-scratch' arg count %d\n",
+			ph_args.args_count);
+		ret = -EINVAL;
+		goto err_of_node_put;
+	}
+
+	addr_idx = ph_args.args[0];
+	disp_idx = ph_args.args[1];
+	offset = ph_args.args[2];
+
+	if (disp_idx != expected || disp_idx >= MAX_DISP_REGISTERS) {
+		dev_err(dcp->dev, "Unexpected disp_reg value in 'apple,bw-scratch': %d\n",
+			disp_idx);
+		ret = -EINVAL;
+		goto err_of_node_put;
+	}
+
+	ret = of_address_to_resource(ph_args.np, addr_idx, &dcp->disp_bw_scratch_res);
+	if (ret < 0) {
+		dev_err(dcp->dev, "Failed to get 'apple,bw-scratch' resource %d from %pOF\n",
+			addr_idx, ph_args.np);
+		goto err_of_node_put;
+	}
+	if (offset > resource_size(&dcp->disp_bw_scratch_res) - 4) {
+		ret = -EINVAL;
+		goto err_of_node_put;
+	}
+
+	dcp->disp_registers[disp_idx] = &dcp->disp_bw_scratch_res;
+	dcp->disp_bw_scratch_index = disp_idx;
+	dcp->disp_bw_scratch_offset = offset;
+	ret = 0;
+
+err_of_node_put:
+	of_node_put(ph_args.np);
+	return ret;
+}
+
+static int dcp_get_bw_doorbell_reg(struct apple_dcp *dcp, u32 expected)
+{
+	struct of_phandle_args ph_args;
+	u32 addr_idx, disp_idx;
+	int ret;
+
+	ret = of_parse_phandle_with_args(dcp->dev->of_node, "apple,bw-doorbell",
+				   "#apple,bw-doorbell-cells", 0, &ph_args);
+	if (ret < 0) {
+		dev_err(dcp->dev, "Failed to read 'apple,bw-doorbell': %d\n", ret);
+		return ret;
+	}
+
+	if (ph_args.args_count != 2) {
+		dev_err(dcp->dev, "Unexpected 'apple,bw-doorbell' arg count %d\n",
+			ph_args.args_count);
+		ret = -EINVAL;
+		goto err_of_node_put;
+	}
+
+	addr_idx = ph_args.args[0];
+	disp_idx = ph_args.args[1];
+
+	if (disp_idx != expected || disp_idx >= MAX_DISP_REGISTERS) {
+		dev_err(dcp->dev, "Unexpected disp_reg value in 'apple,bw-doorbell': %d\n",
+			disp_idx);
+		ret = -EINVAL;
+		goto err_of_node_put;
+	}
+
+	ret = of_address_to_resource(ph_args.np, addr_idx, &dcp->disp_bw_doorbell_res);
+	if (ret < 0) {
+		dev_err(dcp->dev, "Failed to get 'apple,bw-doorbell' resource %d from %pOF\n",
+			addr_idx, ph_args.np);
+		goto err_of_node_put;
+	}
+	dcp->disp_bw_doorbell_index = disp_idx;
+	dcp->disp_registers[disp_idx] = &dcp->disp_bw_doorbell_res;
+	ret = 0;
+
+err_of_node_put:
+	of_node_put(ph_args.np);
+	return ret;
+}
+
 static int dcp_get_disp_regs(struct apple_dcp *dcp)
 {
 	struct platform_device *pdev = to_platform_device(dcp->dev);
 	int count = pdev->num_resources - 1;
-	int i;
+	int i, ret;
 
 	if (count <= 0 || count > MAX_DISP_REGISTERS)
 		return -EINVAL;
@@ -483,6 +581,20 @@ static int dcp_get_disp_regs(struct apple_dcp *dcp)
 	for (i = 0; i < count; ++i) {
 		dcp->disp_registers[i] =
 			platform_get_resource(pdev, IORESOURCE_MEM, 1 + i);
+	}
+
+	/* load pmgr bandwidth scratch resource and offset */
+	ret = dcp_get_bw_scratch_reg(dcp, count);
+	if (ret < 0)
+		return ret;
+	count += 1;
+
+	/* load pmgr bandwidth doorbell resource if present (only on t8103) */
+	if (of_property_present(dcp->dev->of_node, "apple,bw-doorbell")) {
+		ret = dcp_get_bw_doorbell_reg(dcp, count);
+		if (ret < 0)
+			return ret;
+		count += 1;
 	}
 
 	dcp->nr_disp_registers = count;
@@ -722,6 +834,14 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	fw_compat = dcp_check_firmware_version(dev);
 	if (fw_compat == DCP_FIRMWARE_UNKNOWN)
 		return -ENODEV;
+
+	/* Check for "apple,bw-scratch" to avoid probing appledrm with outdated
+	 * device trees. This prevents replacing simpledrm and ending up without
+	 * display.
+	 */
+	if (!of_property_present(dev->of_node, "apple,bw-scratch"))
+		return dev_err_probe(dev, -ENODEV, "Incompatible devicetree! "
+			"Use devicetree matching this kernel.\n");
 
 	dcp = devm_kzalloc(dev, sizeof(*dcp), GFP_KERNEL);
 	if (!dcp)
