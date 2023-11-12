@@ -332,7 +332,7 @@ struct brcmf_bss_info_le {
 	__le16 beacon_period;	/* units are Kusec */
 	__le16 capability;	/* Capability information */
 	u8 SSID_len;
-	u8 SSID[32];
+	u8 SSID[IEEE80211_MAX_SSID_LEN];
 	u8 bcnflags;		/* additional flags w.r.t. beacon */
 	struct {
 		__le32 count;   /* # rates in this set */
