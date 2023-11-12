@@ -6,6 +6,7 @@
 
 #include <linux/backlight.h>
 #include <linux/device.h>
+#include <linux/ioport.h>
 #include <linux/mutex.h>
 #include <linux/mux/consumer.h>
 #include <linux/phy/phy.h>
@@ -135,6 +136,13 @@ struct apple_dcp {
 	/* Display registers mappable to the DCP */
 	struct resource *disp_registers[MAX_DISP_REGISTERS];
 	unsigned int nr_disp_registers;
+
+	struct resource disp_bw_scratch_res;
+	struct resource disp_bw_doorbell_res;
+	u32 disp_bw_scratch_index;
+	u32 disp_bw_scratch_offset;
+	u32 disp_bw_doorbell_index;
+	u32 disp_bw_doorbell_offset;
 
 	u32 index;
 
