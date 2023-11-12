@@ -169,6 +169,7 @@ struct apple_dcp_afkep {
 
 	const struct apple_epic_service_ops *ops;
 	struct apple_epic_service services[AFK_MAX_CHANNEL];
+	u32 num_channels;
 };
 
 struct apple_dcp_afkep *afk_init(struct apple_dcp *dcp, u32 endpoint,
