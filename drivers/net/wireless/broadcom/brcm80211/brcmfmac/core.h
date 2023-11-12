@@ -97,6 +97,24 @@ struct brcmf_rev_info {
 	u32 nvramrev;
 };
 
+struct brcmf_pno_info;
+/**
+ * struct pno_struct_handler
+ */
+struct pno_struct_handler {
+	u8 version;
+	int (*pno_config)(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			  u32 bestn);
+	u32 (*get_min_data_len)(void);
+	u32 (*get_result_count)(void *data);
+	u32 (*get_result_status)(void *data);
+	int (*validate_pfn_results)(void *data, u32 event_datalen);
+	u32 (*get_bucket_map)(void *data, int idx, struct brcmf_pno_info *pi);
+	int (*get_result_info)(void *data, int result_idx,
+			       u8 (*ssid)[IEEE80211_MAX_SSID_LEN], u8 *ssid_len,
+			       u8 *channel, enum nl80211_band *band);
+};
+
 /* Common structure for module and instance linkage */
 struct brcmf_pub {
 	/* Linkage ponters */
@@ -145,6 +163,8 @@ struct brcmf_pub {
 	u8 sta_mac_idx;
 	const struct brcmf_fwvid_ops *vops;
 	void *vdata;
+	u16 cnt_ver;
+	struct pno_struct_handler pno_handler;
 };
 
 /* forward declarations */

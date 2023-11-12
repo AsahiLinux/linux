@@ -16,6 +16,7 @@
 #include "fwvid.h"
 #include "feature.h"
 #include "common.h"
+#include "pno.h"
 
 #define BRCMF_FW_UNSUPPORTED	23
 
@@ -291,6 +292,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 {
 	struct brcmf_if *ifp = brcmf_get_ifp(drvr, 0);
 	struct brcmf_wl_scan_version_le scan_ver;
+	struct brcmf_pno_param_v3_le pno_params;
 	struct brcmf_pno_macaddr_le pfn_mac;
 	struct brcmf_gscan_config gscan_cfg;
 	u32 wowl_cap;
@@ -355,6 +357,16 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 			 */
 			ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2) | BIT(BRCMF_FEAT_SCAN_V3);
 		}
+	}
+
+	/* See what version of PFN scan is supported*/
+	err = brcmf_fil_iovar_data_get(ifp, "pno_set", &pno_params,
+				       sizeof(pno_params));
+	if (!err) {
+		brcmf_pno_setup_for_version(drvr, le16_to_cpu(pno_params.version));
+	} else {
+		/* Default to version 2, supported by all chips we support. */
+		brcmf_pno_setup_for_version(drvr, 2);
 	}
 
 	brcmf_feat_wlc_version_overrides(drvr);

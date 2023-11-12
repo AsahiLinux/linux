@@ -1065,6 +1065,46 @@ struct brcmf_pno_param_le {
 };
 
 /**
+ * struct brcmf_pno_param_le - PNO scan configuration parameters
+ *
+ * @version: PNO parameters version.
+ * @length: Length of PNO structure
+ * @scan_freq: scan frequency.
+ * @lost_network_timeout: #sec. to declare discovered network as lost.
+ * @flags: Bit field to control features of PFN such as sort criteria auto
+ *	enable switch and background scan.
+ * @rssi_margin: Margin to avoid jitter for choosing a PFN based on RSSI sort
+ *	criteria.
+ * @bestn: number of best networks in each scan.
+ * @mscan: number of scans recorded.
+ * @repeat: minimum number of scan intervals before scan frequency changes
+ *	in adaptive scan.
+ * @exp: exponent of 2 for maximum scan interval.
+ * @slow_freq: slow scan period.
+ * @min_bound: min bound for scan time randomization
+ * @max_bound: max bound for scan time randomization
+ * @pfn_lp_scan_disable: unused
+ * @pfn_lp_scan_cnt: allow interleaving lp scan with hp scan
+ */
+struct brcmf_pno_param_v3_le {
+	__le16 version;
+	__le16 length;
+	__le32 scan_freq;
+	__le32 lost_network_timeout;
+	__le16 flags;
+	__le16 rssi_margin;
+	u8 bestn;
+	u8 mscan;
+	u8 repeat;
+	u8 exp;
+	__le32 slow_freq;
+	u8 min_bound;
+	u8 max_bound;
+	u8 pfn_lp_scan_disable;
+	u8 pfn_lp_scan_cnt;
+};
+
+/**
  * struct brcmf_pno_config_le - PNO channel configuration.
  *
  * @reporttype: determines what is reported.
@@ -1118,6 +1158,28 @@ struct brcmf_pno_net_info_le {
 };
 
 /**
+ * struct brcmf_pno_net_info_v3_le - information per found network.
+ *
+ * @bssid: BSS network identifier.
+ * @chanspec: channel spec.
+ * @SSID_len: length of ssid.
+ * @SSID: ssid characters.
+ * @flags: flags
+ * @RSSI: receive signal strength (in dBm).
+ * @timestamp: age in seconds.
+ */
+struct brcmf_pno_net_info_v3_le {
+	u8 bssid[6];
+	u16 chanspec;
+	u8 SSID_len;
+	u8 padding;
+	u16 flags;
+	u8 SSID[32];
+	__le16 RSSI;
+	__le16 timestamp;
+};
+
+/**
  * struct brcmf_pno_scanresults_le - result returned in PNO NET FOUND event.
  *
  * @version: PNO version identifier.
@@ -1131,6 +1193,14 @@ struct brcmf_pno_scanresults_le {
 };
 
 struct brcmf_pno_scanresults_v2_le {
+	__le32 version;
+	__le32 status;
+	__le32 count;
+	__le32 scan_ch_bucket;
+};
+
+/* V2 and V3 structs are the same */
+struct brcmf_pno_scanresults_v3_le {
 	__le32 version;
 	__le32 status;
 	__le32 count;

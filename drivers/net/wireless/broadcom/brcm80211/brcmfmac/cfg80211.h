@@ -8,6 +8,7 @@
 
 /* for brcmu_d11inf */
 #include <brcmu_d11.h>
+#include <brcmu_wifi.h>
 
 #include "core.h"
 #include "fwil_types.h"
@@ -414,6 +415,22 @@ struct brcmf_tlv {
 	u8 len;
 	u8 data[];
 };
+
+static inline enum nl80211_band fwil_band_to_nl80211(u16 band)
+{
+	switch (band) {
+	case WLC_BAND_2G:
+		return NL80211_BAND_2GHZ;
+	case WLC_BAND_5G:
+		return NL80211_BAND_5GHZ;
+	case WLC_BAND_6G:
+		return NL80211_BAND_6GHZ;
+	default:
+		WARN_ON(1);
+		break;
+	}
+	return 0;
+}
 
 static inline struct wiphy *cfg_to_wiphy(struct brcmf_cfg80211_info *cfg)
 {
