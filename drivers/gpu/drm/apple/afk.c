@@ -201,11 +201,22 @@ afk_match_service(struct apple_dcp_afkep *ep, const char *name)
 	return NULL;
 }
 
+static struct apple_epic_service *afk_epic_find_service(struct apple_dcp_afkep *ep,
+						 u32 channel)
+{
+    for (u32 i = 0; i < ep->num_channels; i++)
+        if (ep->services[i].enabled && ep->services[i].channel == channel)
+            return &ep->services[i];
+
+    return NULL;
+}
+
 static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
 				 u8 *payload, size_t payload_size)
 {
 	char name[32];
 	s64 epic_unit = -1;
+	u32 ch_idx;
 	const char *service_name = name;
 	const char *epic_name = NULL, *epic_class = NULL;
 	const struct apple_epic_service_ops *ops;
@@ -213,7 +224,7 @@ static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
 	u8 *props = payload + sizeof(name);
 	size_t props_size = payload_size - sizeof(name);
 
-	WARN_ON(ep->services[channel].enabled);
+	WARN_ON(afk_epic_find_service(ep, channel));
 
 	if (payload_size < sizeof(name)) {
 		dev_err(ep->dcp->dev, "AFK[ep:%02x]: payload too small: %lx\n",
@@ -221,7 +232,13 @@ static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
 		return;
 	}
 
-	strlcpy(name, payload, sizeof(name));
+	if (ep->num_channels >= AFK_MAX_CHANNEL) {
+		dev_err(ep->dcp->dev, "AFK[ep:%02x]: too many enabled services!\n",
+			ep->endpoint);
+		return;
+	}
+
+	strscpy(name, payload, sizeof(name));
 
 	/*
 	 * in DCP firmware 13.2 DCP reports interface-name as name which starts
@@ -257,13 +274,14 @@ static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
 		goto free;
 	}
 
-	spin_lock_init(&ep->services[channel].lock);
-	ep->services[channel].enabled = true;
-	ep->services[channel].ops = ops;
-	ep->services[channel].ep = ep;
-	ep->services[channel].channel = channel;
-	ep->services[channel].cmd_tag = 0;
-	ops->init(&ep->services[channel], epic_name, epic_class, epic_unit);
+	ch_idx = ep->num_channels++;
+	spin_lock_init(&ep->services[ch_idx].lock);
+	ep->services[ch_idx].enabled = true;
+	ep->services[ch_idx].ops = ops;
+	ep->services[ch_idx].ep = ep;
+	ep->services[ch_idx].channel = channel;
+	ep->services[ch_idx].cmd_tag = 0;
+	ops->init(&ep->services[ch_idx], epic_name, epic_class, epic_unit);
 	dev_info(ep->dcp->dev, "AFK[ep:%02x]: new service %s on channel %d\n",
 		 ep->endpoint, service_name, channel);
 free:
@@ -273,11 +291,16 @@ free:
 
 static void afk_recv_handle_teardown(struct apple_dcp_afkep *ep, u32 channel)
 {
-	struct apple_epic_service *service = &ep->services[channel];
+	struct apple_epic_service *service;
 	const struct apple_epic_service_ops *ops;
 	unsigned long flags;
 
-	WARN_ON(!service->enabled);
+	service = afk_epic_find_service(ep, channel);
+	if (!service) {
+		dev_warn(ep->dcp->dev, "AFK[ep:%02x]: teardown for disabled channel %u\n",
+			 ep->endpoint, channel);
+		return;
+	}
 
 	// TODO: think through what locking is necessary
 	spin_lock_irqsave(&service->lock, flags);
@@ -293,12 +316,19 @@ static void afk_recv_handle_reply(struct apple_dcp_afkep *ep, u32 channel,
 				  u16 tag, void *payload, size_t payload_size)
 {
 	struct epic_cmd *cmd = payload;
-	struct apple_epic_service *service = &ep->services[channel];
+	struct apple_epic_service *service;
 	unsigned long flags;
 	u8 idx = tag & 0xff;
 	void *rxbuf, *txbuf;
 	dma_addr_t rxbuf_dma, txbuf_dma;
 	size_t rxlen, txlen;
+
+	service = afk_epic_find_service(ep, channel);
+	if (!service) {
+		dev_warn(ep->dcp->dev, "AFK[ep:%02x]: command reply on disabled channel %u\n",
+			 ep->endpoint, channel);
+		return;
+	}
 
 	if (payload_size < sizeof(*cmd)) {
 		dev_err(ep->dcp->dev,
@@ -371,7 +401,14 @@ static void afk_recv_handle_std_service(struct apple_dcp_afkep *ep, u32 channel,
 					struct epic_sub_hdr *eshdr,
 					void *payload, size_t payload_size)
 {
-	struct apple_epic_service *service = &ep->services[channel];
+	struct apple_epic_service *service = afk_epic_find_service(ep, channel);
+
+	if (!service) {
+		dev_warn(ep->dcp->dev,
+			 "AFK[ep:%02x]: std service notify on disabled channel %u\n",
+			 ep->endpoint, channel);
+		return;
+	}
 
 	if (type == EPIC_TYPE_NOTIFY && eshdr->category == EPIC_CAT_NOTIFY) {
 		struct epic_std_service_ap_call *call = payload;
@@ -438,6 +475,7 @@ static void afk_recv_handle_std_service(struct apple_dcp_afkep *ep, u32 channel,
 static void afk_recv_handle(struct apple_dcp_afkep *ep, u32 channel, u32 type,
 			    u8 *data, size_t data_size)
 {
+	struct apple_epic_service *service;
 	struct epic_hdr *ehdr = (struct epic_hdr *)data;
 	struct epic_sub_hdr *eshdr =
 		(struct epic_sub_hdr *)(data + sizeof(*ehdr));
@@ -454,13 +492,9 @@ static void afk_recv_handle(struct apple_dcp_afkep *ep, u32 channel, u32 type,
 
 	trace_afk_recv_handle(ep, channel, type, data_size, ehdr, eshdr);
 
-	if (channel >= AFK_MAX_CHANNEL) {
-		dev_err(ep->dcp->dev, "AFK[ep:%02x]: channel %d out of bounds\n",
-			ep->endpoint, channel);
-		return;
-	}
+	service = afk_epic_find_service(ep, channel);
 
-	if (!ep->services[channel].enabled) {
+	if (!service) {
 		if (type != EPIC_TYPE_NOTIFY) {
 			dev_err(ep->dcp->dev,
 				"AFK[ep:%02x]: expected notify but got 0x%x on channel %d\n",
@@ -483,7 +517,7 @@ static void afk_recv_handle(struct apple_dcp_afkep *ep, u32 channel, u32 type,
 		return afk_recv_handle_init(ep, channel, payload, payload_size);
 	}
 
-	if (!ep->services[channel].enabled) {
+	if (!service) {
 		dev_err(ep->dcp->dev, "AFK[ep:%02x]: channel %d has no service\n",
 			ep->endpoint, channel);
 		return;
@@ -778,7 +812,7 @@ int afk_send_epic(struct apple_dcp_afkep *ep, u32 channel, u16 tag,
 	eshdr->type = cpu_to_le16(stype);
 	eshdr->timestamp = cpu_to_le64(0);
 	eshdr->tag = cpu_to_le16(tag);
-	eshdr->inline_len = cpu_to_le16(0);
+	eshdr->inline_len = cpu_to_le32(0);
 	wptr += sizeof(*eshdr);
 
 	memcpy(ep->txbfr.buf + wptr, payload, payload_len);
