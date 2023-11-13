@@ -11,6 +11,39 @@
 #include "audio.h"
 #include "afk.h"
 #include "dcp.h"
+#include "dcp-internal.h"
+
+struct dcp_av_audio_cmds {
+	/* commands in group 0*/
+	u32 open;
+	u32 prepare;
+	u32 start_link;
+	u32 stop_link;
+	u32 unprepare;
+	/* commands in group 1*/
+	u32 get_elements;
+	u32 get_product_attrs;
+};
+
+static const struct dcp_av_audio_cmds dcp_av_audio_cmds_v12_3 = {
+	.open = 6,
+	.prepare = 8,
+	.start_link = 9,
+	.stop_link = 12,
+	.unprepare = 13,
+	.get_elements = 18,
+	.get_product_attrs = 20,
+};
+
+static const struct dcp_av_audio_cmds dcp_av_audio_cmds_v13_5 = {
+	.open = 4,
+	.prepare = 6,
+	.start_link = 7,
+	.stop_link = 10,
+	.unprepare = 11,
+	.get_elements = 16,
+	.get_product_attrs = 18,
+};
 
 struct audiosrv_data {
 	struct device *audio_dev;
@@ -20,6 +53,8 @@ struct audiosrv_data {
 
 	struct apple_epic_service *srv;
 	struct rw_semaphore srv_rwsem;
+
+	struct dcp_av_audio_cmds cmds;
 };
 
 static void av_interface_init(struct apple_epic_service *service, const char *name,
@@ -41,7 +76,8 @@ static void av_audiosrv_init(struct apple_epic_service *service, const char *nam
 	up_write(&asrv->srv_rwsem);
 
 	/* TODO: this must be done elsewhere */
-	err = afk_service_call(asrv->srv, 0, 6, NULL, 0, 32, NULL, 0, 32);
+	err = afk_service_call(asrv->srv, 0, asrv->cmds.open, NULL, 0, 32, NULL,
+			       0, 32);
 	if (err)
 		dev_err(dcp->dev, "error opening audio service: %d\n", err);
 
@@ -93,8 +129,9 @@ int dcp_audiosrv_prepare(struct device *dev, struct dcp_sound_cookie *cookie)
 	int ret;
 
 	down_write(&asrv->srv_rwsem);
-	ret = afk_service_call(asrv->srv, 0, 8, cookie, sizeof(*cookie),
-			       64 - sizeof(*cookie), NULL, 0, 64);
+	ret = afk_service_call(asrv->srv, 0, asrv->cmds.prepare, cookie,
+			       sizeof(*cookie), 64 - sizeof(*cookie), NULL, 0,
+			       64);
 	up_write(&asrv->srv_rwsem);
 
 	return ret;
@@ -108,8 +145,9 @@ int dcp_audiosrv_startlink(struct device *dev, struct dcp_sound_cookie *cookie)
 	int ret;
 
 	down_write(&asrv->srv_rwsem);
-	ret = afk_service_call(asrv->srv, 0, 9, cookie, sizeof(*cookie),
-			       64 - sizeof(*cookie), NULL, 0, 64);
+	ret = afk_service_call(asrv->srv, 0, asrv->cmds.start_link, cookie,
+			       sizeof(*cookie), 64 - sizeof(*cookie), NULL, 0,
+			       64);
 	up_write(&asrv->srv_rwsem);
 
 	return ret;
@@ -123,7 +161,8 @@ int dcp_audiosrv_stoplink(struct device *dev)
 	int ret;
 
 	down_write(&asrv->srv_rwsem);
-	ret = afk_service_call(asrv->srv, 0, 12, NULL, 0, 64, NULL, 0, 64);
+	ret = afk_service_call(asrv->srv, 0, asrv->cmds.stop_link, NULL, 0, 64,
+			       NULL, 0, 64);
 	up_write(&asrv->srv_rwsem);
 
 	return ret;
@@ -137,7 +176,8 @@ int dcp_audiosrv_unprepare(struct device *dev)
 	int ret;
 
 	down_write(&asrv->srv_rwsem);
-	ret = afk_service_call(asrv->srv, 0, 13, NULL, 0, 64, NULL, 0, 64);
+	ret = afk_service_call(asrv->srv, 0, asrv->cmds.unprepare, NULL, 0, 64,
+			       NULL, 0, 64);
 	up_write(&asrv->srv_rwsem);
 
 	return ret;
@@ -188,7 +228,8 @@ int dcp_audiosrv_get_elements(struct device *dev, void *elements, size_t maxsize
 	int ret;
 
 	down_write(&asrv->srv_rwsem);
-	ret = dcp_audiosrv_osobject_call(asrv->srv, 1, 18, elements, maxsize, &size);
+	ret = dcp_audiosrv_osobject_call(asrv->srv, 1, asrv->cmds.get_elements,
+					 elements, maxsize, &size);
 	up_write(&asrv->srv_rwsem);
 
 	if (ret)
@@ -208,7 +249,9 @@ int dcp_audiosrv_get_product_attrs(struct device *dev, void *attrs, size_t maxsi
 	int ret;
 
 	down_write(&asrv->srv_rwsem);
-	ret = dcp_audiosrv_osobject_call(asrv->srv, 1, 20, attrs, maxsize, &size);
+	ret = dcp_audiosrv_osobject_call(asrv->srv, 1,
+					 asrv->cmds.get_product_attrs, attrs,
+					 maxsize, &size);
 	up_write(&asrv->srv_rwsem);
 
 	if (ret)
@@ -258,6 +301,19 @@ int avep_init(struct apple_dcp *dcp)
 		return -ENOMEM;
 	init_rwsem(&audiosrv_data->srv_rwsem);
 	mutex_init(&audiosrv_data->plug_lock);
+
+	switch (dcp->fw_compat) {
+	case DCP_FIRMWARE_V_12_3:
+		audiosrv_data->cmds = dcp_av_audio_cmds_v12_3;
+		break;
+	case DCP_FIRMWARE_V_13_5:
+		audiosrv_data->cmds = dcp_av_audio_cmds_v13_5;
+		break;
+	default:
+		dev_err(dcp->dev, "Audio not supported for firmware\n");
+		return -ENODEV;
+	}
+
 	dcp->audiosrv = audiosrv_data;
 
 	audio_pdata->dcp_dev = dcp->dev;
