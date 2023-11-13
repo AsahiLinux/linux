@@ -22,6 +22,7 @@
 		/delete-property/ dcp;
 		dcpext = &dcpext;
 		ethernet0 = &ethernet0;
+		sio = &sio;
 		wifi0 = &wifi0;
 	};
 };
@@ -63,6 +64,10 @@
 	phys = <&dptxphy>;
 	phy-names = "dp-phy";
 	apple,dptx-phy = <5>;
+};
+
+&dpaudio1 {
+	status = "okay";
 };
 
 /*
