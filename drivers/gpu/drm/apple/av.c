@@ -51,6 +51,7 @@ struct audiosrv_data {
 	bool plugged;
 	struct mutex plug_lock;
 
+	struct completion init_completion;
 	struct apple_epic_service *srv;
 	struct rw_semaphore srv_rwsem;
 
@@ -67,7 +68,6 @@ static void av_audiosrv_init(struct apple_epic_service *service, const char *nam
 {
 	struct apple_dcp *dcp = service->ep->dcp;
 	struct audiosrv_data *asrv = dcp->audiosrv;
-	int err;
 
 	mutex_lock(&asrv->plug_lock);
 
@@ -75,16 +75,8 @@ static void av_audiosrv_init(struct apple_epic_service *service, const char *nam
 	asrv->srv = service;
 	up_write(&asrv->srv_rwsem);
 
-	/* TODO: this must be done elsewhere */
-	err = afk_service_call(asrv->srv, 0, asrv->cmds.open, NULL, 0, 32, NULL,
-			       0, 32);
-	if (err)
-		dev_err(dcp->dev, "error opening audio service: %d\n", err);
-
+	complete(&asrv->init_completion);
 	asrv->plugged = true;
-	if (asrv->hotplug_cb)
-		asrv->hotplug_cb(asrv->audio_dev, true);
-
 	mutex_unlock(&asrv->plug_lock);
 }
 
@@ -313,6 +305,7 @@ int avep_init(struct apple_dcp *dcp)
 		dev_err(dcp->dev, "Audio not supported for firmware\n");
 		return -ENODEV;
 	}
+	init_completion(&audiosrv_data->init_completion);
 
 	dcp->audiosrv = audiosrv_data;
 
@@ -337,4 +330,28 @@ int avep_init(struct apple_dcp *dcp)
 		return PTR_ERR(dcp->avep);
 	dcp->avep->debugfs_entry = dcp->ep_debugfs[AV_ENDPOINT - 0x20];
 	return afk_start(dcp->avep);
+
+	ret = wait_for_completion_timeout(&dcp->audiosrv->init_completion,
+					  msecs_to_jiffies(500));
+	if (ret < 0) {
+		dev_err(dcp->dev, "error waiting on audio service init: %d\n", ret);
+		return ret;
+	} else if (!ret) {
+		dev_err(dcp->dev, "timeout while waiting for audio service init\n");
+		return -ETIMEDOUT;
+	}
+
+	/* open AV audio service */
+	ret = afk_service_call(dcp->audiosrv->srv, 0, dcp->audiosrv->cmds.open,
+			       NULL, 0, 32, NULL, 0, 32);
+	if (ret) {
+		dev_err(dcp->dev, "error opening audio service: %d\n", ret);
+		return ret;
+	}
+
+	mutex_lock(&dcp->audiosrv->plug_lock);
+	if (dcp->audiosrv->hotplug_cb)
+		dcp->audiosrv->hotplug_cb(dcp->audiosrv->audio_dev,
+					  dcp->audiosrv->plugged);
+	mutex_unlock(&dcp->audiosrv->plug_lock);
 }
