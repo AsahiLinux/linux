@@ -861,6 +861,7 @@ int afk_send_command(struct apple_epic_service *service, u8 type,
 
 	memcpy(txbuf, payload, payload_len);
 
+	memset(&cmd, 0, sizeof(cmd));
 	cmd.retcode = cpu_to_le32(0);
 	cmd.rxbuf = cpu_to_le64(rxbuf_dma);
 	cmd.rxlen = cpu_to_le32(output_len);
@@ -951,6 +952,8 @@ int afk_service_call(struct apple_epic_service *service, u16 group, u32 command,
 		return -ENOMEM;
 
 	call = bfr;
+
+	memset(call, 0, sizeof(*call));
 	call->group = cpu_to_le16(group);
 	call->command = cpu_to_le32(command);
 	call->data_len = cpu_to_le32(data_len + data_pad);
