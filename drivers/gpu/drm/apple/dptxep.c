@@ -57,6 +57,18 @@ struct dptxport_apcall_max_drive_settings {
 	u8 _unk1[8];
 };
 
+struct dptxport_apcall_drive_settings {
+	__le32 retcode;
+	u8 _unk0[12];
+	__le32 unk1;
+	__le32 unk2;
+	__le32 unk3;
+	__le32 unk4;
+	__le32 unk5;
+	__le32 unk6;
+	__le32 unk7;
+};
+
 int dptxport_validate_connection(struct apple_epic_service *service, u8 core,
 				 u8 atc, u8 die)
 {
@@ -156,6 +168,61 @@ dptxport_call_get_max_drive_settings(struct apple_epic_service *service,
 	reply->retcode = cpu_to_le32(0);
 	reply->max_drive_settings[0] = cpu_to_le32(0x3);
 	reply->max_drive_settings[1] = cpu_to_le32(0x3);
+
+	return 0;
+}
+
+static int
+dptxport_call_get_drive_settings(struct apple_epic_service *service,
+				     const void *request_, size_t request_size,
+				     void *reply_, size_t reply_size)
+{
+	struct dptx_port *dptx = service->cookie;
+	const struct dptxport_apcall_drive_settings *request = request_;
+	struct dptxport_apcall_drive_settings *reply = reply_;
+
+	if (reply_size < sizeof(*reply) || request_size < sizeof(*request))
+		return -EINVAL;
+
+	*reply = *request;
+
+	/* Clear the rest of the buffer */
+	memset(reply_ + sizeof(*reply), 0, reply_size - sizeof(*reply));
+
+	if (le32_to_cpu(reply->retcode) != 4)
+		dev_err(service->ep->dcp->dev,
+			"get_drive_settings: unexpected retcode %d\n",
+			reply->retcode);
+
+	reply->retcode = cpu_to_le32(4); /* Should already be 4? */
+	reply->unk5 = cpu_to_le32(dptx->drive_settings[0]);
+	reply->unk6 = cpu_to_le32(0);
+	reply->unk7 = cpu_to_le32(dptx->drive_settings[1]);
+
+	return 0;
+}
+
+static int
+dptxport_call_set_drive_settings(struct apple_epic_service *service,
+				     const void *request_, size_t request_size,
+				     void *reply_, size_t reply_size)
+{
+	struct dptx_port *dptx = service->cookie;
+	const struct dptxport_apcall_drive_settings *request = request_;
+	struct dptxport_apcall_drive_settings *reply = reply_;
+
+	if (reply_size < sizeof(*reply) || request_size < sizeof(*request))
+		return -EINVAL;
+
+	*reply = *request;
+	reply->retcode = cpu_to_le32(0);
+
+	dev_info(service->ep->dcp->dev, "set_drive_settings: %d:%d:%d:%d:%d:%d:%d\n",
+		 request->unk1, request->unk2, request->unk3, request->unk4,
+		 request->unk5, request->unk6, request->unk7);
+
+	dptx->drive_settings[0] = cpu_to_le32(reply->unk5);
+	dptx->drive_settings[1] = cpu_to_le32(reply->unk7);
 
 	return 0;
 }
@@ -418,6 +485,12 @@ static int dptxport_call(struct apple_epic_service *service, u32 idx,
 	case DPTX_APCALL_GET_MAX_DRIVE_SETTINGS:
 		return dptxport_call_get_max_drive_settings(service, reply,
 							    reply_size);
+	case DPTX_APCALL_GET_DRIVE_SETTINGS:
+		return dptxport_call_get_drive_settings(service, data, data_size,
+							reply, reply_size);
+	case DPTX_APCALL_SET_DRIVE_SETTINGS:
+		return dptxport_call_set_drive_settings(service, data, data_size,
+							reply, reply_size);
         case DPTX_APCALL_ACTIVATE:
 		return dptxport_call_activate(service, data, data_size,
 					      reply, reply_size);
@@ -428,8 +501,6 @@ static int dptxport_call(struct apple_epic_service *service, u32 idx,
 		fallthrough;
 	/* we can silently ignore and just ACK these calls */
 	case DPTX_APCALL_DEACTIVATE:
-	case DPTX_APCALL_SET_DRIVE_SETTINGS:
-	case DPTX_APCALL_GET_DRIVE_SETTINGS:
 		memcpy(reply, data, min(reply_size, data_size));
 		if (reply_size >= 4)
 			memset(reply, 0, 4);
