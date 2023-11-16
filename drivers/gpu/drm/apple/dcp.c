@@ -269,12 +269,14 @@ static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 	}
 
 	if (dcp->dptxport[port].connected)
-		return 0;
+		goto ret;
 
 	dcp->dptxport[port].atcphy = dcp->phy;
 	dptxport_connect(dcp->dptxport[port].service, 0, dcp->dptx_phy, dcp->dptx_die);
 	dptxport_request_display(dcp->dptxport[port].service);
 	dcp->dptxport[port].connected = true;
+
+ret:
 	mutex_unlock(&dcp->hpd_mutex);
 
 	return 0;
