@@ -55,6 +55,7 @@ struct dptx_port {
 	struct phy *atcphy;
 	struct mux_control *mux;
 	u32 link_rate, pending_link_rate;
+	u32 drive_settings[2];
 };
 
 int dptxport_validate_connection(struct apple_epic_service *service, u8 core,
