@@ -89,6 +89,8 @@ pub(crate) struct TileInfo {
     pub(crate) tilemap_size: usize,
     /// Size of the Tail Pointer Cache, in bytes (for all layers * clusters).
     pub(crate) tpc_size: usize,
+    /// Number of blocks in the clustering meta buffer (for clustering) per layer.
+    pub(crate) meta1_layer_stride: u32,
     /// Number of blocks in the clustering meta buffer (for clustering).
     pub(crate) meta1_blocks: u32,
     /// Layering metadata size.

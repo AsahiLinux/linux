@@ -145,8 +145,7 @@ impl super::Queue::ver {
         // No idea where this comes from, but it fits what macOS does...
         // GUESS: Number of 32K heap blocks to fit a 5-byte region header/pointer per tile?
         // That would make a ton of sense...
-        // TODO: Layers? Why the sample count factor here?
-        let meta1_blocks = if num_clusters > 1 {
+        let meta1_layer_stride = if num_clusters > 1 {
             div_ceil(
                 align(tiles_x, 2) * align(tiles_y, 4) * utiles_per_tile,
                 0x1980,
@@ -177,7 +176,11 @@ impl super::Queue::ver {
             //utiles_per_mtile: tiles_per_mtile * utiles_per_tile,
             tilemap_size,
             tpc_size,
-            meta1_blocks,
+            meta1_layer_stride,
+            #[ver(G < G14X)]
+            meta1_blocks: meta1_layer_stride * cmdbuf.layers,
+            #[ver(G >= G14X)]
+            meta1_blocks: meta1_layer_stride,
             layermeta_size: if layers > 1 { 0x100 } else { 0 },
             min_tvb_blocks: min_tvb_blocks as usize,
             params: fw::vertex::raw::TilingParameters {
@@ -1305,7 +1308,7 @@ impl super::Queue::ver {
                         tvb_cluster_meta1: inner
                             .scene
                             .meta_1_pointer()
-                            .map(|x| x.or((tile_info.meta1_blocks as u64) << 50)),
+                            .map(|x| x.or((tile_info.meta1_layer_stride as u64) << 50)),
                         utile_config,
                         unk_4c: 0,
                         ppp_multisamplectl: U64(cmdbuf.ppp_multisamplectl), // fixed
