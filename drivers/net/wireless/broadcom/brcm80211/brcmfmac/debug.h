@@ -105,6 +105,7 @@ do {								\
 #define BRCMF_FIL_ON()		0
 #define BRCMF_FWCON_ON()	0
 #define BRCMF_SCAN_ON()		0
+#define BRCMF_INFO_ON()		0
 
 #endif /* defined(DEBUG) || defined(CONFIG_BRCM_TRACING) */
 
