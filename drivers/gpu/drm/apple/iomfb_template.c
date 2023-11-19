@@ -121,6 +121,7 @@ static void dcpep_cb_swap_complete(struct apple_dcp *dcp,
 				   struct DCP_FW_NAME(dc_swap_complete_resp) *resp)
 {
 	trace_iomfb_swap_complete(dcp, resp->swap_id);
+	dcp->last_swap_id = resp->swap_id;
 
 	dcp_drm_crtc_vblank(dcp->crtc);
 }
@@ -746,6 +747,8 @@ static void dcp_swap_cleared(struct apple_dcp *dcp, void *data, void *cookie)
 		struct dcp_fb_reference *entry;
 		entry = list_first_entry(&dcp->swapped_out_fbs,
 					 struct dcp_fb_reference, head);
+		if (entry->swap_id == dcp->last_swap_id)
+			break;
 		if (entry->fb)
 			drm_framebuffer_put(entry->fb);
 		list_del(&entry->head);
@@ -1145,6 +1148,8 @@ static void dcp_swapped(struct apple_dcp *dcp, void *data, void *cookie)
 		struct dcp_fb_reference *entry;
 		entry = list_first_entry(&dcp->swapped_out_fbs,
 					 struct dcp_fb_reference, head);
+		if (entry->swap_id == dcp->last_swap_id)
+			break;
 		if (entry->fb)
 			drm_framebuffer_put(entry->fb);
 		list_del(&entry->head);
@@ -1252,6 +1257,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 				kzalloc(sizeof(*entry), GFP_KERNEL);
 			if (entry) {
 				entry->fb = old_state->fb;
+				entry->swap_id = dcp->last_swap_id;
 				list_add_tail(&entry->head,
 					      &dcp->swapped_out_fbs);
 			}
