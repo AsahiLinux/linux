@@ -75,6 +75,7 @@ struct dcp_channel {
 struct dcp_fb_reference {
 	struct list_head head;
 	struct drm_framebuffer *fb;
+	u32 swap_id;
 };
 
 #define MAX_NOTCH_HEIGHT 160
@@ -166,6 +167,9 @@ struct apple_dcp {
 		struct dcp_swap_submit_req_v12_3 v12_3;
 		struct dcp_swap_submit_req_v13_3 v13_3;
 	} swap;
+
+	/* swap id of the last completed swap */
+	u32 last_swap_id;
 
 	/* Current display mode */
 	bool valid_mode;
