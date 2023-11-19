@@ -95,6 +95,7 @@ static const iomfb_cb_handler cb_handlers[IOMFB_MAX_CB] = {
 	[588] = trampoline_nop, /* resize_default_fb_surface_gated */
 	[589] = trampoline_swap_complete,
 	[591] = trampoline_swap_complete_intent_gated,
+	[592] = trampoline_abort_swap_ap_gated,
 	[593] = trampoline_enable_backlight_message_ap_gated,
 	[594] = trampoline_nop, /* IOMobileFramebufferAP::setSystemConsoleMode */
 	[596] = trampoline_false, /* IOMobileFramebufferAP::isDFBAllocated */
