@@ -303,6 +303,23 @@ TRACE_EVENT(iomfb_swap_complete_intent_gated,
 	    )
 );
 
+TRACE_EVENT(iomfb_abort_swap_ap_gated,
+	    TP_PROTO(struct apple_dcp *dcp, u32 swap_id),
+	    TP_ARGS(dcp, swap_id),
+	    TP_STRUCT__entry(
+			     __field(u64, dcp)
+			     __field(u32, swap_id)
+	    ),
+	    TP_fast_assign(
+			   __entry->dcp = (u64)dcp;
+			   __entry->swap_id = swap_id;
+	    ),
+	    TP_printk("dcp=%llx, swap_id=%u",
+		      __entry->dcp,
+		      __entry->swap_id
+	    )
+);
+
 DECLARE_EVENT_CLASS(iomfb_parse_mode_template,
 	    TP_PROTO(s64 id, struct dimension *horiz, struct dimension *vert, s64 best_color_mode, bool is_virtual, s64 score),
 	    TP_ARGS(id, horiz, vert, best_color_mode, is_virtual, score),

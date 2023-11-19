@@ -1044,6 +1044,12 @@ dcpep_cb_swap_complete_intent_gated(struct apple_dcp *dcp,
 		info->width, info->height);
 }
 
+static void
+dcpep_cb_abort_swap_ap_gated(struct apple_dcp *dcp, u32 *swap_id)
+{
+	trace_iomfb_abort_swap_ap_gated(dcp, *swap_id);
+}
+
 static struct dcpep_get_tiling_state_resp
 dcpep_cb_get_tiling_state(struct apple_dcp *dcp,
 			  struct dcpep_get_tiling_state_req *req)
@@ -1110,6 +1116,7 @@ TRAMPOLINE_IN(trampoline_hotplug, dcpep_cb_hotplug, u64);
 TRAMPOLINE_IN(trampoline_swap_complete_intent_gated,
 	      dcpep_cb_swap_complete_intent_gated,
 	      struct dcp_swap_complete_intent_gated);
+TRAMPOLINE_IN(trampoline_abort_swap_ap_gated, dcpep_cb_abort_swap_ap_gated, u32);
 TRAMPOLINE_IN(trampoline_enable_backlight_message_ap_gated,
 	      iomfbep_cb_enable_backlight_message_ap_gated, u8);
 TRAMPOLINE_IN(trampoline_pr_publish, iomfb_cb_pr_publish,
