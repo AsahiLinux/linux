@@ -188,6 +188,27 @@
 		power-domains = <&ps_disp0_cpu0>;
 	};
 
+	dpaudio0: audio-controller@39b500000 {
+		compatible = "apple,t6000-dpaudio", "apple,dpaudio";
+		reg = <0x3 0x9b500000 0x0 0x4000>;
+		dmas = <&sio 0x64>;
+		dma-names = "tx";
+		power-domains = <&ps_dpa0>;
+		reset-domains = <&ps_dpa0>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dpaudio0_dcp: endpoint {
+					remote-endpoint = <&dcp_audio>;
+				};
+			};
+		};
+	};
+
 	dcp_mbox: mbox@38bc08000 {
 		compatible = "apple,t6000-asc-mailbox", "apple,asc-mailbox-v4";
 		reg = <0x3 0x8bc08000 0x0 0x4000>;
@@ -226,6 +247,17 @@
 		disp0_piodma: piodma {
 			iommus = <&disp0_dart 4 0x0 0x0 0x0 0xfc000000>;
 			phandle = <&disp0_piodma>;
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dcp_audio: endpoint {
+					remote-endpoint = <&dpaudio0_dcp>;
+				};
+			};
 		};
 	};
 
