@@ -9,6 +9,7 @@
 #include "atc.h"
 #include "trace.h"
 
+#include <asm-generic/errno.h>
 #include <dt-bindings/phy/phy.h>
 #include <linux/bitfield.h>
 #include <linux/delay.h>
@@ -1776,12 +1777,55 @@ static const struct phy_ops apple_atc_usb2_phy_ops = {
 	.exit = atcphy_usb2_power_off,
 };
 
+static int atcphy_dpphy_mux_set(struct apple_atcphy *atcphy, enum atcphy_mode target)
+{
+	int ret = 0;
+
+	// TODO:
+	flush_work(&atcphy->mux_set_work);
+
+	mutex_lock(&atcphy->lock);
+
+	if (atcphy->mode == target)
+		goto out_unlock;
+
+	atcphy->target_mode = target;
+
+	WARN_ON(!schedule_work(&atcphy->mux_set_work));
+	ret = wait_for_completion_timeout(&atcphy->atcphy_online_event,
+					  msecs_to_jiffies(1000));
+	if (ret == 0)
+		ret = -ETIMEDOUT;
+	else if (ret > 0)
+		ret = 0;
+
+out_unlock:
+	mutex_unlock(&atcphy->lock);
+	return ret;
+}
+
 static int atcphy_dpphy_set_mode(struct phy *phy, enum phy_mode mode,
 				 int submode)
 {
-	/* nothing to do here since the setup already happened in mux_set */
-	if (mode == PHY_MODE_DP && submode >= 0 && submode <= 5)
-		return 0;
+	struct apple_atcphy *atcphy = phy_get_drvdata(phy);
+
+	dev_info(atcphy->dev, "%s(mode=%u, submode=%d)\n", __func__, mode, submode);
+
+	switch (mode) {
+	case PHY_MODE_INVALID:
+		if (atcphy->mode == APPLE_ATCPHY_MODE_OFF)
+			return 0;
+		return atcphy_dpphy_mux_set(atcphy, APPLE_ATCPHY_MODE_OFF);
+	case PHY_MODE_DP:
+		/* TODO: does this get called for DP-altmode? */
+		if (atcphy->mode == APPLE_ATCPHY_MODE_USB3_DP ||
+		    atcphy->mode == APPLE_ATCPHY_MODE_DP)
+			return 0;
+		return atcphy_dpphy_mux_set(atcphy, APPLE_ATCPHY_MODE_DP);
+	default:
+		break;
+	}
+
 	return -EINVAL;
 }
 
@@ -1790,6 +1834,11 @@ static int atcphy_dpphy_validate(struct phy *phy, enum phy_mode mode,
 {
 	struct phy_configure_opts_dp *opts = &opts_->dp;
 	struct apple_atcphy *atcphy = phy_get_drvdata(phy);
+
+	if (mode == PHY_MODE_INVALID) {
+		memset(opts, 0, sizeof(*opts));
+		return 0;
+	}
 
 	if (mode != PHY_MODE_DP)
 		return -EINVAL;
@@ -1836,9 +1885,9 @@ static int atcphy_dpphy_configure(struct phy *phy,
 	if (opts->set_lanes) {
 		if (((atcphy->mode == APPLE_ATCPHY_MODE_DP && opts->lanes != 4) ||
 		     (atcphy->mode == APPLE_ATCPHY_MODE_USB3_DP && opts->lanes != 2)) &&
-	            opts->lanes != 0)
-		dev_warn(atcphy->dev, "Unexpected lane count %u for mode %u\n",
-			 opts->lanes, atcphy->mode);
+	            (atcphy->mode == APPLE_ATCPHY_MODE_OFF && opts->lanes != 0))
+			dev_warn(atcphy->dev, "Unexpected lane count %u for mode %u\n",
+				 opts->lanes, atcphy->mode);
 
 	}
 
@@ -2428,13 +2477,6 @@ static int atcphy_probe(struct platform_device *pdev)
 	ret = atcphy_probe_phy(atcphy);
 	if (ret)
 		return ret;
-
-	if (atcphy->dp_only) {
-		atcphy->target_mode = APPLE_ATCPHY_MODE_DP;
-		WARN_ON(!schedule_work(&atcphy->mux_set_work));
-		wait_for_completion_timeout(&atcphy->atcphy_online_event,
-					msecs_to_jiffies(1000));
-	}
 
 	return 0;
 }
