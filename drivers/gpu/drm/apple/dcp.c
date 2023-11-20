@@ -703,8 +703,6 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	if (IS_ERR(dcp->coproc_reg))
 		return PTR_ERR(dcp->coproc_reg);
 
-	dcp->is_dptx = dcp->phy != NULL;
-
 	of_property_read_u32(dev->of_node, "apple,dcp-index",
 					   &dcp->index);
 	of_property_read_u32(dev->of_node, "apple,dptx-phy",
