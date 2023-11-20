@@ -820,7 +820,10 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 	if (dcp->piodma) {
 		iommu_detach_device(dcp->iommu_dom, &dcp->piodma->dev);
 		iommu_domain_free(dcp->iommu_dom);
-		of_platform_device_destroy(&dcp->piodma->dev, NULL);
+		/* TODO: the piodma platform device has to be destroyed but
+		 *       doing so leads to all kind of breakage.
+		 */
+		// of_platform_device_destroy(&dcp->piodma->dev, NULL);
 		dcp->piodma = NULL;
 	}
 
