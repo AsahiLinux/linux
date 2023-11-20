@@ -315,6 +315,11 @@ static int dptx_phy_activate(struct apple_dptx_phy *phy, u32 dcp_index)
 	return 0;
 }
 
+static int dptx_phy_deactivate(struct apple_dptx_phy *phy)
+{
+	return 0;
+}
+
 int dptx_phy_set_link_rate(struct apple_dptx_phy *phy, u32 link_rate)
 {
     u32 sts_1008, sts_1014, val_100c, val_20b0, val_20b4;
@@ -517,16 +522,29 @@ static int dptx_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 {
 	struct apple_dptx_phy *dptx_phy = phy_get_drvdata(phy);
 
-	if (mode != PHY_MODE_DP || submode < 0 || submode > 5)
-		return -EINVAL;
+	switch (mode) {
+	case PHY_MODE_INVALID:
+		return dptx_phy_deactivate(dptx_phy);
+	case PHY_MODE_DP:
+		if (submode < 0 || submode > 5)
+			return -EINVAL;
+		return dptx_phy_activate(dptx_phy, submode);
+	default:
+		break;
+	}
 
-	return dptx_phy_activate(dptx_phy, submode);
+	return -EINVAL;
 }
 
 static int dptx_phy_validate(struct phy *phy, enum phy_mode mode, int submode,
 			     union phy_configure_opts *opts_)
 {
 	struct phy_configure_opts_dp *opts = &opts_->dp;
+
+	if (mode == PHY_MODE_INVALID) {
+		memset(opts, 0, sizeof(*opts));
+		return 0;
+	}
 
 	if (mode != PHY_MODE_DP)
 		return -EINVAL;
