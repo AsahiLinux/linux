@@ -451,6 +451,23 @@ dptxport_call_activate(struct apple_epic_service *service,
 	return 0;
 }
 
+static int
+dptxport_call_deactivate(struct apple_epic_service *service,
+		       const void *data, size_t data_size,
+		       void *reply, size_t reply_size)
+{
+	struct dptx_port *dptx = service->cookie;
+
+	/* deactivate phy */
+	phy_set_mode_ext(dptx->atcphy, PHY_MODE_INVALID, 0);
+
+	memcpy(reply, data, min(reply_size, data_size));
+	if (reply_size >= 4)
+		memset(reply, 0, 4);
+
+	return 0;
+}
+
 static int dptxport_call(struct apple_epic_service *service, u32 idx,
 			 const void *data, size_t data_size, void *reply,
 			 size_t reply_size)
@@ -494,13 +511,13 @@ static int dptxport_call(struct apple_epic_service *service, u32 idx,
         case DPTX_APCALL_ACTIVATE:
 		return dptxport_call_activate(service, data, data_size,
 					      reply, reply_size);
+	case DPTX_APCALL_DEACTIVATE:
+		return dptxport_call_deactivate(service, data, data_size,
+						reply, reply_size);
 	default:
 		/* just try to ACK and hope for the best... */
 		dev_info(service->ep->dcp->dev, "DPTXPort: acking unhandled call %u\n",
 			idx);
-		fallthrough;
-	/* we can silently ignore and just ACK these calls */
-	case DPTX_APCALL_DEACTIVATE:
 		memcpy(reply, data, min(reply_size, data_size));
 		if (reply_size >= 4)
 			memset(reply, 0, 4);
