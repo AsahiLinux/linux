@@ -287,6 +287,7 @@ static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 	struct apple_connector *connector = dcp->connector;
 
 	mutex_lock(&dcp->hpd_mutex);
+
 	if (connector && connector->connected) {
 		dcp->valid_mode = false;
 		schedule_work(&connector->hotplug_wq);
@@ -406,6 +407,69 @@ int dcp_wait_ready(struct platform_device *pdev, u64 timeout)
 	return dcp->active ? 0 : -ETIMEDOUT;
 }
 EXPORT_SYMBOL(dcp_wait_ready);
+
+static void __maybe_unused dcp_sleep(struct apple_dcp *dcp)
+{
+	switch (dcp->fw_compat) {
+	case DCP_FIRMWARE_V_12_3:
+		iomfb_sleep_v12_3(dcp);
+		break;
+	case DCP_FIRMWARE_V_13_5:
+		iomfb_sleep_v13_3(dcp);
+		break;
+	default:
+		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
+		break;
+	}
+}
+
+void dcp_poweron(struct platform_device *pdev)
+{
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	if (dcp->hdmi_hpd) {
+		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+		dev_info(dcp->dev, "%s: DP2HDMI HPD connected:%d\n", __func__, connected);
+
+		if (connected)
+			dcp_dptx_connect(dcp, 0);
+	}
+
+	switch (dcp->fw_compat) {
+	case DCP_FIRMWARE_V_12_3:
+		iomfb_poweron_v12_3(dcp);
+		break;
+	case DCP_FIRMWARE_V_13_5:
+		iomfb_poweron_v13_3(dcp);
+		break;
+	default:
+		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
+		break;
+	}
+}
+EXPORT_SYMBOL(dcp_poweron);
+
+void dcp_poweroff(struct platform_device *pdev)
+{
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	switch (dcp->fw_compat) {
+	case DCP_FIRMWARE_V_12_3:
+		iomfb_poweroff_v12_3(dcp);
+		break;
+	case DCP_FIRMWARE_V_13_5:
+		iomfb_poweroff_v13_3(dcp);
+		break;
+	default:
+		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
+		break;
+	}
+
+	if (dcp->phy)
+		dcp_dptx_disconnect(dcp, 0);
+
+}
+EXPORT_SYMBOL(dcp_poweroff);
 
 static void dcp_work_register_backlight(struct work_struct *work)
 {

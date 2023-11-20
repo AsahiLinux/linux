@@ -219,57 +219,6 @@ void dcp_ack(struct apple_dcp *dcp, enum dcp_context_id context)
 			 dcpep_ack(context));
 }
 
-void dcp_sleep(struct apple_dcp *dcp)
-{
-	switch (dcp->fw_compat) {
-	case DCP_FIRMWARE_V_12_3:
-		iomfb_sleep_v12_3(dcp);
-		break;
-	case DCP_FIRMWARE_V_13_5:
-		iomfb_sleep_v13_3(dcp);
-		break;
-	default:
-		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
-		break;
-	}
-}
-
-void dcp_poweron(struct platform_device *pdev)
-{
-	struct apple_dcp *dcp = platform_get_drvdata(pdev);
-
-	switch (dcp->fw_compat) {
-	case DCP_FIRMWARE_V_12_3:
-		iomfb_poweron_v12_3(dcp);
-		break;
-	case DCP_FIRMWARE_V_13_5:
-		iomfb_poweron_v13_3(dcp);
-		break;
-	default:
-		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
-		break;
-	}
-}
-EXPORT_SYMBOL(dcp_poweron);
-
-void dcp_poweroff(struct platform_device *pdev)
-{
-	struct apple_dcp *dcp = platform_get_drvdata(pdev);
-
-	switch (dcp->fw_compat) {
-	case DCP_FIRMWARE_V_12_3:
-		iomfb_poweroff_v12_3(dcp);
-		break;
-	case DCP_FIRMWARE_V_13_5:
-		iomfb_poweroff_v13_3(dcp);
-		break;
-	default:
-		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
-		break;
-	}
-}
-EXPORT_SYMBOL(dcp_poweroff);
-
 /*
  * Helper to send a DRM hotplug event. The DCP is accessed from a single
  * (RTKit) thread. To handle hotplug callbacks, we need to call
