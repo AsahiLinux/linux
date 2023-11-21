@@ -329,8 +329,10 @@ dptxport_call_will_change_link_config(struct apple_epic_service *service)
 static int
 dptxport_call_did_change_link_config(struct apple_epic_service *service)
 {
+	struct dptx_port *dptx = service->cookie;
 	/* assume the link config did change and wait a little bit */
 	mdelay(10);
+	complete(&dptx->linkcfg_completion);
 	return 0;
 }
 
@@ -572,6 +574,8 @@ int dptxep_init(struct apple_dcp *dcp)
 
 	init_completion(&dcp->dptxport[0].enable_completion);
 	init_completion(&dcp->dptxport[1].enable_completion);
+	init_completion(&dcp->dptxport[0].linkcfg_completion);
+	init_completion(&dcp->dptxport[1].linkcfg_completion);
 
 	dcp->dptxep = afk_init(dcp, DPTX_ENDPOINT, dptxep_ops);
 	if (IS_ERR(dcp->dptxep))
