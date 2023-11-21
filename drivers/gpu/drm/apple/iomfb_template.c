@@ -1014,6 +1014,9 @@ static void dcpep_cb_hotplug(struct apple_dcp *dcp, u64 *connected)
 	if (dcp->main_display)
 		return;
 
+	dev_info(dcp->dev, "cb_hotplug() connected:%llu, valid_mode:%d\n",
+		 *connected, dcp->valid_mode);
+
 	/* Hotplug invalidates mode. DRM doesn't always handle this. */
 	if (!(*connected)) {
 		dcp->valid_mode = false;

@@ -236,7 +236,8 @@ void dcp_hotplug(struct work_struct *work)
 	dev = connector->base.dev;
 
 	dcp = platform_get_drvdata(connector->dcp);
-	dev_info(dcp->dev, "%s: connected: %d", __func__, connector->connected);
+	dev_info(dcp->dev, "%s() connected:%d valid_mode:%d\n", __func__,
+		 connector->connected, dcp->valid_mode);
 
 	/*
 	 * DCP defers link training until we set a display mode. But we set
