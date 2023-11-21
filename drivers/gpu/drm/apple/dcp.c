@@ -256,6 +256,8 @@ EXPORT_SYMBOL_GPL(dcp_get_connector_type);
 
 static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 {
+	int ret = 0;
+
 	if (!dcp->phy) {
 		dev_warn(dcp->dev, "dcp_dptx_connect: missing phy\n");
 		return -ENODEV;
@@ -264,22 +266,27 @@ static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 	mutex_lock(&dcp->hpd_mutex);
 	if (!dcp->dptxport[port].enabled) {
 		dev_warn(dcp->dev, "dcp_dptx_connect: dptx service for port %d not enabled\n", port);
-		mutex_unlock(&dcp->hpd_mutex);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto out_unlock;
 	}
 
 	if (dcp->dptxport[port].connected)
-		goto ret;
+		goto out_unlock;
 
+	reinit_completion(&dcp->dptxport[port].linkcfg_completion);
 	dcp->dptxport[port].atcphy = dcp->phy;
 	dptxport_connect(dcp->dptxport[port].service, 0, dcp->dptx_phy, dcp->dptx_die);
 	dptxport_request_display(dcp->dptxport[port].service);
 	dcp->dptxport[port].connected = true;
 
-ret:
 	mutex_unlock(&dcp->hpd_mutex);
-
+	wait_for_completion_timeout(&dcp->dptxport[port].linkcfg_completion,
+				    msecs_to_jiffies(1000));
 	return 0;
+
+out_unlock:
+	mutex_unlock(&dcp->hpd_mutex);
+	return ret;
 }
 
 static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
