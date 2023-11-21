@@ -314,12 +314,16 @@ static irqreturn_t dcp_dp2hdmi_hpd(int irq, void *data)
 	struct apple_dcp *dcp = data;
 	bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
 
-	dev_info(dcp->dev, "DP2HDMI HPD connected:%d\n", connected);
+	/* do nothing on disconnect and trust that dcp detects it itself.
+	 * Parallel disconnect HPDs result drm disabling the CRTC even when it
+	 * should not.
+	 * The interrupt should be changed to rising but for now the disconnect
+	 * IRQs might be helpful for debugging.
+	 */
+	dev_info(dcp->dev, "DP2HDMI HPD irq, connected:%d\n", connected);
 
 	if (connected)
 		dcp_dptx_connect(dcp, 0);
-	else
-		dcp_dptx_disconnect(dcp, 0);
 
 	return IRQ_HANDLED;
 }
