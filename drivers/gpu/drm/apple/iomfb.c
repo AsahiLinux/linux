@@ -421,6 +421,47 @@ int dcp_mode_valid(struct drm_connector *connector,
 }
 EXPORT_SYMBOL_GPL(dcp_mode_valid);
 
+int dcp_connector_atomic_check(struct drm_connector *connector,
+			       struct drm_atomic_state *state)
+{
+	struct apple_connector *apple_connector = to_apple_connector(connector);
+	struct platform_device *pdev = apple_connector->dcp;
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+	struct drm_crtc *crtc = &dcp->crtc->base;
+	struct drm_crtc_state *crtc_state;
+	int ret = -EIO;
+	bool modeset;
+
+	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	if (!crtc_state)
+		return 0;
+
+	modeset = drm_atomic_crtc_needs_modeset(crtc_state) || !dcp->valid_mode;
+
+	if (!modeset)
+		return 0;
+
+	/* ignore no mode, poweroff is handled elsewhere */
+	if (crtc_state->mode.hdisplay == 0 && crtc_state->mode.vdisplay == 0)
+		return 0;
+
+	switch (dcp->fw_compat) {
+	case DCP_FIRMWARE_V_12_3:
+		ret = iomfb_modeset_v12_3(dcp, crtc_state);
+		break;
+	case DCP_FIRMWARE_V_13_5:
+		ret = iomfb_modeset_v13_3(dcp, crtc_state);
+		break;
+	default:
+		WARN_ONCE(true, "Unexpected firmware version: %u\n",
+			  dcp->fw_compat);
+		break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dcp_connector_atomic_check);
+
 bool dcp_crtc_mode_fixup(struct drm_crtc *crtc,
 			 const struct drm_display_mode *mode,
 			 struct drm_display_mode *adjusted_mode)
