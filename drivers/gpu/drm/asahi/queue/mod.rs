@@ -381,7 +381,8 @@ impl Queue::ver {
 
         let data = dev.data();
 
-        let mut notifier_list = alloc.private.new_default::<fw::event::NotifierList>()?;
+        // Must be shared, no cache management on this one!
+        let mut notifier_list = alloc.shared.new_default::<fw::event::NotifierList>()?;
 
         let self_ptr = notifier_list.weak_pointer();
         notifier_list.with_mut(|raw, _inner| {
