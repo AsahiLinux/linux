@@ -172,6 +172,7 @@ struct apple_dcp {
 	u32 last_swap_id;
 
 	/* Current display mode */
+	bool during_modeset;
 	bool valid_mode;
 	struct dcp_set_digital_out_mode_req mode;
 
