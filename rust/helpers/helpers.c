@@ -19,6 +19,7 @@
 #include "dma.c"
 #include "dma-fence.c"
 #include "dma-mapping.c"
+#include "dma-resv.c"
 #include "drm.c"
 #include "err.c"
 #include "fs.c"
