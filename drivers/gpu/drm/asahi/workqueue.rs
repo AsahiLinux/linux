@@ -657,16 +657,17 @@ impl WorkQueue::ver {
 
         let info_pointer = inner.info.weak_pointer();
 
-        let mutex_init = match pipe_type {
-            PipeType::Vertex => Mutex::new_named(inner, c_str!("WorkQueue::inner (Vertex)")),
-            PipeType::Fragment => Mutex::new_named(inner, c_str!("WorkQueue::inner (Fragment)")),
-            PipeType::Compute => Mutex::new_named(inner, c_str!("WorkQueue::inner (Compute)")),
-        };
-
-        Arc::pin_init(pin_init!(Self {
-            info_pointer,
-            inner <- mutex_init,
-        }))
+        Arc::pin_init(
+            pin_init!(Self {
+                info_pointer,
+                inner <- match pipe_type {
+                    PipeType::Vertex => Mutex::new_named(inner, c_str!("WorkQueue::inner (Vertex)")),
+                    PipeType::Fragment => Mutex::new_named(inner, c_str!("WorkQueue::inner (Fragment)")),
+                    PipeType::Compute => Mutex::new_named(inner, c_str!("WorkQueue::inner (Compute)")),
+                },
+            }),
+            GFP_KERNEL,
+        )
     }
 
     pub(crate) fn event_info(&self) -> Option<QueueEventInfo::ver> {
