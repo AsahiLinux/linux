@@ -1014,6 +1014,13 @@ static void dcpep_cb_hotplug(struct apple_dcp *dcp, u64 *connected)
 	if (dcp->main_display)
 		return;
 
+	if (dcp->during_modeset) {
+		dev_info(dcp->dev,
+			 "cb_hotplug() ignored during modeset connected:%llu\n",
+			 *connected);
+		return;
+	}
+
 	dev_info(dcp->dev, "cb_hotplug() connected:%llu, valid_mode:%d\n",
 		 *connected, dcp->valid_mode);
 
@@ -1178,6 +1185,75 @@ static void complete_set_digital_out_mode(struct apple_dcp *dcp, void *data,
 	}
 }
 
+int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
+			       struct drm_crtc_state *crtc_state)
+{
+	struct dcp_display_mode *mode;
+	struct dcp_wait_cookie *cookie;
+	int ret;
+
+	mode = lookup_mode(dcp, &crtc_state->mode);
+	if (!mode) {
+		dev_err(dcp->dev, "no match for " DRM_MODE_FMT "\n",
+			DRM_MODE_ARG(&crtc_state->mode));
+		return -EIO;
+	}
+
+	dev_info(dcp->dev,
+		 "set_digital_out_mode(color:%d timing:%d) " DRM_MODE_FMT "\n",
+		 mode->color_mode_id, mode->timing_mode_id,
+		 DRM_MODE_ARG(&crtc_state->mode));
+	dcp->mode = (struct dcp_set_digital_out_mode_req){
+		.color_mode_id = mode->color_mode_id,
+		.timing_mode_id = mode->timing_mode_id
+	};
+
+	cookie = kzalloc(sizeof(*cookie), GFP_KERNEL);
+	if (!cookie) {
+		return -ENOMEM;
+	}
+
+	init_completion(&cookie->done);
+	kref_init(&cookie->refcount);
+	/* increase refcount to ensure the receiver has a reference */
+	kref_get(&cookie->refcount);
+
+	dcp->during_modeset = true;
+
+	dcp_set_digital_out_mode(dcp, false, &dcp->mode,
+				 complete_set_digital_out_mode, cookie);
+
+	/*
+	 * The DCP firmware has an internal timeout of ~8 seconds for
+	 * modesets. Add an extra 500ms to safe side that the modeset
+	 * call has returned.
+	 */
+	dev_dbg(dcp->dev, "%s - wait for modeset", __func__);
+	ret = wait_for_completion_timeout(&cookie->done,
+					  msecs_to_jiffies(8500));
+
+	kref_put(&cookie->refcount, release_wait_cookie);
+	dcp->during_modeset = false;
+	dev_info(dcp->dev, "set_digital_out_mode finished:%d\n", ret);
+
+	if (ret == 0) {
+		dev_info(dcp->dev, "set_digital_out_mode timed out\n");
+		return -EIO;
+	} else if (ret < 0) {
+		dev_info(dcp->dev,
+			 "waiting on set_digital_out_mode failed:%d\n", ret);
+		return -EIO;
+
+	} else if (ret > 0) {
+		dev_dbg(dcp->dev,
+			"set_digital_out_mode finished with %d to spare\n",
+			jiffies_to_msecs(ret));
+	}
+	dcp->valid_mode = true;
+
+	return 0;
+}
+
 void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, struct drm_atomic_state *state)
 {
 	struct drm_plane *plane;
@@ -1186,12 +1262,9 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 	struct DCP_FW_NAME(dcp_swap_submit_req) *req = &DCP_FW_UNION(dcp->swap);
 	int plane_idx, l;
 	int has_surface = 0;
-	bool modeset;
 	dev_dbg(dcp->dev, "%s", __func__);
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
-
-	modeset = drm_atomic_crtc_needs_modeset(crtc_state) || !dcp->valid_mode;
 
 	/* Reset to defaults */
 	memset(req, 0, sizeof(*req));
@@ -1303,64 +1376,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		};
 
 		l += 1;
-	}
-
-	if (modeset) {
-		struct dcp_display_mode *mode;
-		struct dcp_wait_cookie *cookie;
-		int ret;
-
-		mode = lookup_mode(dcp, &crtc_state->mode);
-		if (!mode) {
-			dev_warn(dcp->dev, "no match for " DRM_MODE_FMT,
-				 DRM_MODE_ARG(&crtc_state->mode));
-			schedule_work(&dcp->vblank_wq);
-			return;
-		}
-
-		dev_info(dcp->dev, "set_digital_out_mode(color:%d timing:%d)",
-			 mode->color_mode_id, mode->timing_mode_id);
-		dcp->mode = (struct dcp_set_digital_out_mode_req){
-			.color_mode_id = mode->color_mode_id,
-			.timing_mode_id = mode->timing_mode_id
-		};
-
-		cookie = kzalloc(sizeof(*cookie), GFP_KERNEL);
-		if (!cookie) {
-			schedule_work(&dcp->vblank_wq);
-			return;
-		}
-
-		init_completion(&cookie->done);
-		kref_init(&cookie->refcount);
-		/* increase refcount to ensure the receiver has a reference */
-		kref_get(&cookie->refcount);
-
-		dcp_set_digital_out_mode(dcp, false, &dcp->mode,
-					 complete_set_digital_out_mode, cookie);
-
-		/*
-		 * The DCP firmware has an internal timeout of ~8 seconds for
-		 * modesets. Add an extra 500ms to safe side that the modeset
-		 * call has returned.
-		 */
-		dev_dbg(dcp->dev, "%s - wait for modeset", __func__);
-		ret = wait_for_completion_timeout(&cookie->done,
-						  msecs_to_jiffies(8500));
-
-		kref_put(&cookie->refcount, release_wait_cookie);
-
-		if (ret == 0) {
-			dev_info(dcp->dev, "set_digital_out_mode timed out");
-			schedule_work(&dcp->vblank_wq);
-			return;
-		} else if (ret > 0) {
-			dev_dbg(dcp->dev,
-				"set_digital_out_mode finished with %d to spare",
-				jiffies_to_msecs(ret));
-		}
-
-		dcp->valid_mode = true;
 	}
 
 	if (!has_surface && !crtc_state->color_mgmt_changed) {
