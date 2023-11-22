@@ -263,6 +263,7 @@ static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 		dev_warn(dcp->dev, "dcp_dptx_connect: missing phy\n");
 		return -ENODEV;
 	}
+	dev_info(dcp->dev, "%s(port=%d)\n", __func__, port);
 
 	mutex_lock(&dcp->hpd_mutex);
 	if (!dcp->dptxport[port].enabled) {
@@ -293,6 +294,7 @@ out_unlock:
 static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 {
 	struct apple_connector *connector = dcp->connector;
+	dev_info(dcp->dev, "%s(port=%d)\n", __func__, port);
 
 	mutex_lock(&dcp->hpd_mutex);
 
