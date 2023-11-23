@@ -422,13 +422,11 @@ int dcp_mode_valid(struct drm_connector *connector,
 }
 EXPORT_SYMBOL_GPL(dcp_mode_valid);
 
-int dcp_connector_atomic_check(struct drm_connector *connector,
-			       struct drm_atomic_state *state)
+int dcp_crtc_atomic_modeset(struct drm_crtc *crtc,
+			    struct drm_atomic_state *state)
 {
-	struct apple_connector *apple_connector = to_apple_connector(connector);
-	struct platform_device *pdev = apple_connector->dcp;
-	struct apple_dcp *dcp = platform_get_drvdata(pdev);
-	struct drm_crtc *crtc = &dcp->crtc->base;
+	struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
+	struct apple_dcp *dcp = platform_get_drvdata(apple_crtc->dcp);
 	struct drm_crtc_state *crtc_state;
 	int ret = -EIO;
 	bool modeset;
@@ -461,7 +459,7 @@ int dcp_connector_atomic_check(struct drm_connector *connector,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_connector_atomic_check);
+EXPORT_SYMBOL_GPL(dcp_crtc_atomic_modeset);
 
 bool dcp_crtc_mode_fixup(struct drm_crtc *crtc,
 			 const struct drm_display_mode *mode,
