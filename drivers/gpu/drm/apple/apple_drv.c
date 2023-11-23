@@ -198,6 +198,9 @@ static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
 		dcp_poweron(apple_crtc->dcp);
 		dev_dbg(&apple_crtc->dcp->dev, "%s finished", __func__);
 	}
+
+	if (crtc_state->active)
+		dcp_crtc_atomic_modeset(crtc, state);
 }
 
 static void apple_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -299,8 +302,6 @@ static const struct drm_connector_funcs apple_connector_funcs = {
 static const struct drm_connector_helper_funcs apple_connector_helper_funcs = {
 	.get_modes		= dcp_get_modes,
 	.mode_valid		= dcp_mode_valid,
-	.atomic_check		= dcp_connector_atomic_check,
-
 };
 
 static const struct drm_crtc_helper_funcs apple_crtc_helper_funcs = {
