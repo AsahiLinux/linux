@@ -293,16 +293,9 @@ out_unlock:
 
 static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 {
-	struct apple_connector *connector = dcp->connector;
 	dev_info(dcp->dev, "%s(port=%d)\n", __func__, port);
 
 	mutex_lock(&dcp->hpd_mutex);
-
-	if (connector && connector->connected) {
-		dcp->valid_mode = false;
-		schedule_work(&connector->hotplug_wq);
-	}
-
 	if (dcp->dptxport[port].enabled && dcp->dptxport[port].connected) {
 		dptxport_release_display(dcp->dptxport[port].service);
 		dcp->dptxport[port].connected = false;
@@ -480,9 +473,11 @@ void dcp_poweroff(struct platform_device *pdev)
 		break;
 	}
 
-	if (dcp->phy)
-		dcp_dptx_disconnect(dcp, 0);
-
+	if (dcp->hdmi_hpd) {
+		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+		if (!connected)
+			dcp_dptx_disconnect(dcp, 0);
+	}
 }
 EXPORT_SYMBOL(dcp_poweroff);
 
@@ -1021,8 +1016,10 @@ static int dcp_platform_suspend(struct device *dev)
 {
 	struct apple_dcp *dcp = dev_get_drvdata(dev);
 
-	if (dcp->hdmi_hpd_irq)
+	if (dcp->hdmi_hpd_irq) {
 		disable_irq(dcp->hdmi_hpd_irq);
+		dcp_dptx_disconnect(dcp, 0);
+	}
 	/*
 	 * Set the device as a wakeup device, which forces its power
 	 * domains to stay on. We need this as we do not support full
