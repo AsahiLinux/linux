@@ -229,11 +229,9 @@ void dcp_ack(struct apple_dcp *dcp, enum dcp_context_id context)
 void dcp_hotplug(struct work_struct *work)
 {
 	struct apple_connector *connector;
-	struct drm_device *dev;
 	struct apple_dcp *dcp;
 
 	connector = container_of(work, struct apple_connector, hotplug_wq);
-	dev = connector->base.dev;
 
 	dcp = platform_get_drvdata(connector->dcp);
 	dev_info(dcp->dev, "%s() connected:%d valid_mode:%d\n", __func__,
@@ -244,13 +242,11 @@ void dcp_hotplug(struct work_struct *work)
 	 * display modes from atomic_flush, so userspace needs to trigger a
 	 * flush, or the CRTC gets no signal.
 	 */
-	if (connector->base.state && !dcp->valid_mode && connector->connected) {
-		drm_connector_set_link_status_property(
-			&connector->base, DRM_MODE_LINK_STATUS_BAD);
-	}
+	if (connector->base.state && !dcp->valid_mode && connector->connected)
+		drm_connector_set_link_status_property(&connector->base,
+						       DRM_MODE_LINK_STATUS_BAD);
 
-	if (dev && dev->registered)
-		drm_kms_helper_hotplug_event(dev);
+	drm_kms_helper_connector_hotplug_event(&connector->base);
 }
 EXPORT_SYMBOL_GPL(dcp_hotplug);
 
