@@ -40,7 +40,7 @@ struct reg_sequence tas2764_dmod_rst_seq[] = {
 
 struct reg_sequence tas2764_unk_seq0[] = {
 	REG_SEQ0(TAS2764_REG(0x1, 0x33), 0x80),
- 	REG_SEQ0(TAS2764_REG(0x1, 0x37), 0x3a),
+	REG_SEQ0(TAS2764_REG(0x1, 0x37), 0x3a),
 };
 
 /*
@@ -137,17 +137,17 @@ static int tas2764_do_quirky_pwr_ctrl_change(struct tas2764_priv *tas2764,
 
 		ret = snd_soc_component_update_bits(tas2764->component,
 						    TAS2764_PWR_CTRL,
-					    	    TAS2764_PWR_CTRL_MASK,
-					    	    TAS2764_PWR_CTRL_SHUTDOWN);
+						    TAS2764_PWR_CTRL_MASK,
+						    TAS2764_PWR_CTRL_SHUTDOWN);
 		if (ret > 0)
 			break;
 
 		ret = regmap_multi_reg_write(tas2764->regmap, tas2764_post_shutdown_seq,
 					     ARRAY_SIZE(tas2764_post_shutdown_seq));
-
+		fallthrough;
 	default:
 		ret = snd_soc_component_update_bits(tas2764->component, TAS2764_PWR_CTRL,
-					    	    TAS2764_PWR_CTRL_MASK, target);
+						    TAS2764_PWR_CTRL_MASK, target);
 	}
 #undef TRANSITION
 
