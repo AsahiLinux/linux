@@ -415,8 +415,7 @@ int dcp_wait_ready(struct platform_device *pdev, u64 timeout)
 }
 EXPORT_SYMBOL(dcp_wait_ready);
 
-
-void dcp_sleep(struct apple_dcp *dcp)
+static void __maybe_unused dcp_sleep(struct apple_dcp *dcp)
 {
 	switch (dcp->fw_compat) {
 	case DCP_FIRMWARE_V_12_3:
