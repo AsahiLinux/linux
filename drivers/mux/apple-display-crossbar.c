@@ -18,7 +18,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
-/**
+/*
  * T602x register interface is cleary different so most of the nemes below are
  * probly wrong.
  */
