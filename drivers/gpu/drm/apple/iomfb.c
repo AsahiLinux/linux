@@ -228,11 +228,9 @@ void dcp_ack(struct apple_dcp *dcp, enum dcp_context_id context)
 void dcp_hotplug(struct work_struct *work)
 {
 	struct apple_connector *connector;
-	struct drm_device *dev;
 	struct apple_dcp *dcp;
 
 	connector = container_of(work, struct apple_connector, hotplug_wq);
-	dev = connector->base.dev;
 
 	dcp = platform_get_drvdata(connector->dcp);
 	dev_info(dcp->dev, "%s() connected:%d valid_mode:%d\n", __func__,
