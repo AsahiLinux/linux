@@ -501,7 +501,7 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 }
 EXPORT_SYMBOL_GPL(dcp_flush);
 
-void iomfb_start(struct apple_dcp *dcp)
+static void iomfb_start(struct apple_dcp *dcp)
 {
 	switch (dcp->fw_compat) {
 	case DCP_FIRMWARE_V_12_3:
