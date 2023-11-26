@@ -49,6 +49,8 @@ static int dcp_channel_offset(enum dcp_context_id id)
 	switch (id) {
 	case DCP_CONTEXT_ASYNC:
 		return 0x40000;
+	case DCP_CONTEXT_OOBASYNC:
+		return 0x48000;
 	case DCP_CONTEXT_CB:
 		return 0x60000;
 	case DCP_CONTEXT_OOBCB:
@@ -118,6 +120,8 @@ static struct dcp_channel *dcp_get_channel(struct apple_dcp *dcp,
 		return &dcp->ch_oobcmd;
 	case DCP_CONTEXT_ASYNC:
 		return &dcp->ch_async;
+	case DCP_CONTEXT_OOBASYNC:
+		return &dcp->ch_oobasync;
 	default:
 		return NULL;
 	}
