@@ -238,8 +238,8 @@ void dcp_hotplug(struct work_struct *work)
 	connector = container_of(work, struct apple_connector, hotplug_wq);
 
 	dcp = platform_get_drvdata(connector->dcp);
-	dev_info(dcp->dev, "%s() connected:%d valid_mode:%d\n", __func__,
-		 connector->connected, dcp->valid_mode);
+	dev_info(dcp->dev, "%s() connected:%d valid_mode:%d nr_modes:%u\n", __func__,
+		 connector->connected, dcp->valid_mode, dcp->nr_modes);
 
 	/*
 	 * DCP defers link training until we set a display mode. But we set
