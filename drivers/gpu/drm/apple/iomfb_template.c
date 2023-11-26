@@ -567,6 +567,8 @@ static bool dcpep_process_chunks(struct apple_dcp *dcp,
 			dcp->nr_modes = 0;
 			return false;
 		}
+		if (dcp->nr_modes == 0)
+			dev_warn(dcp->dev, "TimingElements without valid modes!\n");
 	} else if (!strcmp(req->key, "DisplayAttributes")) {
 		/* DisplayAttributes are empty for integrated displays, use
 		 * display dimensions read from the devicetree
