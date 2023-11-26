@@ -345,23 +345,40 @@ int dcp_start(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dcp->dev, "Failed to start system endpoint: %d", ret);
 
-	if (dcp->phy) {
-		if (dcp->fw_compat >= DCP_FIRMWARE_V_13_5) {
-			ret = ibootep_init(dcp);
-			if (ret)
-				dev_warn(dcp->dev,
-					 "Failed to start IBOOT endpoint: %d",
-					 ret);
+	if (dcp->phy && dcp->fw_compat >= DCP_FIRMWARE_V_13_5) {
+		ret = ibootep_init(dcp);
+		if (ret)
+			dev_warn(dcp->dev, "Failed to start IBOOT endpoint: %d",
+				 ret);
 
-			ret = dptxep_init(dcp);
-			if (ret)
-				dev_warn(dcp->dev,
-					 "Failed to start DPTX endpoint: %d",
-					 ret);
-		} else
-			dev_warn(dcp->dev,
-				 "OS firmware incompatible with dptxport EP\n");
-	}
+		ret = dptxep_init(dcp);
+		if (ret)
+			dev_warn(dcp->dev, "Failed to start DPTX endpoint: %d",
+				 ret);
+		else if (dcp->dptxport[0].enabled) {
+			bool connected;
+			/* force disconnect on start - necessary if the display
+			 * is already up from m1n1
+			 */
+			dptxport_set_hpd(dcp->dptxport[0].service, false);
+			dptxport_release_display(dcp->dptxport[0].service);
+			usleep_range(10 * USEC_PER_MSEC, 25 * USEC_PER_MSEC);
+
+			connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+			dev_info(dcp->dev, "%s: DP2HDMI HPD connected:%d\n", __func__, connected);
+
+			// necessary on j473/j474 but not on j314c
+			if (connected)
+				dcp_dptx_connect(dcp, 0);
+			/*
+			 * Long sleep necessary to ensure dcp delivers timing
+			 * modes with matched color modes.
+			 * 400ms was sufficient on j473
+			 */
+			msleep(500);
+		}
+	} else if (dcp->phy)
+		dev_warn(dcp->dev, "OS firmware incompatible with dptxport EP\n");
 
 	ret = iomfb_start_rtkit(dcp);
 	if (ret)
@@ -373,17 +390,8 @@ EXPORT_SYMBOL(dcp_start);
 
 static int dcp_enable_dp2hdmi_hpd(struct apple_dcp *dcp)
 {
-	if (dcp->hdmi_hpd) {
-		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
-		dev_info(dcp->dev, "%s: DP2HDMI HPD connected:%d\n", __func__, connected);
-
-		// necessary on j473/j474 but not on j314c
-		if (connected)
-			dcp_dptx_connect(dcp, 0);
-
-		if (dcp->hdmi_hpd_irq)
-			enable_irq(dcp->hdmi_hpd_irq);
-	}
+	if (dcp->hdmi_hpd_irq)
+		enable_irq(dcp->hdmi_hpd_irq);
 
 	return 0;
 }
