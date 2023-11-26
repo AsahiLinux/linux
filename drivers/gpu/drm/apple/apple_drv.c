@@ -9,6 +9,7 @@
 
 #include <linux/aperture.h>
 #include <linux/component.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/jiffies.h>
 #include <linux/module.h>
@@ -445,7 +446,10 @@ static int apple_drm_init_dcp(struct device *dev)
 	if (num_dcp < 1)
 		return -ENODEV;
 
-	timeout = get_jiffies_64() + msecs_to_jiffies(500);
+	/*
+	 * Starting DPTX might take some time.
+	 */
+	timeout = get_jiffies_64() + msecs_to_jiffies(3000);
 
 	for (i = 0; i < num_dcp; ++i) {
 		u64 jiffies = get_jiffies_64();
@@ -460,6 +464,8 @@ static int apple_drm_init_dcp(struct device *dev)
 		if (ret)
 			dev_warn(dev, "DCP[%d] not ready: %d\n", i, ret);
 	}
+	/* HACK: Wait for dcp* to settle before a modeset */
+	msleep(100);
 
 	return 0;
 }
