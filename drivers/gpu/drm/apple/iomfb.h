@@ -28,6 +28,9 @@ enum dcp_context_id {
 	/* Out-of-band command */
 	DCP_CONTEXT_OOBCMD = 6,
 
+	/* Out-of-band Asynchronous */
+	DCP_CONTEXT_OOBASYNC = 7,
+
 	DCP_NUM_CONTEXTS
 };
 

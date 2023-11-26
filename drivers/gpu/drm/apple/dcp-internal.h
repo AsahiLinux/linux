@@ -154,7 +154,7 @@ struct apple_dcp {
 	struct dcp_mem_descriptor memdesc[DCP_MAX_MAPPINGS];
 
 	struct dcp_channel ch_cmd, ch_oobcmd;
-	struct dcp_channel ch_cb, ch_oobcb, ch_async;
+	struct dcp_channel ch_cb, ch_oobcb, ch_async, ch_oobasync;
 
 	/* iomfb EP callback handlers */
 	const iomfb_cb_handler *cb_handlers;
