@@ -6909,9 +6909,8 @@ brcmf_channel_count_from_chan_info_list(struct brcmf_channel_info_provider *cip)
 {
 	struct brcmf_chaninfo_list_v1_le *list;
 
-	if (!cip) {
-		bphy_err(cip->private.cfg,
-			 "Asked for channel count on NULL provider\n");
+	if (!cip || !cip->private.cfg) {
+		pr_err("Asked for channel count on NULL provider or cfg\n");
 		return 0;
 	}
 	list = (struct brcmf_chaninfo_list_v1_le *)cip->private.buf;
@@ -6929,9 +6928,8 @@ brcmf_channel_count_from_chanspec_list(struct brcmf_channel_info_provider *cip)
 {
 	struct brcmf_chanspec_list *list;
 
-	if (!cip) {
-		bphy_err(cip->private.cfg,
-			 "Asked for channel count on NULL provider\n");
+	if (!cip || !cip->private.cfg) {
+		pr_err("Asked for channel count on NULL provider or cfg\n");
 		return 0;
 	}
 	list = (struct brcmf_chanspec_list *)cip->private.buf;
@@ -6950,9 +6948,8 @@ brcmf_chanspec_from_chan_info_list(struct brcmf_channel_info_provider *cip,
 	struct brcmf_chaninfo_list_v1_le *list;
 	u16 list_count;
 
-	if (!cip) {
-		bphy_err(cip->private.cfg,
-			 "Asked for channel spec on NULL provider\n");
+	if (!cip || !cip->private.cfg) {
+		pr_err("Asked for channel spec on NULL provider or cfg\n");
 		return 0;
 	}
 	list = (struct brcmf_chaninfo_list_v1_le *)cip->private.buf;
@@ -6978,9 +6975,8 @@ brcmf_chanspec_from_chanspec_list(struct brcmf_channel_info_provider *cip,
 		(struct brcmf_chanspec_list *)cip->private.buf;
 	u32 list_count;
 
-	if (!cip) {
-		bphy_err(cip->private.cfg,
-			 "Asked for channel spec on NULL provider\n");
+	if (!cip || !cip->private.cfg) {
+		pr_err("Asked for channel spec on NULL provider or cfg\n");
 		return 0;
 	}
 	if (!list) {
@@ -7004,9 +7000,8 @@ brcmf_chaninfo_from_chan_info_list(struct brcmf_channel_info_provider *cip,
 	struct brcmf_chaninfo_list_v1_le *list;
 	u16 list_count;
 
-	if (!cip) {
-		bphy_err(cip->private.cfg,
-			 "Asked for channel info on NULL provider\n");
+	if (!cip || !cip->private.cfg) {
+		pr_err("Asked for channel info on NULL provider or cfg\n");
 		return 0;
 	}
 	list = (struct brcmf_chaninfo_list_v1_le *)cip->private.buf;
@@ -7035,9 +7030,8 @@ brcmf_chaninfo_from_chanspec_list(struct brcmf_channel_info_provider *cip,
 	u32 chaninfo;
 	int err;
 
-	if (!cip) {
-		bphy_err(cip->private.cfg,
-			 "Asked for channel info on NULL provider\n");
+	if (!cip || !cip->private.cfg) {
+		pr_err("Asked for channel info on NULL provider or cfg\n");
 		return 0;
 	}
 	list = (struct brcmf_chanspec_list *)cip->private.buf;
