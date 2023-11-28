@@ -1044,6 +1044,13 @@ static int dcp_platform_resume(struct device *dev)
 	if (dcp->hdmi_hpd_irq)
 		enable_irq(dcp->hdmi_hpd_irq);
 
+	if (dcp->hdmi_hpd) {
+		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+		dev_info(dcp->dev, "resume: HPD connected:%d\n", connected);
+		if (connected)
+			dcp_dptx_connect(dcp, 0);
+	}
+
 	return 0;
 }
 
