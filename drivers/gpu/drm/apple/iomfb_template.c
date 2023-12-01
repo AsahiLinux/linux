@@ -1192,6 +1192,7 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 {
 	struct dcp_display_mode *mode;
 	struct dcp_wait_cookie *cookie;
+	struct dcp_color_mode *cmode = NULL;
 	int ret;
 
 	mode = lookup_mode(dcp, &crtc_state->mode);
@@ -1205,6 +1206,21 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 		 "set_digital_out_mode(color:%d timing:%d) " DRM_MODE_FMT "\n",
 		 mode->color_mode_id, mode->timing_mode_id,
 		 DRM_MODE_ARG(&crtc_state->mode));
+	if (mode->color_mode_id == mode->sdr_rgb.id)
+		cmode = &mode->sdr_rgb;
+	else if (mode->color_mode_id == mode->sdr_444.id)
+		cmode = &mode->sdr_444;
+	else if (mode->color_mode_id == mode->sdr.id)
+		cmode = &mode->sdr;
+	else if (mode->color_mode_id == mode->best.id)
+		cmode = &mode->best;
+	if (cmode)
+		dev_info(dcp->dev,
+			"set_digital_out_mode() color mode depth:%hhu format:%u "
+			"colorimetry:%u eotf:%u range:%u\n", cmode->depth,
+			cmode->format, cmode->colorimetry, cmode->eotf,
+			cmode->range);
+
 	dcp->mode = (struct dcp_set_digital_out_mode_req){
 		.color_mode_id = mode->color_mode_id,
 		.timing_mode_id = mode->timing_mode_id
