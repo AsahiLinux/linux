@@ -507,6 +507,12 @@ static void afk_recv_handle(struct apple_dcp_afkep *ep, u32 channel, u32 type,
 				ep->endpoint, eshdr->category, channel);
 			return;
 		}
+		if (subtype == EPIC_SUBTYPE_TEARDOWN) {
+			dev_dbg(ep->dcp->dev,
+				"AFK[ep:%02x]: teardown without service on channel %d\n",
+				ep->endpoint, channel);
+			return;
+		}
 		if (subtype != EPIC_SUBTYPE_ANNOUNCE) {
 			dev_err(ep->dcp->dev,
 				"AFK[ep:%02x]: expected announce but got 0x%x on channel %d\n",
