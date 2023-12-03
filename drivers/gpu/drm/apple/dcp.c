@@ -10,6 +10,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iommu.h>
+#include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -254,6 +255,8 @@ int dcp_get_connector_type(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_GPL(dcp_get_connector_type);
 
+#define DPTX_CONNECT_TIMEOUT msecs_to_jiffies(1000)
+
 static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 {
 	int ret = 0;
@@ -281,8 +284,17 @@ static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 	dcp->dptxport[port].connected = true;
 
 	mutex_unlock(&dcp->hpd_mutex);
-	wait_for_completion_timeout(&dcp->dptxport[port].linkcfg_completion,
-				    msecs_to_jiffies(1000));
+	ret = wait_for_completion_timeout(&dcp->dptxport[port].linkcfg_completion,
+				    DPTX_CONNECT_TIMEOUT);
+	if (ret < 0)
+		dev_warn(dcp->dev, "dcp_dptx_connect: port %d link complete failed:%d\n",
+			 port, ret);
+	else
+		dev_dbg(dcp->dev, "dcp_dptx_connect: waited %d ms for link\n",
+			jiffies_to_msecs(DPTX_CONNECT_TIMEOUT - ret));
+
+	usleep_range(5, 10);
+
 	return 0;
 
 out_unlock:
@@ -370,12 +382,6 @@ int dcp_start(struct platform_device *pdev)
 			// necessary on j473/j474 but not on j314c
 			if (connected)
 				dcp_dptx_connect(dcp, 0);
-			/*
-			 * Long sleep necessary to ensure dcp delivers timing
-			 * modes with matched color modes.
-			 * 400ms was sufficient on j473
-			 */
-			msleep(500);
 		}
 	} else if (dcp->phy)
 		dev_warn(dcp->dev, "OS firmware incompatible with dptxport EP\n");
