@@ -1230,6 +1230,14 @@ static int macaudio_set_speaker(struct snd_soc_card *card, const char *prefix, b
 static int macaudio_fixup_controls(struct snd_soc_card *card)
 {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(card);
+	const char *p;
+
+	/* Set the card ID early to avoid races with udev */
+	p = strrchr(card->name, ' ');
+	if (p) {
+		snprintf(card->snd_card->id, sizeof(card->snd_card->id),
+			 "%s", p + 1);
+	}
 
 	if (!ma->has_speakers)
 		return 0;
