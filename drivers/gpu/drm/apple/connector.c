@@ -3,6 +3,8 @@
  * Copyright (C) The Asahi Linux Contributors
  */
 
+#include "connector.h"
+
 #include "linux/err.h"
 #include <linux/debugfs.h>
 #include <linux/module.h>
@@ -12,7 +14,6 @@
 
 #include <drm/drm_managed.h>
 
-#include "connector.h"
 #include "dcp-internal.h"
 
 enum dcp_chunk_type {

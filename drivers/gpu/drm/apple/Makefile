@@ -11,6 +11,8 @@ apple_dcp-y += connector.o
 apple_dcp-y += ibootep.o
 apple_dcp-y += iomfb_v12_3.o
 apple_dcp-y += iomfb_v13_3.o
+apple_dcp-y += epic/dpavservep.o
+
 apple_dcp-$(CONFIG_TRACING) += trace.o
 
 obj-$(CONFIG_DRM_APPLE) += appledrm.o

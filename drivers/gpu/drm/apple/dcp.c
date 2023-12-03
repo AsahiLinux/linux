@@ -50,6 +50,10 @@ bool hdmi_audio;
 module_param(hdmi_audio, bool, 0644);
 MODULE_PARM_DESC(hdmi_audio, "Enable unstable HDMI audio support");
 
+static bool unstable_edid;
+module_param(unstable_edid, bool, 0644);
+MODULE_PARM_DESC(unstable_edid, "Enable unstable EDID retrival support");
+
 /* copied and simplified from drm_vblank.c */
 static void send_vblank_event(struct drm_device *dev,
 		struct drm_pending_vblank_event *e,
@@ -218,6 +222,9 @@ static void dcp_recv_msg(void *cookie, u8 endpoint, u64 message)
 		return;
 	case DISP0_ENDPOINT:
 		afk_receive_message(dcp->ibootep, message);
+		return;
+	case DPAVSERV_ENDPOINT:
+		afk_receive_message(dcp->dcpavservep, message);
 		return;
 	case DPTX_ENDPOINT:
 		afk_receive_message(dcp->dptxep, message);
@@ -479,6 +486,13 @@ int dcp_start(struct platform_device *pdev)
 	ret = systemep_init(dcp);
 	if (ret)
 		dev_warn(dcp->dev, "Failed to start system endpoint: %d\n", ret);
+
+	if (unstable_edid && !dcp_has_panel(dcp)) {
+		ret = dpavservep_init(dcp);
+		if (ret)
+			dev_warn(dcp->dev, "Failed to start DPAVSERV endpoint: %d",
+				 ret);
+	}
 
 	if (dcp->phy && dcp->fw_compat >= DCP_FIRMWARE_V_13_5) {
 		ret = ibootep_init(dcp);
@@ -1064,6 +1078,11 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 	if (dcp->systemep) {
 		afk_shutdown(dcp->systemep);
 		dcp->systemep = NULL;
+	}
+
+	if (dcp->dcpavservep) {
+		afk_shutdown(dcp->dcpavservep);
+		dcp->dcpavservep = NULL;
 	}
 
 	if (dcp->shmem)

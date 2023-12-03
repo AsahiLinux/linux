@@ -9,6 +9,8 @@
 #include <drm/drm_atomic.h>
 #include "drm/drm_connector.h"
 
+struct apple_connector;
+
 #include "dcp-internal.h"
 
 void dcp_hotplug(struct work_struct *work);

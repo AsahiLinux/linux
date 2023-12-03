@@ -17,11 +17,14 @@
 #include "iomfb.h"
 #include "iomfb_v12_3.h"
 #include "iomfb_v13_3.h"
+#include "epic/dpavservep.h"
 
 #define DCP_MAX_PLANES 2
 
 struct apple_dcp;
 struct apple_dcp_afkep;
+
+struct dcpav_service_epic;
 
 enum dcp_firmware_version {
 	DCP_FIRMWARE_UNKNOWN,
@@ -34,6 +37,7 @@ enum {
 	TEST_ENDPOINT = 0x21,
 	DCP_EXPERT_ENDPOINT = 0x22,
 	DISP0_ENDPOINT = 0x23,
+	DPAVSERV_ENDPOINT = 0x28,
 	AV_ENDPOINT = 0x29,
 	DPTX_ENDPOINT = 0x2a,
 	HDCP_ENDPOINT = 0x2b,
@@ -228,6 +232,8 @@ struct apple_dcp {
 	struct completion systemep_done;
 
 	struct apple_dcp_afkep *ibootep;
+	struct apple_dcp_afkep *dcpavservep;
+	struct dcpavserv dcpavserv;
 
 	struct apple_dcp_afkep *avep;
 	struct audiosrv_data *audiosrv;

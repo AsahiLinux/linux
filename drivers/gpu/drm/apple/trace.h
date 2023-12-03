@@ -351,6 +351,18 @@ DEFINE_EVENT(iomfb_parse_mode_template, iomfb_parse_mode_fail,
 	    TP_PROTO(s64 id, struct dimension *horiz, struct dimension *vert, s64 best_color_mode, bool is_virtual, s64 score),
 	    TP_ARGS(id, horiz, vert, best_color_mode, is_virtual, score));
 
+TRACE_EVENT(dcpavserv_init, TP_PROTO(struct apple_dcp *dcp, u64 unit),
+	    TP_ARGS(dcp, unit),
+
+	    TP_STRUCT__entry(__string(devname, dev_name(dcp->dev))
+				     __field(u64, unit)),
+
+	    TP_fast_assign(__assign_str(devname);
+			   __entry->unit = unit;),
+
+	    TP_printk("%s: dcpav-service unit %lld initialized", __get_str(devname),
+		      __entry->unit));
+
 TRACE_EVENT(dptxport_init, TP_PROTO(struct apple_dcp *dcp, u64 unit),
 	    TP_ARGS(dcp, unit),
 
