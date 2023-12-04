@@ -570,17 +570,12 @@ static bool dcpep_process_chunks(struct apple_dcp *dcp,
 		if (dcp->nr_modes == 0)
 			dev_warn(dcp->dev, "TimingElements without valid modes!\n");
 	} else if (!strcmp(req->key, "DisplayAttributes")) {
-		/* DisplayAttributes are empty for integrated displays, use
-		 * display dimensions read from the devicetree
-		 */
-		if (dcp->main_display) {
-			ret = parse_display_attributes(&ctx, &dcp->width_mm,
-						&dcp->height_mm);
+		ret = parse_display_attributes(&ctx, &dcp->width_mm,
+					&dcp->height_mm);
 
-			if (ret) {
-				dev_warn(dcp->dev, "failed to parse display attribs\n");
-				return false;
-			}
+		if (ret) {
+			dev_warn(dcp->dev, "failed to parse display attribs\n");
+			return false;
 		}
 
 		dcp_set_dimensions(dcp);
