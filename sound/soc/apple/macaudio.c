@@ -1236,7 +1236,7 @@ static int macaudio_fixup_controls(struct snd_soc_card *card)
 	p = strrchr(card->name, ' ');
 	if (p) {
 		snprintf(card->snd_card->id, sizeof(card->snd_card->id),
-			 "%s", p + 1);
+			 "Apple%s", p + 1);
 	}
 
 	if (!ma->has_speakers)
