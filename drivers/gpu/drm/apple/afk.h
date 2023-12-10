@@ -49,6 +49,8 @@ struct apple_epic_service {
 	void *cookie;
 };
 
+enum epic_subtype;
+
 struct apple_epic_service_ops {
 	const char name[32];
 
@@ -57,7 +59,7 @@ struct apple_epic_service_ops {
 	int (*call)(struct apple_epic_service *service, u32 idx,
 		    const void *data, size_t data_size, void *reply,
 		    size_t reply_size);
-	int (*report)(struct apple_epic_service *service, u32 idx,
+	int (*report)(struct apple_epic_service *service, enum epic_subtype type,
 		      const void *data, size_t data_size);
 	void (*teardown)(struct apple_epic_service *service);
 };
