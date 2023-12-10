@@ -11,7 +11,7 @@ struct apple_dcp;
 
 struct dcp_parse_ctx {
 	struct apple_dcp *dcp;
-	void *blob;
+	const void *blob;
 	u32 pos, len;
 };
 
@@ -98,7 +98,7 @@ struct dimension {
 	s64 precise_sync_rate;
 };
 
-int parse(void *blob, size_t size, struct dcp_parse_ctx *ctx);
+int parse(const void *blob, size_t size, struct dcp_parse_ctx *ctx);
 struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 					 unsigned int *count, int width_mm,
 					 int height_mm, unsigned notch_height);

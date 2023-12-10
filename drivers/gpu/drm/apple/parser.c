@@ -30,9 +30,9 @@ struct dcp_parse_tag {
 	bool last : 1;
 } __packed;
 
-static void *parse_bytes(struct dcp_parse_ctx *ctx, size_t count)
+static const void *parse_bytes(struct dcp_parse_ctx *ctx, size_t count)
 {
-	void *ptr = ctx->blob + ctx->pos;
+	const void *ptr = ctx->blob + ctx->pos;
 
 	if (ctx->pos + count > ctx->len)
 		return ERR_PTR(-EINVAL);
@@ -41,14 +41,14 @@ static void *parse_bytes(struct dcp_parse_ctx *ctx, size_t count)
 	return ptr;
 }
 
-static u32 *parse_u32(struct dcp_parse_ctx *ctx)
+static const u32 *parse_u32(struct dcp_parse_ctx *ctx)
 {
 	return parse_bytes(ctx, sizeof(u32));
 }
 
-static struct dcp_parse_tag *parse_tag(struct dcp_parse_ctx *ctx)
+static const struct dcp_parse_tag *parse_tag(struct dcp_parse_ctx *ctx)
 {
-	struct dcp_parse_tag *tag;
+	const struct dcp_parse_tag *tag;
 
 	/* Align to 32-bits */
 	ctx->pos = round_up(ctx->pos, 4);
@@ -64,10 +64,10 @@ static struct dcp_parse_tag *parse_tag(struct dcp_parse_ctx *ctx)
 	return tag;
 }
 
-static struct dcp_parse_tag *parse_tag_of_type(struct dcp_parse_ctx *ctx,
+static const struct dcp_parse_tag *parse_tag_of_type(struct dcp_parse_ctx *ctx,
 					       enum dcp_parse_type type)
 {
-	struct dcp_parse_tag *tag = parse_tag(ctx);
+	const struct dcp_parse_tag *tag = parse_tag(ctx);
 
 	if (IS_ERR(tag))
 		return tag;
@@ -80,7 +80,7 @@ static struct dcp_parse_tag *parse_tag_of_type(struct dcp_parse_ctx *ctx,
 
 static int skip(struct dcp_parse_ctx *handle)
 {
-	struct dcp_parse_tag *tag = parse_tag(handle);
+	const struct dcp_parse_tag *tag = parse_tag(handle);
 	int ret = 0;
 	int i;
 
@@ -132,7 +132,7 @@ static int skip_pair(struct dcp_parse_ctx *handle)
 
 static bool consume_string(struct dcp_parse_ctx *ctx, const char *specimen)
 {
-	struct dcp_parse_tag *tag;
+	const struct dcp_parse_tag *tag;
 	const char *key;
 	ctx->pos = round_up(ctx->pos, 4);
 
@@ -155,7 +155,7 @@ static bool consume_string(struct dcp_parse_ctx *ctx, const char *specimen)
 /* Caller must free the result */
 static char *parse_string(struct dcp_parse_ctx *handle)
 {
-	struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_STRING);
+	const struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_STRING);
 	const char *in;
 	char *out;
 
@@ -175,8 +175,8 @@ static char *parse_string(struct dcp_parse_ctx *handle)
 
 static int parse_int(struct dcp_parse_ctx *handle, s64 *value)
 {
-	void *tag = parse_tag_of_type(handle, DCP_TYPE_INT64);
-	s64 *in;
+	const void *tag = parse_tag_of_type(handle, DCP_TYPE_INT64);
+	const s64 *in;
 
 	if (IS_ERR(tag))
 		return PTR_ERR(tag);
@@ -192,7 +192,7 @@ static int parse_int(struct dcp_parse_ctx *handle, s64 *value)
 
 static int parse_bool(struct dcp_parse_ctx *handle, bool *b)
 {
-	struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_BOOL);
+	const struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_BOOL);
 
 	if (IS_ERR(tag))
 		return PTR_ERR(tag);
@@ -201,10 +201,10 @@ static int parse_bool(struct dcp_parse_ctx *handle, bool *b)
 	return 0;
 }
 
-static int parse_blob(struct dcp_parse_ctx *handle, size_t size, u8 **blob)
+static int parse_blob(struct dcp_parse_ctx *handle, size_t size, u8 const **blob)
 {
-	struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_BLOB);
-	u8 *out;
+	const struct dcp_parse_tag *tag = parse_tag_of_type(handle, DCP_TYPE_BLOB);
+	const u8 *out;
 
 	if (IS_ERR(tag))
 		return PTR_ERR(tag);
@@ -229,7 +229,7 @@ struct iterator {
 static int iterator_begin(struct dcp_parse_ctx *handle, struct iterator *it,
 			  bool dict)
 {
-	struct dcp_parse_tag *tag;
+	const struct dcp_parse_tag *tag;
 	enum dcp_parse_type type = dict ? DCP_TYPE_DICTIONARY : DCP_TYPE_ARRAY;
 
 	*it = (struct iterator) {
@@ -250,9 +250,9 @@ static int iterator_begin(struct dcp_parse_ctx *handle, struct iterator *it,
 #define dcp_parse_foreach_in_dict(handle, it)                                  \
 	for (iterator_begin(handle, &it, true); it.idx < it.len; ++it.idx)
 
-int parse(void *blob, size_t size, struct dcp_parse_ctx *ctx)
+int parse(const void *blob, size_t size, struct dcp_parse_ctx *ctx)
 {
-	u32 *header;
+	const u32 *header;
 
 	*ctx = (struct dcp_parse_ctx) {
 		.blob = blob,
@@ -926,7 +926,7 @@ static int parse_mode_in_avep_element(struct dcp_parse_ctx *handle,
 					return ret;
 			}
 		} else if (consume_string(it.handle, "ElementData")) {
-			u8 *blob;
+			const u8 *blob;
 
 			ret = parse_blob(it.handle, sizeof(*cookie), &blob);
 			if (ret)
