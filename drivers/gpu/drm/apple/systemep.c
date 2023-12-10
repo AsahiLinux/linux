@@ -5,6 +5,7 @@
 
 #include "afk.h"
 #include "dcp.h"
+#include "parser.h"
 
 static bool enable_verbose_logging;
 module_param(enable_verbose_logging, bool, 0644);
@@ -66,6 +67,41 @@ static void powerlog_init(struct apple_epic_service *service, const char *name,
 {
 }
 
+static int powerlog_report(struct apple_epic_service *service, enum epic_subtype type,
+			 const void *data, size_t data_size)
+{
+	struct dcp_system_ev_mnits mnits;
+	struct dcp_parse_ctx parse_ctx;
+	struct apple_dcp *dcp = service->ep->dcp;
+	int ret;
+
+	dev_dbg(dcp->dev, "systemep[ch:%u]: report type:%02x len:%zu\n",
+		service->channel, type, data_size);
+
+	if (type != EPIC_SUBTYPE_STD_SERVICE)
+		return 0;
+
+	ret = parse(data, data_size, &parse_ctx);
+	if (ret) {
+		dev_warn(service->ep->dcp->dev, "systemep: failed to parse report: %d\n", ret);
+		return ret;
+	}
+
+	ret = parse_system_log_mnits(&parse_ctx, &mnits);
+	if (ret) {
+		/* ignore parse errors in the case dcp sends unknown log events */
+		dev_dbg(dcp->dev, "systemep: failed to parse mNits event: %d\n", ret);
+		return 0;
+	}
+
+	dev_dbg(dcp->dev, "systemep: mNits event: Nits: %u.%03u, iDAC: %u\n",
+		mnits.millinits / 1000, mnits.millinits % 1000, mnits.idac);
+
+	dcp->brightness.nits = mnits.millinits / 1000;
+
+	return 0;
+}
+
 static const struct apple_epic_service_ops systemep_ops[] = {
 	{
 		.name = "system",
@@ -74,6 +110,7 @@ static const struct apple_epic_service_ops systemep_ops[] = {
 	{
 		.name = "powerlog-service",
 		.init = powerlog_init,
+		.report = powerlog_report,
 	},
 	{}
 };

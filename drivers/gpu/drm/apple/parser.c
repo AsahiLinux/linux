@@ -997,3 +997,51 @@ int parse_sound_mode(struct dcp_parse_ctx *handle,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(parse_sound_mode);
+
+int parse_system_log_mnits(struct dcp_parse_ctx *handle, struct dcp_system_ev_mnits *entry)
+{
+	struct iterator it;
+	int ret;
+	s64 mnits = -1;
+	s64 idac = -1;
+	s64 timestamp = -1;
+	bool type_match = false;
+
+	dcp_parse_foreach_in_dict(handle, it) {
+		char *key = parse_string(it.handle);
+		if (IS_ERR(key)) {
+			ret = PTR_ERR(key);
+		} else if (!strcmp(key, "mNits")) {
+			ret = parse_int(it.handle, &mnits);
+		} else if (!strcmp(key, "iDAC")) {
+			ret = parse_int(it.handle, &idac);
+		} else if (!strcmp(key, "logEvent")) {
+			const char * value = parse_string(it.handle);
+			if (!IS_ERR_OR_NULL(value)) {
+				type_match = strcmp(value, "Display (Event Forward)") == 0;
+				kfree(value);
+			}
+		} else if (!strcmp(key, "timestamp")) {
+			ret = parse_int(it.handle, &timestamp);
+		} else {
+			skip(it.handle);
+		}
+
+		if (!IS_ERR_OR_NULL(key))
+			kfree(key);
+
+		if (ret) {
+			pr_err("dcp parser: failed to parse mNits sys event\n");
+			return ret;
+		}
+	}
+
+	if (!type_match ||  mnits < 0 || idac < 0 || timestamp < 0)
+		return -EINVAL;
+
+	entry->millinits = mnits;
+	entry->idac = idac;
+	entry->timestamp = timestamp;
+
+	return 0;
+}
