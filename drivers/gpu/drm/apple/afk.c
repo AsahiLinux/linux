@@ -447,21 +447,9 @@ static void afk_recv_handle_std_service(struct apple_dcp_afkep *ep, u32 channel,
 	}
 
 	if (type == EPIC_TYPE_NOTIFY && eshdr->category == EPIC_CAT_REPORT) {
-		struct epic_std_service_ap_call *call = payload;
-		size_t call_size;
-
-		if (payload_size < sizeof(*call))
-			return;
-
-		call_size = le32_to_cpu(call->len);
-		if (payload_size < sizeof(*call) + call_size)
-			return;
-
-		if (!service->ops->report)
-			return;
-
-		service->ops->report(service, le32_to_cpu(call->type),
-				     payload + sizeof(*call), call_size);
+		if (service->ops->report)
+			service->ops->report(service, le16_to_cpu(eshdr->type),
+					     payload, payload_size);
 		return;
 	}
 
