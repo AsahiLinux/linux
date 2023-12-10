@@ -126,4 +126,13 @@ int parse_sound_mode(struct dcp_parse_ctx *handle,
 		     struct snd_pcm_chmap_elem *chmap,
 		     struct dcp_sound_cookie *cookie);
 
+struct dcp_system_ev_mnits {
+	u32 timestamp;
+	u32 millinits;
+	u32 idac;
+};
+
+int parse_system_log_mnits(struct dcp_parse_ctx *handle,
+			   struct dcp_system_ev_mnits *entry);
+
 #endif
