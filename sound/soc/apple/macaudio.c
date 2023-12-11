@@ -1470,14 +1470,14 @@ static const struct snd_soc_dapm_route macaudio_dapm_routes[] = {
 
 /*	enable	amp		speakers	stereo	gain	safe_vol */
 struct macaudio_platform_cfg macaudio_j180_cfg = {
-	false,	AMP_SN012776,	SPKR_1W1T,	false,	4,	-20,
+	false,	AMP_SN012776,	SPKR_1W1T,	false,	10,	-20,
 };
 struct macaudio_platform_cfg macaudio_j274_cfg = {
-	true,	AMP_TAS5770,	SPKR_1W,	false,	14,	0, /* TODO: safety */
+	true,	AMP_TAS5770,	SPKR_1W,	false,	20,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j293_cfg = {
-	false,	AMP_TAS5770,	SPKR_2W,	true,	9,	-20, /* TODO: check */
+	false,	AMP_TAS5770,	SPKR_2W,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j313_cfg = {
@@ -1485,19 +1485,19 @@ struct macaudio_platform_cfg macaudio_j313_cfg = {
 };
 
 struct macaudio_platform_cfg macaudio_j314_j316_cfg = {
-	false,	AMP_SN012776,	SPKR_2W1T,	true,	9,	-20,
+	false,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j37x_j47x_cfg = {
-	false,	AMP_SN012776,	SPKR_1W,	false,	14,	-20,
+	false,	AMP_SN012776,	SPKR_1W,	false,	20,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j413_cfg = {
-	false,	AMP_SN012776,	SPKR_1W1T,	true,	9,	-20,
+	false,	AMP_SN012776,	SPKR_1W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j415_cfg = {
-	false,	AMP_SN012776,	SPKR_2W1T,	true,	9,	-20,
+	false,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j45x_cfg = {
@@ -1505,7 +1505,7 @@ struct macaudio_platform_cfg macaudio_j45x_cfg = {
 };
 
 struct macaudio_platform_cfg macaudio_j493_cfg = {
-	false,	AMP_SN012776,	SPKR_2W,	true,	9,	-20,
+	false,	AMP_SN012776,	SPKR_2W,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_fallback_cfg = {
