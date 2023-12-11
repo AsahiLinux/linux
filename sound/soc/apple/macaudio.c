@@ -137,8 +137,8 @@ struct macaudio_snd_data {
 
 };
 
-static bool please_blow_up_my_speakers;
-module_param(please_blow_up_my_speakers, bool, 0644);
+static int please_blow_up_my_speakers;
+module_param(please_blow_up_my_speakers, int, 0644);
 MODULE_PARM_DESC(please_blow_up_my_speakers, "Allow unsafe or untested operating configurations");
 
 SND_SOC_DAILINK_DEFS(primary,
@@ -1165,7 +1165,7 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 #define CHECK(call, pattern, value) \
 	{ \
 		int ret = call(card, pattern, value); \
-		if (ret < 1 && !please_blow_up_my_speakers) { \
+		if (ret < 1 && (please_blow_up_my_speakers < 2)) { \
 			dev_err(card->dev, "%s on '%s': %d\n", #call, pattern, ret); \
 			return ret; \
 		} \
@@ -1205,7 +1205,7 @@ static int macaudio_set_speaker(struct snd_soc_card *card, const char *prefix, b
 		CHECK_CONCAT(snd_soc_set_enum_kctl, "HPF Corner Frequency",
 			     tweeter ? "800 Hz" : "2 Hz");
 
-		if (!please_blow_up_my_speakers)
+		if (please_blow_up_my_speakers < 2)
 			CHECK_CONCAT(snd_soc_deactivate_kctl, "HPF Corner Frequency", 0);
 
 		CHECK_CONCAT(snd_soc_set_enum_kctl, "OCE Handling", "Retry");
@@ -1215,7 +1215,7 @@ static int macaudio_set_speaker(struct snd_soc_card *card, const char *prefix, b
 		/* TODO: check */
 		CHECK_CONCAT(snd_soc_set_enum_kctl, "DAC Analog Gain Select", "8.4 V Span");
 
-		if (!please_blow_up_my_speakers)
+		if (please_blow_up_my_speakers < 2)
 			CHECK_CONCAT(snd_soc_deactivate_kctl, "DAC Analog Gain Select", 0);
 
 		/* TODO: HPF, needs new call to set */
@@ -1244,8 +1244,8 @@ static int macaudio_fixup_controls(struct snd_soc_card *card)
 
 	switch(ma->cfg->speakers) {
 	case SPKR_NONE:
-		WARN_ON(!please_blow_up_my_speakers);
-		return please_blow_up_my_speakers ? 0 : -EINVAL;
+		WARN_ON(please_blow_up_my_speakers < 2);
+		return please_blow_up_my_speakers >= 2 ? 0 : -EINVAL;
 	case SPKR_1W:
 	case SPKR_2W:
 		CHECK(macaudio_set_speaker, "* ", false);
