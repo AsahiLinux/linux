@@ -214,12 +214,12 @@ static int apple_dpxbar_set_t602x(struct mux_control *mux, int state)
 	spin_unlock_irqrestore(&dpxbar->lock, flags);
 
 	if (enable)
-		dev_err(dpxbar->dev, "Switched %s to dispext%u,%u\n",
-			apple_dpxbar_names[index], mux_state >> 1,
-			mux_state & 1);
+		dev_info(dpxbar->dev, "Switched %s to dispext%u,%u\n",
+			 apple_dpxbar_names[index], mux_state >> 1,
+			 mux_state & 1);
 	else
-		dev_err(dpxbar->dev, "Switched %s to disconnected state\n",
-			apple_dpxbar_names[index]);
+		dev_info(dpxbar->dev, "Switched %s to disconnected state\n",
+			 apple_dpxbar_names[index]);
 
 	return ret;
 }
@@ -349,12 +349,12 @@ static int apple_dpxbar_set(struct mux_control *mux, int state)
 	spin_unlock_irqrestore(&dpxbar->lock, flags);
 
 	if (enable)
-		dev_err(dpxbar->dev, "Switched %s to dispext%u,%u\n",
-			apple_dpxbar_names[index], mux_state >> 1,
-			mux_state & 1);
+		dev_info(dpxbar->dev, "Switched %s to dispext%u,%u\n",
+			 apple_dpxbar_names[index], mux_state >> 1,
+			 mux_state & 1);
 	else
-		dev_err(dpxbar->dev, "Switched %s to disconnected state\n",
-			apple_dpxbar_names[index]);
+		dev_info(dpxbar->dev, "Switched %s to disconnected state\n",
+			 apple_dpxbar_names[index]);
 
 	return ret;
 }
