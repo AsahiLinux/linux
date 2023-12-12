@@ -1162,20 +1162,25 @@ static int macaudio_late_probe(struct snd_soc_card *card)
 	return 0;
 }
 
-#define CHECK(call, pattern, value) \
-	{ \
-		int ret = call(card, pattern, value); \
-		if (ret < 1 && (please_blow_up_my_speakers < 2)) { \
-			dev_err(card->dev, "%s on '%s': %d\n", #call, pattern, ret); \
-			return ret; \
-		} \
-		dev_dbg(card->dev, "%s on '%s': %d hits\n", #call, pattern, ret); \
+#define CHECK(call, pattern, value, min)                                       \
+	{                                                                      \
+		int ret = call(card, pattern, value);                          \
+		int err = (ret >= 0 && ret < min) ? -ERANGE : ret;             \
+		if (err < 0) {                                                 \
+			dev_err(card->dev, "%s on '%s': %d\n", #call, pattern, \
+				ret);                                          \
+			if (please_blow_up_my_speakers < 2)                    \
+				return err;                                    \
+		} else {                                                       \
+			dev_dbg(card->dev, "%s on '%s': %d hits\n", #call,     \
+				pattern, ret);                                 \
+		}                                                              \
 	}
 
 #define CHECK_CONCAT(call, suffix, value) \
 	{ \
 		snprintf(buf, sizeof(buf), "%s%s", prefix, suffix); \
-		CHECK(call, buf, value); \
+		CHECK(call, buf, value, 1); \
 	}
 
 static int macaudio_set_speaker(struct snd_soc_card *card, const char *prefix, bool tweeter)
@@ -1248,16 +1253,16 @@ static int macaudio_fixup_controls(struct snd_soc_card *card)
 		return please_blow_up_my_speakers >= 2 ? 0 : -EINVAL;
 	case SPKR_1W:
 	case SPKR_2W:
-		CHECK(macaudio_set_speaker, "* ", false);
+		CHECK(macaudio_set_speaker, "* ", false, 0);
 		break;
 	case SPKR_1W1T:
-		CHECK(macaudio_set_speaker, "* Tweeter ", true);
-		CHECK(macaudio_set_speaker, "* Woofer ", false);
+		CHECK(macaudio_set_speaker, "* Tweeter ", true, 0);
+		CHECK(macaudio_set_speaker, "* Woofer ", false, 0);
 		break;
 	case SPKR_2W1T:
-		CHECK(macaudio_set_speaker, "* Tweeter ", true);
-		CHECK(macaudio_set_speaker, "* Woofer 1 ", false);
-		CHECK(macaudio_set_speaker, "* Woofer 2 ", false);
+		CHECK(macaudio_set_speaker, "* Tweeter ", true, 0);
+		CHECK(macaudio_set_speaker, "* Woofer 1 ", false, 0);
+		CHECK(macaudio_set_speaker, "* Woofer 2 ", false, 0);
 		break;
 	}
 
