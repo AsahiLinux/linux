@@ -1247,13 +1247,25 @@ static int macaudio_fixup_controls(struct snd_soc_card *card)
 	if (!ma->has_speakers)
 		return 0;
 
+	/*
+	 * This needs some care to avoid matches against cs42l84's
+	 * "Jack HPF Corner Frequency".
+	 */
 	switch(ma->cfg->speakers) {
 	case SPKR_NONE:
 		WARN_ON(please_blow_up_my_speakers < 2);
 		return please_blow_up_my_speakers >= 2 ? 0 : -EINVAL;
 	case SPKR_1W:
+		/* only 1W stereo system (J313) is uses cs42l83 */
+		if (ma->cfg->stereo) {
+			CHECK(macaudio_set_speaker, "* ", false, 0);
+		} else {
+			CHECK(macaudio_set_speaker, "", false, 0);
+		}
+		break;
 	case SPKR_2W:
-		CHECK(macaudio_set_speaker, "* ", false, 0);
+		CHECK(macaudio_set_speaker, "* Front ", false, 0);
+		CHECK(macaudio_set_speaker, "* Rear ", false, 0);
 		break;
 	case SPKR_1W1T:
 		CHECK(macaudio_set_speaker, "* Tweeter ", true, 0);
