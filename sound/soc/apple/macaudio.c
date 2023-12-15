@@ -1506,7 +1506,7 @@ struct macaudio_platform_cfg macaudio_j314_cfg = {
 };
 
 struct macaudio_platform_cfg macaudio_j316_cfg = {
-	false,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
+	true,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j37x_j47x_cfg = {
@@ -1514,11 +1514,11 @@ struct macaudio_platform_cfg macaudio_j37x_j47x_cfg = {
 };
 
 struct macaudio_platform_cfg macaudio_j413_cfg = {
-	false,	AMP_SN012776,	SPKR_1W1T,	true,	15,	-20,
+	true,	AMP_SN012776,	SPKR_1W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j415_cfg = {
-	false,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
+	true,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j45x_cfg = {
