@@ -1490,23 +1490,27 @@ struct macaudio_platform_cfg macaudio_j180_cfg = {
 	false,	AMP_SN012776,	SPKR_1W1T,	false,	10,	-20,
 };
 struct macaudio_platform_cfg macaudio_j274_cfg = {
-	false,	AMP_TAS5770,	SPKR_1W,	false,	20,	-20,
+	true,	AMP_TAS5770,	SPKR_1W,	false,	20,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j293_cfg = {
-	false,	AMP_TAS5770,	SPKR_2W,	true,	15,	-20,
+	true,	AMP_TAS5770,	SPKR_2W,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j313_cfg = {
-	false,	AMP_TAS5770,	SPKR_1W,	true,	10,	-20,
+	true,	AMP_TAS5770,	SPKR_1W,	true,	10,	-20,
 };
 
-struct macaudio_platform_cfg macaudio_j314_j316_cfg = {
+struct macaudio_platform_cfg macaudio_j314_cfg = {
+	true,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
+};
+
+struct macaudio_platform_cfg macaudio_j316_cfg = {
 	false,	AMP_SN012776,	SPKR_2W1T,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j37x_j47x_cfg = {
-	false,	AMP_SN012776,	SPKR_1W,	false,	20,	-20,
+	true,	AMP_SN012776,	SPKR_1W,	false,	20,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_j413_cfg = {
@@ -1522,7 +1526,7 @@ struct macaudio_platform_cfg macaudio_j45x_cfg = {
 };
 
 struct macaudio_platform_cfg macaudio_j493_cfg = {
-	false,	AMP_SN012776,	SPKR_2W,	true,	15,	-20,
+	true,	AMP_SN012776,	SPKR_2W,	true,	15,	-20,
 };
 
 struct macaudio_platform_cfg macaudio_fallback_cfg = {
@@ -1558,9 +1562,9 @@ static const struct of_device_id macaudio_snd_device_id[]  = {
 	/* j313    AID4    tas5770     10      2× 1W */
 	{ .compatible = "apple,j313-macaudio", .data = &macaudio_j313_cfg },
 	/* j314    AID8    sn012776    15      2× 2W+1T */
-	{ .compatible = "apple,j314-macaudio", .data = &macaudio_j314_j316_cfg },
+	{ .compatible = "apple,j314-macaudio", .data = &macaudio_j314_cfg },
 	/* j316    AID9    sn012776    15      2× 2W+1T */
-	{ .compatible = "apple,j316-macaudio", .data = &macaudio_j314_j316_cfg },
+	{ .compatible = "apple,j316-macaudio", .data = &macaudio_j316_cfg },
 	/* j375    AID10   sn012776    15      1× 1W */
 	{ .compatible = "apple,j375-macaudio", .data = &macaudio_j37x_j47x_cfg },
 	/* j413    AID13   sn012776    15      2× 1W+1T */
