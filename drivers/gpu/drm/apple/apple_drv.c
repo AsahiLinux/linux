@@ -296,6 +296,7 @@ static const struct drm_connector_funcs apple_connector_funcs = {
 	.atomic_duplicate_state	= drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 	.detect			= apple_connector_detect,
+	.debugfs_init		= apple_connector_debugfs_init,
 };
 
 static const struct drm_connector_helper_funcs apple_connector_helper_funcs = {
@@ -344,6 +345,7 @@ static int apple_probe_per_dcp(struct device *dev,
 	enc->base.possible_crtcs = drm_crtc_mask(&crtc->base);
 
 	connector = kzalloc(sizeof(*connector), GFP_KERNEL);
+	mutex_init(&connector->chunk_lock);
 	drm_connector_helper_add(&connector->base,
 				 &apple_connector_helper_funcs);
 

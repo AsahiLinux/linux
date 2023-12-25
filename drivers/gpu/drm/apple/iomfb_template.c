@@ -590,9 +590,10 @@ static u8 dcpep_cb_prop_end(struct apple_dcp *dcp,
 {
 	u8 resp = dcpep_process_chunks(dcp, req);
 
-	/* Reset for the next transfer */
-	devm_kfree(dcp->dev, dcp->chunks.data);
+	/* move chunked data to connector to provide it via debugfs */
+	dcp_connector_update_dict(dcp->connector, req->key, &dcp->chunks);
 	dcp->chunks.data = NULL;
+	dcp->chunks.length = 0;
 
 	return resp;
 }
