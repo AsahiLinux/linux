@@ -8,6 +8,7 @@
 #include <drm/drm_encoder.h>
 #include <drm/drm_fourcc.h>
 
+#include "connector.h"
 #include "dcp-internal.h"
 #include "parser.h"
 
@@ -21,20 +22,6 @@ struct apple_crtc {
 };
 
 #define to_apple_crtc(x) container_of(x, struct apple_crtc, base)
-
-void dcp_hotplug(struct work_struct *work);
-
-struct apple_connector {
-	struct drm_connector base;
-	bool connected;
-
-	struct platform_device *dcp;
-
-	/* Workqueue for sending hotplug events to the associated device */
-	struct work_struct hotplug_wq;
-};
-
-#define to_apple_connector(x) container_of(x, struct apple_connector, base)
 
 struct apple_encoder {
 	struct drm_encoder base;
