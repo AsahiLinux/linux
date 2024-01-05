@@ -72,7 +72,7 @@ impl super::Queue::ver {
         }
         let cmdbuf = unsafe { cmdbuf.assume_init() };
 
-        if cmdbuf.flags != 0 {
+        if cmdbuf.flags & !(uapi::ASAHI_COMPUTE_NO_PREEMPTION as u64) != 0 {
             return Err(EINVAL);
         }
 
