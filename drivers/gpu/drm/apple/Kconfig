@@ -3,6 +3,7 @@ config DRM_APPLE
 	tristate "DRM Support for Apple display controllers"
 	depends on DRM && OF && ARM64
 	depends on ARCH_APPLE || COMPILE_TEST
+	depends on APPLE_RTKIT
 	depends on SND
 	select DRM_KMS_HELPER
 	select DRM_KMS_DMA_HELPER
