@@ -222,6 +222,15 @@ impl super::Queue::ver {
 
         mod_dev_dbg!(self.dev, "[Submission {}] Render!\n", id);
 
+        if cmd.cmd_buffer_size as usize != core::mem::size_of::<uapi::drm_asahi_cmd_render>() {
+            cls_pr_debug!(
+                Errors,
+                "Invalid render command size ({:#x})\n",
+                cmd.cmd_buffer_size
+            );
+            return Err(EINVAL);
+        }
+
         let mut cmdbuf_reader = unsafe {
             UserSlicePtr::new(
                 cmd.cmd_buffer as usize as *mut _,
