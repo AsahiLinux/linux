@@ -141,7 +141,7 @@ pub(crate) mod raw {
         pub(crate) isp_bgobjvals: u32,
         pub(crate) unk_38: u32,
         pub(crate) unk_3c: u32,
-        pub(crate) unk_40: u32,
+        pub(crate) helper_cfg: u32,
         pub(crate) __pad: Pad<0xac>,
     }
 

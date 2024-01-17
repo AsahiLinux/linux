@@ -200,6 +200,7 @@ impl super::Queue::ver {
                 } else {
                     0x8000
                 },
+                helper_cfg: cmdbuf.vertex_helper_cfg,
                 __pad: Default::default(),
             },
         })
@@ -862,7 +863,7 @@ impl super::Queue::ver {
                         isp_bgobjvals: unks.load_bgobjvals as u32,
                         unk_38: unks.frg_unk_38 as u32,
                         unk_3c: unks.frg_unk_3c as u32,
-                        unk_40: unks.frg_unk_40 as u32,
+                        helper_cfg: cmdbuf.fragment_helper_cfg,
                         __pad: Default::default(),
                     }),
                     #[ver(G >= G14X)]
@@ -935,7 +936,7 @@ impl super::Queue::ver {
                             r.add(0x16451, 0x0); // ISP_RENDER_ORIGIN
                             r.add(0x11821, cmdbuf.fragment_helper_program.into());
                             r.add(0x11829, cmdbuf.fragment_helper_arg);
-                            r.add(0x11f79, 0);
+                            r.add(0x11f79, cmdbuf.fragment_helper_cfg.into());
                             r.add(0x15359, 0);
                             r.add(0x10069, 0x11_00000000); // USC_EXEC_BASE_ISP
                             r.add(0x16020, 0);
@@ -1429,7 +1430,7 @@ impl super::Queue::ver {
                             r.add(0x10061, 0x11_00000000); // USC_EXEC_BASE_TA
                             r.add(0x11801, cmdbuf.vertex_helper_program.into());
                             r.add(0x11809, cmdbuf.vertex_helper_arg);
-                            r.add(0x11f71, 0);
+                            r.add(0x11f71, cmdbuf.vertex_helper_cfg.into());
                             r.add(0x1c0b1, tile_info.params.rgn_size.into()); // TE_PSG
                             r.add(0x1c850, tile_info.params.rgn_size.into());
                             r.add(0x10131, tile_info.params.unk_4.into());

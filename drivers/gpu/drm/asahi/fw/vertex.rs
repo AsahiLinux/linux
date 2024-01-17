@@ -25,7 +25,8 @@ pub(crate) mod raw {
         pub(crate) tpc_stride: u32,
         pub(crate) unk_24: u32,
         pub(crate) unk_28: u32,
-        pub(crate) __pad: Pad<0x74>,
+        pub(crate) helper_cfg: u32,
+        pub(crate) __pad: Pad<0x70>,
     }
 
     #[versions(AGX)]
