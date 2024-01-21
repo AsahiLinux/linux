@@ -86,6 +86,17 @@
 		piodma {
 			iommus = <&DIE_NODE(dispext0_dart) 4 0x100 0x0 0x10 0x0>;
 		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				DIE_NODE(dcpext0_audio): endpoint {
+					remote-endpoint = <&DIE_NODE(dpaudio1_dcp)>;
+				};
+			};
+		};
 	};
 
 	DIE_NODE(pmgr): power-management@28e080000 {
@@ -227,6 +238,26 @@
 		piodma {
 			iommus = <&DIE_NODE(dispext1_dart) 4 0x100 0x0 0x10 0x0>;
 		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				DIE_NODE(dcpext1_audio): endpoint {
+					remote-endpoint = <&DIE_NODE(dpaudio2_dcp)>;
+				};
+			};
+		};
+	};
+
+	DIE_NODE(sio_dart): iommu@39b008000 {
+		compatible = "apple,t6020-dart", "apple,t8110-dart";
+		reg = <0x3 0x9b008000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1231 IRQ_TYPE_LEVEL_HIGH>;
+		#iommu-cells = <1>;
+		power-domains = <&DIE_NODE(ps_sio)>;
 	};
 
 	DIE_NODE(pinctrl_ap): pinctrl@39b028000 {
@@ -253,6 +284,120 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
+
+	DIE_NODE(sio_mbox): mbox@39bc08000 {
+		compatible = "apple,t6020-asc-mailbox", "apple,asc-mailbox-v4";
+		reg = <0x3 0x9bc08000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1248 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ DIE_NO 1249 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ DIE_NO 1250 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ DIE_NO 1251 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "send-empty", "send-not-empty",
+			"recv-empty", "recv-not-empty";
+		#mbox-cells = <0>;
+		power-domains = <&DIE_NODE(ps_sio_cpu)>;
+	};
+
+	DIE_NODE(sio): sio@39bc00000 {
+		compatible = "apple,t6020-sio", "apple,sio";
+		reg = <0x3 0x9bc00000 0x0 0x8000>;
+		dma-channels = <128>;
+		#dma-cells = <1>;
+		mboxes = <&DIE_NODE(sio_mbox)>;
+		iommus = <&DIE_NODE(sio_dart) 0>;
+		power-domains = <&DIE_NODE(ps_sio_cpu)>;
+		resets = <&DIE_NODE(ps_sio_cpu)>;
+		status = "disabled";
+	};
+
+	DIE_NODE(dpaudio1): audio-controller@39b540000 {
+		compatible = "apple,t6020-dpaudio", "apple,dpaudio";
+		reg = <0x3 0x9b540000 0x0 0x4000>;
+		dmas = <&DIE_NODE(sio) 0x66>;
+		dma-names = "tx";
+		power-domains = <&DIE_NODE(ps_dpa1)>;
+		reset-domains = <&DIE_NODE(ps_dpa1)>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				DIE_NODE(dpaudio1_dcp): endpoint {
+					remote-endpoint = <&DIE_NODE(dcpext0_audio)>;
+				};
+			};
+		};
+	};
+
+	DIE_NODE(dpaudio2): audio-controller@39b580000 {
+		compatible = "apple,t6020-dpaudio", "apple,dpaudio";
+		reg = <0x3 0x9b580000 0x0 0x4000>;
+		dmas = <&DIE_NODE(sio) 0x68>;
+		dma-names = "tx";
+		power-domains = <&DIE_NODE(ps_dpa2)>;
+		reset-domains = <&DIE_NODE(ps_dpa2)>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				DIE_NODE(dpaudio2_dcp): endpoint {
+					remote-endpoint = <&DIE_NODE(dcpext1_audio)>;
+				};
+			};
+		};
+	};
+
+	/*
+	 * omit dpaudio3 / 4 as long as the linked dcpext nodes don't exist
+	 *
+	DIE_NODE(dpaudio3): audio-controller@39b50c000 {
+		compatible = "apple,t6020-dpaudio", "apple,dpaudio";
+		reg = <0x3 0x9b5c0000 0x0 0x4000>;
+		dmas = <&DIE_NODE(sio) 0x6a>;
+		dma-names = "tx";
+		power-domains = <&DIE_NODE(ps_dpa3)>;
+		reset-domains = <&DIE_NODE(ps_dpa3)>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				DIE_NODE(dpaudio3_dcp): endpoint {
+					remote-endpoint = <&DIE_NODE(dcpext2_audio)>;
+				};
+			};
+		};
+	};
+
+	DIE_NODE(dpaudio4): audio-controller@39b510000 {
+		compatible = "apple,t6020-dpaudio", "apple,dpaudio";
+		reg = <0x3 0x9b500000 0x0 0x4000>;
+		dmas = <&DIE_NODE(sio) 0x6c>;
+		dma-names = "tx";
+		power-domains = <&DIE_NODE(ps_dpa4)>;
+		reset-domains = <&DIE_NODE(ps_dpa4)>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				DIE_NODE(dpaudio4_dcp): endpoint {
+					remote-endpoint = <&DIE_NODE(dcpext3_audio)>;
+				};
+			};
+		};
+	};
+	*/
 
 	DIE_NODE(lpdptxphy): phy@39c000000 {
 		compatible = "apple,t6020-dptx-phy", "apple,dptx-phy";

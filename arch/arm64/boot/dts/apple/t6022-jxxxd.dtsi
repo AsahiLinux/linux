@@ -58,6 +58,7 @@
 /delete-node/ &dcp_dart;
 /delete-node/ &dcp_mbox;
 /delete-node/ &dcp;
+/delete-node/ &dpaudio0;
 
 /* delete power-domains for missing disp0 / disp0_die1 */
 /delete-node/ &ps_disp0_cpu0;
