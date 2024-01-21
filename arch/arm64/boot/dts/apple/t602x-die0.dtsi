@@ -353,6 +353,17 @@
 			iommus = <&disp0_dart 4 0x100 0x0 0x10 0x0>;
 			phandle = <&disp0_piodma>;
 		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dcp_audio: endpoint {
+					remote-endpoint = <&dpaudio0_dcp>;
+				};
+			};
+		};
 	};
 
 	display: display-subsystem {
@@ -360,15 +371,6 @@
 		iommus = <&disp0_dart 0 0x100 0x0 0x10 0x0>;
 		/* generate phandle explicitly for use in loader */
 		phandle = <&display>;
-	};
-
-	sio_dart: iommu@39b008000 {
-		compatible = "apple,t6020-dart", "apple,t8110-dart";
-		reg = <0x3 0x9b008000 0x0 0x8000>;
-		interrupt-parent = <&aic>;
-		interrupts = <AIC_IRQ 0 1231 IRQ_TYPE_LEVEL_HIGH>;
-		#iommu-cells = <1>;
-		power-domains = <&ps_sio_cpu>;
 	};
 
 	fpwm0: pwm@39b030000 {
@@ -575,6 +577,27 @@
 		iommus = <&sio_dart 2>;
 		power-domains = <&ps_sio_adma>;
 		resets = <&ps_audio_p>;
+	};
+
+	dpaudio0: audio-controller@39b500000 {
+		compatible = "apple,t6020-dpaudio", "apple,dpaudio";
+		reg = <0x3 0x9b500000 0x0 0x4000>;
+		dmas = <&sio 0x64>;
+		dma-names = "tx";
+		power-domains = <&ps_dpa0>;
+		reset-domains = <&ps_dpa0>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dpaudio0_dcp: endpoint {
+					remote-endpoint = <&dcp_audio>;
+				};
+			};
+		};
 	};
 
 	mca: mca@39b600000 {
