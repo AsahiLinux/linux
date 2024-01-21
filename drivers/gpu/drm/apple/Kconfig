@@ -13,3 +13,10 @@ config DRM_APPLE
 	select MULTIPLEXER
 	help
 	  Say Y if you have an Apple Silicon chipset.
+
+config DRM_APPLE_AUDIO
+	bool "DisplayPort/HDMI Audio support"
+	default y
+	depends on DRM_APPLE
+	depends on SND
+	select SND_PCM
