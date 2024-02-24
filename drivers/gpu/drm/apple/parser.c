@@ -505,20 +505,6 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 	     (horiz.active == 3456 && vert.active == 2234)))
 		return -EINVAL;
 
-	/*
-	 * HACK: reject refresh modes with a pixel clock above 926484,480 kHz
-	 *       (bandwidth limit reported by dcp). This allows 4k 100Hz and
-	 *       5k 60Hz but not much beyond.
-	 *       DSC setup seems to require additional steps
-	 */
-	if (calculate_clock(&horiz, &vert) > 926484) {
-		pr_info("dcp: rejecting mode %lldx%lld@%lld.%03lld (pixel clk:%d)\n",
-			horiz.active, vert.active, vert.precise_sync_rate >> 16,
-			((1000 * vert.precise_sync_rate) >> 16) % 1000,
-			calculate_clock(&horiz, &vert));
-		return -EINVAL;
-	}
-
 	vert.active -= notch_height;
 	vert.sync_width += notch_height;
 
