@@ -515,6 +515,9 @@ static const struct power_supply_desc macsmc_battery_desc = {
 	.property_is_writeable	= macsmc_battery_property_is_writeable,
 	.properties		= macsmc_battery_props,
 	.num_properties		= ARRAY_SIZE(macsmc_battery_props),
+	.charge_behaviours	= BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO)
+				| BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_FORCE_DISCHARGE)
+				| BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE),
 };
 
 static int macsmc_ac_get_property(struct power_supply *psy,
