@@ -34,6 +34,12 @@ impl BStr {
         unsafe { &*(bytes as *const [u8] as *const BStr) }
     }
 
+    /// Returns a reference to the inner [u8].
+    #[inline]
+    pub const fn deref_const(&self) -> &[u8] {
+        &self.0
+    }
+
     /// Strip a prefix from `self`. Delegates to [`slice::strip_prefix`].
     ///
     /// # Examples
@@ -123,7 +129,7 @@ impl Deref for BStr {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.deref_const()
     }
 }
 
