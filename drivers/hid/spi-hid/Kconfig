@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menu "SPI HID support"
+	depends on SPI
+
+config SPI_HID_APPLE_OF
+	tristate "HID over SPI transport layer for Apple Silicon SoCs"
+	default ARCH_APPLE
+	depends on SPI && INPUT && OF
+	help
+	  Say Y here if you use Apple Silicon based laptop. The keyboard and
+	  touchpad are HID based devices connected via SPI.
+
+	  If unsure, say N.
+
+	  This support is also available as a module.  If so, the module
+	  will be called spi-hid-apple-of. It will also build/depend on the
+	  module spi-hid-apple.
+
+endmenu
+
+config SPI_HID_APPLE_CORE
+	tristate
+	default y if SPI_HID_APPLE_OF=y
+	default m if SPI_HID_APPLE_OF=m
+	select HID
+	select CRC16
