@@ -9,7 +9,20 @@ int renesas_xhci_check_request_fw(struct pci_dev *dev,
 				  const struct pci_device_id *id);
 
 #else
-static int renesas_xhci_check_request_fw(struct pci_dev *dev,
+static inline int renesas_xhci_check_request_fw(struct pci_dev *dev,
+					 const struct pci_device_id *id)
+{
+	return 0;
+}
+
+#endif
+
+#if IS_ENABLED(CONFIG_USB_XHCI_PCI_ASMEDIA)
+int asmedia_xhci_check_request_fw(struct pci_dev *dev,
+				  const struct pci_device_id *id);
+
+#else
+static inline int asmedia_xhci_check_request_fw(struct pci_dev *dev,
 					 const struct pci_device_id *id)
 {
 	return 0;

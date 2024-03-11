@@ -3,7 +3,6 @@
 
 #include <linux/acpi.h>
 #include <linux/firmware.h>
-#include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
 #include <asm/unaligned.h>
@@ -625,6 +624,5 @@ exit:
 	release_firmware(fw);
 	return err;
 }
-EXPORT_SYMBOL_GPL(renesas_xhci_check_request_fw);
 
-MODULE_LICENSE("GPL v2");
+MODULE_FIRMWARE("renesas_usb_fw.mem");
