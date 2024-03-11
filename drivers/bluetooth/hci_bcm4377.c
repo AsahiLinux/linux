@@ -26,13 +26,16 @@ enum bcm4377_chip {
 	BCM4377 = 0,
 	BCM4378,
 	BCM4387,
+	BCM4388,
 };
 
 #define BCM4377_DEVICE_ID 0x5fa0
 #define BCM4378_DEVICE_ID 0x5f69
 #define BCM4387_DEVICE_ID 0x5f71
+#define BCM4388_DEVICE_ID 0x5f72
 
-#define BCM4377_TIMEOUT 1000
+#define BCM4377_TIMEOUT msecs_to_jiffies(1000)
+#define BCM4377_BOOT_TIMEOUT msecs_to_jiffies(5000)
 
 /*
  * These devices only support DMA transactions inside a 32bit window
@@ -506,6 +509,7 @@ struct bcm4377_hw {
 	u32 bar0_window1;
 	u32 bar0_window2;
 	u32 bar0_core2_window2;
+	u32 bar2_offset;
 
 	unsigned long has_bar0_core2_window2 : 1;
 	unsigned long clear_pciecfg_subsystem_ctrl_bit19 : 1;
@@ -716,7 +720,7 @@ static void bcm4377_handle_ack(struct bcm4377_data *bcm4377,
 		ring->events[msgid] = NULL;
 	}
 
-	bitmap_release_region(ring->msgids, msgid, ring->n_entries);
+	bitmap_release_region(ring->msgids, msgid, 0);
 
 unlock:
 	spin_unlock_irqrestore(&ring->lock, flags);
@@ -830,8 +834,8 @@ static irqreturn_t bcm4377_irq(int irq, void *data)
 	struct bcm4377_data *bcm4377 = data;
 	u32 bootstage, rti_status;
 
-	bootstage = ioread32(bcm4377->bar2 + BCM4377_BAR2_BOOTSTAGE);
-	rti_status = ioread32(bcm4377->bar2 + BCM4377_BAR2_RTI_STATUS);
+	bootstage = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_BOOTSTAGE);
+	rti_status = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_STATUS);
 
 	if (bootstage != bcm4377->bootstage ||
 	    rti_status != bcm4377->rti_status) {
@@ -1189,6 +1193,14 @@ static int bcm4387_send_calibration(struct bcm4377_data *bcm4377)
 		return __bcm4378_send_calibration(bcm4377,
 						  bcm4377->taurus_cal_blob,
 						  bcm4377->taurus_cal_size);
+}
+
+static int bcm4388_send_calibration(struct bcm4377_data *bcm4377)
+{
+	/* Guess that these always use beamforming */
+	return __bcm4378_send_calibration(
+		bcm4377, bcm4377->taurus_beamforming_cal_blob,
+		bcm4377->taurus_beamforming_cal_size);
 }
 
 static const struct firmware *bcm4377_request_blob(struct bcm4377_data *bcm4377,
@@ -1814,8 +1826,8 @@ static int bcm4377_boot(struct bcm4377_data *bcm4377)
 	int ret = 0;
 	u32 bootstage, rti_status;
 
-	bootstage = ioread32(bcm4377->bar2 + BCM4377_BAR2_BOOTSTAGE);
-	rti_status = ioread32(bcm4377->bar2 + BCM4377_BAR2_RTI_STATUS);
+	bootstage = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_BOOTSTAGE);
+	rti_status = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_STATUS);
 
 	if (bootstage != 0) {
 		dev_err(&bcm4377->pdev->dev, "bootstage is %d and not 0\n",
@@ -1849,15 +1861,18 @@ static int bcm4377_boot(struct bcm4377_data *bcm4377)
 	iowrite32(BCM4377_DMA_MASK,
 		  bcm4377->bar0 + BCM4377_BAR0_HOST_WINDOW_SIZE);
 
-	iowrite32(lower_32_bits(fw_dma), bcm4377->bar2 + BCM4377_BAR2_FW_LO);
-	iowrite32(upper_32_bits(fw_dma), bcm4377->bar2 + BCM4377_BAR2_FW_HI);
-	iowrite32(fw->size, bcm4377->bar2 + BCM4377_BAR2_FW_SIZE);
+	iowrite32(lower_32_bits(fw_dma),
+		  bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_FW_LO);
+	iowrite32(upper_32_bits(fw_dma),
+		  bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_FW_HI);
+	iowrite32(fw->size,
+		  bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_FW_SIZE);
 	iowrite32(0, bcm4377->bar0 + BCM4377_BAR0_FW_DOORBELL);
 
 	dev_dbg(&bcm4377->pdev->dev, "waiting for firmware to boot\n");
 
 	ret = wait_for_completion_interruptible_timeout(&bcm4377->event,
-							BCM4377_TIMEOUT);
+							BCM4377_BOOT_TIMEOUT);
 	if (ret == 0) {
 		ret = -ETIMEDOUT;
 		goto out_dma_free;
@@ -1908,16 +1923,16 @@ static int bcm4377_setup_rti(struct bcm4377_data *bcm4377)
 	dev_dbg(&bcm4377->pdev->dev, "RTI is in state 1\n");
 
 	/* allow access to the entire IOVA space again */
-	iowrite32(0, bcm4377->bar2 + BCM4377_BAR2_RTI_WINDOW_LO);
-	iowrite32(0, bcm4377->bar2 + BCM4377_BAR2_RTI_WINDOW_HI);
+	iowrite32(0, bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_WINDOW_LO);
+	iowrite32(0, bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_WINDOW_HI);
 	iowrite32(BCM4377_DMA_MASK,
-		  bcm4377->bar2 + BCM4377_BAR2_RTI_WINDOW_SIZE);
+		  bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_WINDOW_SIZE);
 
 	/* setup "Converged IPC" context */
 	iowrite32(lower_32_bits(bcm4377->ctx_dma),
-		  bcm4377->bar2 + BCM4377_BAR2_CONTEXT_ADDR_LO);
+		  bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_CONTEXT_ADDR_LO);
 	iowrite32(upper_32_bits(bcm4377->ctx_dma),
-		  bcm4377->bar2 + BCM4377_BAR2_CONTEXT_ADDR_HI);
+		  bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_CONTEXT_ADDR_HI);
 	iowrite32(2, bcm4377->bar0 + BCM4377_BAR0_RTI_CONTROL);
 
 	ret = wait_for_completion_interruptible_timeout(&bcm4377->event,
@@ -2481,6 +2496,20 @@ static const struct bcm4377_hw bcm4377_hw_variants[] = {
 		.send_calibration = bcm4387_send_calibration,
 		.send_ptb = bcm4378_send_ptb,
 	},
+
+	[BCM4388] = {
+		.id = 0x4388,
+		.otp_offset = 0x415c,
+		.bar2_offset = 0x200000,
+		.bar0_window1 = 0x18002000,
+		.bar0_window2 = 0x18109000,
+		.bar0_core2_window2 = 0x18106000,
+		.has_bar0_core2_window2 = true,
+		.broken_mws_transport_config = true,
+		.broken_le_coded = true,
+		.send_calibration = bcm4388_send_calibration,
+		.send_ptb = bcm4378_send_ptb,
+	},
 };
 
 #define BCM4377_DEVID_ENTRY(id)                                             \
@@ -2494,6 +2523,7 @@ static const struct pci_device_id bcm4377_devid_table[] = {
 	BCM4377_DEVID_ENTRY(4377),
 	BCM4377_DEVID_ENTRY(4378),
 	BCM4377_DEVID_ENTRY(4387),
+	BCM4377_DEVID_ENTRY(4388),
 	{},
 };
 MODULE_DEVICE_TABLE(pci, bcm4377_devid_table);
