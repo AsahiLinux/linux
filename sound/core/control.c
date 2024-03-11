@@ -127,8 +127,11 @@ static int snd_ctl_release(struct inode *inode, struct file *file)
 	down_write(&card->controls_rwsem);
 	list_for_each_entry(control, &card->controls, list)
 		for (idx = 0; idx < control->count; idx++)
-			if (control->vd[idx].owner == ctl)
+			if (control->vd[idx].owner == ctl) {
 				control->vd[idx].owner = NULL;
+				if (control->unlock)
+					control->unlock(control);
+			}
 	up_write(&card->controls_rwsem);
 	snd_fasync_free(ctl->fasync);
 	snd_ctl_empty_read_queue(ctl);
@@ -308,6 +311,8 @@ struct snd_kcontrol *snd_ctl_new1(const struct snd_kcontrol_new *ncontrol,
 	kctl->info = ncontrol->info;
 	kctl->get = ncontrol->get;
 	kctl->put = ncontrol->put;
+	kctl->lock = ncontrol->lock;
+	kctl->unlock = ncontrol->unlock;
 	kctl->tlv.p = ncontrol->tlv.p;
 
 	kctl->private_value = ncontrol->private_value;
@@ -1446,8 +1451,11 @@ static int snd_ctl_elem_lock(struct snd_ctl_file *file,
 		if (vd->owner != NULL)
 			result = -EBUSY;
 		else {
-			vd->owner = file;
 			result = 0;
+			if (kctl->lock)
+				result = kctl->lock(kctl, file);
+			if (result >= 0)
+				vd->owner = file;
 		}
 	}
 	up_write(&card->controls_rwsem);
@@ -1477,6 +1485,8 @@ static int snd_ctl_elem_unlock(struct snd_ctl_file *file,
 			result = -EPERM;
 		else {
 			vd->owner = NULL;
+			if (kctl->unlock)
+				kctl->unlock(kctl);
 			result = 0;
 		}
 	}
