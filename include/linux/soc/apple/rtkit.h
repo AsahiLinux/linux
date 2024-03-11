@@ -78,6 +78,13 @@ struct apple_rtkit;
 struct apple_rtkit *devm_apple_rtkit_init(struct device *dev, void *cookie,
 					  const char *mbox_name, int mbox_idx,
 					  const struct apple_rtkit_ops *ops);
+/*
+ * Frees internal RTKit state allocated by devm_apple_rtkit_init().
+ *
+ * @dev:	Pointer to the device node this coprocessor is assocated with
+ * @rtk:	Internal RTKit state initialized by devm_apple_rtkit_init()
+ */
+void devm_apple_rtkit_free(struct device *dev, struct apple_rtkit *rtk);
 
 /*
  * Non-devm version of devm_apple_rtkit_init. Must be freed with
