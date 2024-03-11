@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
+#if defined CONFIG_DRM_SIMPLEDRM_BACKLIGHT
+#include <linux/backlight.h>
+#endif
 #include <linux/clk.h>
 #include <linux/of_clk.h>
 #include <linux/minmax.h>
@@ -250,6 +253,10 @@ struct simpledrm_device {
 	struct drm_crtc crtc;
 	struct drm_encoder encoder;
 	struct drm_connector connector;
+#if defined CONFIG_DRM_SIMPLEDRM_BACKLIGHT
+	/* backlight */
+	struct backlight_device *backlight;
+#endif
 };
 
 static struct simpledrm_device *simpledrm_device_of_dev(struct drm_device *dev)
@@ -693,6 +700,28 @@ static enum drm_mode_status simpledrm_crtc_helper_mode_valid(struct drm_crtc *cr
 	return drm_crtc_helper_mode_valid_fixed(crtc, mode, &sdev->mode);
 }
 
+#if defined CONFIG_DRM_SIMPLEDRM_BACKLIGHT
+static void simpledrm_crtc_helper_atomic_enable(struct drm_crtc *crtc,
+						struct drm_atomic_state *state)
+{
+	struct drm_device *dev = crtc->dev;
+	struct simpledrm_device *sdev = simpledrm_device_of_dev(dev);
+
+	if (sdev->backlight)
+		backlight_enable(sdev->backlight);
+}
+
+static void simpledrm_crtc_helper_atomic_disable(struct drm_crtc *crtc,
+						 struct drm_atomic_state *state)
+{
+	struct drm_device *dev = crtc->dev;
+	struct simpledrm_device *sdev = simpledrm_device_of_dev(dev);
+
+	if (sdev->backlight)
+		backlight_disable(sdev->backlight);
+}
+#endif
+
 /*
  * The CRTC is always enabled. Screen updates are performed by
  * the primary plane's atomic_update function. Disabling clears
@@ -701,6 +730,10 @@ static enum drm_mode_status simpledrm_crtc_helper_mode_valid(struct drm_crtc *cr
 static const struct drm_crtc_helper_funcs simpledrm_crtc_helper_funcs = {
 	.mode_valid = simpledrm_crtc_helper_mode_valid,
 	.atomic_check = drm_crtc_helper_atomic_check,
+#if defined CONFIG_DRM_SIMPLEDRM_BACKLIGHT
+	.atomic_enable = simpledrm_crtc_helper_atomic_enable,
+	.atomic_disable = simpledrm_crtc_helper_atomic_disable,
+#endif
 };
 
 static const struct drm_crtc_funcs simpledrm_crtc_funcs = {
@@ -787,6 +820,11 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 	 * Hardware settings
 	 */
 
+#if defined CONFIG_DRM_SIMPLEDRM_BACKLIGHT
+	sdev->backlight = devm_of_find_backlight(&pdev->dev);
+	if (IS_ERR(sdev->backlight))
+		sdev->backlight = NULL;
+#endif
 	ret = simpledrm_device_init_clocks(sdev);
 	if (ret)
 		return ERR_PTR(ret);
@@ -1012,6 +1050,12 @@ static int simpledrm_probe(struct platform_device *pdev)
 	struct drm_device *dev;
 	unsigned int color_mode;
 	int ret;
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret)
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret, "Failed to set dma mask\n");
 
 	sdev = simpledrm_device_create(&simpledrm_driver, pdev);
 	if (IS_ERR(sdev))
