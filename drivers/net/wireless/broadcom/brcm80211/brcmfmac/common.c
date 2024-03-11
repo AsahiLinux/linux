@@ -13,6 +13,7 @@
 #include "core.h"
 #include "bus.h"
 #include "debug.h"
+#include "fweh.h"
 #include "fwil.h"
 #include "fwil_types.h"
 #include "tracepoint.h"
@@ -266,7 +267,6 @@ static int brcmf_c_process_cal_blob(struct brcmf_if *ifp)
 int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
-	s8 eventmask[BRCMF_EVENTING_MASK_LEN];
 	u8 buf[BRCMF_DCMD_SMLEN];
 	struct brcmf_bus *bus;
 	struct brcmf_rev_info_le revinfo;
@@ -411,21 +411,6 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 	}
 
 	brcmf_c_set_joinpref_default(ifp);
-
-	/* Setup event_msgs, enable E_IF */
-	err = brcmf_fil_iovar_data_get(ifp, "event_msgs", eventmask,
-				       BRCMF_EVENTING_MASK_LEN);
-	if (err) {
-		bphy_err(drvr, "Get event_msgs error (%d)\n", err);
-		goto done;
-	}
-	setbit(eventmask, BRCMF_E_IF);
-	err = brcmf_fil_iovar_data_set(ifp, "event_msgs", eventmask,
-				       BRCMF_EVENTING_MASK_LEN);
-	if (err) {
-		bphy_err(drvr, "Set event_msgs error (%d)\n", err);
-		goto done;
-	}
 
 	/* Setup default scan channel time */
 	err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_SCAN_CHANNEL_TIME,

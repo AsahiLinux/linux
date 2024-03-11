@@ -107,6 +107,7 @@ struct brcmf_bus_ops {
 	void (*debugfs_create)(struct device *dev);
 	int (*reset)(struct device *dev);
 	void (*remove)(struct device *dev);
+	void (*d2h_mb_rx)(struct device *dev, u32 data);
 };
 
 
@@ -284,6 +285,15 @@ static inline void brcmf_bus_remove(struct brcmf_bus *bus)
 	}
 
 	bus->ops->remove(bus->dev);
+}
+
+static inline
+void brcmf_bus_d2h_mb_rx(struct brcmf_bus *bus, u32 data)
+{
+	if (!bus->ops->d2h_mb_rx)
+		return;
+
+	return bus->ops->d2h_mb_rx(bus->dev, data);
 }
 
 /*

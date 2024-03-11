@@ -61,12 +61,12 @@ void brcmf_pno_detach(struct brcmf_cfg80211_info *cfg);
 u64 brcmf_pno_find_reqid_by_bucket(struct brcmf_pno_info *pi, u32 bucket);
 
 /**
- * brcmf_pno_get_bucket_map - determine bucket map for given netinfo.
+ * brcmf_pno_setup_for_version - setup our PNO handler for whatever version structures
+ * are supported by the chip
  *
- * @pi: pno instance used.
- * @netinfo: netinfo to compare with bucket configuration.
+ * @cfg: CFG to fill in.
+ * @vers: Version to use
  */
-u32 brcmf_pno_get_bucket_map(struct brcmf_pno_info *pi,
-			     struct brcmf_pno_net_info_le *netinfo);
+int brcmf_pno_setup_for_version(struct brcmf_pub *drvr, u8 vers);
 
 #endif /* _BRCMF_PNO_H */

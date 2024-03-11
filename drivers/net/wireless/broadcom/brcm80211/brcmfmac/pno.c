@@ -12,8 +12,10 @@
 #include "fwil_types.h"
 #include "cfg80211.h"
 #include "pno.h"
+#include "feature.h"
 
-#define BRCMF_PNO_VERSION		2
+#define BRCMF_PNO_VERSION_2		2
+#define BRCMF_PNO_VERSION_3		3
 #define BRCMF_PNO_REPEAT		4
 #define BRCMF_PNO_FREQ_EXPO_MAX		3
 #define BRCMF_PNO_IMMEDIATE_SCAN_BIT	3
@@ -99,17 +101,18 @@ static int brcmf_pno_channel_config(struct brcmf_if *ifp,
 	return brcmf_fil_iovar_data_set(ifp, "pfn_cfg", cfg, sizeof(*cfg));
 }
 
-static int brcmf_pno_config(struct brcmf_if *ifp, u32 scan_freq,
-			    u32 mscan, u32 bestn)
+static int brcmf_pno_config_v3(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			       u32 bestn)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
-	struct brcmf_pno_param_le pfn_param;
+	struct brcmf_pno_param_v3_le pfn_param;
 	u16 flags;
 	u32 pfnmem;
 	s32 err;
 
 	memset(&pfn_param, 0, sizeof(pfn_param));
-	pfn_param.version = cpu_to_le32(BRCMF_PNO_VERSION);
+	pfn_param.version = cpu_to_le16(BRCMF_PNO_VERSION_3);
+	pfn_param.length = cpu_to_le16(sizeof(struct brcmf_pno_param_v3_le));
 
 	/* set extra pno params */
 	flags = BIT(BRCMF_PNO_IMMEDIATE_SCAN_BIT) |
@@ -150,6 +153,65 @@ static int brcmf_pno_config(struct brcmf_if *ifp, u32 scan_freq,
 
 exit:
 	return err;
+}
+
+static int brcmf_pno_config_v2(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			       u32 bestn)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_pno_param_le pfn_param;
+	u16 flags;
+	u32 pfnmem;
+	s32 err;
+
+	memset(&pfn_param, 0, sizeof(pfn_param));
+	pfn_param.version = cpu_to_le32(BRCMF_PNO_VERSION_2);
+
+	/* set extra pno params */
+	flags = BIT(BRCMF_PNO_IMMEDIATE_SCAN_BIT) |
+		BIT(BRCMF_PNO_ENABLE_ADAPTSCAN_BIT);
+	pfn_param.repeat = BRCMF_PNO_REPEAT;
+	pfn_param.exp = BRCMF_PNO_FREQ_EXPO_MAX;
+
+	/* set up pno scan fr */
+	pfn_param.scan_freq = cpu_to_le32(scan_freq);
+
+	if (mscan) {
+		pfnmem = bestn;
+
+		/* set bestn in firmware */
+		err = brcmf_fil_iovar_int_set(ifp, "pfnmem", pfnmem);
+		if (err < 0) {
+			bphy_err(drvr, "failed to set pfnmem\n");
+			goto exit;
+		}
+		/* get max mscan which the firmware supports */
+		err = brcmf_fil_iovar_int_get(ifp, "pfnmem", &pfnmem);
+		if (err < 0) {
+			bphy_err(drvr, "failed to get pfnmem\n");
+			goto exit;
+		}
+		mscan = min_t(u32, mscan, pfnmem);
+		pfn_param.mscan = mscan;
+		pfn_param.bestn = bestn;
+		flags |= BIT(BRCMF_PNO_ENABLE_BD_SCAN_BIT);
+		brcmf_dbg(INFO, "mscan=%d, bestn=%d\n", mscan, bestn);
+	}
+
+	pfn_param.flags = cpu_to_le16(flags);
+	err = brcmf_fil_iovar_data_set(ifp, "pfn_set", &pfn_param,
+				       sizeof(pfn_param));
+	if (err)
+		bphy_err(drvr, "pfn_set failed, err=%d\n", err);
+
+exit:
+	return err;
+}
+
+static int brcmf_pno_config(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			    u32 bestn)
+{
+	return ifp->drvr->pno_handler.pno_config(ifp, scan_freq, mscan, bestn);
 }
 
 static int brcmf_pno_set_random(struct brcmf_if *ifp, struct brcmf_pno_info *pi)
@@ -275,7 +337,7 @@ static int brcmf_pno_get_bucket_channels(struct cfg80211_sched_scan_request *r,
 {
 	u32 n_chan = le32_to_cpu(pno_cfg->channel_num);
 	u16 chan;
-	int i, err = 0;
+	int i, err;
 
 	for (i = 0; i < r->n_channels; i++) {
 		if (n_chan >= BRCMF_NUMCHANNELS) {
@@ -562,9 +624,48 @@ u64 brcmf_pno_find_reqid_by_bucket(struct brcmf_pno_info *pi, u32 bucket)
 	return reqid;
 }
 
-u32 brcmf_pno_get_bucket_map(struct brcmf_pno_info *pi,
-			     struct brcmf_pno_net_info_le *ni)
+
+static struct brcmf_pno_net_info_le *
+brcmf_get_netinfo_array(void *pfn_v1_data)
 {
+	struct brcmf_pno_scanresults_le *pfn_v1 =
+		(struct brcmf_pno_scanresults_le *)pfn_v1_data;
+	struct brcmf_pno_scanresults_v2_le *pfn_v2;
+	struct brcmf_pno_net_info_le *netinfo = NULL;
+
+	switch (pfn_v1->version) {
+	default:
+		WARN_ON(1);
+		fallthrough;
+	case cpu_to_le32(1):
+		netinfo = (struct brcmf_pno_net_info_le *)(pfn_v1 + 1);
+		break;
+	case cpu_to_le32(2):
+		pfn_v2 = (struct brcmf_pno_scanresults_v2_le *)pfn_v1;
+		netinfo = (struct brcmf_pno_net_info_le *)(pfn_v2 + 1);
+		break;
+	case cpu_to_le32(3):
+		brcmf_err("Need to use brcmf_get_netinfo_v3_array\n");
+		break;
+	}
+
+	return netinfo;
+}
+
+static struct brcmf_pno_net_info_v3_le *
+brcmf_get_netinfo_v3_array(void*pfn_v3_data)
+{
+	struct brcmf_pno_scanresults_v3_le *pfn_v3 =
+		(struct brcmf_pno_scanresults_v3_le *)pfn_v3_data;
+	return (struct brcmf_pno_net_info_v3_le *) (pfn_v3 + 1);
+}
+
+static u32 brcmf_pno_get_bucket_map(void *data, int idx, struct brcmf_pno_info *pi)
+{
+
+	struct brcmf_pno_net_info_le *netinfo_start =
+		brcmf_get_netinfo_array(data);
+	struct brcmf_pno_net_info_le *ni = &netinfo_start[idx];
 	struct cfg80211_sched_scan_request *req;
 	struct cfg80211_match_set *ms;
 	u32 bucket_map = 0;
@@ -592,4 +693,183 @@ u32 brcmf_pno_get_bucket_map(struct brcmf_pno_info *pi,
 	}
 	mutex_unlock(&pi->req_lock);
 	return bucket_map;
+}
+
+static u32 brcmf_pno_get_bucket_map_v3(void *data, int idx, struct brcmf_pno_info *pi)
+{
+	struct brcmf_pno_net_info_v3_le *netinfo_v3_start =
+		brcmf_get_netinfo_v3_array(data);
+	struct brcmf_pno_net_info_v3_le *ni = &netinfo_v3_start[idx];
+	struct cfg80211_sched_scan_request *req;
+	struct cfg80211_match_set *ms;
+	u32 bucket_map = 0;
+	int i, j;
+
+	mutex_lock(&pi->req_lock);
+	for (i = 0; i < pi->n_reqs; i++) {
+		req = pi->reqs[i];
+
+		if (!req->n_match_sets)
+			continue;
+		for (j = 0; j < req->n_match_sets; j++) {
+			ms = &req->match_sets[j];
+			if (ms->ssid.ssid_len == ni->SSID_len &&
+			    !memcmp(ms->ssid.ssid, ni->SSID, ni->SSID_len)) {
+				bucket_map |= BIT(i);
+				break;
+			}
+			if (is_valid_ether_addr(ms->bssid) &&
+			    !memcmp(ms->bssid, ni->bssid, ETH_ALEN)) {
+				bucket_map |= BIT(i);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&pi->req_lock);
+	return bucket_map;
+}
+
+static u32 brcmf_pno_min_data_len(void)
+{
+	return sizeof(struct brcmf_pno_scanresults_le) +
+	       sizeof(struct brcmf_pno_net_info_le);
+}
+static u32 brcmf_pno_min_data_len_v3(void)
+{
+	return sizeof(struct brcmf_pno_scanresults_v3_le) +
+	       sizeof(struct brcmf_pno_net_info_v3_le);
+}
+
+static int brcmf_pno_validate_pfn_results_v3(void *data, u32 eventlen)
+{
+	struct brcmf_pno_scanresults_v3_le *scanresult =
+		(struct brcmf_pno_scanresults_v3_le *)data;
+	struct brcmf_pno_net_info_v3_le *netinfo_v3_start =
+		brcmf_get_netinfo_v3_array(scanresult);
+	u32 datalen;
+
+	if (!netinfo_v3_start) {
+		brcmf_err("did not get netinfo_v3 data\n");
+		return -EINVAL;
+	}
+	datalen = eventlen - ((void *)netinfo_v3_start - (void *)data);
+	if (datalen < le32_to_cpu(scanresult->count) * sizeof(struct brcmf_pno_net_info_v3_le)) {
+		brcmf_err("insufficient event data\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int brcmf_pno_validate_pfn_results(void *data, u32 eventlen)
+{
+	struct brcmf_pno_scanresults_le *scanresult =
+		(struct brcmf_pno_scanresults_le *)data;
+	struct brcmf_pno_net_info_le *netinfo_start =
+		brcmf_get_netinfo_array(scanresult);
+	u32 datalen;
+
+	if (!netinfo_start) {
+		brcmf_err("did not get netinfo data\n");
+		return -EINVAL;
+	}
+	datalen = eventlen - ((void *)netinfo_start - (void *)data);
+	if (datalen < le32_to_cpu(scanresult->count) * sizeof(struct brcmf_pno_net_info_le)) {
+		brcmf_err("insufficient event data\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int brcmf_pno_get_result_info(void *data, int result_idx,
+				     u8 (*ssid)[IEEE80211_MAX_SSID_LEN],
+				     u8 *ssid_len, u8 *channel,
+				     enum nl80211_band *band)
+{
+	struct brcmf_pno_scanresults_le *scanresult =
+		(struct brcmf_pno_scanresults_le *)data;
+	struct brcmf_pno_net_info_le *netinfo_start =
+		brcmf_get_netinfo_array(scanresult);
+	struct brcmf_pno_net_info_le *netinfo = &netinfo_start[result_idx];
+
+	*channel = netinfo->channel;
+	*band = netinfo->channel <= CH_MAX_2G_CHANNEL ? NL80211_BAND_2GHZ :
+							NL80211_BAND_5GHZ;
+	*ssid_len = netinfo->SSID_len;
+	if (netinfo->SSID_len > IEEE80211_MAX_SSID_LEN)
+		*ssid_len = IEEE80211_MAX_SSID_LEN;
+	memcpy(ssid, netinfo->SSID, *ssid_len);
+
+	return 0;
+}
+
+static int brcmf_pno_get_result_info_v3(void *data, int result_idx,
+					u8 (*ssid)[IEEE80211_MAX_SSID_LEN],
+					u8 *ssid_len, u8 *channel,
+					enum nl80211_band *band)
+{
+	struct brcmf_pno_scanresults_v3_le *scanresult =
+		(struct brcmf_pno_scanresults_v3_le *)data;
+	struct brcmf_pno_net_info_v3_le *netinfo_v3_start =
+		brcmf_get_netinfo_v3_array(scanresult);
+	struct brcmf_pno_net_info_v3_le *netinfo_v3 =
+		&netinfo_v3_start[result_idx];
+
+	*channel = CHSPEC_CHANNEL(netinfo_v3->chanspec);
+	*band = fwil_band_to_nl80211(CHSPEC_BAND(netinfo_v3->chanspec));
+	*ssid_len = netinfo_v3->SSID_len;
+	if (netinfo_v3->SSID_len > IEEE80211_MAX_SSID_LEN)
+		*ssid_len = IEEE80211_MAX_SSID_LEN;
+	memcpy(ssid, netinfo_v3->SSID, *ssid_len);
+
+	return 0;
+}
+
+/* The count and status fields are in the same place for v1/2/3 */
+static u32 brcmf_pno_get_result_count_v123(void *data)
+{
+	struct brcmf_pno_scanresults_le *results =
+		(struct brcmf_pno_scanresults_le *)data;
+	return le32_to_cpu(results->count);
+}
+static u32 brcmf_pno_get_result_status_v123(void *data)
+{
+	struct brcmf_pno_scanresults_le *results =
+		(struct brcmf_pno_scanresults_le *)data;
+	return le32_to_cpu(results->status);
+}
+
+int brcmf_pno_setup_for_version(struct brcmf_pub *drvr, u8 vers)
+{
+	/* The first supported version by this driver was version 2.
+	 * The v2 functions handle version one structures if handed to them,
+	 * but the config was always set to interface version 2.  */
+	switch (vers) {
+	case BRCMF_PNO_VERSION_2: {
+		drvr->pno_handler.version = BRCMF_PNO_VERSION_2;
+		drvr->pno_handler.pno_config = brcmf_pno_config_v2;
+		drvr->pno_handler.get_result_count = brcmf_pno_get_result_count_v123;
+		drvr->pno_handler.get_result_status = brcmf_pno_get_result_status_v123;
+		drvr->pno_handler.get_bucket_map = brcmf_pno_get_bucket_map;
+		drvr->pno_handler.get_min_data_len = brcmf_pno_min_data_len;
+		drvr->pno_handler.get_result_info = brcmf_pno_get_result_info;
+		drvr->pno_handler.validate_pfn_results =
+			brcmf_pno_validate_pfn_results;
+		break;
+	}
+	case BRCMF_PNO_VERSION_3: {
+		drvr->pno_handler.version = BRCMF_PNO_VERSION_3;
+		drvr->pno_handler.pno_config = brcmf_pno_config_v3;
+		drvr->pno_handler.get_result_count = brcmf_pno_get_result_count_v123;
+		drvr->pno_handler.get_result_status = brcmf_pno_get_result_status_v123;
+		drvr->pno_handler.get_bucket_map = brcmf_pno_get_bucket_map_v3;
+		drvr->pno_handler.get_min_data_len = brcmf_pno_min_data_len_v3;
+		drvr->pno_handler.get_result_info = brcmf_pno_get_result_info_v3;
+		drvr->pno_handler.validate_pfn_results =
+			brcmf_pno_validate_pfn_results_v3;
+		break;
+	}
+	default:
+		return -EINVAL;
+	}
+	return 0;
 }

@@ -30,7 +30,11 @@
  * SAE: simultaneous authentication of equals
  * FWAUTH: Firmware authenticator
  * DUMP_OBSS: Firmware has capable to dump obss info to support ACS
- * SCAN_V2: Version 2 scan params
+ * PMKID_V2: Version 2 PMKID
+ * PMKID_V3: Version 3 PMKID
+ * EVENT_MSGS_EXT: Event messages extension
+ * JOIN_V1: Version 1 join struct
+ * GCMP: GCMP Cipher suite support
  */
 #define BRCMF_FEAT_LIST \
 	BRCMF_FEAT_DEF(MBSS) \
@@ -55,9 +59,10 @@
 	BRCMF_FEAT_DEF(SAE) \
 	BRCMF_FEAT_DEF(FWAUTH) \
 	BRCMF_FEAT_DEF(DUMP_OBSS) \
-	BRCMF_FEAT_DEF(SCAN_V2) \
 	BRCMF_FEAT_DEF(PMKID_V2) \
-	BRCMF_FEAT_DEF(PMKID_V3)
+	BRCMF_FEAT_DEF(PMKID_V3) \
+	BRCMF_FEAT_DEF(EVENT_MSGS_EXT) \
+	BRCMF_FEAT_DEF(GCMP)
 
 /*
  * Quirks:
@@ -95,8 +100,10 @@ enum brcmf_feat_quirk {
  * brcmf_feat_attach() - determine features and quirks.
  *
  * @drvr: driver instance.
+ *
+ * Return: 0 in case of success, error code otherwise.
  */
-void brcmf_feat_attach(struct brcmf_pub *drvr);
+int brcmf_feat_attach(struct brcmf_pub *drvr);
 
 /**
  * brcmf_feat_debugfs_create() - create debugfs entries.
