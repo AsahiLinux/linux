@@ -45,4 +45,12 @@ config SPMI_MTK_PMIF
 	  This is required for communicating with Mediatek PMICs and
 	  other devices that have the SPMI interface.
 
+config SPMI_APPLE
+	tristate "Apple SoC SPMI Controller platform driver"
+	depends on ARCH_APPLE || COMPILE_TEST
+	help
+	  This enables basic support for the SPMI controller present on
+	  many Apple SoCs, including the t8103 (M1) and t600x
+	  (M1 Pro/Max).
+
 endif
