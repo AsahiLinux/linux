@@ -398,6 +398,8 @@ source "drivers/gpu/drm/solomon/Kconfig"
 
 source "drivers/gpu/drm/sprd/Kconfig"
 
+source "drivers/gpu/drm/apple/Kconfig"
+
 source "drivers/gpu/drm/imagination/Kconfig"
 
 config DRM_HYPERV
