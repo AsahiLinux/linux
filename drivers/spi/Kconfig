@@ -86,6 +86,14 @@ config SPI_AMLOGIC_SPIFC_A1
 	  This enables master mode support for the SPIFC (SPI flash
 	  controller) available in Amlogic A1 (A113L SoC).
 
+config SPI_APPLE
+	tristate "Apple SoC SPI Controller platform driver"
+	depends on ARCH_APPLE || COMPILE_TEST
+	help
+	  This enables support for the SPI controller present on
+	  many Apple SoCs, including the t8103 (M1) and t600x
+	  (M1 Pro/Max).
+
 config SPI_AR934X
 	tristate "Qualcomm Atheros AR934X/QCA95XX SPI controller driver"
 	depends on ATH79 || COMPILE_TEST
