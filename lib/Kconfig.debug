@@ -3044,6 +3044,14 @@ config RUST_KERNEL_DOCTESTS
 
 	  If unsure, say N.
 
+config RUST_EXTRA_LOCKDEP
+	bool "Extra lockdep checking"
+	depends on RUST && PROVE_LOCKING
+	help
+	  Enabled additional lockdep integration with certain Rust types.
+
+	  If unsure, say N.
+
 endmenu # "Rust"
 
 endmenu # Kernel hacking

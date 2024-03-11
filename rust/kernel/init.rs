@@ -36,7 +36,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names)]
-//! use kernel::{prelude::*, sync::Mutex, new_mutex};
+//! use kernel::{prelude::*, sync::Mutex};
 //! # use core::pin::Pin;
 //! #[pin_data]
 //! struct Foo {
@@ -46,7 +46,7 @@
 //! }
 //!
 //! let foo = pin_init!(Foo {
-//!     a <- new_mutex!(42, "Foo::a"),
+//!     a <- Mutex::new_named(42, "Foo::a"),
 //!     b: 24,
 //! });
 //! ```
@@ -56,7 +56,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names)]
-//! # use kernel::{prelude::*, sync::Mutex, new_mutex};
+//! # use kernel::{prelude::*, sync::Mutex};
 //! # use core::pin::Pin;
 //! # #[pin_data]
 //! # struct Foo {
@@ -65,7 +65,7 @@
 //! #     b: u32,
 //! # }
 //! # let foo = pin_init!(Foo {
-//! #     a <- new_mutex!(42, "Foo::a"),
+//! #     a <- Mutex::new_named(42, "Foo::a"),
 //! #     b: 24,
 //! # });
 //! let foo: Result<Pin<Box<Foo>>> = Box::pin_init(foo);
@@ -98,7 +98,7 @@
 //! impl DriverData {
 //!     fn new() -> impl PinInit<Self, Error> {
 //!         try_pin_init!(Self {
-//!             status <- new_mutex!(0, "DriverData::status"),
+//!             status <- Mutex::new_named(0, "DriverData::status"),
 //!             buffer: Box::init(kernel::init::zeroed())?,
 //!         })
 //!     }
@@ -252,7 +252,7 @@ pub mod macros;
 /// }
 ///
 /// stack_pin_init!(let foo = pin_init!(Foo {
-///     a <- new_mutex!(42),
+///     a <- Mutex::new(42),
 ///     b: Bar {
 ///         x: 64,
 ///     },
@@ -304,7 +304,7 @@ macro_rules! stack_pin_init {
 /// }
 ///
 /// stack_try_pin_init!(let foo: Result<Pin<&mut Foo>, AllocError> = pin_init!(Foo {
-///     a <- new_mutex!(42),
+///     a <- Mutex::new(42),
 ///     b: Box::try_new(Bar {
 ///         x: 64,
 ///     })?,
@@ -330,7 +330,7 @@ macro_rules! stack_pin_init {
 /// }
 ///
 /// stack_try_pin_init!(let foo: Pin<&mut Foo> =? pin_init!(Foo {
-///     a <- new_mutex!(42),
+///     a <- Mutex::new(42),
 ///     b: Box::try_new(Bar {
 ///         x: 64,
 ///     })?,
@@ -554,12 +554,12 @@ macro_rules! stack_try_pin_init {
 // module `__internal` inside of `init/__internal.rs`.
 #[macro_export]
 macro_rules! pin_init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)?),
+            @typ($t $(::$p)* $(::<$($generics),*>)?),
             @fields($($fields)*),
             @error(::core::convert::Infallible),
             @data(PinData, use_data),
@@ -611,12 +611,12 @@ macro_rules! pin_init {
 // module `__internal` inside of `init/__internal.rs`.
 #[macro_export]
 macro_rules! try_pin_init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)? ),
+            @typ($t $(::$p)* $(::<$($generics),*>)? ),
             @fields($($fields)*),
             @error($crate::error::Error),
             @data(PinData, use_data),
@@ -625,12 +625,12 @@ macro_rules! try_pin_init {
             @munch_fields($($fields)*),
         )
     };
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }? $err:ty) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)? ),
+            @typ($t $(::$p)* $(::<$($generics),*>)? ),
             @fields($($fields)*),
             @error($err),
             @data(PinData, use_data),
@@ -660,12 +660,12 @@ macro_rules! try_pin_init {
 // module `__internal` inside of `init/__internal.rs`.
 #[macro_export]
 macro_rules! init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)?),
+            @typ($t $(::$p)* $(::<$($generics),*>)?),
             @fields($($fields)*),
             @error(::core::convert::Infallible),
             @data(InitData, /*no use_data*/),
@@ -711,12 +711,12 @@ macro_rules! init {
 // module `__internal` inside of `init/__internal.rs`.
 #[macro_export]
 macro_rules! try_init {
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)?),
+            @typ($t $(::$p)* $(::<$($generics),*>)?),
             @fields($($fields)*),
             @error($crate::error::Error),
             @data(InitData, /*no use_data*/),
@@ -725,12 +725,12 @@ macro_rules! try_init {
             @munch_fields($($fields)*),
         )
     };
-    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+    ($(&$this:ident in)? $t:ident $(::$p:ident)* $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }? $err:ty) => {
         $crate::__init_internal!(
             @this($($this)?),
-            @typ($t $(::<$($generics),*>)?),
+            @typ($t $(::$p)* $(::<$($generics),*>)?),
             @fields($($fields)*),
             @error($err),
             @data(InitData, /*no use_data*/),
@@ -1057,7 +1057,7 @@ where
 /// ```rust
 /// use kernel::{sync::{Arc, Mutex}, init::pin_init_array_from_fn, new_mutex};
 /// let array: Arc<[Mutex<usize>; 1_000]>=
-///     Arc::pin_init(pin_init_array_from_fn(|i| new_mutex!(i))).unwrap();
+///     Arc::pin_init(pin_init_array_from_fn(|i| Mutex::new(i))).unwrap();
 /// assert_eq!(array.len(), 1_000);
 /// ```
 pub fn pin_init_array_from_fn<I, const N: usize, T, E>(
@@ -1115,6 +1115,7 @@ pub trait InPlaceInit<T>: Sized {
     /// type.
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
+    #[track_caller]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
     where
         E: From<AllocError>;
@@ -1123,6 +1124,7 @@ pub trait InPlaceInit<T>: Sized {
     /// type.
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
+    #[track_caller]
     fn pin_init<E>(init: impl PinInit<T, E>) -> error::Result<Pin<Self>>
     where
         Error: From<E>,
@@ -1135,11 +1137,13 @@ pub trait InPlaceInit<T>: Sized {
     }
 
     /// Use the given initializer to in-place initialize a `T`.
+    #[track_caller]
     fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
     where
         E: From<AllocError>;
 
     /// Use the given initializer to in-place initialize a `T`.
+    #[track_caller]
     fn init<E>(init: impl Init<T, E>) -> error::Result<Self>
     where
         Error: From<E>,
@@ -1184,6 +1188,7 @@ impl<T> InPlaceInit<T> for Box<T> {
 
 impl<T> InPlaceInit<T> for UniqueArc<T> {
     #[inline]
+    #[track_caller]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
     where
         E: From<AllocError>,
@@ -1198,6 +1203,7 @@ impl<T> InPlaceInit<T> for UniqueArc<T> {
     }
 
     #[inline]
+    #[track_caller]
     fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
     where
         E: From<AllocError>,
@@ -1261,7 +1267,14 @@ pub unsafe trait PinnedDrop: __internal::HasPinData {
 /// ```rust,ignore
 /// let val: Self = unsafe { core::mem::zeroed() };
 /// ```
-pub unsafe trait Zeroable {}
+pub unsafe trait Zeroable: core::marker::Sized {
+    /// Create a new zeroed T.
+    ///
+    /// Directly returns a zeroed T, analogous to Default::default().
+    fn zeroed() -> Self {
+        unsafe { core::mem::zeroed() }
+    }
+}
 
 /// Create a new zeroed T.
 ///

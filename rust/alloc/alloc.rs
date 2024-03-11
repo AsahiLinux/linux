@@ -335,6 +335,7 @@ unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
     }
 }
 
+#[cfg(not(version("1.72")))]
 // # Allocation error handler
 
 #[cfg(not(no_global_oom_handling))]

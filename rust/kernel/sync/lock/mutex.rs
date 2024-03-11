@@ -13,7 +13,20 @@ use crate::bindings;
 #[macro_export]
 macro_rules! new_mutex {
     ($inner:expr $(, $name:literal)? $(,)?) => {
-        $crate::sync::Mutex::new(
+        $crate::sync::Mutex::new_with_key(
+            $inner, $crate::optional_name!($($name)?), $crate::static_lock_class!())
+    };
+}
+
+/// Creates a [`Mutex`] initialiser with the given name and a newly-created lock class,
+/// given an initialiser for the inner type.
+///
+/// It uses the name if one is given, otherwise it generates one based on the file name and line
+/// number.
+#[macro_export]
+macro_rules! new_mutex_pinned {
+    ($inner:expr $(, $name:literal)? $(,)?) => {
+        $crate::sync::Mutex::pin_init_with_key(
             $inner, $crate::optional_name!($($name)?), $crate::static_lock_class!())
     };
 }

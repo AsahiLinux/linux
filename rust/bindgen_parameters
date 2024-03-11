@@ -24,3 +24,7 @@
 # These functions use the `__preserve_most` calling convention, which neither bindgen
 # nor Rust currently understand, and which Clang currently declares to be unstable.
 --blocklist-function __list_.*_report
+# CONFIG_LIST_HARDENED triggers "Invalid or unknown abi 14" for these
+--blocklist-function __list_valid_slowpath
+--blocklist-function __list_add_valid_or_report
+--blocklist-function __list_del_entry_valid_or_report
