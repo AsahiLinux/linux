@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config DRM_ACCEL_ANE
+	tristate "Apple NPU (Neural Processing Unit"
+	depends on DRM_ACCEL
+
