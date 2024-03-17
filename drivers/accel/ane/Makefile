@@ -1,23 +1,9 @@
-LD = /usr/bin/ld.lld
-objs-m := ane.o ./src/ane_drv.o ./src/ane_tm.o
-KERNELDIR := /lib/modules/$(shell uname -r)
-PWD := $(shell pwd)
 
-prepare:
-default:
-	sudo make -C $(KERNELDIR) M=$(PWD) prepare O=$(PWD)
-	sudo make -C $(KERNELDIR) M=$(PWD) config O=$(PWD)
-	sudo make -C $(KERNELDIR) M=$(PWD) modules O=$(PWD)
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Makefile for HabanaLabs AI accelerators driver
+#
 
-headers_install:
-	cp -r src/headers/* $(KERNELDIR)/include/drm
-install:
-	sudo modprobe ane
-	sudo chmod 666 /dev/accel/accel0
+obj-$(CONFIG_DRM_ACCEL_ANE) := ane.o
 
-uninstall:
-	sudo modprobe -r ane
-
-clean:
-	make -C $(KERNELDIR) M=$(PWD) clean LD=$(LD) 
-
+ane-y += ane_drv.o and_tm.o

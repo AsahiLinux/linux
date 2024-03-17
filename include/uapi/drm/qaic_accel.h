@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+/* SPDX-License-Identifier: GPL-3.0 WITH Linux-syscall-note
  *
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
@@ -9,9 +9,6 @@
 
 #include "drm.h"
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 /* The length(4K) includes len and count fields of qaic_manage_msg */
 #define QAIC_MANAGE_MAX_MSG_LENGTH SZ_4K
@@ -402,9 +399,5 @@ struct qaic_detach_slice {
 #define DRM_IOCTL_QAIC_WAIT_BO			DRM_IOW(DRM_COMMAND_BASE + DRM_QAIC_WAIT_BO, struct qaic_wait)
 #define DRM_IOCTL_QAIC_PERF_STATS_BO		DRM_IOWR(DRM_COMMAND_BASE + DRM_QAIC_PERF_STATS_BO, struct qaic_perf_stats)
 #define DRM_IOCTL_QAIC_DETACH_SLICE_BO		DRM_IOW(DRM_COMMAND_BASE + DRM_QAIC_DETACH_SLICE_BO, struct qaic_detach_slice)
-
-#if defined(__cplusplus)
-}
-#endif
 
 #endif /* QAIC_ACCEL_H_ */

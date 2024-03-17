@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only OR MIT
-/* Copyright 2022 Eileen Yoon <eyn@gmx.com> */
+/* Originally by Eileen Yoon;modified by Yunjin Lee */
 
 #include <linux/interrupt.h>
 #include <linux/iommu.h>
@@ -21,7 +21,7 @@
 #define KRN_BUF_BDX 1
 
 struct ane_bo {
-	struct drm_gem_object base;
+	struct drm_gem_object base; 
 	struct drm_mm_node *mm;
 	u32 npages;
 	struct page **pages;
@@ -40,7 +40,9 @@ static struct ane_bo *bo_lookup(struct drm_file *file, u32 handle)
 
 static void ane_iommu_invalidate_tlb(struct ane_device *ane)
 {
-	mutex_lock(&ane->iommu_lock);
+	mutex_lock(&ane->iommu_lock); /*invalidate TLB, 
+					please don't remove mutex
+					*/
 
 	iommu_flush_iotlb_all(ane->domain);
 
@@ -70,7 +72,7 @@ static int ane_iommu_map_pages(struct ane_device *ane, struct ane_bo *bo)
 					 bo->npages << ane->shift,
 					 1UL << ane->shift, 0, 0);
 	if (err < 0) {
-		dev_err(ane->dev, "out of ANE space: %d\n", err);
+		dev_err(ane->dev, "out of ANE space: try smaller memory allocation(or small AI models) %d\n", err);
 		goto unlock;
 	}
 
@@ -83,7 +85,7 @@ static int ane_iommu_map_pages(struct ane_device *ane, struct ane_bo *bo)
 				1UL << ane->shift, IOMMU_READ | IOMMU_WRITE,
 				GFP_KERNEL);
 		if (err < 0) {
-			dev_err(ane->dev, "iommu_map failed at 0x%llx", iova);
+			dev_err(ane->dev, "iommu_map error at 0x%llx, please report this error towards https://github.com/yoonjin2/linux", iova);
 			while (i-- > 0) {
 				iommu_unmap(ane->domain,
 					    bo->iova + (i << ane->shift),
@@ -94,7 +96,6 @@ static int ane_iommu_map_pages(struct ane_device *ane, struct ane_bo *bo)
 	}
 
 	mutex_unlock(&ane->iommu_lock);
-
 	return 0;
 
 remove:
@@ -230,6 +231,7 @@ static int ane_submit(struct drm_device *drm, void *data, struct drm_file *file)
 	struct drm_ane_submit *args = data;
 	struct ane_bo *bo;
 	int err;
+	int *bdx;
 
 	struct ane_request req;
 	memset(&req, 0, sizeof(req));
@@ -245,14 +247,14 @@ static int ane_submit(struct drm_device *drm, void *data, struct drm_file *file)
 	req.td_size = args->td_size;
 	req.td_count = args->td_count;
 
-	for (int bdx = 0; bdx < ANE_TILE_COUNT; bdx++) {
-		if (args->handles[bdx]) {
-			bo = bo_lookup(file, args->handles[bdx]);
+	for (*bdx = 0;  < ANE_TILE_COUNT; *bdx++) {
+		if (args->handles[*bdx]) {
+			bo = bo_lookup(file, args->handles[*bdx]);
 			if (!bo || !bo->iova ||
-			    ((bdx == CMD_BUF_BDX) &&
+			    ((*bdx == CMD_BUF_BDX) &&
 			     (args->tsk_size >= (bo->npages << ane->shift))))
 				return -EINVAL;
-			req.bar[bdx] = lower_32_bits(bo->iova);
+			req.bar[*bdx] = lower_32_bits(bo->iova);
 		}
 	}
 
@@ -393,7 +395,7 @@ static const struct drm_driver ane_drm_driver = {
 	.fops = &ane_drm_fops,
 	.name = "ane",
 	.desc = "Apple Neural Engine driver",
-	.date = "20230103",
+	.date = "20240314",
 };
 
 static int ane_iommu_domain_init(struct ane_device *ane)
@@ -666,6 +668,6 @@ static struct platform_driver ane_platform_driver = {
 
 module_platform_driver(ane_platform_driver);
 
-MODULE_AUTHOR("Eileen Yoon <eyn@gmx.com>");
-MODULE_DESCRIPTION("Apple Neural Engine driver");
-MODULE_LICENSE("Dual MIT/GPL");
+MODULE_AUTHOR("Eileen Yoon <eyn@gmx.com>;modified by Yunjin Lee");
+MODULE_DESCRIPTION("Apple NPU(Neural Processing Unit)");
+MODULE_LICENSE("GPL");

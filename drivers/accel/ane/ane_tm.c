@@ -69,11 +69,11 @@ void ane_tm_enable(struct ane_device *ane)
 
 int ane_tm_enqueue(struct ane_device *ane, struct ane_request *req)
 {
-	int qid = req->qid;
+	int qid = req->qid, bdx=0;
 
 	tq_write32(ane, TQ_STATUS(qid), 0x1);
 
-	for (int bdx = 0; bdx < ANE_TILE_COUNT; bdx++) {
+	for (bdx = 0; bdx < ANE_TILE_COUNT; bdx++) {
 		tq_write32(ane, TQ_BAR1(qid, bdx), req->bar[bdx]);
 	}
 

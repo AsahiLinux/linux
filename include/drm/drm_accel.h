@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-3.0 WITH Linux-syscall-note
  *
  * Copyright 2022 HabanaLabs, Ltd.
  * All Rights Reserved.
