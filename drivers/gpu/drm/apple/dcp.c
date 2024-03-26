@@ -329,6 +329,12 @@ static irqreturn_t dcp_dp2hdmi_hpd(int irq, void *data)
 	 */
 	dev_info(dcp->dev, "DP2HDMI HPD irq, connected:%d\n", connected);
 
+	if (connected) {
+		msleep(500);
+		connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+		dev_info(dcp->dev, "DP2HDMI HPD irq, 500ms debounce: connected:%d\n", connected);
+	}
+
 	if (connected)
 		dcp_dptx_connect(dcp, 0);
 
