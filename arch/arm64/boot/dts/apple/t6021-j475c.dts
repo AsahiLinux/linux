@@ -92,8 +92,14 @@
 &dcpext0_mbox {
 	status = "okay";
 };
+&dpaudio1 {
+	status = "okay";
+};
 &dcpext0 {
 #else
+&dpaudio0 {
+	status = "okay";
+};
 &dcp {
 #endif
 	status = "okay";
