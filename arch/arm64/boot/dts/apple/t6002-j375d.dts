@@ -21,6 +21,10 @@
 	};
 };
 
+&dpaudio0 {
+	status = "okay";
+};
+
 &sound {
 	compatible = "apple,j375-macaudio", "apple,macaudio";
 	model = "Mac Studio J375";
