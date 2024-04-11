@@ -45,6 +45,7 @@
 #include <linux/memory_ordering_model.h>
 
 #include <asm/alternative.h>
+#include <asm/apple_cpufeature.h>
 #include <asm/arch_timer.h>
 #include <asm/compat.h>
 #include <asm/cpufeature.h>
@@ -733,6 +734,10 @@ static inline void debug_switch_state(void)
 #ifdef CONFIG_ARM64_MEMORY_MODEL_CONTROL
 int arch_prctl_mem_model_get(struct task_struct *t)
 {
+	if (alternative_has_cap_unlikely(ARM64_HAS_TSO_APPLE) &&
+		t->thread.actlr & ACTLR_APPLE_TSO)
+		return PR_SET_MEM_MODEL_TSO;
+
 	return PR_SET_MEM_MODEL_DEFAULT;
 }
 
@@ -741,6 +746,23 @@ int arch_prctl_mem_model_set(struct task_struct *t, unsigned long val)
 	if (alternative_has_cap_unlikely(ARM64_HAS_TSO_FIXED) &&
 	    val == PR_SET_MEM_MODEL_TSO)
 		return 0;
+
+	if (alternative_has_cap_unlikely(ARM64_HAS_TSO_APPLE)) {
+		WARN_ON(!system_has_actlr_state());
+
+		switch (val) {
+		case PR_SET_MEM_MODEL_TSO:
+			t->thread.actlr |= ACTLR_APPLE_TSO;
+			break;
+		case PR_SET_MEM_MODEL_DEFAULT:
+			t->thread.actlr &= ~ACTLR_APPLE_TSO;
+			break;
+		default:
+			return -EINVAL;
+		}
+		write_sysreg(t->thread.actlr, actlr_el1);
+		return 0;
+	}
 
 	if (val == PR_SET_MEM_MODEL_DEFAULT)
 		return 0;

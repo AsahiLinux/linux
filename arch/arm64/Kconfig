@@ -2436,6 +2436,7 @@ endif # ARM64_PSEUDO_NMI
 
 config ARM64_MEMORY_MODEL_CONTROL
 	bool "Runtime memory model control"
+	select ARM64_ACTLR_STATE
 	help
 	  Some ARM64 CPUs support runtime switching of the CPU memory
 	  model, which can be useful to emulate other CPU architectures
