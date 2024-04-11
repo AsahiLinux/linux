@@ -1079,6 +1079,10 @@ static inline bool cpu_has_lpa2(void)
 #endif
 }
 
+void __init init_cpucap_indirect_list_impdef(void);
+void __init init_cpucap_indirect_list_from_array(const struct arm64_cpu_capabilities *caps);
+bool cpufeature_matches(u64 reg, const struct arm64_cpu_capabilities *entry);
+
 #endif /* __ASSEMBLER__ */
 
 #endif
