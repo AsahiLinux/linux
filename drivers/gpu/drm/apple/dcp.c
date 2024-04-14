@@ -386,10 +386,17 @@ int dcp_start(struct platform_device *pdev)
 				 ret);
 
 		ret = dptxep_init(dcp);
-		if (ret)
+		if (ret) {
 			dev_warn(dcp->dev, "Failed to start DPTX endpoint: %d\n",
 				 ret);
-		else if (dcp->dptxport[0].enabled) {
+#ifdef DCP_DPTX_DISCONNECT_ON_INIT
+		/*
+		 * This disconnect / connect cycle on init is only necessary
+		 * when using dcp0 on j473, j474s and presumedly j475c.
+		 * Since dcp0 is not used at the moment let's avoid this
+		 * since it is possibly the cause for startup issues.
+		 */
+		} else if (dcp->dptxport[0].enabled) {
 			bool connected;
 			/* force disconnect on start - necessary if the display
 			 * is already up from m1n1
@@ -404,10 +411,11 @@ int dcp_start(struct platform_device *pdev)
 			// necessary on j473/j474 but not on j314c
 			if (connected)
 				dcp_dptx_connect(dcp, 0);
+#endif
 		}
-	} else if (dcp->phy)
+	} else if (dcp->phy) {
 		dev_warn(dcp->dev, "OS firmware incompatible with dptxport EP\n");
-
+	}
 	ret = iomfb_start_rtkit(dcp);
 	if (ret)
 		dev_err(dcp->dev, "Failed to start IOMFB endpoint: %d\n", ret);
