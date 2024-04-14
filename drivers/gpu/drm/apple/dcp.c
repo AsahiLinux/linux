@@ -371,14 +371,6 @@ int dcp_start(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dcp->dev, "Failed to start system endpoint: %d\n", ret);
 
-#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
-	if (!noaudio) {
-		ret = avep_init(dcp);
-		if (ret)
-			dev_warn(dcp->dev, "Failed to start AV endpoint: %d", ret);
-	}
-#endif
-
 	if (dcp->phy && dcp->fw_compat >= DCP_FIRMWARE_V_13_5) {
 		ret = ibootep_init(dcp);
 		if (ret)
@@ -419,6 +411,15 @@ int dcp_start(struct platform_device *pdev)
 	ret = iomfb_start_rtkit(dcp);
 	if (ret)
 		dev_err(dcp->dev, "Failed to start IOMFB endpoint: %d\n", ret);
+
+#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
+	if (!noaudio) {
+		ret = avep_init(dcp);
+		if (ret)
+			dev_warn(dcp->dev, "Failed to start AV endpoint: %d", ret);
+		ret = 0;
+	}
+#endif
 
 	return ret;
 }
