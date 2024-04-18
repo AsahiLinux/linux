@@ -150,8 +150,10 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 		goto done;
 
 	state = drm_atomic_state_alloc(crtc->dev);
-	if (!state)
-		return -ENOMEM;
+	if (!state) {
+		ret = -ENOMEM;
+		goto done;
+	}
 
 	state->acquire_ctx = &ctx;
 	crtc_state = drm_atomic_get_crtc_state(state, crtc);
