@@ -7,6 +7,7 @@
 #include <linux/kconfig.h>
 #include <linux/rwsem.h>
 #include <linux/types.h>
+#include <linux/workqueue.h>
 
 #include "audio.h"
 #include "afk.h"
@@ -51,9 +52,10 @@ struct audiosrv_data {
 	bool plugged;
 	struct mutex plug_lock;
 
-	struct completion init_completion;
 	struct apple_epic_service *srv;
 	struct rw_semaphore srv_rwsem;
+	/* Workqueue for starting the audio service */
+	struct work_struct start_av_service_wq;
 
 	struct dcp_av_audio_cmds cmds;
 };
@@ -75,9 +77,9 @@ static void av_audiosrv_init(struct apple_epic_service *service, const char *nam
 	asrv->srv = service;
 	up_write(&asrv->srv_rwsem);
 
-	complete(&asrv->init_completion);
 	asrv->plugged = true;
 	mutex_unlock(&asrv->plug_lock);
+	schedule_work(&asrv->start_av_service_wq);
 }
 
 static void av_audiosrv_teardown(struct apple_epic_service *service)
@@ -280,6 +282,37 @@ static const struct apple_epic_service_ops avep_ops[] = {
 	{}
 };
 
+static void av_work_service_start(struct work_struct *work)
+{
+	int ret;
+	struct audiosrv_data *audiosrv_data;
+	struct apple_dcp *dcp;
+
+	audiosrv_data = container_of(work, struct audiosrv_data, start_av_service_wq);
+	if (!audiosrv_data->srv ||
+	    !audiosrv_data->srv->ep ||
+	    !audiosrv_data->srv->ep->dcp) {
+		pr_err("%s: dcp: av: NULL ptr during startup\n", __func__);
+		return;
+	}
+	dcp = audiosrv_data->srv->ep->dcp;
+
+	/* open AV audio service */
+	dev_info(dcp->dev, "%s: starting audio service\n", __func__);
+	ret = afk_service_call(dcp->audiosrv->srv, 0, dcp->audiosrv->cmds.open,
+			       NULL, 0, 32, NULL, 0, 32);
+	if (ret) {
+		dev_err(dcp->dev, "error opening audio service: %d\n", ret);
+		return;
+	}
+
+	mutex_lock(&dcp->audiosrv->plug_lock);
+	if (dcp->audiosrv->hotplug_cb)
+		dcp->audiosrv->hotplug_cb(dcp->audiosrv->audio_dev,
+					  dcp->audiosrv->plugged);
+	mutex_unlock(&dcp->audiosrv->plug_lock);
+}
+
 int avep_init(struct apple_dcp *dcp)
 {
 	struct dcp_audio_pdata *audio_pdata;
@@ -305,7 +338,7 @@ int avep_init(struct apple_dcp *dcp)
 		dev_err(dcp->dev, "Audio not supported for firmware\n");
 		return -ENODEV;
 	}
-	init_completion(&audiosrv_data->init_completion);
+	INIT_WORK(&audiosrv_data->start_av_service_wq, av_work_service_start);
 
 	dcp->audiosrv = audiosrv_data;
 
@@ -330,28 +363,4 @@ int avep_init(struct apple_dcp *dcp)
 		return PTR_ERR(dcp->avep);
 	dcp->avep->debugfs_entry = dcp->ep_debugfs[AV_ENDPOINT - 0x20];
 	return afk_start(dcp->avep);
-
-	ret = wait_for_completion_timeout(&dcp->audiosrv->init_completion,
-					  msecs_to_jiffies(500));
-	if (ret < 0) {
-		dev_err(dcp->dev, "error waiting on audio service init: %d\n", ret);
-		return ret;
-	} else if (!ret) {
-		dev_err(dcp->dev, "timeout while waiting for audio service init\n");
-		return -ETIMEDOUT;
-	}
-
-	/* open AV audio service */
-	ret = afk_service_call(dcp->audiosrv->srv, 0, dcp->audiosrv->cmds.open,
-			       NULL, 0, 32, NULL, 0, 32);
-	if (ret) {
-		dev_err(dcp->dev, "error opening audio service: %d\n", ret);
-		return ret;
-	}
-
-	mutex_lock(&dcp->audiosrv->plug_lock);
-	if (dcp->audiosrv->hotplug_cb)
-		dcp->audiosrv->hotplug_cb(dcp->audiosrv->audio_dev,
-					  dcp->audiosrv->plugged);
-	mutex_unlock(&dcp->audiosrv->plug_lock);
 }
