@@ -62,4 +62,8 @@ int dptxep_init(struct apple_dcp *dcp);
 int ibootep_init(struct apple_dcp *dcp);
 int avep_init(struct apple_dcp *dcp);
 
+
+void __init dcp_audio_register(void);
+void __exit dcp_audio_unregister(void);
+
 #endif
