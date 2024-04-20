@@ -1134,7 +1134,27 @@ static struct platform_driver apple_platform_driver = {
 	},
 };
 
-drm_module_platform_driver(apple_platform_driver);
+static int __init apple_dcp_register(void)
+{
+	if (drm_firmware_drivers_only())
+		return -ENODEV;
+
+#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
+	dcp_audio_register();
+#endif
+	return platform_driver_register(&apple_platform_driver);
+}
+
+static void __exit apple_dcp_unregister(void)
+{
+	platform_driver_unregister(&apple_platform_driver);
+#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
+	dcp_audio_unregister();
+#endif
+}
+
+module_init(apple_dcp_register);
+module_exit(apple_dcp_unregister);
 
 MODULE_AUTHOR("Asahi Linux contributors");
 MODULE_DESCRIPTION("Apple Display Controller DRM driver");

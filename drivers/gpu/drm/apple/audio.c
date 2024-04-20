@@ -600,9 +600,13 @@ static struct platform_driver dcpaud_driver = {
 	.remove = dcpaud_remove,
 };
 
-module_platform_driver(dcpaud_driver);
+void __init dcp_audio_register(void)
+{
+        platform_driver_register(&dcpaud_driver);
+}
 
-MODULE_AUTHOR("Martin Povišer <povik+lin@cutebit.org>");
-MODULE_DESCRIPTION("Apple DCP HDMI Audio Driver");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:" DRV_NAME);
+void __exit dcp_audio_unregister(void)
+{
+        platform_driver_unregister(&dcpaud_driver);
+}
+
