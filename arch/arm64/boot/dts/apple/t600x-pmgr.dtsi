@@ -826,7 +826,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(sio_cpu);
-		power-domains = <&DIE_NODE(ps_sio)>;
+		power-domains = <&DIE_NODE(ps_sio) &DIE_NODE(ps_uart_p) &DIE_NODE(ps_spi_p) &DIE_NODE(ps_audio_p)>;
 	};
 
 	DIE_NODE(ps_fpwm0): power-controller@190 {
