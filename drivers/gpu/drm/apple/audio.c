@@ -11,9 +11,12 @@
 
 #define DEBUG
 
+#include <linux/component.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/of_dma.h>
+#include <linux/of_graph.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm.h>
@@ -22,17 +25,16 @@
 #include <sound/jack.h>
 
 #include "av.h"
+#include "dcp.h"
 #include "audio.h"
 #include "parser.h"
 
 #define DCPAUD_ELEMENTS_MAXSIZE		16384
 #define DCPAUD_PRODUCTATTRS_MAXSIZE	1024
 
-#define DRV_NAME "dcp-hdmi-audio"
-
 struct dcp_audio {
 	struct device *dev;
-	struct dcp_audio_pdata *pdata;
+	struct device *dcp_dev;
 	struct dma_chan *chan;
 	struct snd_card *card;
 	struct snd_jack *jack;
@@ -72,12 +74,12 @@ static int dcpaud_read_remote_info(struct dcp_audio *dcpaud)
 {
 	int ret;
 
-	ret = dcp_audiosrv_get_elements(dcpaud->pdata->dcp_dev, dcpaud->elements,
+	ret = dcp_audiosrv_get_elements(dcpaud->dcp_dev, dcpaud->elements,
 					DCPAUD_ELEMENTS_MAXSIZE);
 	if (ret < 0)
 		return ret;
 
-	ret = dcp_audiosrv_get_product_attrs(dcpaud->pdata->dcp_dev, dcpaud->productattrs,
+	ret = dcp_audiosrv_get_product_attrs(dcpaud->dcp_dev, dcpaud->productattrs,
 					     DCPAUD_PRODUCTATTRS_MAXSIZE);
 	if (ret < 0)
 		return ret;
@@ -128,7 +130,7 @@ static void dcpaud_consult_elements(struct dcp_audio *dcpaud,
 {
 	struct dcp_sound_format_mask sieve;
 	struct dcp_parse_ctx elements = {
-		.dcp = dev_get_drvdata(dcpaud->pdata->dcp_dev),
+		.dcp = dev_get_drvdata(dcpaud->dcp_dev),
 		.blob = dcpaud->elements + 4,
 		.len = DCPAUD_ELEMENTS_MAXSIZE - 4,
 		.pos = 0,
@@ -145,7 +147,7 @@ static int dcpaud_select_cookie(struct dcp_audio *dcpaud,
 {
 	struct dcp_sound_format_mask sieve;
 	struct dcp_parse_ctx elements = {
-		.dcp = dev_get_drvdata(dcpaud->pdata->dcp_dev),
+		.dcp = dev_get_drvdata(dcpaud->dcp_dev),
 		.blob = dcpaud->elements + 4,
 		.len = DCPAUD_ELEMENTS_MAXSIZE - 4,
 		.pos = 0,
@@ -317,7 +319,7 @@ static int dcp_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (!dcpaud_connection_up(dcpaud))
 		return 0;
 
-	return dcp_audiosrv_unprepare(dcpaud->pdata->dcp_dev);
+	return dcp_audiosrv_unprepare(dcpaud->dcp_dev);
 }
 
 static int dcp_pcm_prepare(struct snd_pcm_substream *substream)
@@ -327,7 +329,7 @@ static int dcp_pcm_prepare(struct snd_pcm_substream *substream)
 	if (!dcpaud_connection_up(dcpaud))
 		return -ENXIO;
 
-	return dcp_audiosrv_prepare(dcpaud->pdata->dcp_dev,
+	return dcp_audiosrv_prepare(dcpaud->dcp_dev,
 				    &dcpaud->selected_cookie);
 }
 
@@ -342,7 +344,7 @@ static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (!dcpaud_connection_up(dcpaud))
 			return -ENXIO;
 
-		ret = dcp_audiosrv_startlink(dcpaud->pdata->dcp_dev,
+		ret = dcp_audiosrv_startlink(dcpaud->dcp_dev,
 					     &dcpaud->selected_cookie);
 		if (ret < 0)
 			return ret;
@@ -367,7 +369,7 @@ static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		ret = dcp_audiosrv_stoplink(dcpaud->pdata->dcp_dev);
+		ret = dcp_audiosrv_stoplink(dcpaud->dcp_dev);
 		if (ret < 0)
 			return ret;
 		break;
@@ -431,7 +433,7 @@ static int dcpaud_create_pcm(struct dcp_audio *dcpaud)
 	struct dma_chan *chan;
 	int ret;
 
-	chan = of_dma_request_slave_channel(dcpaud->pdata->dpaudio_node, "tx");
+	chan = of_dma_request_slave_channel(dcpaud->dev->of_node, "tx");
 	if (IS_ERR_OR_NULL(chan)) {
 		if (!chan)
 			return -EINVAL;
@@ -461,9 +463,8 @@ static int dcpaud_create_pcm(struct dcp_audio *dcpaud)
 	return 0;
 }
 
-static void dcpaud_report_hotplug(struct device *dev, bool connected)
+static void dcpaud_report_hotplug(struct dcp_audio *dcpaud, bool connected)
 {
-	struct dcp_audio *dcpaud = dev_get_drvdata(dev);
 	struct snd_pcm_substream *substream = dcpaud->substream;
 
 	mutex_lock(&dcpaud->data_lock);
@@ -518,30 +519,44 @@ static void dcpaud_expose_debugfs_blob(struct dcp_audio *dcpaud, const char *nam
 static void dcpaud_expose_debugfs_blob(struct dcp_audio *dcpaud, const char *name, void *base, size_t size) {}
 #endif
 
-static int dcpaud_probe(struct platform_device *pdev)
+void dcpaud_connect(struct platform_device *pdev, bool connected)
 {
-	struct device *dev = &pdev->dev;
-	struct dcp_audio_pdata *pdata = dev->platform_data;
-	struct dcp_audio *dcpaud;
+	struct dcp_audio *dcpaud = platform_get_drvdata(pdev);
+	dcpaud_report_hotplug(dcpaud, connected);
+}
+
+void dcpaud_disconnect(struct platform_device *pdev)
+{
+	struct dcp_audio *dcpaud = platform_get_drvdata(pdev);
+	dcpaud_report_hotplug(dcpaud, false);
+}
+
+static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
+{
+	struct dcp_audio *dcpaud = dev_get_drvdata(dev);
+	struct device_node *endpoint, *dcp_node = NULL;
+	struct platform_device *dcp_pdev;
 	int ret;
 
-	dcpaud = devm_kzalloc(dev, sizeof(*dcpaud), GFP_KERNEL);
-	if (!dcpaud)
-		return -ENOMEM;
-	dcpaud->dev = dev;
-	dcpaud->pdata = pdata;
-	mutex_init(&dcpaud->data_lock);
-	platform_set_drvdata(pdev, dcpaud);
+	/* find linked DCP instance */
+	endpoint = of_graph_get_endpoint_by_regs(dev->of_node, 0, 0);
+	if (endpoint) {
+		dcp_node = of_graph_get_remote_port_parent(endpoint);
+		of_node_put(endpoint);
+	}
+	if (!dcp_node || !of_device_is_available(dcp_node)) {
+		of_node_put(dcp_node);
+		dev_info(dev, "No audio support\n");
+		return 0;
+	}
 
-	dcpaud->elements = devm_kzalloc(dev, DCPAUD_ELEMENTS_MAXSIZE,
-					GFP_KERNEL);
-	if (!dcpaud->elements)
-		return -ENOMEM;
-
-	dcpaud->productattrs = devm_kzalloc(dev, DCPAUD_PRODUCTATTRS_MAXSIZE,
-					    GFP_KERNEL);
-	if (!dcpaud->productattrs)
-		return -ENOMEM;
+	dcp_pdev = of_find_device_by_node(dcp_node);
+	of_node_put(dcp_node);
+	if (!dcp_pdev) {
+		dev_info(dev, "No DP/HDMI audio device not ready\n");
+		return 0;
+	}
+	dcpaud->dcp_dev = &dcp_pdev->dev;
 
 	ret = snd_card_new(dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
 			   THIS_MODULE, 0, &dcpaud->card);
@@ -573,8 +588,6 @@ static int dcpaud_probe(struct platform_device *pdev)
 	dcpaud_expose_debugfs_blob(dcpaud, "product_attrs", dcpaud->productattrs,
 				   DCPAUD_PRODUCTATTRS_MAXSIZE);
 
-	dcp_audiosrv_set_hotplug_cb(pdata->dcp_dev, dev, dcpaud_report_hotplug);
-
 	return 0;
 
 err_free_card:
@@ -582,22 +595,70 @@ err_free_card:
 	return ret;
 }
 
-static int dcpaud_remove(struct platform_device *dev)
+static void dcpaud_comp_unbind(struct device *dev, struct device *main,
+			       void *data)
 {
-	struct dcp_audio *dcpaud = platform_get_drvdata(dev);
+	struct dcp_audio *dcpaud = dev_get_drvdata(dev);
 
-	dcp_audiosrv_set_hotplug_cb(dcpaud->pdata->dcp_dev, NULL, NULL);
-	snd_card_free(dcpaud->card);
-
-	return 0;
+	/* snd_card_free_when_closed() checks for NULL */
+	snd_card_free_when_closed(dcpaud->card);
 }
+
+static const struct component_ops dcpaud_comp_ops = {
+	.bind	= dcpaud_comp_bind,
+	.unbind	= dcpaud_comp_unbind,
+};
+
+static int dcpaud_probe(struct platform_device *pdev)
+{
+	struct dcp_audio *dcpaud;
+
+	dcpaud = devm_kzalloc(&pdev->dev, sizeof(*dcpaud), GFP_KERNEL);
+	if (!dcpaud)
+		return -ENOMEM;
+
+	dcpaud->elements = devm_kzalloc(&pdev->dev, DCPAUD_ELEMENTS_MAXSIZE,
+					GFP_KERNEL);
+	if (!dcpaud->elements)
+		return -ENOMEM;
+
+	dcpaud->productattrs = devm_kzalloc(&pdev->dev, DCPAUD_PRODUCTATTRS_MAXSIZE,
+					    GFP_KERNEL);
+	if (!dcpaud->productattrs)
+		return -ENOMEM;
+
+	dcpaud->dev = &pdev->dev;
+	mutex_init(&dcpaud->data_lock);
+	platform_set_drvdata(pdev, dcpaud);
+
+	return component_add(&pdev->dev, &dcpaud_comp_ops);
+}
+
+static void dcpaud_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &dcpaud_comp_ops);
+}
+
+static void dcpaud_shutdown(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &dcpaud_comp_ops);
+}
+
+// static DEFINE_SIMPLE_DEV_PM_OPS(dcpaud_pm_ops, dcpaud_suspend, dcpaud_resume);
+
+static const struct of_device_id dcpaud_of_match[] = {
+	{ .compatible = "apple,dpaudio" },
+	{}
+};
 
 static struct platform_driver dcpaud_driver = {
 	.driver = {
-		.name = DRV_NAME,
+		.name = "dcp-dp-audio",
+		.of_match_table      = dcpaud_of_match,
 	},
-	.probe = dcpaud_probe,
-	.remove = dcpaud_remove,
+	.probe		= dcpaud_probe,
+	.remove		= dcpaud_remove,
+	.shutdown	= dcpaud_shutdown,
 };
 
 void __init dcp_audio_register(void)

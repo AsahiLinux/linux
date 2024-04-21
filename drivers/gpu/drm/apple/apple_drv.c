@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_graph.h>
 #include <linux/of_platform.h>
 
 #include <drm/drm_atomic.h>
@@ -575,7 +576,7 @@ const struct component_master_ops apple_drm_ops = {
 static int add_dcp_components(struct device *dev,
 			      struct component_match **matchptr)
 {
-	struct device_node *np;
+	struct device_node *np, *endpoint, *port;
 	int num = 0;
 
 	for_each_matching_node(np, apple_dcp_id_tbl) {
@@ -583,6 +584,23 @@ static int add_dcp_components(struct device *dev,
 			drm_of_component_match_add(dev, matchptr,
 						   component_compare_of, np);
 			num++;
+			for_each_endpoint_of_node(np, endpoint) {
+				port = of_graph_get_remote_port_parent(endpoint);
+				if (!port)
+					continue;
+
+#if !IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
+				if (of_device_is_compatible(port, "apple,dpaudio")) {
+					of_node_put(port);
+					continue;
+				}
+#endif
+				if (of_device_is_available(port))
+					drm_of_component_match_add(dev, matchptr,
+							   component_compare_of,
+							   port);
+				of_node_put(port);
+			}
 		}
 		of_node_put(np);
 	}
