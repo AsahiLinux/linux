@@ -5,6 +5,8 @@
 
 #include <linux/debugfs.h>
 #include <linux/kconfig.h>
+#include <linux/of_graph.h>
+#include <linux/of_platform.h>
 #include <linux/rwsem.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
@@ -47,8 +49,7 @@ static const struct dcp_av_audio_cmds dcp_av_audio_cmds_v13_5 = {
 };
 
 struct audiosrv_data {
-	struct device *audio_dev;
-	dcp_audio_hotplug_callback hotplug_cb;
+	struct platform_device *audio_dev;
 	bool plugged;
 	struct mutex plug_lock;
 
@@ -94,27 +95,11 @@ static void av_audiosrv_teardown(struct apple_epic_service *service)
 	up_write(&asrv->srv_rwsem);
 
 	asrv->plugged = false;
-	if (asrv->hotplug_cb)
-		asrv->hotplug_cb(asrv->audio_dev, false);
+	if (asrv->audio_dev)
+		dcpaud_disconnect(asrv->audio_dev);
 
 	mutex_unlock(&asrv->plug_lock);
 }
-
-void dcp_audiosrv_set_hotplug_cb(struct device *dev, struct device *audio_dev,
-								 dcp_audio_hotplug_callback cb)
-{
-	struct apple_dcp *dcp = dev_get_drvdata(dev);
-	struct audiosrv_data *asrv = dcp->audiosrv;
-
-	mutex_lock(&asrv->plug_lock);
-	asrv->audio_dev = audio_dev;
-	asrv->hotplug_cb = cb;
-
-	if (cb)
-		cb(audio_dev, asrv->plugged);
-	mutex_unlock(&asrv->plug_lock);
-}
-EXPORT_SYMBOL_GPL(dcp_audiosrv_set_hotplug_cb);
 
 int dcp_audiosrv_prepare(struct device *dev, struct dcp_sound_cookie *cookie)
 {
@@ -130,7 +115,6 @@ int dcp_audiosrv_prepare(struct device *dev, struct dcp_sound_cookie *cookie)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_audiosrv_prepare);
 
 int dcp_audiosrv_startlink(struct device *dev, struct dcp_sound_cookie *cookie)
 {
@@ -146,7 +130,6 @@ int dcp_audiosrv_startlink(struct device *dev, struct dcp_sound_cookie *cookie)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_audiosrv_startlink);
 
 int dcp_audiosrv_stoplink(struct device *dev)
 {
@@ -161,7 +144,6 @@ int dcp_audiosrv_stoplink(struct device *dev)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_audiosrv_stoplink);
 
 int dcp_audiosrv_unprepare(struct device *dev)
 {
@@ -176,7 +158,6 @@ int dcp_audiosrv_unprepare(struct device *dev)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_audiosrv_unprepare);
 
 static int
 dcp_audiosrv_osobject_call(struct apple_epic_service *service, u16 group,
@@ -233,7 +214,6 @@ int dcp_audiosrv_get_elements(struct device *dev, void *elements, size_t maxsize
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_audiosrv_get_elements);
 
 int dcp_audiosrv_get_product_attrs(struct device *dev, void *attrs, size_t maxsize)
 {
@@ -255,7 +235,6 @@ int dcp_audiosrv_get_product_attrs(struct device *dev, void *attrs, size_t maxsi
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_audiosrv_get_product_attrs);
 
 static int av_audiosrv_report(struct apple_epic_service *service, u32 idx,
 						  const void *data, size_t data_size)
@@ -307,22 +286,20 @@ static void av_work_service_start(struct work_struct *work)
 	}
 
 	mutex_lock(&dcp->audiosrv->plug_lock);
-	if (dcp->audiosrv->hotplug_cb)
-		dcp->audiosrv->hotplug_cb(dcp->audiosrv->audio_dev,
-					  dcp->audiosrv->plugged);
+	if (dcp->audiosrv->audio_dev)
+		dcpaud_connect(dcp->audiosrv->audio_dev, dcp->audiosrv->plugged);
 	mutex_unlock(&dcp->audiosrv->plug_lock);
 }
 
 int avep_init(struct apple_dcp *dcp)
 {
-	struct dcp_audio_pdata *audio_pdata;
-	struct platform_device *audio_pdev;
 	struct audiosrv_data *audiosrv_data;
+	struct platform_device *audio_pdev;
 	struct device *dev = dcp->dev;
+	struct device_node *endpoint, *audio_node = NULL;
 
 	audiosrv_data = devm_kzalloc(dcp->dev, sizeof(*audiosrv_data), GFP_KERNEL);
-	audio_pdata = devm_kzalloc(dcp->dev, sizeof(*audio_pdata), GFP_KERNEL);
-	if (!audiosrv_data || !audio_pdata)
+	if (!audiosrv_data)
 		return -ENOMEM;
 	init_rwsem(&audiosrv_data->srv_rwsem);
 	mutex_init(&audiosrv_data->plug_lock);
@@ -342,21 +319,27 @@ int avep_init(struct apple_dcp *dcp)
 
 	dcp->audiosrv = audiosrv_data;
 
-	audio_pdata->dcp_dev = dcp->dev;
-	/* TODO: free OF reference */
-	audio_pdata->dpaudio_node = \
-			of_parse_phandle(dev->of_node, "apple,audio-xmitter", 0);
-	if (!audio_pdata->dpaudio_node ||
-	    !of_device_is_available(audio_pdata->dpaudio_node)) {
+	endpoint = of_graph_get_endpoint_by_regs(dev->of_node, 0, 0);
+	if (endpoint) {
+		audio_node = of_graph_get_remote_port_parent(endpoint);
+		of_node_put(endpoint);
+	}
+	if (!audio_node || !of_device_is_available(audio_node)) {
+		of_node_put(audio_node);
 		dev_info(dev, "No audio support\n");
 		return 0;
 	}
 
-	audio_pdev = platform_device_register_data(dev, "dcp-hdmi-audio",
-						   PLATFORM_DEVID_AUTO,
-						   audio_pdata, sizeof(*audio_pdata));
-	if (IS_ERR(audio_pdev))
-		return dev_err_probe(dev, PTR_ERR(audio_pdev), "registering audio device\n");
+	audio_pdev = of_find_device_by_node(audio_node);
+	of_node_put(audio_node);
+	if (!audio_pdev) {
+		dev_info(dev, "No DP/HDMI audio device not ready\n");
+		return 0;
+	}
+	dcp->audiosrv->audio_dev = audio_pdev;
+
+	device_link_add(&audio_pdev->dev, dev,
+			DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
 
 	dcp->avep = afk_init(dcp, AV_ENDPOINT, avep_ops);
 	if (IS_ERR(dcp->avep))
