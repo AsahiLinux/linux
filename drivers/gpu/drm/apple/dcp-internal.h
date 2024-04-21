@@ -125,7 +125,7 @@ struct apple_dcp {
 
 	/************* IOMFB **************************************************
 	 * everything below is mostly used inside IOMFB but it could make     *
-	 * sense keep some of the the members in apple_dcp.                   *
+	 * sense to keep some of the members in apple_dcp.                    *
 	 **********************************************************************/
 
 	/* clock rate request by dcp in */
@@ -209,7 +209,7 @@ struct apple_dcp {
 	struct list_head swapped_out_fbs;
 
 	struct dcp_brightness brightness;
-	/* Workqueue for updating the initial initial brightness */
+	/* Workqueue for updating the initial brightness */
 	struct work_struct bl_register_wq;
 	struct mutex bl_register_mutex;
 
