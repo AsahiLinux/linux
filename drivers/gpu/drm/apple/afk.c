@@ -641,7 +641,7 @@ static bool afk_recv(struct apple_dcp_afkep *ep)
 	 * TODO: this is theoretically unsafe since DCP could overwrite data
 	 *       after the read pointer was updated above. Do it anyway since
 	 *       it avoids 2 problems in the DCP tracer:
-	 *       1. the tracer sees replies before the the notifies from dcp
+	 *       1. the tracer sees replies before the notifies from dcp
 	 *       2. the tracer tries to read buffers after they are unmapped.
 	 */
 	afk_recv_handle(ep, channel, type, hdr->data, size);
