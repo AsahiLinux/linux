@@ -42,6 +42,7 @@ struct dcp_audio {
 	unsigned int open_cookie;
 
 	struct mutex data_lock;
+	bool dcp_connected; /// dcp status keep for delayed initialization
 	bool connected;
 	unsigned int connection_cookie;
 
@@ -430,18 +431,7 @@ static int dcpaud_create_pcm(struct dcp_audio *dcpaud)
 {
 	struct snd_card *card = dcpaud->card;
 	struct snd_pcm *pcm;
-	struct dma_chan *chan;
 	int ret;
-
-	chan = of_dma_request_slave_channel(dcpaud->dev->of_node, "tx");
-	if (IS_ERR_OR_NULL(chan)) {
-		if (!chan)
-			return -EINVAL;
-
-		dev_err(dcpaud->dev, "can't request audio TX DMA channel: %pE\n", chan);
-		return PTR_ERR(chan);
-	}
-	dcpaud->chan = chan;
 
 #define NUM_PLAYBACK 1
 #define NUM_CAPTURE 0
@@ -453,7 +443,7 @@ static int dcpaud_create_pcm(struct dcp_audio *dcpaud)
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &dcp_playback_ops);
 	dcpaud->substream = pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
 	snd_pcm_set_managed_buffer(dcpaud->substream, SNDRV_DMA_TYPE_DEV_IRAM,
-				   chan->device->dev, 1024 * 1024,
+				   dcpaud->chan->device->dev, 1024 * 1024,
 				   SIZE_MAX);
 
 	pcm->nonatomic = true;
@@ -463,12 +453,12 @@ static int dcpaud_create_pcm(struct dcp_audio *dcpaud)
 	return 0;
 }
 
+/* expects to be called with data_lock locked and unlocks it */
 static void dcpaud_report_hotplug(struct dcp_audio *dcpaud, bool connected)
 {
 	struct snd_pcm_substream *substream = dcpaud->substream;
 
-	mutex_lock(&dcpaud->data_lock);
-	if (dcpaud->connected == connected) {
+	if (!dcpaud->card || dcpaud->connected == connected) {
 		mutex_unlock(&dcpaud->data_lock);
 		return;
 	}
@@ -504,6 +494,53 @@ static void dcpaud_set_card_names(struct dcp_audio *dcpaud)
 	strscpy(card->shortname, "Apple DisplayPort", sizeof(card->shortname));
 }
 
+static int dcpaud_init_snd_card(struct dcp_audio *dcpaud)
+{
+	int ret;
+	struct dma_chan *chan;
+
+	chan = of_dma_request_slave_channel(dcpaud->dev->of_node, "tx");
+	/* squelch dma channel request errors, the driver will try again alter */
+	if (!chan) {
+		dev_warn(dcpaud->dev, "audio TX DMA channel request failed\n");
+		return 0;
+	} else if (IS_ERR(chan)) {
+		dev_warn(dcpaud->dev, "audio TX DMA channel request failed: %pE\n", chan);
+		return 0;
+	}
+	dcpaud->chan = chan;
+
+	ret = snd_card_new(dcpaud->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
+			   THIS_MODULE, 0, &dcpaud->card);
+	if (ret)
+		return ret;
+
+	dcpaud_set_card_names(dcpaud);
+
+	ret = dcpaud_create_pcm(dcpaud);
+	if (ret)
+		goto err_free_card;
+
+	ret = dcpaud_create_chmap_ctl(dcpaud);
+	if (ret)
+		goto err_free_card;
+
+	ret = dcpaud_create_jack(dcpaud);
+	if (ret)
+		goto err_free_card;
+
+	ret = snd_card_register(dcpaud->card);
+	if (ret)
+		goto err_free_card;
+
+	return 0;
+err_free_card:
+	dev_warn(dcpaud->dev, "Failed to initialize sound card: %d\n", ret);
+	snd_card_free(dcpaud->card);
+	dcpaud->card = NULL;
+	return ret;
+}
+
 #ifdef CONFIG_SND_DEBUG
 static void dcpaud_expose_debugfs_blob(struct dcp_audio *dcpaud, const char *name, void *base, size_t size)
 {
@@ -522,14 +559,58 @@ static void dcpaud_expose_debugfs_blob(struct dcp_audio *dcpaud, const char *nam
 void dcpaud_connect(struct platform_device *pdev, bool connected)
 {
 	struct dcp_audio *dcpaud = platform_get_drvdata(pdev);
+
+	mutex_lock(&dcpaud->data_lock);
+
+	if (!dcpaud->chan) {
+		int ret = dcpaud_init_snd_card(dcpaud);
+		if (ret) {
+			dcpaud->dcp_connected = connected;
+			mutex_unlock(&dcpaud->data_lock);
+			return;
+		}
+	}
 	dcpaud_report_hotplug(dcpaud, connected);
 }
 
 void dcpaud_disconnect(struct platform_device *pdev)
 {
 	struct dcp_audio *dcpaud = platform_get_drvdata(pdev);
+
+	mutex_lock(&dcpaud->data_lock);
+
+	dcpaud->dcp_connected = false;
 	dcpaud_report_hotplug(dcpaud, false);
 }
+
+static ssize_t probe_snd_card_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int ret;
+	bool connected = false;
+	struct dcp_audio *dcpaud = dev_get_drvdata(dev);
+
+	mutex_lock(&dcpaud->data_lock);
+
+	if (!dcpaud->chan) {
+		ret = dcpaud_init_snd_card(dcpaud);
+		if (ret)
+			goto out_unlock;
+
+		connected = dcpaud->dcp_connected;
+		if (connected) {
+			dcpaud_report_hotplug(dcpaud, connected);
+			goto out;
+		}
+	}
+out_unlock:
+	mutex_unlock(&dcpaud->data_lock);
+out:
+	return count;
+}
+
+static const DEVICE_ATTR_WO(probe_snd_card);
 
 static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 {
@@ -553,33 +634,10 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 	dcp_pdev = of_find_device_by_node(dcp_node);
 	of_node_put(dcp_node);
 	if (!dcp_pdev) {
-		dev_info(dev, "No DP/HDMI audio device not ready\n");
+		dev_info(dev, "No DP/HDMI audio device, dcp not ready\n");
 		return 0;
 	}
 	dcpaud->dcp_dev = &dcp_pdev->dev;
-
-	ret = snd_card_new(dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
-			   THIS_MODULE, 0, &dcpaud->card);
-	if (ret)
-		return ret;
-
-	dcpaud_set_card_names(dcpaud);
-
-	ret = dcpaud_create_pcm(dcpaud);
-	if (ret)
-		goto err_free_card;
-
-	ret = dcpaud_create_chmap_ctl(dcpaud);
-	if (ret)
-		goto err_free_card;
-
-	ret = dcpaud_create_jack(dcpaud);
-	if (ret)
-		goto err_free_card;
-
-	ret = snd_card_register(dcpaud->card);
-	if (ret)
-		goto err_free_card;
 
 	dcpaud_expose_debugfs_blob(dcpaud, "selected_cookie", &dcpaud->selected_cookie,
 				   sizeof(dcpaud->selected_cookie));
@@ -588,11 +646,16 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 	dcpaud_expose_debugfs_blob(dcpaud, "product_attrs", dcpaud->productattrs,
 				   DCPAUD_PRODUCTATTRS_MAXSIZE);
 
-	return 0;
+	mutex_lock(&dcpaud->data_lock);
+	/* ignore errors to prevent audio issues affecting the display side */
+	dcpaud_init_snd_card(dcpaud);
+	mutex_unlock(&dcpaud->data_lock);
 
-err_free_card:
-	snd_card_free(dcpaud->card);
-	return ret;
+	ret = device_create_file(dev, &dev_attr_probe_snd_card);
+        if (ret)
+		dev_info(dev, "creating force probe sysfs file failed: %d\n", ret);
+
+	return 0;
 }
 
 static void dcpaud_comp_unbind(struct device *dev, struct device *main,
