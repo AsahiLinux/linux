@@ -60,6 +60,11 @@
 	apple,connector-type = "HDMI-A";
 };
 
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
+	status = "okay";
+};
+
 /* USB Type C */
 &i2c0 {
 	hpm0: usb-pd@38 {
