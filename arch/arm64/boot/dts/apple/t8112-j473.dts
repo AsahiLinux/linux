@@ -66,6 +66,11 @@
 	apple,dptx-phy = <5>;
 };
 
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
+	status = "okay";
+};
+
 &dpaudio1 {
 	status = "okay";
 };
