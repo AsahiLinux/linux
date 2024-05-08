@@ -4,7 +4,7 @@
 
 use super::channels;
 use super::types::*;
-use crate::{default_zeroed, gem, no_debug, trivial_gpustruct};
+use crate::{default_zeroed, gem, mmu, no_debug, trivial_gpustruct};
 
 pub(crate) mod raw {
     use super::*;
@@ -1326,6 +1326,8 @@ pub(crate) struct RuntimePointers {
     pub(crate) unkptr_1c8: GpuArray<u8>,
 
     pub(crate) buffer_mgr_ctl: gem::ObjectRef,
+    pub(crate) buffer_mgr_ctl_low_mapping: Option<mmu::KernelMapping>,
+    pub(crate) buffer_mgr_ctl_high_mapping: Option<mmu::KernelMapping>,
 }
 
 #[versions(AGX)]

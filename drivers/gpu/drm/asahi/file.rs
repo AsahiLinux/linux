@@ -30,13 +30,19 @@ struct Vm {
     ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
     ualloc_priv: Arc<Mutex<alloc::DefaultAllocator>>,
     vm: mmu::Vm,
-    dummy_obj: gem::ObjectRef,
+    _dummy_mapping: mmu::KernelMapping,
 }
 
 impl Drop for Vm {
     fn drop(&mut self) {
-        // Mappings create a reference loop, make sure to break it.
-        self.dummy_obj.drop_vm_mappings(self.vm.id());
+        // When the user Vm is dropped, unmap everything in the user range
+        if self
+            .vm
+            .unmap_range(mmu::IOVA_USER_BASE as u64, VM_USER_END)
+            .is_err()
+        {
+            pr_err!("Vm::Drop: vm.unmap_range() failed\n");
+        }
     }
 }
 
@@ -154,16 +160,16 @@ const VM_SHADER_END: u64 = 0x11_ffffffff;
 /// Start address of the general user mapping region.
 const VM_USER_START: u64 = 0x20_00000000;
 /// End address of the general user mapping region.
-const VM_USER_END: u64 = 0x5f_ffffffff;
+const VM_USER_END: u64 = 0x6f_ffff0000;
 
 /// Start address of the kernel-managed GPU-only mapping region.
-const VM_DRV_GPU_START: u64 = 0x60_00000000;
+const VM_DRV_GPU_START: u64 = 0x70_00000000;
 /// End address of the kernel-managed GPU-only mapping region.
-const VM_DRV_GPU_END: u64 = 0x60_ffffffff;
+const VM_DRV_GPU_END: u64 = 0x70_ffffffff;
 /// Start address of the kernel-managed GPU/FW shared mapping region.
-const VM_DRV_GPUFW_START: u64 = 0x61_00000000;
+const VM_DRV_GPUFW_START: u64 = 0x71_00000000;
 /// End address of the kernel-managed GPU/FW shared mapping region.
-const VM_DRV_GPUFW_END: u64 = 0x61_ffffffff;
+const VM_DRV_GPUFW_END: u64 = 0x71_ffffffff;
 /// Address of a special dummy page?
 const VM_UNK_PAGE: u64 = 0x6f_ffff8000;
 
@@ -298,7 +304,7 @@ impl File {
 
         let gpu = &device.data().gpu;
         let file_id = file.inner().id;
-        let vm = gpu.new_vm(file_id)?;
+        let vm = gpu.new_vm()?;
 
         let resv = file.inner().vms().reserve()?;
         let id: u32 = resv.index().try_into()?;
@@ -343,15 +349,18 @@ impl File {
         );
         let mut dummy_obj = gem::new_kernel_object(device, 0x4000)?;
         dummy_obj.vmap()?.as_mut_slice().fill(0);
-        dummy_obj.map_at(&vm, VM_UNK_PAGE, mmu::PROT_GPU_SHARED_RW, true)?;
+        let dummy_mapping = dummy_obj.map_at(&vm, VM_UNK_PAGE, mmu::PROT_GPU_SHARED_RW, true)?;
 
         mod_dev_dbg!(device, "[File {} VM {}]: VM created\n", file_id, id);
-        resv.store(KBox::new(Vm {
-            ualloc,
-            ualloc_priv,
-            vm,
-            dummy_obj,
-        })?)?;
+        resv.store(KBox::new(
+            Vm {
+                ualloc,
+                ualloc_priv,
+                vm,
+                _dummy_mapping: dummy_mapping,
+            },
+            GFP_KERNEL,
+        )?)?;
 
         data.vm_id = id;
 
@@ -492,15 +501,10 @@ impl File {
         data: &mut uapi::drm_asahi_gem_bind,
         file: &DrmFile,
     ) -> Result<u32> {
-        if data.offset != 0 {
-            pr_err!("gem_bind: Offset not supported yet\n");
-            return Err(EINVAL); // Not supported yet
-        }
-
-        if (data.addr | data.range) as usize & mmu::UAT_PGMSK != 0 {
+        if (data.addr | data.range | data.offset) as usize & mmu::UAT_PGMSK != 0 {
             cls_pr_debug!(
                 Errors,
-                "gem_bind: Addr/range not page aligned: {:#x} {:#x}\n",
+                "gem_bind: Addr/range/offset not page aligned: {:#x} {:#x}\n",
                 data.addr,
                 data.range
             );
@@ -512,12 +516,7 @@ impl File {
             return Err(EINVAL);
         }
 
-        let mut bo = gem::lookup_handle(file, data.handle)?;
-
-        if data.range != bo.size().try_into()? {
-            pr_err!("gem_bind: Partial maps not supported yet\n");
-            return Err(EINVAL); // Not supported yet
-        }
+        let bo = gem::lookup_handle(file, data.handle)?;
 
         let start = data.addr;
         let end = data.addr + data.range - 1;
@@ -590,9 +589,34 @@ impl File {
             .vm
             .clone();
 
-        bo.map_at(&vm, start, prot, true)?;
+        vm.bind_object(&bo.gem, data.addr, data.range, data.offset, prot)?;
 
         Ok(0)
+    }
+
+    pub(crate) fn unbind_gem_object(file: &DrmFile, bo: &gem::Object) -> Result {
+        let mut index = 0;
+        loop {
+            let item = file
+                .inner()
+                .vms()
+                .find(index, xarray::XArray::<KBox<Vm>>::MAX);
+            match item {
+                Some((idx, file_vm)) => {
+                    // Clone since we can't hold the xarray spinlock while
+                    // calling drop_mappings()
+                    let vm = file_vm.borrow().vm.clone();
+                    core::mem::drop(file_vm);
+                    vm.drop_mappings(bo)?;
+                    if idx == xarray::XArray::<KBox<Vm>>::MAX {
+                        break;
+                    }
+                    index = idx + 1;
+                }
+                None => break,
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn do_gem_unbind_all(
@@ -605,20 +629,18 @@ impl File {
             return Err(EINVAL);
         }
 
-        let mut bo = gem::lookup_handle(file, data.handle)?;
+        let bo = gem::lookup_handle(file, data.handle)?;
 
         if data.vm_id == 0 {
-            bo.drop_file_mappings(file.inner().id);
+            Self::unbind_gem_object(file, &bo.gem)?;
         } else {
-            let vm_id = file
-                .inner()
+            file.inner()
                 .vms()
                 .get(data.vm_id.try_into()?)
                 .ok_or(ENOENT)?
                 .borrow()
                 .vm
-                .id();
-            bo.drop_vm_mappings(vm_id);
+                .drop_mappings(&bo.gem)?;
         }
 
         Ok(0)
@@ -827,11 +849,6 @@ impl File {
             }
             Ok(_) => Ok(0),
         }
-    }
-
-    /// Returns the unique file ID for this `File`.
-    pub(crate) fn file_id(&self) -> u64 {
-        self.id
     }
 }
 

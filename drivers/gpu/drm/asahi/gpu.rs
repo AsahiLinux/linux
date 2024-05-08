@@ -205,7 +205,7 @@ pub(crate) struct GpuManager {
     crashed: AtomicBool,
     #[pin]
     alloc: Mutex<KernelAllocators>,
-    io_mappings: Vec<mmu::Mapping>,
+    io_mappings: KVec<mmu::KernelMapping>,
     next_mmio_iova: u64,
     #[pin]
     rtkit: Mutex<Option<rtkit::RtKit<GpuManager::ver>>>,
@@ -241,7 +241,7 @@ pub(crate) trait GpuManager: Send + Sync {
     /// Get a reference to the KernelAllocators.
     fn alloc(&self) -> Guard<'_, KernelAllocators, MutexBackend>;
     /// Create a new `Vm` given a unique `File` ID.
-    fn new_vm(&self, file_id: u64) -> Result<mmu::Vm>;
+    fn new_vm(&self) -> Result<mmu::Vm>;
     /// Bind a `Vm` to an available slot and return the `VmBind`.
     fn bind_vm(&self, vm: &mmu::Vm) -> Result<mmu::VmBind>;
     /// Create a new user command queue.
@@ -292,11 +292,26 @@ trait GpuManagerPriv {
     fn end_op(&self);
 }
 
+pub(crate) struct RtkitObject {
+    obj: gem::ObjectRef,
+    mapping: mmu::KernelMapping,
+}
+
+impl rtkit::Buffer for RtkitObject {
+    fn iova(&self) -> Result<usize> {
+        Ok(self.mapping.iova())
+    }
+    fn buf(&mut self) -> Result<&mut [u8]> {
+        let vmap = self.obj.vmap()?;
+        Ok(vmap.as_mut_slice())
+    }
+}
+
 #[versions(AGX)]
 #[vtable]
 impl rtkit::Operations for GpuManager::ver {
     type Data = Arc<GpuManager::ver>;
-    type Buffer = gem::ObjectRef;
+    type Buffer = RtkitObject;
 
     fn recv_message(data: <Self::Data as ForeignOwnable>::Borrowed<'_>, ep: u8, msg: u64) {
         let dev = &data.dev;
@@ -337,7 +352,7 @@ impl rtkit::Operations for GpuManager::ver {
 
         let mut obj = gem::new_kernel_object(dev, size)?;
         obj.vmap()?;
-        let iova = obj.map_into_range(
+        let mapping = obj.map_into_range(
             data.uat.kernel_vm(),
             IOVA_KERN_RTKIT_BASE,
             IOVA_KERN_RTKIT_TOP,
@@ -345,8 +360,8 @@ impl rtkit::Operations for GpuManager::ver {
             mmu::PROT_FW_SHARED_RW,
             true,
         )?;
-        mod_dev_dbg!(dev, "shmem_alloc() -> VA {:#x}\n", iova);
-        Ok(obj)
+        mod_dev_dbg!(dev, "shmem_alloc() -> VA {:#x}\n", mapping.iova());
+        Ok(RtkitObject { obj, mapping })
     }
 }
 
@@ -428,18 +443,20 @@ impl GpuManager::ver {
         let event_manager = Self::make_event_manager(&mut alloc)?;
         let mut initdata = Self::make_initdata(dev, cfg, &dyncfg, &mut alloc)?;
 
-        initdata.runtime_pointers.buffer_mgr_ctl.map_at(
-            uat.kernel_lower_vm(),
-            IOVA_KERN_GPU_BUFMGR_LOW,
-            mmu::PROT_GPU_SHARED_RW,
-            false,
-        )?;
-        initdata.runtime_pointers.buffer_mgr_ctl.map_at(
-            uat.kernel_vm(),
-            IOVA_KERN_GPU_BUFMGR_HIGH,
-            mmu::PROT_FW_SHARED_RW,
-            false,
-        )?;
+        initdata.runtime_pointers.buffer_mgr_ctl_low_mapping =
+            Some(initdata.runtime_pointers.buffer_mgr_ctl.map_at(
+                uat.kernel_lower_vm(),
+                IOVA_KERN_GPU_BUFMGR_LOW,
+                mmu::PROT_GPU_SHARED_RW,
+                false,
+            )?);
+        initdata.runtime_pointers.buffer_mgr_ctl_high_mapping =
+            Some(initdata.runtime_pointers.buffer_mgr_ctl.map_at(
+                uat.kernel_vm(),
+                IOVA_KERN_GPU_BUFMGR_HIGH,
+                mmu::PROT_FW_SHARED_RW,
+                false,
+            )?);
 
         let mut mgr = Self::make_mgr(dev, cfg, dyncfg, uat, alloc, event_manager, initdata)?;
 
@@ -562,7 +579,7 @@ impl GpuManager::ver {
     }
 
     /// Return a mutable reference to the io_mappings member
-    fn io_mappings_mut(self: Pin<&mut Self>) -> &mut Vec<mmu::Mapping> {
+    fn io_mappings_mut(self: Pin<&mut Self>) -> &mut KVec<mmu::KernelMapping> {
         // SAFETY: io_mappings does not require structural pinning.
         unsafe { &mut self.get_unchecked_mut().io_mappings }
     }
@@ -1209,8 +1226,8 @@ impl GpuManager for GpuManager::ver {
         guard
     }
 
-    fn new_vm(&self, file_id: u64) -> Result<mmu::Vm> {
-        self.uat.new_vm(self.ids.vm.next(), file_id)
+    fn new_vm(&self) -> Result<mmu::Vm> {
+        self.uat.new_vm(self.ids.vm.next())
     }
 
     fn bind_vm(&self, vm: &mmu::Vm) -> Result<mmu::VmBind> {

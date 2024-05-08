@@ -11,8 +11,6 @@ use kernel::{
     drm::{gem, gem::shmem},
     error::Result,
     prelude::*,
-    soc::apple::rtkit,
-    sync::Mutex,
     uapi,
 };
 
@@ -20,7 +18,7 @@ use kernel::drm::gem::BaseObject;
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{debug::*, driver::AsahiDevice, file::DrmFile, mmu, util::*};
+use crate::{debug::*, driver::AsahiDevice, file, file::DrmFile, mmu, util::*};
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Gem;
 
@@ -33,9 +31,6 @@ pub(crate) struct DriverObject {
     flags: u32,
     /// VM ID for VM-private objects.
     vm_id: Option<u64>,
-    /// Locked list of mapping tuples: (file_id, vm_id, mapping)
-    #[pin]
-    mappings: Mutex<Vec<(u64, u64, crate::mmu::Mapping)>>,
     /// ID for debug
     id: u64,
 }
@@ -58,34 +53,6 @@ crate::no_debug!(ObjectRef);
 
 static GEM_ID: AtomicU64 = AtomicU64::new(0);
 
-impl DriverObject {
-    /// Drop all object mappings for a given file ID.
-    ///
-    /// Used on file close.
-    fn drop_file_mappings(&self, file_id: u64) {
-        let mut mappings = self.mappings.lock();
-        for (index, (mapped_fid, _mapped_vmid, _mapping)) in mappings.iter().enumerate() {
-            if *mapped_fid == file_id {
-                mappings.swap_remove(index);
-                return;
-            }
-        }
-    }
-
-    /// Drop all object mappings for a given VM ID.
-    ///
-    /// Used on VM destroy.
-    fn drop_vm_mappings(&self, vm_id: u64) {
-        let mut mappings = self.mappings.lock();
-        for (index, (_mapped_fid, mapped_vmid, _mapping)) in mappings.iter().enumerate() {
-            if *mapped_vmid == vm_id {
-                mappings.swap_remove(index);
-                return;
-            }
-        }
-    }
-}
-
 impl ObjectRef {
     /// Create a new wrapper for a raw GEM object reference.
     pub(crate) fn new(gem: gem::ObjectRef<shmem::Object<DriverObject>>) -> ObjectRef {
@@ -100,27 +67,12 @@ impl ObjectRef {
         Ok(self.vmap.as_mut().unwrap())
     }
 
-    /// Return the IOVA of this object at which it is mapped in a given `Vm` identified by its ID,
-    /// if it is mapped in that `Vm`.
-    pub(crate) fn iova(&self, vm_id: u64) -> Option<usize> {
-        let mappings = self.gem.mappings.lock();
-        for (_mapped_fid, mapped_vmid, mapping) in mappings.iter() {
-            if *mapped_vmid == vm_id {
-                return Some(mapping.iova());
-            }
-        }
-
-        None
-    }
-
     /// Returns the size of an object in bytes
     pub(crate) fn size(&self) -> usize {
         self.gem.size()
     }
 
     /// Maps an object into a given `Vm` at any free address within a given range.
-    ///
-    /// Returns Err(EBUSY) if there is already a mapping.
     pub(crate) fn map_into_range(
         &mut self,
         vm: &crate::mmu::Vm,
@@ -129,32 +81,26 @@ impl ObjectRef {
         alignment: u64,
         prot: u32,
         guard: bool,
-    ) -> Result<usize> {
+    ) -> Result<crate::mmu::KernelMapping> {
         let vm_id = vm.id();
 
         if self.gem.vm_id.is_some() && self.gem.vm_id != Some(vm_id) {
             return Err(EINVAL);
         }
 
-        let mut mappings = self.gem.mappings.lock();
-        for (_mapped_fid, mapped_vmid, _mapping) in mappings.iter() {
-            if *mapped_vmid == vm_id {
-                return Err(EBUSY);
-            }
-        }
-
-        let sgt = self.gem.sg_table()?;
-        let new_mapping =
-            vm.map_in_range(self.gem.size(), sgt, alignment, start, end, prot, guard)?;
-
-        let iova = new_mapping.iova();
-        mappings.try_push((vm.file_id(), vm_id, new_mapping))?;
-        Ok(iova)
+        vm.map_in_range(
+            self.gem.size(),
+            &self.gem,
+            alignment,
+            start,
+            end,
+            prot,
+            guard,
+        )
     }
 
     /// Maps an object into a given `Vm` at a specific address.
     ///
-    /// Returns Err(EBUSY) if there is already a mapping.
     /// Returns Err(ENOSPC) if the requested address is already busy.
     pub(crate) fn map_at(
         &mut self,
@@ -162,37 +108,14 @@ impl ObjectRef {
         addr: u64,
         prot: u32,
         guard: bool,
-    ) -> Result {
+    ) -> Result<crate::mmu::KernelMapping> {
         let vm_id = vm.id();
 
         if self.gem.vm_id.is_some() && self.gem.vm_id != Some(vm_id) {
             return Err(EINVAL);
         }
 
-        let mut mappings = self.gem.mappings.lock();
-        for (_mapped_fid, mapped_vmid, _mapping) in mappings.iter() {
-            if *mapped_vmid == vm_id {
-                return Err(EBUSY);
-            }
-        }
-
-        let sgt = self.gem.sg_table()?;
-        let new_mapping = vm.map_at(addr, self.gem.size(), sgt, prot, guard)?;
-
-        let iova = new_mapping.iova();
-        assert!(iova == addr as usize);
-        mappings.try_push((vm.file_id(), vm_id, new_mapping))?;
-        Ok(())
-    }
-
-    /// Drop all mappings for this object owned by a given `Vm` identified by its ID.
-    pub(crate) fn drop_vm_mappings(&mut self, vm_id: u64) {
-        self.gem.drop_vm_mappings(vm_id);
-    }
-
-    /// Drop all mappings for this object owned by a given `File` identified by its ID.
-    pub(crate) fn drop_file_mappings(&mut self, file_id: u64) {
-        self.gem.drop_file_mappings(file_id);
+        vm.map_at(addr, self.gem.size(), &self.gem, prot, guard)
     }
 }
 
@@ -245,7 +168,6 @@ impl gem::BaseDriverObject<Object> for DriverObject {
             kernel: false,
             flags: 0,
             vm_id: None,
-            mappings <- Mutex::new(Vec::new()),
             id,
         })
     }
@@ -253,20 +175,12 @@ impl gem::BaseDriverObject<Object> for DriverObject {
     /// Callback to drop all mappings for a GEM object owned by a given `File`
     fn close(obj: &Object, file: &DrmFile) {
         mod_pr_debug!("DriverObject::close vm_id={:?} id={}\n", obj.vm_id, obj.id);
-        obj.drop_file_mappings(file.inner().file_id());
+        if file::File::unbind_gem_object(file, obj).is_err() {
+            pr_err!("DriverObject::close: Failed to unbind GEM object\n");
+        }
     }
 }
 
 impl shmem::DriverObject for DriverObject {
     type Driver = crate::driver::AsahiDriver;
-}
-
-impl rtkit::Buffer for ObjectRef {
-    fn iova(&self) -> Result<usize> {
-        self.iova(0).ok_or(EIO)
-    }
-    fn buf(&mut self) -> Result<&mut [u8]> {
-        let vmap = self.vmap.as_mut().ok_or(ENOMEM)?;
-        Ok(vmap.as_mut_slice())
-    }
 }

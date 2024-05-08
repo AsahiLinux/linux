@@ -18,7 +18,7 @@ use core::time::Duration;
 
 use kernel::{
     bindings, c_str, delay, device,
-    drm::mm,
+    drm::{gpuvm, mm},
     error::{to_result, Result},
     io_pgtable,
     io_pgtable::{prot, AppleUAT, IoPageTable},
@@ -29,7 +29,7 @@ use kernel::{
         Arc, Mutex,
     },
     time::{clock, Now},
-    types::ForeignOwnable,
+    types::{ARef, ForeignOwnable},
 };
 
 use crate::debug::*;
@@ -66,9 +66,9 @@ pub(crate) const UAT_IAS: usize = 39;
 pub(crate) const UAT_IAS_KERN: usize = 36;
 
 /// Lower/user base VA
-const IOVA_USER_BASE: usize = UAT_PGSZ;
+pub(crate) const IOVA_USER_BASE: usize = UAT_PGSZ;
 /// Lower/user top VA
-const IOVA_USER_TOP: usize = (1 << UAT_IAS) - 1;
+pub(crate) const IOVA_USER_TOP: usize = (1 << UAT_IAS) - 1;
 /// Upper/kernel base VA
 // const IOVA_TTBR1_BASE: usize = 0xffffff8000000000;
 /// Driver-managed kernel base VA
@@ -81,7 +81,7 @@ const TTBR_ASID_SHIFT: usize = 48;
 
 const PTE_TABLE: u64 = 0x3; // BIT(0) | BIT(1)
 
-// Mapping protection types
+// KernelMapping protection types
 
 // Note: prot::CACHE means "cache coherency", which for UAT means *uncached*,
 // since uncached mappings from the GFX ASC side are cache coherent with the AP cache.
@@ -181,12 +181,213 @@ struct VmInner {
     min_va: usize,
     max_va: usize,
     page_table: AppleUAT<Uat>,
-    mm: mm::Allocator<(), MappingInner>,
+    mm: mm::Allocator<(), KernelMappingInner>,
     uat_inner: Arc<UatInner>,
+    binding: Arc<Mutex<VmBinding>>,
+    id: u64,
+}
+
+/// Slot binding-related inner data for a Vm instance.
+struct VmBinding {
     active_users: usize,
     binding: Option<slotalloc::Guard<SlotInner>>,
     bind_token: Option<slotalloc::SlotToken>,
-    id: u64,
+    ttb: u64,
+}
+
+/// Data associated with a VM <=> BO pairing
+#[pin_data]
+struct VmBo {
+    #[pin]
+    sgt: Mutex<Option<gem::SGTable>>,
+}
+
+impl gpuvm::DriverGpuVmBo for VmBo {
+    fn new() -> impl PinInit<Self> {
+        pin_init!(VmBo {
+            sgt <- Mutex::new_named(None, c_str!("VmBinding")),
+        })
+    }
+}
+
+#[derive(Default)]
+struct StepContext {
+    new_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
+    prev_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
+    next_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
+    vm_bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
+    prot: u32,
+}
+
+impl gpuvm::DriverGpuVm for VmInner {
+    type Driver = driver::AsahiDriver;
+    type GpuVmBo = VmBo;
+    type StepContext = StepContext;
+
+    fn step_map(
+        self: &mut gpuvm::UpdatingGpuVm<'_, Self>,
+        op: &mut gpuvm::OpMap<Self>,
+        ctx: &mut Self::StepContext,
+    ) -> Result {
+        let mut iova = op.addr() as usize;
+        let mut left = op.range() as usize;
+        let mut offset = op.offset() as usize;
+
+        let bo = ctx.vm_bo.as_ref().expect("step_map with no BO");
+
+        let guard = bo.inner().sgt.lock();
+        for range in guard.as_ref().expect("step_map with no SGT").iter() {
+            let mut addr = range.dma_address();
+            let mut len = range.dma_len();
+
+            if left == 0 {
+                break;
+            }
+
+            if offset > 0 {
+                let skip = len.min(offset);
+                addr += skip;
+                len -= skip;
+                offset -= skip;
+            }
+
+            if len == 0 {
+                continue;
+            }
+
+            assert!(offset == 0);
+
+            len = len.min(left);
+
+            mod_dev_dbg!(
+                self.dev,
+                "MMU: map: {:#x}:{:#x} -> {:#x}\n",
+                addr,
+                len,
+                iova
+            );
+
+            self.map_pages(iova, addr, UAT_PGSZ, len >> UAT_PGBIT, ctx.prot)?;
+
+            left -= len;
+            iova += len;
+        }
+
+        let gpuva = ctx.new_va.take().expect("Multiple step_map calls");
+
+        if op
+            .map_and_link_va(
+                self,
+                gpuva,
+                ctx.vm_bo.as_ref().expect("step_map with no BO"),
+            )
+            .is_err()
+        {
+            dev_err!(
+                self.dev.as_ref(),
+                "map_and_link_va failed: {:#x} [{:#x}] -> {:#x}\n",
+                op.offset(),
+                op.range(),
+                op.addr()
+            );
+            return Err(EINVAL);
+        }
+        Ok(())
+    }
+    fn step_unmap(
+        self: &mut gpuvm::UpdatingGpuVm<'_, Self>,
+        op: &mut gpuvm::OpUnMap<Self>,
+        _ctx: &mut Self::StepContext,
+    ) -> Result {
+        let va = op.va().expect("step_unmap: missing VA");
+
+        mod_dev_dbg!(self.dev, "MMU: unmap: {:#x}:{:#x}\n", va.addr(), va.range());
+
+        self.unmap_pages(
+            va.addr() as usize,
+            UAT_PGSZ,
+            (va.range() as usize) >> UAT_PGBIT,
+        )?;
+
+        if let Some(asid) = self.slot() {
+            mem::tlbi_range(asid as u8, va.addr() as usize, va.range() as usize);
+            mod_dev_dbg!(
+                self.dev,
+                "MMU: flush range: asid={:#x} start={:#x} len={:#x}\n",
+                asid,
+                va.addr(),
+                va.range(),
+            );
+            mem::sync();
+        }
+
+        if op.unmap_and_unlink_va().is_none() {
+            dev_err!(self.dev.as_ref(), "step_unmap: could not unlink gpuva");
+        }
+        Ok(())
+    }
+    fn step_remap(
+        self: &mut gpuvm::UpdatingGpuVm<'_, Self>,
+        op: &mut gpuvm::OpReMap<Self>,
+        ctx: &mut Self::StepContext,
+    ) -> Result {
+        let prev_gpuva = ctx.prev_va.take().expect("Multiple step_remap calls");
+        let next_gpuva = ctx.next_va.take().expect("Multiple step_remap calls");
+        let va = op.unmap().va().expect("No previous VA");
+        let orig_addr = va.addr();
+        let orig_range = va.range();
+        let vm_bo = va.vm_bo();
+
+        // Only unmap the hole between prev/next, if they exist
+        let unmap_start = if let Some(op) = op.prev_map() {
+            op.addr() + op.range()
+        } else {
+            orig_addr
+        };
+
+        let unmap_end = if let Some(op) = op.next_map() {
+            op.addr()
+        } else {
+            orig_addr + orig_range
+        };
+
+        let unmap_range = unmap_end - unmap_start;
+
+        mod_dev_dbg!(
+            self.dev,
+            "MMU: unmap for remap: {:#x}:{:#x} (from {:#x}:{:#x})\n",
+            unmap_start,
+            unmap_range,
+            orig_addr,
+            orig_range
+        );
+
+        self.unmap_pages(
+            unmap_start as usize,
+            UAT_PGSZ,
+            (unmap_range as usize) >> UAT_PGBIT,
+        )?;
+
+        if op.unmap().unmap_and_unlink_va().is_none() {
+            dev_err!(self.dev.as_ref(), "step_unmap: could not unlink gpuva");
+        }
+
+        if let Some(prev_op) = op.prev_map() {
+            if prev_op.map_and_link_va(self, prev_gpuva, &vm_bo).is_err() {
+                dev_err!(self.dev.as_ref(), "step_remap: could not relink prev gpuva");
+                return Err(EINVAL);
+            }
+        }
+
+        if let Some(next_op) = op.next_map() {
+            if next_op.map_and_link_va(self, next_gpuva, &vm_bo).is_err() {
+                dev_err!(self.dev.as_ref(), "step_remap: could not relink next gpuva");
+                return Err(EINVAL);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl VmInner {
@@ -204,7 +405,9 @@ impl VmInner {
             // interim, and then it gets killed / drops its mappings without doing any
             // final rendering). Anything doing active maps/unmaps is probably also
             // rendering and therefore likely bound.
-            self.bind_token
+            self.binding
+                .lock()
+                .bind_token
                 .as_ref()
                 .map(|token| (token.last_slot() + UAT_USER_CTX_START as u32))
         }
@@ -275,9 +478,10 @@ impl VmInner {
     }
 
     /// Map an `mm::Node` representing an mapping in VA space.
-    fn map_node(&mut self, node: &mm::Node<(), MappingInner>, prot: u32) -> Result {
+    fn map_node(&mut self, node: &mm::Node<(), KernelMappingInner>, prot: u32) -> Result {
         let mut iova = node.start() as usize;
-        let sgt = node.sgt.as_ref().ok_or(EINVAL)?;
+        let guard = node.bo.as_ref().ok_or(EINVAL)?.inner().sgt.lock();
+        let sgt = guard.as_ref().ok_or(EINVAL)?;
 
         for range in sgt.iter() {
             let addr = range.dma_address();
@@ -285,8 +489,8 @@ impl VmInner {
 
             if (addr | len | iova) & UAT_PGMSK != 0 {
                 dev_err!(
-                    self.dev,
-                    "MMU: Mapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
+                    self.dev.as_ref(),
+                    "MMU: KernelMapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
                     addr,
                     len,
                     iova
@@ -314,8 +518,8 @@ impl VmInner {
 #[derive(Clone)]
 pub(crate) struct Vm {
     id: u64,
-    file_id: u64,
-    inner: Arc<Mutex<VmInner>>,
+    inner: ARef<gpuvm::GpuVm<VmInner>>,
+    binding: Arc<Mutex<VmBinding>>,
 }
 no_debug!(Vm);
 
@@ -341,40 +545,49 @@ impl VmBind {
 
 impl Drop for VmBind {
     fn drop(&mut self) {
-        let mut inner = self.0.inner.lock();
+        let mut binding = self.0.binding.lock();
 
-        assert_ne!(inner.active_users, 0);
-        inner.active_users -= 1;
-        mod_pr_debug!("MMU: slot {} active users {}\n", self.1, inner.active_users);
-        if inner.active_users == 0 {
-            inner.binding = None;
+        assert_ne!(binding.active_users, 0);
+        binding.active_users -= 1;
+        mod_pr_debug!(
+            "MMU: slot {} active users {}\n",
+            self.1,
+            binding.active_users
+        );
+        if binding.active_users == 0 {
+            binding.binding = None;
         }
     }
 }
 
 impl Clone for VmBind {
     fn clone(&self) -> VmBind {
-        let mut inner = self.0.inner.lock();
+        let mut binding = self.0.binding.lock();
 
-        inner.active_users += 1;
-        mod_pr_debug!("MMU: slot {} active users {}\n", self.1, inner.active_users);
+        binding.active_users += 1;
+        mod_pr_debug!(
+            "MMU: slot {} active users {}\n",
+            self.1,
+            binding.active_users
+        );
         VmBind(self.0.clone(), self.1)
     }
 }
 
 /// Inner data required for an object mapping into a [`Vm`].
-pub(crate) struct MappingInner {
-    owner: Arc<Mutex<VmInner>>,
+pub(crate) struct KernelMappingInner {
+    owner: ARef<gpuvm::GpuVm<VmInner>>,
     uat_inner: Arc<UatInner>,
     prot: u32,
     mapped_size: usize,
-    sgt: Option<gem::SGTable>,
+    bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
 }
 
 /// An object mapping into a [`Vm`], which reserves the address range from use by other mappings.
-pub(crate) struct Mapping(mm::Node<(), MappingInner>);
 
-impl Mapping {
+pub(crate) struct KernelMapping(mm::Node<(), KernelMappingInner>);
+
+impl KernelMapping {
     /// Returns the IOVA base of this mapping
     pub(crate) fn iova(&self) -> usize {
         self.0.start() as usize
@@ -388,7 +601,12 @@ impl Mapping {
     /// Remap a cached mapping as uncached, then synchronously flush that range of VAs from the
     /// coprocessor cache. This is required to safely unmap cached/private mappings.
     fn remap_uncached_and_flush(&mut self) {
-        let mut owner = self.0.owner.lock();
+        let mut owner = self
+            .0
+            .owner
+            .exec_lock(None)
+            .expect("Failed to exec_lock in remap_uncached_and_flush");
+
         mod_dev_dbg!(
             owner.dev,
             "MMU: remap as uncached {:#x}:{:#x}\n",
@@ -516,8 +734,9 @@ impl Mapping {
         // Slot is unlocked here
     }
 }
+no_debug!(KernelMapping);
 
-impl Drop for Mapping {
+impl Drop for KernelMapping {
     fn drop(&mut self) {
         // This is the main unmap function for UAT mappings.
         // The sequence of operations here is finicky, due to the interaction
@@ -544,7 +763,11 @@ impl Drop for Mapping {
             self.remap_uncached_and_flush();
         }
 
-        let mut owner = self.0.owner.lock();
+        let mut owner = self
+            .0
+            .owner
+            .exec_lock(None)
+            .expect("exec_lock failed in KernelMapping::drop");
         mod_dev_dbg!(
             owner.dev,
             "MMU: unmap {:#x}:{:#x}\n",
@@ -779,8 +1002,9 @@ impl Vm {
         cfg: &'static hw::HwConfig,
         is_kernel: bool,
         id: u64,
-        file_id: u64,
     ) -> Result<Vm> {
+        let dummy_obj = gem::new_kernel_object(dev, 0x4000)?;
+
         let page_table = AppleUAT::new(
             dev.as_ref(),
             io_pgtable::Config {
@@ -805,11 +1029,31 @@ impl Vm {
 
         let mm = mm::Allocator::new(min_va as u64, (max_va - min_va + 1) as u64, ())?;
 
+        let binding = Arc::pin_init(
+            Mutex::new_named(
+                VmBinding {
+                    binding: None,
+                    bind_token: None,
+                    active_users: 0,
+                    ttb: page_table.cfg().ttbr,
+                },
+                c_str!("VmBinding"),
+            ),
+            GFP_KERNEL,
+        )?;
+
+        let binding_clone = binding.clone();
         Ok(Vm {
             id,
-            file_id,
-            inner: Arc::pin_init(Mutex::new_named(
-                VmInner {
+            inner: gpuvm::GpuVm::new(
+                c_str!("Asahi::GpuVm"),
+                dev,
+                &*(dummy_obj.gem),
+                min_va as u64,
+                (max_va - min_va + 1) as u64,
+                0,
+                0,
+                init!(VmInner {
                     dev: dev.into(),
                     min_va,
                     max_va,
@@ -817,19 +1061,17 @@ impl Vm {
                     page_table,
                     mm,
                     uat_inner,
-                    binding: None,
-                    bind_token: None,
-                    active_users: 0,
+                    binding: binding_clone,
                     id,
-                },
-                c_str!("VmInner"),
-            ))?,
+                }),
+            )?,
+            binding,
         })
     }
 
     /// Get the translation table base for this Vm
     fn ttb(&self) -> u64 {
-        self.inner.lock().ttb()
+        self.binding.lock().ttb
     }
 
     /// Map a GEM object (using its `SGTable`) into this Vm at a free address in a given range.
@@ -837,22 +1079,30 @@ impl Vm {
     pub(crate) fn map_in_range(
         &self,
         size: usize,
-        sgt: gem::SGTable,
+        gem: &gem::Object,
         alignment: u64,
         start: u64,
         end: u64,
         prot: u32,
         guard: bool,
-    ) -> Result<Mapping> {
-        let mut inner = self.inner.lock();
+    ) -> Result<KernelMapping> {
+        let sgt = gem.sg_table()?;
+        let mut inner = self.inner.exec_lock(Some(gem))?;
+        let vm_bo = inner.obtain_bo()?;
+
+        let mut vm_bo_guard = vm_bo.inner().sgt.lock();
+        if vm_bo_guard.is_none() {
+            vm_bo_guard.replace(sgt);
+        }
+        core::mem::drop(vm_bo_guard);
 
         let uat_inner = inner.uat_inner.clone();
         let node = inner.mm.insert_node_in_range(
-            MappingInner {
+            KernelMappingInner {
                 owner: self.inner.clone(),
                 uat_inner,
                 prot,
-                sgt: Some(sgt),
+                bo: Some(vm_bo),
                 mapped_size: size,
             },
             (size + if guard { UAT_PGSZ } else { 0 }) as u64, // Add guard page
@@ -864,28 +1114,37 @@ impl Vm {
         )?;
 
         inner.map_node(&node, prot)?;
-        Ok(Mapping(node))
+        Ok(KernelMapping(node))
     }
 
-    /// Map a GEM object (using its `SGTable`) into this Vm at a specific address.
+    /// Map a GEM object into this Vm at a specific address.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn map_at(
         &self,
         addr: u64,
         size: usize,
-        sgt: gem::SGTable,
+        gem: &gem::Object,
         prot: u32,
         guard: bool,
-    ) -> Result<Mapping> {
-        let mut inner = self.inner.lock();
+    ) -> Result<KernelMapping> {
+        let sgt = gem.sg_table()?;
+        let mut inner = self.inner.exec_lock(Some(gem))?;
+
+        let vm_bo = inner.obtain_bo()?;
+
+        let mut vm_bo_guard = vm_bo.inner().sgt.lock();
+        if vm_bo_guard.is_none() {
+            vm_bo_guard.replace(sgt);
+        }
+        core::mem::drop(vm_bo_guard);
 
         let uat_inner = inner.uat_inner.clone();
         let node = inner.mm.reserve_node(
-            MappingInner {
+            KernelMappingInner {
                 owner: self.inner.clone(),
                 uat_inner,
                 prot,
-                sgt: Some(sgt),
+                bo: Some(vm_bo),
                 mapped_size: size,
             },
             addr,
@@ -894,17 +1153,76 @@ impl Vm {
         )?;
 
         inner.map_node(&node, prot)?;
-        Ok(Mapping(node))
+        Ok(KernelMapping(node))
+    }
+
+    /// Map a range of a GEM object into this Vm using GPUVM.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn bind_object(
+        &self,
+        gem: &gem::Object,
+        addr: u64,
+        size: u64,
+        offset: u64,
+        prot: u32,
+    ) -> Result {
+        // Mapping needs a complete context
+        let mut ctx = StepContext {
+            new_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            prev_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            next_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            vm_bo: None,
+            prot,
+        };
+
+        let sgt = gem.sg_table()?;
+        let mut inner = self.inner.exec_lock(Some(gem))?;
+
+        let vm_bo = inner.obtain_bo()?;
+
+        let mut vm_bo_guard = vm_bo.inner().sgt.lock();
+        if vm_bo_guard.is_none() {
+            vm_bo_guard.replace(sgt);
+        }
+        core::mem::drop(vm_bo_guard);
+
+        ctx.vm_bo = Some(vm_bo);
+
+        if (addr | size | offset) as usize & UAT_PGMSK != 0 {
+            dev_err!(
+                inner.dev.as_ref(),
+                "MMU: Map step {:#x} [{:#x}] -> {:#x} is not page-aligned\n",
+                offset,
+                size,
+                addr
+            );
+            return Err(EINVAL);
+        }
+
+        mod_dev_dbg!(
+            inner.dev,
+            "MMU: sm_map: {:#x} [{:#x}] -> {:#x}\n",
+            offset,
+            size,
+            addr
+        );
+        inner.sm_map(&mut ctx, addr, size, offset)
     }
 
     /// Add a direct MMIO mapping to this Vm at a free address.
-    pub(crate) fn map_io(&self, iova: u64, phys: usize, size: usize, prot: u32) -> Result<Mapping> {
-        let mut inner = self.inner.lock();
+    pub(crate) fn map_io(
+        &self,
+        iova: u64,
+        phys: usize,
+        size: usize,
+        prot: u32,
+    ) -> Result<KernelMapping> {
+        let mut inner = self.inner.exec_lock(None)?;
 
         if (iova as usize | phys | size) & UAT_PGMSK != 0 {
             dev_err!(
                 inner.dev.as_ref(),
-                "MMU: Mapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
+                "MMU: KernelMapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
                 phys,
                 size,
                 iova
@@ -922,11 +1240,11 @@ impl Vm {
 
         let uat_inner = inner.uat_inner.clone();
         let node = inner.mm.reserve_node(
-            MappingInner {
+            KernelMappingInner {
                 owner: self.inner.clone(),
                 uat_inner,
                 prot,
-                sgt: None,
+                bo: None,
                 mapped_size: size,
             },
             iova,
@@ -936,32 +1254,60 @@ impl Vm {
 
         inner.map_pages(iova as usize, phys, UAT_PGSZ, size >> UAT_PGBIT, prot)?;
 
-        Ok(Mapping(node))
+        Ok(KernelMapping(node))
+    }
+
+    /// Unmap everything in an address range.
+    pub(crate) fn unmap_range(&self, iova: u64, size: u64) -> Result {
+        // Unmapping a range can only do a single split, so just preallocate
+        // the prev and next GpuVas
+        let mut ctx = StepContext {
+            prev_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            next_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            ..Default::default()
+        };
+
+        let mut inner = self.inner.exec_lock(None)?;
+
+        mod_dev_dbg!(inner.dev, "MMU: sm_unmap: {:#x}:{:#x}\n", iova, size);
+        inner.sm_unmap(&mut ctx, iova, size)
+    }
+
+    /// Drop mappings for a given bo.
+    pub(crate) fn drop_mappings(&self, gem: &gem::Object) -> Result {
+        // Removing whole mappings only does unmaps, so no preallocated VAs
+        let mut ctx = Default::default();
+
+        let mut inner = self.inner.exec_lock(Some(gem))?;
+
+        if let Some(bo) = inner.find_bo() {
+            mod_dev_dbg!(inner.dev, "MMU: bo_unmap\n");
+            inner.bo_unmap(&mut ctx, &bo)?;
+            mod_dev_dbg!(inner.dev, "MMU: bo_unmap done\n");
+        }
+
+        Ok(())
     }
 
     /// Returns the unique ID of this Vm
     pub(crate) fn id(&self) -> u64 {
         self.id
     }
-
-    /// Returns the unique File ID of the owner of this Vm
-    pub(crate) fn file_id(&self) -> u64 {
-        self.file_id
-    }
 }
 
 impl Drop for VmInner {
     fn drop(&mut self) {
-        assert_eq!(self.active_users, 0);
+        let mut binding = self.binding.lock();
+        assert_eq!(binding.active_users, 0);
 
         mod_pr_debug!(
             "VmInner::Drop [{}]: bind_token={:?}\n",
             self.id,
-            self.bind_token
+            binding.bind_token
         );
 
         // Make sure this VM is not mapped to a TTB if it was
-        if let Some(token) = self.bind_token.take() {
+        if let Some(token) = binding.bind_token.take() {
             let idx = (token.last_slot() as usize) + UAT_USER_CTX_START;
             let ttb = self.ttb() | TTBR_VALID | (idx as u64) << TTBR_ASID_SHIFT;
 
@@ -983,7 +1329,7 @@ impl Drop for VmInner {
             uat_inner.handoff().unlock();
             core::mem::drop(uat_inner);
 
-            // In principle we dropped all the Mappings already, but we might as
+            // In principle we dropped all the KernelMappings already, but we might as
             // well play it safe and invalidate the whole ASID.
             if inval {
                 mod_pr_debug!(
@@ -1097,16 +1443,16 @@ impl Uat {
 
     /// Binds a `Vm` to a slot, preferring the last used one.
     pub(crate) fn bind(&self, vm: &Vm) -> Result<VmBind> {
-        let mut inner = vm.inner.lock();
+        let mut binding = vm.binding.lock();
 
-        if inner.binding.is_none() {
-            assert_eq!(inner.active_users, 0);
+        if binding.binding.is_none() {
+            assert_eq!(binding.active_users, 0);
 
-            let slot = self.slots.get(inner.bind_token)?;
+            let slot = self.slots.get(binding.bind_token)?;
             if slot.changed() {
                 mod_pr_debug!("Vm Bind [{}]: bind_token={:?}\n", vm.id, slot.token(),);
                 let idx = (slot.slot() as usize) + UAT_USER_CTX_START;
-                let ttb = inner.ttb() | TTBR_VALID | (idx as u64) << TTBR_ASID_SHIFT;
+                let ttb = binding.ttb | TTBR_VALID | (idx as u64) << TTBR_ASID_SHIFT;
 
                 let uat_inner = self.inner.lock();
 
@@ -1134,20 +1480,20 @@ impl Uat {
                 mem::sync();
             }
 
-            inner.bind_token = Some(slot.token());
-            inner.binding = Some(slot);
+            binding.bind_token = Some(slot.token());
+            binding.binding = Some(slot);
         }
 
-        inner.active_users += 1;
+        binding.active_users += 1;
 
-        let slot = inner.binding.as_ref().unwrap().slot() + UAT_USER_CTX_START as u32;
-        mod_pr_debug!("MMU: slot {} active users {}\n", slot, inner.active_users);
+        let slot = binding.binding.as_ref().unwrap().slot() + UAT_USER_CTX_START as u32;
+        mod_pr_debug!("MMU: slot {} active users {}\n", slot, binding.active_users);
         Ok(VmBind(vm.clone(), slot))
     }
 
     /// Creates a new `Vm` linked to this UAT.
-    pub(crate) fn new_vm(&self, id: u64, file_id: u64) -> Result<Vm> {
-        Vm::new(&self.dev, self.inner.clone(), self.cfg, false, id, file_id)
+    pub(crate) fn new_vm(&self, id: u64) -> Result<Vm> {
+        Vm::new(&self.dev, self.inner.clone(), self.cfg, false, id)
     }
 
     /// Creates the reference-counted inner data for a new `Uat` instance.
@@ -1194,8 +1540,8 @@ impl Uat {
             Self::map_region(dev.as_ref(), c_str!("pagetables"), PAGETABLES_SIZE, true)?;
 
         dev_info!(dev, "MMU: Creating kernel page tables\n");
-        let kernel_lower_vm = Vm::new(dev, inner.clone(), cfg, false, 1, 0)?;
-        let kernel_vm = Vm::new(dev, inner.clone(), cfg, true, 0, 0)?;
+        let kernel_lower_vm = Vm::new(dev, inner.clone(), cfg, false, 1)?;
+        let kernel_vm = Vm::new(dev, inner.clone(), cfg, true, 0)?;
 
         dev_info!(dev.as_ref(), "MMU: Kernel page tables created\n");
 

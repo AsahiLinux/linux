@@ -784,6 +784,8 @@ impl<'a> InitDataBuilder::ver<'a> {
                     unkptr_1c8: alloc.private.array_empty_tagged(0x1000, b"I1C8")?,
 
                     buffer_mgr_ctl,
+                    buffer_mgr_ctl_low_mapping: None,
+                    buffer_mgr_ctl_high_mapping: None,
                 })
             },
             |inner, _ptr| {

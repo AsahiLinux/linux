@@ -51,8 +51,11 @@ impl drv::Driver for AsahiDriver {
     type Object = gem::Object;
 
     const INFO: drv::DriverInfo = INFO;
-    const FEATURES: u32 =
-        drv::FEAT_GEM | drv::FEAT_RENDER | drv::FEAT_SYNCOBJ | drv::FEAT_SYNCOBJ_TIMELINE;
+    const FEATURES: u32 = drv::FEAT_GEM
+        | drv::FEAT_RENDER
+        | drv::FEAT_SYNCOBJ
+        | drv::FEAT_SYNCOBJ_TIMELINE
+        | drv::FEAT_GEM_GPUVA;
 
     kernel::declare_drm_ioctls! {
         (ASAHI_GET_PARAMS,      drm_asahi_get_params,
