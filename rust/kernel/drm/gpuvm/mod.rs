@@ -17,7 +17,10 @@ use kernel::{
     },
     bindings,
     drm,
-    drm::gem::IntoGEMObject,
+    drm::gem::{
+        BaseObject,
+        IntoGEMObject, //
+    },
     error::to_result,
     prelude::*,
     sync::aref::{
@@ -53,6 +56,14 @@ pub use self::vm_bo::*;
 
 mod va;
 pub use self::va::*;
+
+pub(super) unsafe extern "C" fn exec_lock_gem_object(
+    vm_exec: *mut bindings::drm_gpuvm_exec,
+) -> core::ffi::c_int {
+    // SAFETY: The gpuvm_exec object is valid and priv_ is a GEM object pointer
+    // when this callback is used
+    unsafe { bindings::drm_exec_lock_obj(&mut (*vm_exec).exec, (*vm_exec).extra.priv_ as *mut _) }
+}
 
 /// A DRM GPU VA manager.
 ///
@@ -233,6 +244,47 @@ impl<T: DriverGpuVm> GpuVm<T> {
         unsafe { bindings::drm_gpuvm_is_extobj(self.as_raw(), obj.as_raw()) }
     }
 
+    /// HACK: added for compatibility with asahi downstream driver. Only safe to use
+    /// when the gpuvm user forgot the UniqueRefGpuVm it got from `GpuVm::new()`.
+    pub unsafe fn exec_lock<'a>(
+        &'a self,
+        obj: Option<&T::Object>,
+        interruptible: bool,
+    ) -> Result<GpuVmExec<T>> {
+        // Do not try to lock the object if it is internal (since it is already locked).
+        let is_ext = obj.map(|a| self.is_extobj(a)).unwrap_or(false);
+
+        let mut guard = ManuallyDrop::new(GpuVmExec {
+            // vm_exec needs to be pinned, so stick it in a Box.
+            vm_exec: KBox::init(
+                init!(bindings::drm_gpuvm_exec {
+                    vm: self.as_raw(),
+                    flags: if interruptible {
+                        bindings::DRM_EXEC_INTERRUPTIBLE_WAIT
+                    } else {
+                        0
+                    },
+                    exec: Default::default(),
+                    extra: match (is_ext, obj) {
+                        (true, Some(obj)) => bindings::drm_gpuvm_exec__bindgen_ty_1 {
+                            fn_: Some(exec_lock_gem_object),
+                            priv_: obj.as_raw() as *mut _,
+                        },
+                        _ => Default::default(),
+                    },
+                    num_fences: 0,
+                }),
+                GFP_KERNEL,
+            )?,
+            unique_gpuvm: UniqueRefGpuVm(self.into()),
+        });
+
+        // SAFETY: The object is valid and was initialized above
+        to_result(unsafe { bindings::drm_gpuvm_exec_lock(&mut *guard.vm_exec) })?;
+
+        Ok(ManuallyDrop::into_inner(guard))
+    }
+
     /// Free this GPUVM.
     ///
     /// # Safety
@@ -297,6 +349,22 @@ pub trait DriverGpuVm: Sized + Send + Sync {
     ) -> Result<OpRemapped<'op, Self>, Error>;
 }
 
+/// HACK: added for compatibility with asahi downstream driver.
+pub struct GpuVmExec<T: DriverGpuVm> {
+    vm_exec: KBox<bindings::drm_gpuvm_exec>,
+    /// alternative way to get UniqueRefGpuVm when using `GpuVm::exec_lock()`.
+    pub unique_gpuvm: UniqueRefGpuVm<T>,
+}
+
+impl<T: DriverGpuVm> Drop for GpuVmExec<T> {
+    fn drop(&mut self) {
+        // SAFETY: We hold the lock, so it's safe to unlock
+        unsafe {
+            bindings::drm_gpuvm_exec_unlock(&mut *self.vm_exec);
+        }
+    }
+}
+
 /// The core of the DRM GPU VA manager.
 ///
 /// This object is a unique reference to the VM that can access the interval tree and the Rust
@@ -322,6 +390,26 @@ impl<T: DriverGpuVm> UniqueRefGpuVm<T> {
     pub fn data(&mut self) -> &mut T {
         // SAFETY: By the type invariants we may access `data`.
         unsafe { &mut *self.0.data.get() }
+    }
+
+    /// Get the [`GpuVmBo`] for this gem object if it exists.
+    pub fn find_bo(&mut self, obj: &T::Object) -> Option<ARef<GpuVmBo<T>>> {
+        obj.lock_gpuva();
+        // SAFETY: drm_gem_object.gpuva.lock was just locked.
+        let ptr = unsafe {
+            bindings::drm_gpuvm_bo_find(self.as_raw() as *mut _, obj.as_raw() as *const _ as *mut _)
+        };
+        obj.unlock_gpuva();
+        if ptr.is_null() {
+            None
+        } else {
+            // SAFETY: we just checked that ptr is non-null
+            let nonnull = unsafe { NonNull::new_unchecked(ptr.cast()) };
+
+            // INVARIANTS: `drm_gpuvm_bo_obtain_prealloc` ensures that the bo is in the GEM list.
+            // SAFETY: We received one refcount from `drm_gpuvm_bo_obtain_prealloc`.
+            Some(unsafe { ARef::<GpuVmBo<T>>::from_raw(nonnull) })
+        }
     }
 }
 

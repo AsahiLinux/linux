@@ -362,6 +362,18 @@ impl<T: DriverGpuVm> UniqueRefGpuVm<T> {
         // * The private data is a valid SmData.
         to_result(unsafe { bindings::drm_gpuvm_sm_unmap(gpuvm, (&raw mut p).cast(), addr, length) })
     }
+
+    /// Remove all mappings from the given bo.
+    pub fn bo_unmap(&mut self, context: &mut T::SmContext<'_>, bo: &GpuVmBo<T>) -> Result {
+        let mut p = SmData {
+            gpuvm: self,
+            user_context: context,
+        };
+        // SAFETY:
+        // * GpuVmExec implies the right locks are held.
+        // * The private data is a valid SmData.
+        to_result(unsafe { bindings::drm_gpuvm_bo_unmap(bo.as_raw(), (&raw mut p).cast()) })
+    }
 }
 
 impl<T: DriverGpuVm> GpuVm<T> {
