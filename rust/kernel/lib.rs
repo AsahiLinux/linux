@@ -23,6 +23,7 @@
 #![feature(sized_type_properties)]
 #![feature(slice_range)]
 #![cfg_attr(CONFIG_RUSTC_HAS_COERCE_POINTEE, feature(pin_coerce_unsized_trait))]
+#![warn(clippy::undocumented_unsafe_blocks)]
 
 //
 // Stable since Rust 1.79.0.
