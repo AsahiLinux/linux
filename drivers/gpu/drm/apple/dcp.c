@@ -46,9 +46,9 @@ static bool show_notch;
 module_param(show_notch, bool, 0644);
 MODULE_PARM_DESC(show_notch, "Use the full display height and shows the notch");
 
-static bool noaudio;
-module_param(noaudio, bool, 0644);
-MODULE_PARM_DESC(noaudio, "Skip audio support");
+bool hdmi_audio;
+module_param(hdmi_audio, bool, 0644);
+MODULE_PARM_DESC(hdmi_audio, "Enable unstable HDMI audio support");
 
 /* HACK: moved here to avoid circular dependency between apple_drv and dcp */
 void dcp_drm_crtc_vblank(struct apple_crtc *crtc)
@@ -413,7 +413,7 @@ int dcp_start(struct platform_device *pdev)
 		dev_err(dcp->dev, "Failed to start IOMFB endpoint: %d\n", ret);
 
 #if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
-	if (!noaudio) {
+	if (hdmi_audio) {
 		ret = avep_init(dcp);
 		if (ret)
 			dev_warn(dcp->dev, "Failed to start AV endpoint: %d", ret);

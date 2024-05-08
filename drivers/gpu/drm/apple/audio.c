@@ -494,10 +494,15 @@ static void dcpaud_set_card_names(struct dcp_audio *dcpaud)
 	strscpy(card->shortname, "Apple DisplayPort", sizeof(card->shortname));
 }
 
+extern bool hdmi_audio;
+
 static int dcpaud_init_snd_card(struct dcp_audio *dcpaud)
 {
 	int ret;
 	struct dma_chan *chan;
+
+	if (!hdmi_audio)
+		return -ENODEV;
 
 	chan = of_dma_request_slave_channel(dcpaud->dev->of_node, "tx");
 	/* squelch dma channel request errors, the driver will try again alter */
