@@ -66,6 +66,7 @@ impl OpHeader {
 
 macro_rules! simple_op {
     ($name:ident) => {
+        #[allow(dead_code)]
         #[derive(Debug, Copy, Clone)]
         pub(crate) struct $name(OpHeader);
 
@@ -86,6 +87,7 @@ pub(crate) mod op {
     simple_op!(FinalizeCompute);
     simple_op!(WaitForIdle2);
 
+    #[allow(dead_code)]
     #[derive(Debug, Copy, Clone)]
     pub(crate) struct RetireStamp(OpHeader);
     impl RetireStamp {
@@ -93,6 +95,7 @@ pub(crate) mod op {
             RetireStamp(OpHeader::with_args(OpCode::RetireStamp, 0x40000000));
     }
 
+    #[allow(dead_code)]
     #[derive(Debug, Copy, Clone)]
     pub(crate) struct WaitForIdle(OpHeader);
     impl WaitForIdle {
@@ -101,6 +104,7 @@ pub(crate) mod op {
         }
     }
 
+    #[allow(dead_code)]
     #[derive(Debug, Copy, Clone)]
     pub(crate) struct Timestamp(OpHeader);
     impl Timestamp {
