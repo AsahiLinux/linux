@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
+// FIXME
+#![allow(clippy::undocumented_unsafe_blocks)]
 
 //! Work queues.
 //!
