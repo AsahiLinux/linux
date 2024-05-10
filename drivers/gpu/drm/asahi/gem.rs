@@ -16,6 +16,7 @@ use kernel::{
 
 use kernel::drm::gem::BaseObject;
 
+use core::ops::Range;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 use crate::{debug::*, driver::AsahiDevice, file, file::DrmFile, mmu, util::*};
@@ -76,8 +77,7 @@ impl ObjectRef {
     pub(crate) fn map_into_range(
         &mut self,
         vm: &crate::mmu::Vm,
-        start: u64,
-        end: u64,
+        range: Range<u64>,
         alignment: u64,
         prot: u32,
         guard: bool,
@@ -88,15 +88,7 @@ impl ObjectRef {
             return Err(EINVAL);
         }
 
-        vm.map_in_range(
-            self.gem.size(),
-            &self.gem,
-            alignment,
-            start,
-            end,
-            prot,
-            guard,
-        )
+        vm.map_in_range(self.gem.size(), &self.gem, alignment, range, prot, guard)
     }
 
     /// Maps an object into a given `Vm` at a specific address.

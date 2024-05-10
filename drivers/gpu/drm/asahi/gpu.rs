@@ -12,6 +12,7 @@
 //! itself with version dependence.
 
 use core::any::Any;
+use core::ops::Range;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use core::time::Duration;
 
@@ -68,33 +69,19 @@ const DOORBELL_DEVCTRL: u64 = 0x11;
 
 // Upper kernel half VA address ranges.
 /// Private (cached) firmware structure VA range base.
-const IOVA_KERN_PRIV_BASE: u64 = 0xffffffa000000000;
-/// Private (cached) firmware structure VA range top.
-const IOVA_KERN_PRIV_TOP: u64 = 0xffffffa5ffffffff;
+const IOVA_KERN_PRIV_RANGE: Range<u64> = 0xffffffa000000000..0xffffffa600000000;
 /// Private (cached) GPU-RO firmware structure VA range base.
-const IOVA_KERN_GPU_RO_BASE: u64 = 0xffffffa600000000;
-/// Private (cached) GPU-RO firmware structure VA range top.
-const IOVA_KERN_GPU_RO_TOP: u64 = 0xffffffa7ffffffff;
+const IOVA_KERN_GPU_RO_RANGE: Range<u64> = 0xffffffa600000000..0xffffffa800000000;
 /// Shared (uncached) firmware structure VA range base.
-const IOVA_KERN_SHARED_BASE: u64 = 0xffffffa800000000;
-/// Shared (uncached) firmware structure VA range top.
-const IOVA_KERN_SHARED_TOP: u64 = 0xffffffa9ffffffff;
+const IOVA_KERN_SHARED_RANGE: Range<u64> = 0xffffffa800000000..0xffffffaa00000000;
 /// Shared (uncached) read-only firmware structure VA range base.
-const IOVA_KERN_SHARED_RO_BASE: u64 = 0xffffffaa00000000;
-/// Shared (uncached) read-only firmware structure VA range top.
-const IOVA_KERN_SHARED_RO_TOP: u64 = 0xffffffabffffffff;
+const IOVA_KERN_SHARED_RO_RANGE: Range<u64> = 0xffffffaa00000000..0xffffffac00000000;
 /// GPU/FW shared structure VA range base.
-const IOVA_KERN_GPU_BASE: u64 = 0xffffffac00000000;
-/// GPU/FW shared structure VA range top.
-const IOVA_KERN_GPU_TOP: u64 = 0xffffffadffffffff;
+const IOVA_KERN_GPU_RANGE: Range<u64> = 0xffffffac00000000..0xffffffae00000000;
 /// GPU/FW shared structure VA range base.
-const IOVA_KERN_RTKIT_BASE: u64 = 0xffffffae00000000;
-/// GPU/FW shared structure VA range top.
-const IOVA_KERN_RTKIT_TOP: u64 = 0xffffffae0fffffff;
+const IOVA_KERN_RTKIT_RANGE: Range<u64> = 0xffffffae00000000..0xffffffae10000000;
 /// FW MMIO VA range base.
-const IOVA_KERN_MMIO_BASE: u64 = 0xffffffaf00000000;
-/// FW MMIO VA range top.
-const IOVA_KERN_MMIO_TOP: u64 = 0xffffffafffffffff;
+const IOVA_KERN_MMIO_RANGE: Range<u64> = 0xffffffaf00000000..0xffffffb000000000;
 
 /// GPU/FW buffer manager control address (context 0 low)
 pub(crate) const IOVA_KERN_GPU_BUFMGR_LOW: u64 = 0x20_0000_0000;
@@ -354,8 +341,7 @@ impl rtkit::Operations for GpuManager::ver {
         obj.vmap()?;
         let mapping = obj.map_into_range(
             data.uat.kernel_vm(),
-            IOVA_KERN_RTKIT_BASE,
-            IOVA_KERN_RTKIT_TOP,
+            IOVA_KERN_RTKIT_RANGE,
             mmu::UAT_PGSZ as u64,
             mmu::PROT_FW_SHARED_RW,
             true,
@@ -381,8 +367,7 @@ impl GpuManager::ver {
             private: alloc::DefaultAllocator::new(
                 dev,
                 uat.kernel_vm(),
-                IOVA_KERN_PRIV_BASE,
-                IOVA_KERN_PRIV_TOP,
+                IOVA_KERN_PRIV_RANGE,
                 0x80,
                 mmu::PROT_FW_PRIV_RW,
                 1024 * 1024,
@@ -393,8 +378,7 @@ impl GpuManager::ver {
             shared: alloc::DefaultAllocator::new(
                 dev,
                 uat.kernel_vm(),
-                IOVA_KERN_SHARED_BASE,
-                IOVA_KERN_SHARED_TOP,
+                IOVA_KERN_SHARED_RANGE,
                 0x80,
                 mmu::PROT_FW_SHARED_RW,
                 1024 * 1024,
@@ -405,8 +389,7 @@ impl GpuManager::ver {
             shared_ro: alloc::DefaultAllocator::new(
                 dev,
                 uat.kernel_vm(),
-                IOVA_KERN_SHARED_RO_BASE,
-                IOVA_KERN_SHARED_RO_TOP,
+                IOVA_KERN_SHARED_RO_RANGE,
                 0x80,
                 mmu::PROT_FW_SHARED_RO,
                 64 * 1024,
@@ -417,8 +400,7 @@ impl GpuManager::ver {
             gpu: alloc::DefaultAllocator::new(
                 dev,
                 uat.kernel_vm(),
-                IOVA_KERN_GPU_BASE,
-                IOVA_KERN_GPU_TOP,
+                IOVA_KERN_GPU_RANGE,
                 0x80,
                 mmu::PROT_GPU_FW_SHARED_RW,
                 64 * 1024,
@@ -429,8 +411,7 @@ impl GpuManager::ver {
             gpu_ro: alloc::DefaultAllocator::new(
                 dev,
                 uat.kernel_vm(),
-                IOVA_KERN_GPU_RO_BASE,
-                IOVA_KERN_GPU_RO_TOP,
+                IOVA_KERN_GPU_RO_RANGE,
                 0x80,
                 mmu::PROT_GPU_RO_FW_PRIV_RW,
                 1024 * 1024,
@@ -592,7 +573,7 @@ impl GpuManager::ver {
         let addr = *next_ref;
         let next = addr + (size + mmu::UAT_PGSZ) as u64;
 
-        assert!(next - 1 <= IOVA_KERN_MMIO_TOP);
+        assert!(next <= IOVA_KERN_MMIO_RANGE.end);
 
         *next_ref = next;
 
@@ -702,31 +683,37 @@ impl GpuManager::ver {
         )?;
 
         let alloc_ref = &mut alloc;
-        let tx_channels = Box::init(try_init!(TxChannels::ver {
-            device_control: channel::DeviceControlChannel::ver::new(dev, alloc_ref)?,
-        }))?;
+        let tx_channels = KBox::init(
+            try_init!(TxChannels::ver {
+                device_control: channel::DeviceControlChannel::ver::new(dev, alloc_ref)?,
+            }),
+            GFP_KERNEL,
+        )?;
 
-        let x = UniqueArc::pin_init(try_pin_init!(GpuManager::ver {
-            dev: dev.into(),
-            cfg,
-            dyncfg: *dyncfg,
-            initdata: *initdata,
-            uat: *uat,
-            io_mappings: Vec::new(),
-            next_mmio_iova: IOVA_KERN_MMIO_BASE,
-            rtkit <- Mutex::new_named(None, c_str!("rtkit")),
-            crashed: AtomicBool::new(false),
-            event_manager,
-            alloc <- Mutex::new_named(alloc, c_str!("alloc")),
-            fwctl_channel <- Mutex::new_named(fwctl_channel, c_str!("fwctl_channel")),
-            rx_channels <- Mutex::new_named(*rx_channels, c_str!("rx_channels")),
-            tx_channels <- Mutex::new_named(*tx_channels, c_str!("tx_channels")),
-            pipes,
-            buffer_mgr,
-            ids: Default::default(),
-            garbage_work <- Mutex::new_named(Vec::new(), c_str!("garbage_work")),
-            garbage_contexts <- Mutex::new_named(Vec::new(), c_str!("garbage_contexts")),
-        }))?;
+        let x = UniqueArc::pin_init(
+            try_pin_init!(GpuManager::ver {
+                dev: dev.into(),
+                cfg,
+                dyncfg: *dyncfg,
+                initdata: *initdata,
+                uat: *uat,
+                io_mappings: KVec::new(),
+                next_mmio_iova: IOVA_KERN_MMIO_RANGE.start,
+                rtkit <- Mutex::new_named(None, c_str!("rtkit")),
+                crashed: AtomicBool::new(false),
+                event_manager,
+                alloc <- Mutex::new_named(alloc, c_str!("alloc")),
+                fwctl_channel <- Mutex::new_named(fwctl_channel, c_str!("fwctl_channel")),
+                rx_channels <- Mutex::new_named(*rx_channels, c_str!("rx_channels")),
+                tx_channels <- Mutex::new_named(*tx_channels, c_str!("tx_channels")),
+                pipes,
+                buffer_mgr,
+                ids: Default::default(),
+                garbage_work <- Mutex::new_named(Vec::new(), c_str!("garbage_work")),
+                garbage_contexts <- Mutex::new_named(KVec::new(), c_str!("garbage_contexts")),
+            }),
+            GFP_KERNEL,
+        )?;
 
         Ok(x)
     }

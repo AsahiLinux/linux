@@ -1076,8 +1076,7 @@ impl Vm {
         size: usize,
         gem: &gem::Object,
         alignment: u64,
-        start: u64,
-        end: u64,
+        range: Range<u64>,
         prot: u32,
         guard: bool,
     ) -> Result<KernelMapping> {
@@ -1103,8 +1102,8 @@ impl Vm {
             (size + if guard { UAT_PGSZ } else { 0 }) as u64, // Add guard page
             alignment,
             0,
-            start,
-            end,
+            range.start,
+            range.end,
             mm::InsertMode::Best,
         )?;
 

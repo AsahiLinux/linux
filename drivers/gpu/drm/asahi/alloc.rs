@@ -19,6 +19,7 @@ use crate::driver::{AsahiDevRef, AsahiDevice};
 use crate::fw::types::Zeroable;
 use crate::mmu;
 use crate::object::{GpuArray, GpuObject, GpuOnlyArray, GpuStruct, GpuWeakPointer};
+use crate::util::RangeExt;
 
 use core::cmp::Ordering;
 use core::fmt;
@@ -26,6 +27,7 @@ use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::mem;
 use core::mem::MaybeUninit;
+use core::ops::Range;
 use core::ptr::NonNull;
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Alloc;
@@ -491,8 +493,7 @@ impl RawAllocation for SimpleAllocation {
 /// GPU's idea of object size what we expect.
 pub(crate) struct SimpleAllocator {
     dev: AsahiDevRef,
-    start: u64,
-    end: u64,
+    range: Range<u64>,
     prot: u32,
     vm: mmu::Vm,
     min_align: usize,
@@ -506,8 +507,7 @@ impl SimpleAllocator {
     pub(crate) fn new(
         dev: &AsahiDevice,
         vm: &mmu::Vm,
-        start: u64,
-        end: u64,
+        range: Range<u64>,
         min_align: usize,
         prot: u32,
         _block_size: usize,
@@ -521,8 +521,7 @@ impl SimpleAllocator {
         Ok(SimpleAllocator {
             dev: dev.into(),
             vm: vm.clone(),
-            start,
-            end,
+            range,
             prot,
             min_align,
             cpu_maps,
@@ -567,8 +566,7 @@ impl Allocator for SimpleAllocator {
         }
         let mapping = obj.map_into_range(
             &self.vm,
-            self.start,
-            self.end,
+            self.range.clone(),
             self.min_align.max(mmu::UAT_PGSZ) as u64,
             self.prot,
             true,
@@ -709,8 +707,7 @@ struct HeapAllocatorInner {
 /// never shrinks it.
 pub(crate) struct HeapAllocator {
     dev: AsahiDevRef,
-    start: u64,
-    end: u64,
+    range: Range<u64>,
     top: u64,
     prot: u32,
     vm: mmu::Vm,
@@ -730,8 +727,7 @@ impl HeapAllocator {
     pub(crate) fn new(
         dev: &AsahiDevice,
         vm: &mmu::Vm,
-        start: u64,
-        end: u64,
+        range: Range<u64>,
         min_align: usize,
         prot: u32,
         block_size: usize,
@@ -762,14 +758,13 @@ impl HeapAllocator {
             total_garbage: 0,
         };
 
-        let mm = mm::Allocator::new(start, end - start + 1, inner)?;
+        let mm = mm::Allocator::new(range.start, range.range(), inner)?;
 
         Ok(HeapAllocator {
             dev: dev.into(),
             vm: vm.clone(),
-            start,
-            end,
-            top: start,
+            top: range.start,
+            range,
             prot,
             min_align,
             block_size: block_size.max(min_align),
@@ -806,7 +801,7 @@ impl HeapAllocator {
             size_aligned,
         );
 
-        if self.top.saturating_add(size_aligned as u64) >= self.end {
+        if self.top.saturating_add(size_aligned as u64) > self.range.end {
             dev_err!(
                 self.dev.as_ref(),
                 "HeapAllocator[{}]::add_block: Exhausted VA space\n",
@@ -892,7 +887,7 @@ impl HeapAllocator {
             &self.dev,
             "{} Heap: grow to {} bytes\n",
             &*self.name,
-            self.top - self.start
+            self.top - self.range.start
         );
 
         Ok(())
