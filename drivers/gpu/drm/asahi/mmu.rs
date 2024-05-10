@@ -12,6 +12,7 @@
 
 use core::fmt::Debug;
 use core::mem::size_of;
+use core::ops::Range;
 use core::ptr::NonNull;
 use core::sync::atomic::{fence, AtomicU32, AtomicU64, AtomicU8, Ordering};
 use core::time::Duration;
@@ -34,7 +35,7 @@ use kernel::{
 
 use crate::debug::*;
 use crate::no_debug;
-use crate::{driver, fw, gem, hw, mem, slotalloc};
+use crate::{driver, fw, gem, hw, mem, slotalloc, util::RangeExt};
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Mmu;
 
@@ -69,12 +70,17 @@ pub(crate) const UAT_IAS_KERN: usize = 36;
 pub(crate) const IOVA_USER_BASE: u64 = UAT_PGSZ as u64;
 /// Lower/user top VA
 pub(crate) const IOVA_USER_TOP: u64 = 1 << (UAT_IAS as u64);
+/// Lower/user VA range
+pub(crate) const IOVA_USER_RANGE: Range<u64> = IOVA_USER_BASE..IOVA_USER_TOP;
+
 /// Upper/kernel base VA
 // const IOVA_TTBR1_BASE: usize = 0xffffff8000000000;
 /// Driver-managed kernel base VA
 const IOVA_KERN_BASE: u64 = 0xffffffa000000000;
 /// Driver-managed kernel top VA
 const IOVA_KERN_TOP: u64 = 0xffffffb000000000;
+/// Lower/user VA range
+const IOVA_KERN_RANGE: Range<u64> = IOVA_KERN_BASE..IOVA_KERN_TOP;
 
 const TTBR_VALID: u64 = 0x1; // BIT(0)
 const TTBR_ASID_SHIFT: usize = 48;
@@ -178,8 +184,7 @@ const PAGETABLES_SIZE: usize = UAT_PGSZ;
 struct VmInner {
     dev: driver::AsahiDevRef,
     is_kernel: bool,
-    min_va: u64,
-    max_va: u64,
+    va_range: Range<u64>,
     page_table: AppleUAT<Uat>,
     mm: mm::Allocator<(), KernelMappingInner>,
     uat_inner: Arc<UatInner>,
@@ -412,10 +417,10 @@ impl VmInner {
 
     /// Map an IOVA to the shifted address the underlying io_pgtable uses.
     fn map_iova(&self, iova: u64, size: usize) -> Result<u64> {
-        if iova < self.min_va || (iova + size as u64) > self.max_va {
+        if !self.va_range.is_superset(iova..(iova + size as u64)) {
             Err(EINVAL)
         } else if self.is_kernel {
-            Ok(iova - self.min_va)
+            Ok(iova - self.va_range.start)
         } else {
             Ok(iova)
         }
@@ -1010,18 +1015,13 @@ impl Vm {
             },
             (),
         )?;
-        let min_va = if is_kernel {
-            IOVA_KERN_BASE
+        let va_range = if is_kernel {
+            IOVA_KERN_RANGE
         } else {
-            IOVA_USER_BASE
-        };
-        let max_va = if is_kernel {
-            IOVA_KERN_TOP
-        } else {
-            IOVA_USER_TOP
+            IOVA_USER_RANGE
         };
 
-        let mm = mm::Allocator::new(min_va, max_va - min_va, ())?;
+        let mm = mm::Allocator::new(va_range.start, va_range.range(), ())?;
 
         let binding = Arc::pin_init(
             Mutex::new_named(
@@ -1043,14 +1043,11 @@ impl Vm {
                 c_str!("Asahi::GpuVm"),
                 dev,
                 &*(dummy_obj.gem),
-                min_va,
-                max_va - min_va,
-                0,
-                0,
+                va_range.clone(),
+                0..0,
                 init!(VmInner {
                     dev: dev.into(),
-                    min_va,
-                    max_va,
+                    va_range,
                     is_kernel,
                     page_table,
                     mm,
