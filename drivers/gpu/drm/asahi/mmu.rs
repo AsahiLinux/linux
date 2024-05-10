@@ -255,7 +255,16 @@ impl VmInner {
         let mut left = pgcount;
         while left > 0 {
             let mapped_iova = self.map_iova(iova, pgsize * left)?;
-            let unmapped = self.page_table.unmap_pages(mapped_iova, pgsize, left);
+            let mut unmapped = self.page_table.unmap_pages(mapped_iova, pgsize, left);
+            if unmapped == 0 {
+                dev_err!(
+                    self.dev.as_ref(),
+                    "unmap_pages {:#x}:{:#x} returned 0\n",
+                    mapped_iova,
+                    left
+                );
+                unmapped = pgsize; // Pretend we unmapped one page and try again...
+            }
             assert!(unmapped <= left * pgsize);
 
             left -= unmapped / pgsize;
