@@ -42,3 +42,34 @@ where
 
     (a + b - one) / b
 }
+
+pub(crate) trait RangeExt<T> {
+    fn overlaps(&self, other: Self) -> bool;
+    fn is_superset(&self, other: Self) -> bool;
+    fn len(&self) -> usize;
+    fn range(&self) -> T;
+}
+
+impl<T: PartialOrd<T> + Default + Copy + Sub<Output = T>> RangeExt<T> for core::ops::Range<T>
+where
+    usize: core::convert::TryFrom<T>,
+    <usize as core::convert::TryFrom<T>>::Error: core::fmt::Debug,
+{
+    fn overlaps(&self, other: Self) -> bool {
+        !(self.is_empty() || other.is_empty() || self.end <= other.start || other.end <= self.start)
+    }
+    fn is_superset(&self, other: Self) -> bool {
+        !self.is_empty()
+            && (other.is_empty() || (other.start >= self.start && other.end <= self.end))
+    }
+    fn range(&self) -> T {
+        if self.is_empty() {
+            Default::default()
+        } else {
+            self.end - self.start
+        }
+    }
+    fn len(&self) -> usize {
+        self.range().try_into().unwrap()
+    }
+}
