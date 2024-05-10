@@ -90,6 +90,8 @@ const PTE_TABLE: u64 = 0x3; // BIT(0) | BIT(1)
 /// Address of a special dummy page?
 //const IOVA_UNK_PAGE: u64 = 0x6f_ffff8000;
 pub(crate) const IOVA_UNK_PAGE: u64 = IOVA_USER_TOP - 2 * UAT_PGSZ as u64;
+/// User VA range excluding the unk page
+pub(crate) const IOVA_USER_USABLE_RANGE: Range<u64> = IOVA_USER_BASE..IOVA_UNK_PAGE;
 
 // KernelMapping protection types
 
@@ -1008,6 +1010,7 @@ impl Vm {
     fn new(
         dev: &driver::AsahiDevice,
         uat_inner: Arc<UatInner>,
+        kernel_range: Range<u64>,
         cfg: &'static hw::HwConfig,
         is_kernel: bool,
         id: u64,
@@ -1025,10 +1028,10 @@ impl Vm {
             },
             (),
         )?;
-        let va_range = if is_kernel {
-            IOVA_KERN_RANGE
+        let (va_range, gpuvm_range) = if is_kernel {
+            (IOVA_KERN_RANGE, kernel_range.clone())
         } else {
-            IOVA_USER_RANGE
+            (IOVA_USER_RANGE, IOVA_USER_USABLE_RANGE)
         };
 
         let mm = mm::Allocator::new(va_range.start, va_range.range(), ())?;
@@ -1054,8 +1057,8 @@ impl Vm {
                 c_str!("Asahi::GpuVm"),
                 dev,
                 &*(dummy_obj.gem),
-                va_range.clone(),
-                0..0,
+                gpuvm_range,
+                kernel_range,
                 init!(VmInner {
                     dev: dev.into(),
                     va_range,
@@ -1504,8 +1507,15 @@ impl Uat {
     }
 
     /// Creates a new `Vm` linked to this UAT.
-    pub(crate) fn new_vm(&self, id: u64) -> Result<Vm> {
-        Vm::new(&self.dev, self.inner.clone(), self.cfg, false, id)
+    pub(crate) fn new_vm(&self, id: u64, kernel_range: Range<u64>) -> Result<Vm> {
+        Vm::new(
+            &self.dev,
+            self.inner.clone(),
+            kernel_range,
+            self.cfg,
+            false,
+            id,
+        )
     }
 
     /// Creates the reference-counted inner data for a new `Uat` instance.
@@ -1551,9 +1561,9 @@ impl Uat {
         let pagetables_rgn =
             Self::map_region(dev.as_ref(), c_str!("pagetables"), PAGETABLES_SIZE, true)?;
 
-        dev_info!(dev, "MMU: Creating kernel page tables\n");
-        let kernel_lower_vm = Vm::new(dev, inner.clone(), cfg, false, 1)?;
-        let kernel_vm = Vm::new(dev, inner.clone(), cfg, true, 0)?;
+        dev_info!(dev.as_ref(), "MMU: Creating kernel page tables\n");
+        let kernel_lower_vm = Vm::new(dev, inner.clone(), IOVA_USER_RANGE, cfg, false, 1)?;
+        let kernel_vm = Vm::new(dev, inner.clone(), IOVA_KERN_RANGE, cfg, true, 0)?;
 
         dev_info!(dev.as_ref(), "MMU: Kernel page tables created\n");
 

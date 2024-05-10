@@ -9,8 +9,9 @@
 
 use crate::debug::*;
 use crate::driver::AsahiDevice;
-use crate::{alloc, buffer, driver, gem, mmu, queue};
+use crate::{alloc, buffer, driver, gem, mmu, queue, util::RangeExt};
 use core::mem::MaybeUninit;
+use core::ops::Range;
 use kernel::dma_fence::RawDmaFence;
 use kernel::drm::gem::BaseObject;
 use kernel::error::code::*;
@@ -30,16 +31,29 @@ struct Vm {
     ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
     ualloc_priv: Arc<Mutex<alloc::DefaultAllocator>>,
     vm: mmu::Vm,
+    kernel_range: Range<u64>,
     _dummy_mapping: mmu::KernelMapping,
 }
 
 impl Drop for Vm {
     fn drop(&mut self) {
         // When the user Vm is dropped, unmap everything in the user range
-        if self
-            .vm
-            .unmap_range(mmu::IOVA_USER_BASE, VM_USER_END)
-            .is_err()
+        let left_range = VM_USER_RANGE.start..self.kernel_range.start;
+        let right_range = self.kernel_range.end..VM_USER_RANGE.end;
+
+        if !left_range.is_empty()
+            && self
+                .vm
+                .unmap_range(left_range.start, left_range.range())
+                .is_err()
+        {
+            pr_err!("Vm::Drop: vm.unmap_range() failed\n");
+        }
+        if !right_range.is_empty()
+            && self
+                .vm
+                .unmap_range(right_range.start, right_range.range())
+                .is_err()
         {
             pr_err!("Vm::Drop: vm.unmap_range() failed\n");
         }
@@ -153,23 +167,11 @@ pub(crate) struct File {
 /// Convenience type alias for our DRM `File` type.
 pub(crate) type DrmFile = drm::file::File<File>;
 
-/// Start address of the 32-bit USC address space.
-const VM_SHADER_START: u64 = 0x11_00000000;
-/// End address of the 32-bit USC address space.
-const VM_SHADER_END: u64 = 0x11_ffffffff;
-/// Start address of the general user mapping region.
-const VM_USER_START: u64 = 0x20_00000000;
-/// End address of the general user mapping region.
-const VM_USER_END: u64 = 0x6f_ffff0000;
+/// Available VM range for the user
+const VM_USER_RANGE: Range<u64> = mmu::IOVA_USER_USABLE_RANGE;
 
-/// Start address of the kernel-managed GPU-only mapping region.
-const VM_DRV_GPU_START: u64 = 0x70_00000000;
-/// End address of the kernel-managed GPU-only mapping region.
-const VM_DRV_GPU_END: u64 = 0x70_ffffffff;
-/// Start address of the kernel-managed GPU/FW shared mapping region.
-const VM_DRV_GPUFW_START: u64 = 0x71_00000000;
-/// End address of the kernel-managed GPU/FW shared mapping region.
-const VM_DRV_GPUFW_END: u64 = 0x71_ffffffff;
+/// Minimum reserved AS for kernel mappings
+const VM_KERNEL_MIN_SIZE: u64 = 0x20000000;
 
 impl drm::file::DriverFile for File {
     type Driver = driver::AsahiDriver;
@@ -248,10 +250,11 @@ impl File {
 
             vm_page_size: mmu::UAT_PGSZ as u32,
             pad1: 0,
-            vm_user_start: VM_USER_START,
-            vm_user_end: VM_USER_END,
-            vm_shader_start: VM_SHADER_START,
-            vm_shader_end: VM_SHADER_END,
+            vm_user_start: VM_USER_RANGE.start,
+            vm_user_end: VM_USER_RANGE.end,
+            vm_usc_start: 0, // Arbitrary
+            vm_usc_end: 0,
+            vm_kernel_min_size: VM_KERNEL_MIN_SIZE,
 
             max_syncs_per_submission: 0,
             max_commands_per_submission: MAX_COMMANDS_PER_SUBMISSION,
@@ -300,9 +303,25 @@ impl File {
             return Err(EINVAL);
         }
 
+        let kernel_range = data.kernel_start..data.kernel_end;
+
+        // Validate requested kernel range
+        if !VM_USER_RANGE.is_superset(kernel_range.clone())
+            || kernel_range.range() < VM_KERNEL_MIN_SIZE
+            || kernel_range.start & (mmu::UAT_PGMSK as u64) != 0
+            || kernel_range.end & (mmu::UAT_PGMSK as u64) != 0
+        {
+            cls_pr_debug!(Errors, "vm_create: Invalid kernel range\n");
+            return Err(EINVAL);
+        }
+
+        let kernel_half_size = (kernel_range.range() >> 1) & !(mmu::UAT_PGMSK as u64);
+        let kernel_gpu_range = kernel_range.start..(kernel_range.start + kernel_half_size);
+        let kernel_gpufw_range = kernel_gpu_range.end..kernel_range.end;
+
         let gpu = &device.data().gpu;
         let file_id = file.inner().id;
-        let vm = gpu.new_vm()?;
+        let vm = gpu.new_vm(kernel_range.clone())?;
 
         let resv = file.inner().vms().reserve()?;
         let id: u32 = resv.index().try_into()?;
@@ -318,7 +337,7 @@ impl File {
             Mutex::new(alloc::DefaultAllocator::new(
                 device,
                 &vm,
-                VM_DRV_GPU_START..VM_DRV_GPU_END,
+                kernel_gpu_range,
                 buffer::PAGE_SIZE,
                 mmu::PROT_GPU_SHARED_RW,
                 512 * 1024,
@@ -332,7 +351,7 @@ impl File {
             Mutex::new(alloc::DefaultAllocator::new(
                 device,
                 &vm,
-                VM_DRV_GPUFW_START..VM_DRV_GPUFW_END,
+                kernel_gpufw_range,
                 buffer::PAGE_SIZE,
                 mmu::PROT_GPU_FW_PRIV_RW,
                 64 * 1024,
@@ -360,6 +379,7 @@ impl File {
                 ualloc,
                 ualloc_priv,
                 vm,
+                kernel_range,
                 _dummy_mapping: dummy_mapping,
             },
             GFP_KERNEL,
@@ -522,47 +542,17 @@ impl File {
         let bo = gem::lookup_handle(file, data.handle)?;
 
         let start = data.addr;
-        let end = data.addr + data.range - 1;
+        let end = data.addr.checked_add(data.range).ok_or(EINVAL)?;
+        let range = start..end;
 
-        if (VM_SHADER_START..=VM_SHADER_END).contains(&start) {
-            if !(VM_SHADER_START..=VM_SHADER_END).contains(&end) {
-                cls_pr_debug!(
-                    Errors,
-                    "gem_bind: Invalid map range {:#x}..{:#x} (straddles shader range)\n",
-                    start,
-                    end
-                );
-                return Err(EINVAL); // Invalid map range
-            }
-        } else if (VM_USER_START..=VM_USER_END).contains(&start) {
-            if !(VM_USER_START..=VM_USER_END).contains(&end) {
-                cls_pr_debug!(
-                    Errors,
-                    "gem_bind: Invalid map range {:#x}..{:#x} (straddles user range)\n",
-                    start,
-                    end
-                );
-                return Err(EINVAL); // Invalid map range
-            }
-        } else {
+        if !VM_USER_RANGE.is_superset(range.clone()) {
             cls_pr_debug!(
                 Errors,
-                "gem_bind: Invalid map range {:#x}..{:#x}\n",
+                "gem_bind: Invalid map range {:#x}..{:#x} (not contained in user range)\n",
                 start,
                 end
             );
             return Err(EINVAL); // Invalid map range
-        }
-
-        // Just in case
-        if end >= VM_DRV_GPU_START {
-            cls_pr_debug!(
-                Errors,
-                "gem_bind: Invalid map range {:#x}..{:#x} (intrudes in kernel range)\n",
-                start,
-                end
-            );
-            return Err(EINVAL);
         }
 
         let prot = if data.flags & uapi::ASAHI_BIND_READ != 0 {
@@ -582,15 +572,26 @@ impl File {
             return Err(EINVAL); // Must specify one of ASAHI_BIND_{READ,WRITE}
         };
 
-        // Clone it immediately so we aren't holding the XArray lock
-        let vm = file
+        let guard = file
             .inner()
             .vms()
             .get(data.vm_id.try_into()?)
-            .ok_or(ENOENT)?
-            .borrow()
-            .vm
-            .clone();
+            .ok_or(ENOENT)?;
+
+        // Clone it immediately so we aren't holding the XArray lock
+        let vm = guard.borrow().vm.clone();
+        let kernel_range = guard.borrow().kernel_range.clone();
+        core::mem::drop(guard);
+
+        if kernel_range.overlaps(range) {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Invalid map range {:#x}..{:#x} (intrudes in kernel range)\n",
+                start,
+                end
+            );
+            return Err(EINVAL);
+        }
 
         vm.bind_object(&bo.gem, data.addr, data.range, data.offset, prot)?;
 

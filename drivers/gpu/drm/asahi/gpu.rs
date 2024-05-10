@@ -228,7 +228,7 @@ pub(crate) trait GpuManager: Send + Sync {
     /// Get a reference to the KernelAllocators.
     fn alloc(&self) -> Guard<'_, KernelAllocators, MutexBackend>;
     /// Create a new `Vm` given a unique `File` ID.
-    fn new_vm(&self) -> Result<mmu::Vm>;
+    fn new_vm(&self, kernel_range: Range<u64>) -> Result<mmu::Vm>;
     /// Bind a `Vm` to an available slot and return the `VmBind`.
     fn bind_vm(&self, vm: &mmu::Vm) -> Result<mmu::VmBind>;
     /// Create a new user command queue.
@@ -1213,8 +1213,8 @@ impl GpuManager for GpuManager::ver {
         guard
     }
 
-    fn new_vm(&self) -> Result<mmu::Vm> {
-        self.uat.new_vm(self.ids.vm.next())
+    fn new_vm(&self, kernel_range: Range<u64>) -> Result<mmu::Vm> {
+        self.uat.new_vm(self.ids.vm.next(), kernel_range)
     }
 
     fn bind_vm(&self, vm: &mmu::Vm) -> Result<mmu::VmBind> {

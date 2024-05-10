@@ -286,7 +286,7 @@ impl super::QueueInner::ver {
                         preempt_buf3: inner.preempt_buf.gpu_offset_pointer(preempt3_off),
                         preempt_buf4: inner.preempt_buf.gpu_offset_pointer(preempt4_off),
                         preempt_buf5: inner.preempt_buf.gpu_offset_pointer(preempt5_off),
-                        pipeline_base: U64(0x11_00000000),
+                        pipeline_base: U64(cmdbuf.usc_base),
                         unk_38: U64(0x8c60),
                         helper_program: cmdbuf.helper_program, // Internal program addr | 1
                         unk_44: 0,
@@ -309,7 +309,7 @@ impl super::QueueInner::ver {
                             r.add(0x1a4d8, inner.preempt_buf.gpu_offset_pointer(preempt3_off).into());
                             r.add(0x1a4e0, inner.preempt_buf.gpu_offset_pointer(preempt4_off).into());
                             r.add(0x1a4e8, inner.preempt_buf.gpu_offset_pointer(preempt5_off).into());
-                            r.add(0x10071, 0x1100000000); // USC_EXEC_BASE_CP
+                            r.add(0x10071, cmdbuf.usc_base); // USC_EXEC_BASE_CP
                             r.add(0x11841, cmdbuf.helper_program.into());
                             r.add(0x11849, cmdbuf.helper_arg);
                             r.add(0x11f81, cmdbuf.helper_cfg.into());

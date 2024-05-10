@@ -842,7 +842,7 @@ impl super::QueueInner::ver {
                         tile_config: U64(tile_config),
                         aux_fb: inner.aux_fb.gpu_pointer(),
                         unk_108: Default::default(),
-                        pipeline_base: U64(0x11_00000000),
+                        pipeline_base: U64(cmdbuf.fragment_usc_base),
                         unk_140: U64(unks.frg_unk_140),
                         helper_program: cmdbuf.fragment_helper_program,
                         unk_14c: 0,
@@ -947,7 +947,7 @@ impl super::QueueInner::ver {
                             r.add(0x11829, cmdbuf.fragment_helper_arg);
                             r.add(0x11f79, cmdbuf.fragment_helper_cfg.into());
                             r.add(0x15359, 0);
-                            r.add(0x10069, 0x11_00000000); // USC_EXEC_BASE_ISP
+                            r.add(0x10069, cmdbuf.fragment_usc_base); // USC_EXEC_BASE_ISP
                             r.add(0x16020, 0);
                             r.add(0x16461, inner.aux_fb.gpu_pointer().into());
                             r.add(0x16090, inner.aux_fb.gpu_pointer().into());
@@ -1344,7 +1344,7 @@ impl super::QueueInner::ver {
                         #[ver(G < G14)]
                         unk_ac: unks.tiling_control_2 as u32, // fixed
                         unk_b0: Default::default(), // fixed
-                        pipeline_base: U64(0x11_00000000),
+                        pipeline_base: U64(cmdbuf.vertex_usc_base),
                         #[ver(G < G14)]
                         tvb_cluster_meta4: inner
                             .scene
@@ -1436,7 +1436,7 @@ impl super::QueueInner::ver {
                             r.add(0x1c1a9, 0); // 0x10151 bit 1 enables
                             r.add(0x1c1b1, 0);
                             r.add(0x1c1b9, 0);
-                            r.add(0x10061, 0x11_00000000); // USC_EXEC_BASE_TA
+                            r.add(0x10061, cmdbuf.vertex_usc_base); // USC_EXEC_BASE_TA
                             r.add(0x11801, cmdbuf.vertex_helper_program.into());
                             r.add(0x11809, cmdbuf.vertex_helper_arg);
                             r.add(0x11f71, cmdbuf.vertex_helper_cfg.into());
