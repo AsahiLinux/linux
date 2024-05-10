@@ -299,7 +299,7 @@ pub(crate) struct RtkitObject {
 
 impl rtkit::Buffer for RtkitObject {
     fn iova(&self) -> Result<usize> {
-        Ok(self.mapping.iova())
+        Ok(self.mapping.iova() as usize)
     }
     fn buf(&mut self) -> Result<&mut [u8]> {
         let vmap = self.obj.vmap()?;
@@ -537,20 +537,20 @@ impl GpuManager::ver {
 
         #[ver(V >= V13_0B4)]
         if let Some(base) = cfg.sram_base {
-            let size = cfg.sram_size.unwrap() as usize;
+            let size = cfg.sram_size.unwrap();
             let iova = mgr.as_mut().alloc_mmio_iova(size);
 
-            let mapping =
-                mgr.uat
-                    .kernel_vm()
-                    .map_io(iova, base as usize, size, mmu::PROT_FW_SHARED_RW)?;
+            let mapping = mgr
+                .uat
+                .kernel_vm()
+                .map_io(iova, base, size, mmu::PROT_FW_SHARED_RW)?;
 
             mgr.as_mut()
                 .initdata_mut()
                 .runtime_pointers
                 .hwdata_b
                 .with_mut(|raw, _| {
-                    raw.sgx_sram_ptr = U64(mapping.iova() as u64);
+                    raw.sgx_sram_ptr = U64(mapping.iova());
                 });
 
             mgr.as_mut().io_mappings_mut().push(mapping, GFP_KERNEL)?;

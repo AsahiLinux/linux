@@ -66,15 +66,15 @@ pub(crate) const UAT_IAS: usize = 39;
 pub(crate) const UAT_IAS_KERN: usize = 36;
 
 /// Lower/user base VA
-pub(crate) const IOVA_USER_BASE: usize = UAT_PGSZ;
+pub(crate) const IOVA_USER_BASE: u64 = UAT_PGSZ as u64;
 /// Lower/user top VA
-pub(crate) const IOVA_USER_TOP: usize = (1 << UAT_IAS) - 1;
+pub(crate) const IOVA_USER_TOP: u64 = 1 << (UAT_IAS as u64);
 /// Upper/kernel base VA
 // const IOVA_TTBR1_BASE: usize = 0xffffff8000000000;
 /// Driver-managed kernel base VA
-const IOVA_KERN_BASE: usize = 0xffffffa000000000;
+const IOVA_KERN_BASE: u64 = 0xffffffa000000000;
 /// Driver-managed kernel top VA
-const IOVA_KERN_TOP: usize = 0xffffffafffffffff;
+const IOVA_KERN_TOP: u64 = 0xffffffb000000000;
 
 const TTBR_VALID: u64 = 0x1; // BIT(0)
 const TTBR_ASID_SHIFT: usize = 48;
@@ -178,8 +178,8 @@ const PAGETABLES_SIZE: usize = UAT_PGSZ;
 struct VmInner {
     dev: driver::AsahiDevRef,
     is_kernel: bool,
-    min_va: usize,
-    max_va: usize,
+    min_va: u64,
+    max_va: u64,
     page_table: AppleUAT<Uat>,
     mm: mm::Allocator<(), KernelMappingInner>,
     uat_inner: Arc<UatInner>,
@@ -229,7 +229,7 @@ impl gpuvm::DriverGpuVm for VmInner {
         op: &mut gpuvm::OpMap<Self>,
         ctx: &mut Self::StepContext,
     ) -> Result {
-        let mut iova = op.addr() as usize;
+        let mut iova = op.addr();
         let mut left = op.range() as usize;
         let mut offset = op.offset() as usize;
 
@@ -270,7 +270,7 @@ impl gpuvm::DriverGpuVm for VmInner {
             self.map_pages(iova, addr, UAT_PGSZ, len >> UAT_PGBIT, ctx.prot)?;
 
             left -= len;
-            iova += len;
+            iova += len as u64;
         }
 
         let gpuva = ctx.new_va.take().expect("Multiple step_map calls");
@@ -303,11 +303,7 @@ impl gpuvm::DriverGpuVm for VmInner {
 
         mod_dev_dbg!(self.dev, "MMU: unmap: {:#x}:{:#x}\n", va.addr(), va.range());
 
-        self.unmap_pages(
-            va.addr() as usize,
-            UAT_PGSZ,
-            (va.range() as usize) >> UAT_PGBIT,
-        )?;
+        self.unmap_pages(va.addr(), UAT_PGSZ, (va.range() >> UAT_PGBIT) as usize)?;
 
         if let Some(asid) = self.slot() {
             mem::tlbi_range(asid as u8, va.addr() as usize, va.range() as usize);
@@ -362,11 +358,7 @@ impl gpuvm::DriverGpuVm for VmInner {
             orig_range
         );
 
-        self.unmap_pages(
-            unmap_start as usize,
-            UAT_PGSZ,
-            (unmap_range as usize) >> UAT_PGBIT,
-        )?;
+        self.unmap_pages(unmap_start, UAT_PGSZ, (unmap_range >> UAT_PGBIT) as usize)?;
 
         if op.unmap().unmap_and_unlink_va().is_none() {
             dev_err!(self.dev.as_ref(), "step_unmap: could not unlink gpuva");
@@ -419,8 +411,8 @@ impl VmInner {
     }
 
     /// Map an IOVA to the shifted address the underlying io_pgtable uses.
-    fn map_iova(&self, iova: usize, size: usize) -> Result<usize> {
-        if iova < self.min_va || (iova + size - 1) > self.max_va {
+    fn map_iova(&self, iova: u64, size: usize) -> Result<u64> {
+        if iova < self.min_va || (iova + size as u64) > self.max_va {
             Err(EINVAL)
         } else if self.is_kernel {
             Ok(iova - self.min_va)
@@ -432,7 +424,7 @@ impl VmInner {
     /// Map a contiguous range of virtual->physical pages.
     fn map_pages(
         &mut self,
-        mut iova: usize,
+        mut iova: u64,
         mut paddr: usize,
         pgsize: usize,
         pgcount: usize,
@@ -441,24 +433,26 @@ impl VmInner {
         let mut left = pgcount;
         while left > 0 {
             let mapped_iova = self.map_iova(iova, pgsize * left)?;
-            let mapped = self
-                .page_table
-                .map_pages(mapped_iova, paddr, pgsize, left, prot)?;
+            let mapped =
+                self.page_table
+                    .map_pages(mapped_iova as usize, paddr, pgsize, left, prot)?;
             assert!(mapped <= left * pgsize);
 
             left -= mapped / pgsize;
             paddr += mapped;
-            iova += mapped;
+            iova += mapped as u64;
         }
         Ok(pgcount * pgsize)
     }
 
     /// Unmap a contiguous range of pages.
-    fn unmap_pages(&mut self, mut iova: usize, pgsize: usize, pgcount: usize) -> Result<usize> {
+    fn unmap_pages(&mut self, mut iova: u64, pgsize: usize, pgcount: usize) -> Result<usize> {
         let mut left = pgcount;
         while left > 0 {
             let mapped_iova = self.map_iova(iova, pgsize * left)?;
-            let mut unmapped = self.page_table.unmap_pages(mapped_iova, pgsize, left);
+            let mut unmapped = self
+                .page_table
+                .unmap_pages(mapped_iova as usize, pgsize, left);
             if unmapped == 0 {
                 dev_err!(
                     self.dev.as_ref(),
@@ -471,7 +465,7 @@ impl VmInner {
             assert!(unmapped <= left * pgsize);
 
             left -= unmapped / pgsize;
-            iova += unmapped;
+            iova += unmapped as u64;
         }
 
         Ok(pgcount * pgsize)
@@ -479,7 +473,7 @@ impl VmInner {
 
     /// Map an `mm::Node` representing an mapping in VA space.
     fn map_node(&mut self, node: &mm::Node<(), KernelMappingInner>, prot: u32) -> Result {
-        let mut iova = node.start() as usize;
+        let mut iova = node.start();
         let guard = node.bo.as_ref().ok_or(EINVAL)?.inner().sgt.lock();
         let sgt = guard.as_ref().ok_or(EINVAL)?;
 
@@ -487,7 +481,7 @@ impl VmInner {
             let addr = range.dma_address();
             let len = range.dma_len();
 
-            if (addr | len | iova) & UAT_PGMSK != 0 {
+            if (addr | len | iova as usize) & UAT_PGMSK != 0 {
                 dev_err!(
                     self.dev.as_ref(),
                     "MMU: KernelMapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
@@ -508,7 +502,7 @@ impl VmInner {
 
             self.map_pages(iova, addr, UAT_PGSZ, len >> UAT_PGBIT, prot)?;
 
-            iova += len;
+            iova += len as u64;
         }
         Ok(())
     }
@@ -589,8 +583,8 @@ pub(crate) struct KernelMapping(mm::Node<(), KernelMappingInner>);
 
 impl KernelMapping {
     /// Returns the IOVA base of this mapping
-    pub(crate) fn iova(&self) -> usize {
-        self.0.start() as usize
+    pub(crate) fn iova(&self) -> u64 {
+        self.0.start()
     }
 
     /// Returns the size of this mapping in bytes
@@ -700,7 +694,7 @@ impl KernelMapping {
         // Lock this flush slot, and write the range to it
         let flush = self.0.uat_inner.lock_flush(flush_slot);
         let pages = self.size() >> UAT_PGBIT;
-        flush.begin_flush(self.iova() as u64, self.size() as u64);
+        flush.begin_flush(self.iova(), self.size() as u64);
         if pages >= 0x10000 {
             dev_err!(
                 owner.dev.as_ref(),
@@ -710,7 +704,7 @@ impl KernelMapping {
         }
 
         let cmd = fw::channels::FwCtlMsg {
-            addr: fw::types::U64(self.iova() as u64),
+            addr: fw::types::U64(self.iova()),
             unk_8: 0,
             slot: flush_slot,
             page_count: pages as u16,
@@ -788,7 +782,7 @@ impl Drop for KernelMapping {
         }
 
         if let Some(asid) = owner.slot() {
-            mem::tlbi_range(asid as u8, self.iova(), self.size());
+            mem::tlbi_range(asid as u8, self.iova() as usize, self.size());
             mod_dev_dbg!(
                 owner.dev,
                 "MMU: flush range: asid={:#x} start={:#x} len={:#x}\n",
@@ -1027,7 +1021,7 @@ impl Vm {
             IOVA_USER_TOP
         };
 
-        let mm = mm::Allocator::new(min_va as u64, (max_va - min_va + 1) as u64, ())?;
+        let mm = mm::Allocator::new(min_va, max_va - min_va, ())?;
 
         let binding = Arc::pin_init(
             Mutex::new_named(
@@ -1049,8 +1043,8 @@ impl Vm {
                 c_str!("Asahi::GpuVm"),
                 dev,
                 &*(dummy_obj.gem),
-                min_va as u64,
-                (max_va - min_va + 1) as u64,
+                min_va,
+                max_va - min_va,
                 0,
                 0,
                 init!(VmInner {
@@ -1188,7 +1182,7 @@ impl Vm {
 
         ctx.vm_bo = Some(vm_bo);
 
-        if (addr | size | offset) as usize & UAT_PGMSK != 0 {
+        if (addr | size | offset) & (UAT_PGMSK as u64) != 0 {
             dev_err!(
                 inner.dev.as_ref(),
                 "MMU: Map step {:#x} [{:#x}] -> {:#x} is not page-aligned\n",
@@ -1252,7 +1246,7 @@ impl Vm {
             0,
         )?;
 
-        inner.map_pages(iova as usize, phys, UAT_PGSZ, size >> UAT_PGBIT, prot)?;
+        inner.map_pages(iova, phys, UAT_PGSZ, size >> UAT_PGBIT, prot)?;
 
         Ok(KernelMapping(node))
     }

@@ -38,7 +38,7 @@ impl Drop for Vm {
         // When the user Vm is dropped, unmap everything in the user range
         if self
             .vm
-            .unmap_range(mmu::IOVA_USER_BASE as u64, VM_USER_END)
+            .unmap_range(mmu::IOVA_USER_BASE, VM_USER_END)
             .is_err()
         {
             pr_err!("Vm::Drop: vm.unmap_range() failed\n");

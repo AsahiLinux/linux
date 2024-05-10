@@ -305,9 +305,9 @@ pub(crate) struct HwConfig {
     /// Required MMIO mappings for this GPU/firmware.
     pub(crate) io_mappings: &'static [Option<IOMapping>],
     /// SRAM base
-    pub(crate) sram_base: Option<u64>,
+    pub(crate) sram_base: Option<usize>,
     /// SRAM size
-    pub(crate) sram_size: Option<u64>,
+    pub(crate) sram_size: Option<usize>,
 }
 
 /// Dynamic (fetched from hardware/DT) configuration.
