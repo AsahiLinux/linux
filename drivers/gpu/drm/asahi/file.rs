@@ -170,8 +170,6 @@ const VM_DRV_GPU_END: u64 = 0x70_ffffffff;
 const VM_DRV_GPUFW_START: u64 = 0x71_00000000;
 /// End address of the kernel-managed GPU/FW shared mapping region.
 const VM_DRV_GPUFW_END: u64 = 0x71_ffffffff;
-/// Address of a special dummy page?
-const VM_UNK_PAGE: u64 = 0x6f_ffff8000;
 
 impl drm::file::DriverFile for File {
     type Driver = driver::AsahiDriver;
@@ -349,7 +347,8 @@ impl File {
         );
         let mut dummy_obj = gem::new_kernel_object(device, 0x4000)?;
         dummy_obj.vmap()?.as_mut_slice().fill(0);
-        let dummy_mapping = dummy_obj.map_at(&vm, VM_UNK_PAGE, mmu::PROT_GPU_SHARED_RW, true)?;
+        let dummy_mapping =
+            dummy_obj.map_at(&vm, mmu::IOVA_UNK_PAGE, mmu::PROT_GPU_SHARED_RW, true)?;
 
         mod_dev_dbg!(device, "[File {} VM {}]: VM created\n", file_id, id);
         resv.store(KBox::new(

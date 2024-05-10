@@ -87,6 +87,10 @@ const TTBR_ASID_SHIFT: usize = 48;
 
 const PTE_TABLE: u64 = 0x3; // BIT(0) | BIT(1)
 
+/// Address of a special dummy page?
+//const IOVA_UNK_PAGE: u64 = 0x6f_ffff8000;
+pub(crate) const IOVA_UNK_PAGE: u64 = IOVA_USER_TOP - 2 * UAT_PGSZ as u64;
+
 // KernelMapping protection types
 
 // Note: prot::CACHE means "cache coherency", which for UAT means *uncached*,

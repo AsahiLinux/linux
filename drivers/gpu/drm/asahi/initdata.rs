@@ -486,10 +486,12 @@ impl<'a> InitDataBuilder::ver<'a> {
                 #[ver(V < V13_0B4)]
                 unk_10: U64(0x1_00000000),
                 unk_18: U64(0xffc00000),
-                unk_20: U64(0x11_00000000),
-                unk_28: U64(0x11_00000000),
-                // userspace address?
-                unk_30: U64(0x6f_ffff8000),
+                // USC start
+                unk_20: U64(0), // U64(0x11_00000000),
+                unk_28: U64(0), // U64(0x11_00000000),
+                // Unknown page
+                //unk_30: U64(0x6f_ffff8000),
+                unk_30: U64(mmu::IOVA_UNK_PAGE),
                 // unmapped?
                 unkptr_38: U64(0xffffffa0_11800000),
                 // TODO: yuv matrices
