@@ -175,6 +175,7 @@ struct apple_dcp {
 
 	/* swap id of the last completed swap */
 	u32 last_swap_id;
+	ktime_t swap_start;
 
 	/* Current display mode */
 	bool during_modeset;
@@ -252,6 +253,8 @@ struct apple_dcp {
 	u32 dptx_die;
 	int hdmi_hpd_irq;
 };
+
+void dcp_drm_crtc_page_flip(struct apple_dcp *dcp, ktime_t now);
 
 int dcp_backlight_register(struct apple_dcp *dcp);
 int dcp_backlight_update(struct apple_dcp *dcp);
