@@ -120,10 +120,11 @@ static u32 dcpep_cb_zero(struct apple_dcp *dcp)
 static void dcpep_cb_swap_complete(struct apple_dcp *dcp,
 				   struct DCP_FW_NAME(dc_swap_complete_resp) *resp)
 {
+	ktime_t now = ktime_get();
 	trace_iomfb_swap_complete(dcp, resp->swap_id);
 	dcp->last_swap_id = resp->swap_id;
 
-	dcp_drm_crtc_vblank(dcp->crtc);
+	dcp_drm_crtc_page_flip(dcp, now);
 }
 
 /* special */
@@ -1124,6 +1125,7 @@ static void dcp_swapped(struct apple_dcp *dcp, void *data, void *cookie)
 		dcp_drm_crtc_vblank(dcp->crtc);
 		return;
 	}
+	dcp->swap_start = ktime_get();
 
 	while (!list_empty(&dcp->swapped_out_fbs)) {
 		struct dcp_fb_reference *entry;

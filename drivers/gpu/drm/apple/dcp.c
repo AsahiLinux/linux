@@ -50,6 +50,76 @@ bool hdmi_audio;
 module_param(hdmi_audio, bool, 0644);
 MODULE_PARM_DESC(hdmi_audio, "Enable unstable HDMI audio support");
 
+/* copied and simplified from drm_vblank.c */
+static void send_vblank_event(struct drm_device *dev,
+		struct drm_pending_vblank_event *e,
+		u64 seq, ktime_t now)
+{
+	struct timespec64 tv;
+
+	if (e->event.base.type != DRM_EVENT_FLIP_COMPLETE)
+		return;
+
+	tv = ktime_to_timespec64(now);
+	e->event.vbl.sequence = seq;
+	/*
+		* e->event is a user space structure, with hardcoded unsigned
+		* 32-bit seconds/microseconds. This is safe as we always use
+		* monotonic timestamps since linux-4.15
+		*/
+	e->event.vbl.tv_sec = tv.tv_sec;
+	e->event.vbl.tv_usec = tv.tv_nsec / 1000;
+
+	/*
+	 * Use the same timestamp for any associated fence signal to avoid
+	 * mismatch in timestamps for vsync & fence events triggered by the
+	 * same HW event. Frameworks like SurfaceFlinger in Android expects the
+	 * retire-fence timestamp to match exactly with HW vsync as it uses it
+	 * for its software vsync modeling.
+	 */
+	drm_send_event_timestamp_locked(dev, &e->base, now);
+}
+
+/**
+ * dcp_crtc_send_page_flip_event - helper to send vblank event after pageflip
+ *
+ * Compensate for unknown slack between page flip and arrival of the
+ * swap_complete callback. Minimal observed duration on DCP with HDMI output
+ * was around 2.3 ms. If the fb swap was submitted closer to the expected
+ * swap_complete it gets a penalty of one frame duration. This is on the border
+ * of unreasonable considering that Apple advertises support for 240 Hz (frame
+ * duration of 4.167 ms).
+ * It is unreasonable considering kwin's kms commit scheduling. Kwin commits
+ * 1.5 ms + the mode's vblank time before the expected next page flip
+ * completion. This results in presenting at half the display's rate for HDMI
+ * outputs.
+ * This might be a difference between dcp and dcpext.
+ */
+static void dcp_crtc_send_page_flip_event(struct apple_crtc *crtc,
+					  struct drm_pending_vblank_event *e,
+					  ktime_t now, ktime_t start)
+{
+	struct drm_device *dev = crtc->base.dev;
+	u64 seq;
+	unsigned int pipe = drm_crtc_index(&crtc->base);
+	ktime_t flip;
+
+	seq = 0;
+	if (start != KTIME_MIN) {
+		s64 delta = ktime_us_delta(now, start);
+		if (delta <= 500)
+			flip = now;
+		else if (delta >= 2500)
+			flip = ktime_sub_us(now, 1000);
+		else
+			flip = ktime_sub_us(now, (delta - 500) / 2);
+	} else {
+		flip = now;
+	}
+	e->pipe = pipe;
+	send_vblank_event(dev, e, seq, flip);
+}
+
 /* HACK: moved here to avoid circular dependency between apple_drv and dcp */
 void dcp_drm_crtc_vblank(struct apple_crtc *crtc)
 {
@@ -59,6 +129,23 @@ void dcp_drm_crtc_vblank(struct apple_crtc *crtc)
 	if (crtc->event) {
 		drm_crtc_send_vblank_event(&crtc->base, crtc->event);
 		crtc->event = NULL;
+	}
+	spin_unlock_irqrestore(&crtc->base.dev->event_lock, flags);
+}
+
+void dcp_drm_crtc_page_flip(struct apple_dcp *dcp, ktime_t now)
+{
+	unsigned long flags;
+	struct apple_crtc *crtc = dcp->crtc;
+
+	spin_lock_irqsave(&crtc->base.dev->event_lock, flags);
+	if (crtc->event) {
+		if (crtc->event->event.base.type == DRM_EVENT_FLIP_COMPLETE)
+			dcp_crtc_send_page_flip_event(crtc, crtc->event, now, dcp->swap_start);
+		else
+			drm_crtc_send_vblank_event(&crtc->base, crtc->event);
+		crtc->event = NULL;
+		dcp->swap_start = KTIME_MIN;
 	}
 	spin_unlock_irqrestore(&crtc->base.dev->event_lock, flags);
 }
