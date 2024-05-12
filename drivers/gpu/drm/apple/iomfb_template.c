@@ -1295,8 +1295,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		dcp->surfaces_cleared = true;
 	}
 
-	// Surface 0 has limitations at least on t600x.
-	l = 1;
 	for_each_oldnew_plane_in_state(state, plane, old_state, new_state, plane_idx) {
 		struct drm_framebuffer *fb = new_state->fb;
 		struct drm_gem_dma_object *obj;
@@ -1306,6 +1304,17 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		/* skip planes not for this crtc */
 		if (old_state->crtc != crtc && new_state->crtc != crtc)
 			continue;
+
+		/*
+		 * Plane order is nondeterministic for this iterator. DCP will
+		 * almost always crash at some point if the z order of planes
+		 * flip-flops around. Make sure we are always blending them
+		 * in the correct order.
+		 *
+		 * Despite having 4 surfaces, we can only blend two. Surface 0 is
+		 * also unusable on some machines, so ignore it.
+		 */
+		l = 2 - new_state->zpos;
 
 		WARN_ON(l >= SWAP_SURFACES);
 
@@ -1333,7 +1342,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		}
 
 		if (!new_state->fb) {
-			l += 1;
 			continue;
 		}
 		req->surf_null[l] = false;
@@ -1383,7 +1391,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 			.has_planes = 1,
 		};
 
-		l += 1;
 	}
 
 	if (!has_surface && !crtc_state->color_mgmt_changed) {
