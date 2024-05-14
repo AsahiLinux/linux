@@ -118,8 +118,8 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 	 */
 	return drm_atomic_helper_check_plane_state(new_plane_state,
 						   crtc_state,
-						   FRAC_16_16(1, 4),
-						   FRAC_16_16(2, 1),
+						   FRAC_16_16(1, 2),
+						   FRAC_16_16(4, 1),
 						   true, true);
 }
 
