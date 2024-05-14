@@ -904,6 +904,7 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 		swap->swap.bl_power = 0;
 	}
 
+	/* Null all surfaces */
 	for (int l = 0; l < SWAP_SURFACES; l++)
 		swap->surf_null[l] = true;
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
@@ -1274,7 +1275,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
 
-	/* Reset to defaults */
+	/* Reset all surfaces to defaults */
 	memset(req, 0, sizeof(*req));
 	for (l = 0; l < SWAP_SURFACES; l++)
 		req->surf_null[l] = true;
@@ -1314,9 +1315,10 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		 * Despite having 4 surfaces, we can only blend two. Surface 0 is
 		 * also unusable on some machines, so ignore it.
 		 */
-		l = 2 - new_state->zpos;
 
-		WARN_ON(l >= SWAP_SURFACES);
+		l = MAX_BLEND_SURFACES - new_state->zpos;
+
+		WARN_ON(l > MAX_BLEND_SURFACES);
 
 		req->swap.swap_enabled |= BIT(l);
 
