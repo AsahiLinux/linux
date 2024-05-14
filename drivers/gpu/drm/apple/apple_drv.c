@@ -129,10 +129,15 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 	/* Handled in atomic_flush */
 }
 
-static const struct drm_plane_helper_funcs apple_plane_helper_funcs = {
+static const struct drm_plane_helper_funcs apple_primary_plane_helper_funcs = {
 	.atomic_check	= apple_plane_atomic_check,
 	.atomic_update	= apple_plane_atomic_update,
 	.get_scanout_buffer = drm_fb_dma_get_scanout_buffer,
+};
+
+static const struct drm_plane_helper_funcs apple_plane_helper_funcs = {
+	.atomic_check	= apple_plane_atomic_check,
+	.atomic_update	= apple_plane_atomic_update,
 };
 
 static void apple_plane_cleanup(struct drm_plane *plane)
@@ -161,11 +166,16 @@ static const struct drm_plane_funcs apple_plane_funcs = {
  * doesn't matter for the primary plane, but cursors/overlays must not
  * advertise formats without alpha.
  */
-static const u32 dcp_formats[] = {
+static const u32 dcp_primary_formats[] = {
 	DRM_FORMAT_XRGB2101010,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ABGR8888,
+};
+
+static const u32 dcp_overlay_formats[] = {
+	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_ABGR8888,
 };
 
@@ -183,14 +193,31 @@ static struct drm_plane *apple_plane_init(struct drm_device *dev,
 
 	plane = kzalloc(sizeof(*plane), GFP_KERNEL);
 
-	ret = drm_universal_plane_init(dev, plane, possible_crtcs,
+	switch (type) {
+	case DRM_PLANE_TYPE_PRIMARY:
+		ret = drm_universal_plane_init(dev, plane, possible_crtcs,
 				       &apple_plane_funcs,
-				       dcp_formats, ARRAY_SIZE(dcp_formats),
+				       dcp_primary_formats, ARRAY_SIZE(dcp_primary_formats),
 				       apple_format_modifiers, type, NULL);
+		break;
+	case DRM_PLANE_TYPE_OVERLAY:
+	case DRM_PLANE_TYPE_CURSOR:
+		ret = drm_universal_plane_init(dev, plane, possible_crtcs,
+				       &apple_plane_funcs,
+				       dcp_overlay_formats, ARRAY_SIZE(dcp_overlay_formats),
+				       apple_format_modifiers, type, NULL);
+		break;
+	default:
+		return NULL;
+	}
+
 	if (ret)
 		return ERR_PTR(ret);
 
-	drm_plane_helper_add(plane, &apple_plane_helper_funcs);
+	if (type == DRM_PLANE_TYPE_PRIMARY)
+		drm_plane_helper_add(plane, &apple_primary_plane_helper_funcs);
+	else
+		drm_plane_helper_add(plane, &apple_plane_helper_funcs);
 
 	return plane;
 }
@@ -390,16 +417,29 @@ static int apple_probe_per_dcp(struct device *dev,
 	struct apple_crtc *crtc;
 	struct apple_connector *connector;
 	struct apple_encoder *enc;
-	struct drm_plane *primary;
-	int ret;
+	struct drm_plane *planes[DCP_MAX_PLANES];
+	int ret, i;
 
-	primary = apple_plane_init(drm, 1U << num, DRM_PLANE_TYPE_PRIMARY);
+	planes[0] = apple_plane_init(drm, 1U << num, DRM_PLANE_TYPE_PRIMARY);
+	if (IS_ERR(planes[0]))
+		return PTR_ERR(planes[0]);
 
-	if (IS_ERR(primary))
-		return PTR_ERR(primary);
 
+	/* Set up our other planes */
+	for (i = 1; i < DCP_MAX_PLANES; i++) {
+		planes[i] = apple_plane_init(drm, 1U << num, DRM_PLANE_TYPE_OVERLAY);
+		if (IS_ERR(planes[i]))
+			return PTR_ERR(planes[i]);
+	}
+
+	/*
+	 * Even though we have an overlay plane, we cannot expose it to legacy
+	 * userspace for cursors as we cannot make the same guarantees as ye olde
+	 * hardware cursor planes such userspace would expect us to. Modern userspace
+	 * knows what to do with overlays.
+	 */
 	crtc = kzalloc(sizeof(*crtc), GFP_KERNEL);
-	ret = drm_crtc_init_with_planes(drm, &crtc->base, primary, NULL,
+	ret = drm_crtc_init_with_planes(drm, &crtc->base, planes[0], NULL,
 					&apple_crtc_funcs, NULL);
 	if (ret)
 		return ret;
