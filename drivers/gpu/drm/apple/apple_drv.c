@@ -92,6 +92,19 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 		return PTR_ERR(crtc_state);
 
 	/*
+	 * DCP does not allow a surface to clip off the screen, and will crash
+	 * if any blended surface is smaller than 32x32. Reject the atomic op
+	 * if the plane will crash DCP.
+	 *
+	 * This is most pertinent to cursors. Userspace should fall back to
+	 * software cursors if the plane check is rejected.
+	 */
+	if ((new_plane_state->crtc_x + 32) > crtc_state->mode.hdisplay ||
+	     (new_plane_state->crtc_y + 32) > crtc_state->mode.vdisplay) {
+		return -EINVAL;
+	}
+
+	/*
 	 * DCP limits downscaling to 2x and upscaling to 4x. Attempting to
 	 * scale outside these bounds errors out when swapping.
 	 *
