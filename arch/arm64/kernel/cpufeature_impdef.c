@@ -62,6 +62,20 @@ static bool has_tso_fixed(const struct arm64_cpu_capabilities *entry, int scope)
 }
 #endif
 
+static bool has_apple_actlr_virt_impdef(const struct arm64_cpu_capabilities *entry, int scope)
+{
+	u64 midr = read_cpuid_id() & MIDR_CPU_MODEL_MASK;
+
+	return midr >= MIDR_APPLE_M1_ICESTORM && midr <= MIDR_APPLE_M1_FIRESTORM_MAX;
+}
+
+static bool has_apple_actlr_virt(const struct arm64_cpu_capabilities *entry, int scope)
+{
+	u64 midr = read_cpuid_id() & MIDR_CPU_MODEL_MASK;
+
+	return midr >= MIDR_APPLE_M2_BLIZZARD && midr <= MIDR_CPU_MODEL(ARM_CPU_IMP_APPLE, 0xfff);
+}
+
 static const struct arm64_cpu_capabilities arm64_impdef_features[] = {
 #ifdef CONFIG_ARM64_MEMORY_MODEL_CONTROL
 	{
@@ -82,6 +96,18 @@ static const struct arm64_cpu_capabilities arm64_impdef_features[] = {
 		.matches = has_tso_fixed,
 	},
 #endif
+	{
+		.desc = "ACTLR virtualization (IMPDEF, Apple)",
+		.capability = ARM64_HAS_ACTLR_VIRT_APPLE,
+		.type = ARM64_CPUCAP_EARLY_LOCAL_CPU_FEATURE,
+		.matches = has_apple_actlr_virt_impdef,
+	},
+	{
+		.desc = "ACTLR virtualization (architectural?)",
+		.capability = ARM64_HAS_ACTLR_VIRT,
+		.type = ARM64_CPUCAP_EARLY_LOCAL_CPU_FEATURE,
+		.matches = has_apple_actlr_virt,
+	},
 	{},
 };
 
