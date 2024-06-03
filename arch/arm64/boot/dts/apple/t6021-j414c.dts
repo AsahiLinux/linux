@@ -15,6 +15,7 @@
 / {
 	compatible = "apple,j414c", "apple,t6021", "apple,arm-platform";
 	model = "Apple MacBook Pro (14-inch, M2 Max, 2023)";
+	chassis-type = "laptop";
 };
 
 &wifi0 {

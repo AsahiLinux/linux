@@ -15,6 +15,7 @@
 / {
 	compatible = "apple,j416c", "apple,t6021", "apple,arm-platform";
 	model = "Apple MacBook Pro (16-inch, M2 Max, 2023)";
+	chassis-type = "laptop";
 };
 
 /* This machine model (only) has two extra boost CPU P-states *

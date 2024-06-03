@@ -15,6 +15,7 @@
 / {
 	compatible = "apple,j416s", "apple,t6020", "apple,arm-platform";
 	model = "Apple MacBook Pro (16-inch, M2 Pro, 2023)";
+	chassis-type = "laptop";
 };
 
 &wifi0 {
