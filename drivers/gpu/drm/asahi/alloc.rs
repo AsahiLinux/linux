@@ -720,6 +720,7 @@ pub(crate) struct HeapAllocator {
     guard_nodes: KVec<mm::Node<HeapAllocatorInner, HeapAllocationInner>>,
     mm: mm::Allocator<HeapAllocatorInner, HeapAllocationInner>,
     name: CString,
+    garbage: Option<KVec<mm::Node<HeapAllocatorInner, HeapAllocationInner>>>,
 }
 
 impl HeapAllocator {
@@ -773,6 +774,15 @@ impl HeapAllocator {
             guard_nodes: KVec::new(),
             mm,
             name,
+            garbage: if keep_garbage {
+                Some({
+                    let mut v = KVec::new();
+                    v.reserve(128, GFP_KERNEL)?;
+                    v
+                })
+            } else {
+                None
+            },
         })
     }
 
@@ -1038,29 +1048,31 @@ impl Allocator for HeapAllocator {
         })
     }
 
-    fn collect_garbage(&mut self, count: usize) {
-        // Take the garbage out of the inner block, so we can safely drop it without deadlocking
-        let mut garbage = Vec::new();
+    fn collect_garbage(&mut self, mut count: usize) {
+        if let Some(garbage) = self.garbage.as_mut() {
+            garbage.clear();
 
-        if garbage.try_reserve(count).is_err() {
-            dev_crit!(
-                self.dev,
-                "HeapAllocator[{}]:collect_garbage: failed to reserve space\n",
-                &*self.name,
-            );
-            return;
-        }
+            while count > 0 {
+                let block = count.min(garbage.capacity());
+                assert!(block > 0);
 
-        self.mm.with_inner(|inner| {
-            if let Some(g) = inner.garbage.as_mut() {
-                for node in g.drain(0..count) {
-                    inner.total_garbage -= node.size() as usize;
-                    garbage
-                        .try_push(node)
-                        .expect("try_push() failed after reserve()");
-                }
+                // Take the garbage out of the inner block, so we can safely drop it without deadlocking
+                self.mm.with_inner(|inner| {
+                    if let Some(g) = inner.garbage.as_mut() {
+                        for node in g.drain(0..block) {
+                            inner.total_garbage -= node.size() as usize;
+                            garbage
+                                .push(node, GFP_KERNEL)
+                                .expect("push() failed after reserve()");
+                        }
+                    }
+                });
+
+                count -= block;
+                // Now drop it
+                garbage.clear();
             }
-        });
+        }
     }
 }
 
