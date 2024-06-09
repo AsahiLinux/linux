@@ -189,12 +189,16 @@ dptxport_call_get_drive_settings(struct apple_epic_service *service,
 	/* Clear the rest of the buffer */
 	memset(reply_ + sizeof(*reply), 0, reply_size - sizeof(*reply));
 
-	if (le32_to_cpu(reply->retcode) != 4)
+	/*
+	 * retcode appears to be lane count, seeing 2 for USB-C dp alt mode
+	 * with lanes splitted for DP/USB3.
+	 */
+	if (cpu_to_le32(reply->retcode) != dptx->lane_count)
 		dev_err(service->ep->dcp->dev,
 			"get_drive_settings: unexpected retcode %d\n",
 			reply->retcode);
 
-	reply->retcode = cpu_to_le32(4); /* Should already be 4? */
+	reply->retcode = cpu_to_le32(dptx->lane_count);
 	reply->unk5 = cpu_to_le32(dptx->drive_settings[0]);
 	reply->unk6 = cpu_to_le32(0);
 	reply->unk7 = cpu_to_le32(dptx->drive_settings[1]);
