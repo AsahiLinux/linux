@@ -9,6 +9,8 @@
 
 /dts-v1/;
 
+#define ENABLE_DCPEXT_TYPEC
+
 #include "t6001.dtsi"
 #include "t600x-j375.dtsi"
 
