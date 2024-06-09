@@ -249,12 +249,26 @@ static int dptxport_call_get_max_lane_count(struct apple_epic_service *service,
 					   void *reply_, size_t reply_size)
 {
 	struct dptxport_apcall_lane_count *reply = reply_;
+	struct dptx_port *dptx = service->cookie;
+	union phy_configure_opts phy_ops;
+	int ret;
 
 	if (reply_size < sizeof(*reply))
 		return -EINVAL;
 
 	reply->retcode = cpu_to_le32(0);
 	reply->lane_count = cpu_to_le64(4);
+
+	ret = phy_validate(dptx->atcphy, PHY_MODE_DP, 0, &phy_ops);
+	if (ret < 0 || phy_ops.dp.lanes < 2) {
+		// phy_validate might return 0 lines if atc-phy is not yet
+		// switched to  DP alt mode
+		dev_dbg(service->ep->dcp->dev, "get_max_lane_count: "
+			"phy_validate ret:%d lanes:%d\n", ret, phy_ops.dp.lanes);
+	} else {
+		reply->retcode = cpu_to_le32(0);
+		reply->lane_count = cpu_to_le64(phy_ops.dp.lanes);
+	}
 
 	return 0;
 }
