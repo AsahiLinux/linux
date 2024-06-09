@@ -22,7 +22,12 @@
 };
 
 &display {
+#ifdef ENABLE_DCPEXT_TYPEC
+	iommus = <&dispext0_dart_die1 0 0x100 0x0 0x10 0x0>,
+		 <&dispext1_dart 0 0x100 0x0 0x10 0x0>;
+#else
 	iommus = <&dispext0_dart_die1 0 0x100 0x0 0x10 0x0>;
+#endif
 };
 
 &dispext0_dart_die1 {
