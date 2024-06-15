@@ -500,7 +500,8 @@ static void dcpaud_report_hotplug(struct dcp_audio *dcpaud, bool connected)
 
 	if (!connected) {
 		snd_pcm_stream_lock(substream);
-		snd_pcm_stop(substream, SNDRV_PCM_STATE_DISCONNECTED);
+		if (substream->runtime)
+			snd_pcm_stop(substream, SNDRV_PCM_STATE_DISCONNECTED);
 		snd_pcm_stream_unlock(substream);
 	}
 }
@@ -592,7 +593,6 @@ void dcpaud_disconnect(struct platform_device *pdev)
 
 	mutex_lock(&dcpaud->data_lock);
 
-	dcpaud->dcp_connected = false;
 	dcpaud_report_hotplug(dcpaud, false);
 }
 
