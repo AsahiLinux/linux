@@ -18,8 +18,8 @@ use core::sync::atomic::{fence, AtomicU32, AtomicU64, AtomicU8, Ordering};
 use core::time::Duration;
 
 use kernel::{
-    bindings, c_str, delay, device,
-    drm::{gpuvm, mm},
+    bindings, c_str, delay, device, drm,
+    drm::{gem::BaseObject, gpuvm, mm},
     error::{to_result, Result},
     io_pgtable,
     io_pgtable::{prot, AppleUAT, IoPageTable},
@@ -579,11 +579,16 @@ impl Clone for VmBind {
 
 /// Inner data required for an object mapping into a [`Vm`].
 pub(crate) struct KernelMappingInner {
+    // Drop order matters:
+    // - Drop the GpuVmBo first, which resv locks its BO and drops a GpuVm reference
+    // - Drop the GEM BO next, since BO free can take the resv lock itself
+    // - Drop the owner GpuVm last, since that again can take resv locks when the refcount drops to 0
+    bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
+    _gem: Option<drm::gem::ObjectRef<gem::Object>>,
     owner: ARef<gpuvm::GpuVm<VmInner>>,
     uat_inner: Arc<UatInner>,
     prot: u32,
     mapped_size: usize,
-    bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
 }
 
 /// An object mapping into a [`Vm`], which reserves the address range from use by other mappings.
@@ -1097,6 +1102,7 @@ impl Vm {
                 uat_inner,
                 prot,
                 bo: Some(vm_bo),
+                _gem: Some(gem.reference()),
                 mapped_size: size,
             },
             (size + if guard { UAT_PGSZ } else { 0 }) as u64, // Add guard page
@@ -1139,6 +1145,7 @@ impl Vm {
                 uat_inner,
                 prot,
                 bo: Some(vm_bo),
+                _gem: Some(gem.reference()),
                 mapped_size: size,
             },
             addr,
@@ -1239,6 +1246,7 @@ impl Vm {
                 uat_inner,
                 prot,
                 bo: None,
+                _gem: None,
                 mapped_size: size,
             },
             iova,
@@ -1278,6 +1286,9 @@ impl Vm {
             mod_dev_dbg!(inner.dev, "MMU: bo_unmap\n");
             inner.bo_unmap(&mut ctx, &bo)?;
             mod_dev_dbg!(inner.dev, "MMU: bo_unmap done\n");
+            // We need to drop the exec_lock first, then the GpuVmBo since that will take the lock itself.
+            core::mem::drop(inner);
+            core::mem::drop(bo);
         }
 
         Ok(())
