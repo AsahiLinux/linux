@@ -69,6 +69,20 @@ static void av_interface_init(struct apple_epic_service *service, const char *na
 {
 }
 
+static void av_interface_teardown(struct apple_epic_service *service)
+{
+	struct apple_dcp *dcp = service->ep->dcp;
+	struct audiosrv_data *asrv = dcp->audiosrv;
+
+	mutex_lock(&asrv->plug_lock);
+
+	asrv->plugged = false;
+	if (asrv->audio_dev)
+		dcpaud_disconnect(asrv->audio_dev);
+
+	mutex_unlock(&asrv->plug_lock);
+}
+
 static void av_audiosrv_init(struct apple_epic_service *service, const char *name,
 			     const char *class, s64 unit)
 {
@@ -258,6 +272,7 @@ static const struct apple_epic_service_ops avep_ops[] = {
 	{
 		.name = "DCPAVSimpleVideoInterface",
 		.init = av_interface_init,
+		.teardown = av_interface_teardown,
 	},
 	{
 		.name = "DCPAVAudioInterface",
