@@ -86,6 +86,19 @@ out_free_afkep:
 	return ERR_PTR(ret);
 }
 
+void afk_shutdown(struct apple_dcp_afkep *afkep)
+{
+	afk_send(afkep, FIELD_PREP(RBEP_TYPE, RBEP_SHUTDOWN));
+	int ret;
+
+	ret = wait_for_completion_timeout(&afkep->stopped, msecs_to_jiffies(1000));
+	if (ret <= 0) {
+		dev_err(afkep->dcp->dev, "Timed out shutting down AFK endpoint %02x", afkep->endpoint);
+	}
+
+	destroy_workqueue(afkep->wq);
+}
+
 int afk_start(struct apple_dcp_afkep *ep)
 {
 	int ret;

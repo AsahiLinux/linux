@@ -1018,10 +1018,33 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 {
 	struct apple_dcp *dcp = dev_get_drvdata(dev);
 
+	if (!dcp)
+		return;
+
 	if (dcp->hdmi_hpd_irq)
 		disable_irq(dcp->hdmi_hpd_irq);
 
-	if (dcp && dcp->shmem)
+	if (dcp->avep) {
+		afk_shutdown(dcp->avep);
+		dcp->avep = NULL;
+	}
+
+	if (dcp->dptxep) {
+		afk_shutdown(dcp->dptxep);
+		dcp->dptxep = NULL;
+	}
+
+	if (dcp->ibootep) {
+		afk_shutdown(dcp->ibootep);
+		dcp->ibootep = NULL;
+	}
+
+	if (dcp->systemep) {
+		afk_shutdown(dcp->systemep);
+		dcp->systemep = NULL;
+	}
+
+	if (dcp->shmem)
 		iomfb_shutdown(dcp);
 
 	if (dcp->piodma) {
@@ -1033,6 +1056,12 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 		// of_platform_device_destroy(&dcp->piodma->dev, NULL);
 		dcp->piodma = NULL;
 	}
+
+	if (dcp->connector_type == DRM_MODE_CONNECTOR_eDP) {
+		cancel_work_sync(&dcp->bl_register_wq);
+		cancel_work_sync(&dcp->bl_update_wq);
+	}
+	cancel_work_sync(&dcp->vblank_wq);
 
 	devm_clk_put(dev, dcp->clk);
 	dcp->clk = NULL;
