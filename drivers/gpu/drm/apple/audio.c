@@ -35,6 +35,8 @@
 struct dcp_audio {
 	struct device *dev;
 	struct device *dcp_dev;
+	struct device *dma_dev;
+	struct device_link *dma_link;
 	struct dma_chan *chan;
 	struct snd_card *card;
 	struct snd_jack *jack;
@@ -588,40 +590,13 @@ void dcpaud_disconnect(struct platform_device *pdev)
 	dcpaud_report_hotplug(dcpaud, false);
 }
 
-static ssize_t probe_snd_card_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	int ret;
-	bool connected = false;
-	struct dcp_audio *dcpaud = dev_get_drvdata(dev);
-
-	mutex_lock(&dcpaud->data_lock);
-
-	if (!dcpaud->chan) {
-		ret = dcpaud_init_snd_card(dcpaud);
-		if (ret)
-			goto out_unlock;
-
-		connected = dcpaud->dcp_connected;
-		if (connected) {
-			dcpaud_report_hotplug(dcpaud, connected);
-			goto out;
-		}
-	}
-out_unlock:
-	mutex_unlock(&dcpaud->data_lock);
-out:
-	return count;
-}
-
-static const DEVICE_ATTR_WO(probe_snd_card);
-
 static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 {
 	struct dcp_audio *dcpaud = dev_get_drvdata(dev);
 	struct device_node *endpoint, *dcp_node = NULL;
-	struct platform_device *dcp_pdev;
+	struct platform_device *dcp_pdev, *dma_pdev;
+	struct of_phandle_args dma_spec;
+	int index;
 	int ret;
 
 	/* find linked DCP instance */
@@ -636,6 +611,18 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 		return 0;
 	}
 
+	index = of_property_match_string(dev->of_node, "dma-names", "tx");
+	if (index < 0) {
+		dev_err(dev, "No dma-names property\n");
+		return 0;
+	}
+
+	if (of_parse_phandle_with_args(dev->of_node, "dmas", "#dma-cells", index,
+				       &dma_spec) || !dma_spec.np) {
+		dev_err(dev, "Failed to parse dmas property\n");
+		return 0;
+	}
+
 	dcp_pdev = of_find_device_by_node(dcp_node);
 	of_node_put(dcp_node);
 	if (!dcp_pdev) {
@@ -644,12 +631,19 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 	}
 	dcpaud->dcp_dev = &dcp_pdev->dev;
 
-	dcpaud_expose_debugfs_blob(dcpaud, "selected_cookie", &dcpaud->selected_cookie,
-				   sizeof(dcpaud->selected_cookie));
-	dcpaud_expose_debugfs_blob(dcpaud, "elements", dcpaud->elements,
-				   DCPAUD_ELEMENTS_MAXSIZE);
-	dcpaud_expose_debugfs_blob(dcpaud, "product_attrs", dcpaud->productattrs,
-				   DCPAUD_PRODUCTATTRS_MAXSIZE);
+
+	dma_pdev = of_find_device_by_node(dma_spec.np);
+	of_node_put(dma_spec.np);
+	if (!dma_pdev) {
+		dev_info(dev, "No DMA device\n");
+		return 0;
+	}
+	dcpaud->dma_dev = &dma_pdev->dev;
+
+	dcpaud->dma_link = device_link_add(dev, dcpaud->dma_dev,
+					   DL_FLAG_PM_RUNTIME |
+					   DL_FLAG_RPM_ACTIVE |
+					   DL_FLAG_STATELESS);
 
 	mutex_lock(&dcpaud->data_lock);
 	/* ignore errors to prevent audio issues affecting the display side */
@@ -670,6 +664,9 @@ static void dcpaud_comp_unbind(struct device *dev, struct device *main,
 
 	/* snd_card_free_when_closed() checks for NULL */
 	snd_card_free_when_closed(dcpaud->card);
+
+	if (dcpaud->dma_link)
+		device_link_del(dcpaud->dma_link);
 }
 
 static const struct component_ops dcpaud_comp_ops = {
