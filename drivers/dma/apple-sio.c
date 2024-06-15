@@ -277,6 +277,7 @@ static struct dma_async_tx_descriptor *sio_prep_dma_cyclic(
 
 		siotx->siodesc[i] = d = sio_alloc_desc(siochan->host);
 		if (!d) {
+			siotx->vd.tx.chan = &siochan->vc.chan;
 			sio_tx_free(&siotx->vd);
 			return NULL;
 		}
