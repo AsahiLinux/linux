@@ -409,7 +409,7 @@ impl File {
             return Err(EINVAL);
         }
 
-        let vm_id = if data.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 {
+        let resv_obj = if data.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 {
             Some(
                 file.inner()
                     .vms()
@@ -417,13 +417,13 @@ impl File {
                     .ok_or(ENOENT)?
                     .borrow()
                     .vm
-                    .id(),
+                    .get_resv_obj(),
             )
         } else {
             None
         };
 
-        let bo = gem::new_object(device, data.size.try_into()?, data.flags, vm_id)?;
+        let bo = gem::new_object(device, data.size.try_into()?, data.flags, resv_obj.as_ref())?;
 
         let handle = bo.gem.create_handle(file)?;
         data.handle = handle;

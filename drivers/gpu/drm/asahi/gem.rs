@@ -30,8 +30,6 @@ pub(crate) struct DriverObject {
     kernel: bool,
     /// Object creation flags.
     flags: u32,
-    /// VM ID for VM-private objects.
-    vm_id: Option<u64>,
     /// ID for debug
     id: u64,
 }
@@ -82,12 +80,10 @@ impl ObjectRef {
         prot: u32,
         guard: bool,
     ) -> Result<crate::mmu::KernelMapping> {
-        let vm_id = vm.id();
-
-        if self.gem.vm_id.is_some() && self.gem.vm_id != Some(vm_id) {
+        // Only used for kernel objects now
+        if !self.gem.kernel {
             return Err(EINVAL);
         }
-
         vm.map_in_range(self.gem.size(), &self.gem, alignment, range, prot, guard)
     }
 
@@ -101,9 +97,7 @@ impl ObjectRef {
         prot: u32,
         guard: bool,
     ) -> Result<crate::mmu::KernelMapping> {
-        let vm_id = vm.id();
-
-        if self.gem.vm_id.is_some() && self.gem.vm_id != Some(vm_id) {
+        if self.gem.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 && vm.is_extobj(&self.gem) {
             return Err(EINVAL);
         }
 
@@ -128,21 +122,23 @@ pub(crate) fn new_object(
     dev: &AsahiDevice,
     size: usize,
     flags: u32,
-    vm_id: Option<u64>,
+    parent_object: Option<&gem::ObjectRef<Object>>,
 ) -> Result<ObjectRef> {
+    if (flags & uapi::ASAHI_GEM_VM_PRIVATE != 0) != parent_object.is_some() {
+        return Err(EINVAL);
+    }
+
     let mut gem = shmem::Object::<DriverObject>::new(dev, align(size, mmu::UAT_PGSZ))?;
     gem.kernel = false;
     gem.flags = flags;
-    gem.vm_id = vm_id;
 
-    gem.set_exportable(vm_id.is_none());
+    gem.set_exportable(parent_object.is_none());
     gem.set_wc(flags & uapi::ASAHI_GEM_WRITEBACK == 0);
+    if let Some(parent) = parent_object {
+        gem.share_dma_resv(&**parent)?;
+    }
 
-    mod_pr_debug!(
-        "DriverObject new user object: vm_id={:?} id={}\n",
-        vm_id,
-        gem.id
-    );
+    mod_pr_debug!("DriverObject new user object: id={}\n", gem.id);
     Ok(ObjectRef::new(gem.into_ref()))
 }
 
@@ -159,14 +155,13 @@ impl gem::BaseDriverObject<Object> for DriverObject {
         try_pin_init!(DriverObject {
             kernel: false,
             flags: 0,
-            vm_id: None,
             id,
         })
     }
 
     /// Callback to drop all mappings for a GEM object owned by a given `File`
     fn close(obj: &Object, file: &DrmFile) {
-        mod_pr_debug!("DriverObject::close vm_id={:?} id={}\n", obj.vm_id, obj.id);
+        mod_pr_debug!("DriverObject::close id={}\n", obj.id);
         if file::File::unbind_gem_object(file, obj).is_err() {
             pr_err!("DriverObject::close: Failed to unbind GEM object\n");
         }

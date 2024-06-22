@@ -522,6 +522,7 @@ impl VmInner {
 pub(crate) struct Vm {
     id: u64,
     inner: ARef<gpuvm::GpuVm<VmInner>>,
+    dummy_obj: drm::gem::ObjectRef<gem::Object>,
     binding: Arc<Mutex<VmBinding>>,
 }
 no_debug!(Vm);
@@ -1048,6 +1049,7 @@ impl Vm {
         let binding_clone = binding.clone();
         Ok(Vm {
             id,
+            dummy_obj: dummy_obj.gem.clone(),
             inner: gpuvm::GpuVm::new(
                 c_str!("Asahi::GpuVm"),
                 dev,
@@ -1294,9 +1296,14 @@ impl Vm {
         Ok(())
     }
 
-    /// Returns the unique ID of this Vm
-    pub(crate) fn id(&self) -> u64 {
-        self.id
+    /// Returns the dummy GEM object used to hold the shared DMA reservation locks
+    pub(crate) fn get_resv_obj(&self) -> drm::gem::ObjectRef<gem::Object> {
+        self.dummy_obj.clone()
+    }
+
+    /// Check whether an object is external to this GpuVm
+    pub(crate) fn is_extobj(&self, gem: &gem::Object) -> bool {
+        self.inner.is_extobj(gem)
     }
 }
 
