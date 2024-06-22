@@ -88,7 +88,13 @@ pub(crate) enum GpuRevisionID {
 /// GPU driver/hardware features, from the UABI.
 pub(crate) mod feat {
     /// Backwards-compatible features.
-    pub(crate) mod compat {}
+    pub(crate) mod compat {
+        use kernel::uapi;
+
+        /// Soft MMU faults enabled.
+        pub(crate) const SOFT_FAULTS: u64 =
+            uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_SOFT_FAULTS as u64;
+    }
 
     /// Backwards-incompatible features.
     pub(crate) mod incompat {
