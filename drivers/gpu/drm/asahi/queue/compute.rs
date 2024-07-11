@@ -27,7 +27,7 @@ use kernel::user_ptr::UserSlicePtr;
 const DEBUG_CLASS: DebugFlags = DebugFlags::Compute;
 
 #[versions(AGX)]
-impl super::Queue::ver {
+impl super::QueueInner::ver {
     /// Submit work to a compute queue.
     pub(super) fn submit_compute(
         &self,

@@ -68,7 +68,7 @@ impl RenderResult {
 }
 
 #[versions(AGX)]
-impl super::Queue::ver {
+impl super::QueueInner::ver {
     /// Get the appropriate tiling parameters for a given userspace command buffer.
     fn get_tiling_params(
         cmdbuf: &uapi::drm_asahi_cmd_render,

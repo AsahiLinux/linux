@@ -98,16 +98,22 @@ pub(crate) struct Queue {
     _sched: sched::Scheduler<QueueJob::ver>,
     entity: sched::Entity<QueueJob::ver>,
     vm: mmu::Vm,
-    ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
     q_vtx: Option<SubQueue::ver>,
     q_frag: Option<SubQueue::ver>,
     q_comp: Option<SubQueue::ver>,
+    fence_ctx: FenceContexts,
+    inner: QueueInner::ver,
+}
+
+#[versions(AGX)]
+pub(crate) struct QueueInner {
+    dev: AsahiDevRef,
+    ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
     buffer: Option<buffer::Buffer::ver>,
     gpu_context: Arc<workqueue::GpuContext>,
     notifier_list: Arc<GpuObject<fw::event::NotifierList>>,
     notifier: Arc<GpuObject<fw::event::Notifier::ver>>,
     id: u64,
-    fence_ctx: FenceContexts,
     #[ver(V >= V13_0B4)]
     counter: AtomicU64,
 }
@@ -430,22 +436,25 @@ impl Queue::ver {
             _sched: sched,
             entity,
             vm,
-            ualloc,
             q_vtx: None,
             q_frag: None,
             q_comp: None,
-            gpu_context: Arc::try_new(workqueue::GpuContext::new(
-                dev,
-                alloc,
-                buffer.as_ref().map(|b| b.any_ref()),
-            )?)?,
-            buffer,
-            notifier_list: Arc::try_new(notifier_list)?,
-            notifier,
-            id,
             fence_ctx: FenceContexts::new(1, QUEUE_NAME, QUEUE_CLASS_KEY)?,
-            #[ver(V >= V13_0B4)]
-            counter: AtomicU64::new(0),
+            inner: QueueInner::ver {
+                dev: dev.into(),
+                ualloc,
+                gpu_context: Arc::new(
+                    workqueue::GpuContext::new(dev, alloc, buffer.as_ref().map(|b| b.any_ref()))?,
+                    GFP_KERNEL,
+                )?,
+
+                buffer,
+                notifier_list: Arc::new(notifier_list, GFP_KERNEL)?,
+                notifier,
+                id,
+                #[ver(V >= V13_0B4)]
+                counter: AtomicU64::new(0),
+            },
         };
 
         // Rendering structures
@@ -455,15 +464,19 @@ impl Queue::ver {
                 *crate::initial_tvb_size.read(&lock)
             };
 
-            ret.buffer.as_ref().unwrap().ensure_blocks(tvb_blocks)?;
+            ret.inner
+                .buffer
+                .as_ref()
+                .unwrap()
+                .ensure_blocks(tvb_blocks)?;
 
             ret.q_vtx = Some(SubQueue::ver {
                 wq: workqueue::WorkQueue::ver::new(
                     dev,
                     alloc,
                     event_manager.clone(),
-                    ret.gpu_context.clone(),
-                    ret.notifier_list.clone(),
+                    ret.inner.gpu_context.clone(),
+                    ret.inner.notifier_list.clone(),
                     channel::PipeType::Vertex,
                     id,
                     priority,
@@ -483,8 +496,8 @@ impl Queue::ver {
                     dev,
                     alloc,
                     event_manager.clone(),
-                    ret.gpu_context.clone(),
-                    ret.notifier_list.clone(),
+                    ret.inner.gpu_context.clone(),
+                    ret.inner.notifier_list.clone(),
                     channel::PipeType::Fragment,
                     id,
                     priority,
@@ -500,8 +513,8 @@ impl Queue::ver {
                     dev,
                     alloc,
                     event_manager,
-                    ret.gpu_context.clone(),
-                    ret.notifier_list.clone(),
+                    ret.inner.gpu_context.clone(),
+                    ret.inner.notifier_list.clone(),
                     channel::PipeType::Compute,
                     id,
                     priority,
@@ -736,7 +749,7 @@ impl Queue for Queue::ver {
 
             match cmd.cmd_type {
                 uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER => {
-                    self.submit_render(
+                    self.inner.submit_render(
                         &mut job,
                         &cmd,
                         result_writer,
@@ -757,7 +770,7 @@ impl Queue for Queue::ver {
                     )?;
                 }
                 uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_COMPUTE => {
-                    self.submit_compute(
+                    self.inner.submit_compute(
                         &mut job,
                         &cmd,
                         result_writer,
@@ -807,6 +820,6 @@ impl Queue for Queue::ver {
 #[versions(AGX)]
 impl Drop for Queue::ver {
     fn drop(&mut self) {
-        mod_dev_dbg!(self.dev, "[Queue {}] Dropping queue\n", self.id);
+        mod_dev_dbg!(self.dev, "[Queue {}] Dropping queue\n", self.inner.id);
     }
 }
