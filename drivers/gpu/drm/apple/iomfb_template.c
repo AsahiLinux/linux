@@ -322,7 +322,10 @@ static void dcpep_cb_unmap_piodma(struct apple_dcp *dcp,
 	}
 
 	/* use the piodma iommu domain to unmap from the right IOMMU */
-	iommu_unmap(dcp->iommu_dom, memdesc->dva, memdesc->size);
+	/* HACK: expect size to be 16K aligned since the iommu API only maps
+	 *       full pages
+	 */
+	iommu_unmap(dcp->iommu_dom, memdesc->dva, ALIGN(memdesc->size, SZ_16K));
 }
 
 /*
@@ -370,6 +373,7 @@ dcpep_cb_allocate_buffer(struct apple_dcp *dcp,
 static u8 dcpep_cb_release_mem_desc(struct apple_dcp *dcp, u32 *mem_desc_id)
 {
 	struct dcp_mem_descriptor *memdesc;
+	size_t size;
 	u32 id = *mem_desc_id;
 
 	if (id >= DCP_MAX_MAPPINGS) {
@@ -385,10 +389,9 @@ static u8 dcpep_cb_release_mem_desc(struct apple_dcp *dcp, u32 *mem_desc_id)
 	}
 
 	memdesc = &dcp->memdesc[id];
+	size = ALIGN(memdesc->size, SZ_16K);
 	if (memdesc->buf) {
-		dma_free_coherent(dcp->dev, memdesc->size, memdesc->buf,
-				  memdesc->dva);
-
+		dma_free_coherent(dcp->dev, size, memdesc->buf, memdesc->dva);
 		memdesc->buf = NULL;
 		memset(&memdesc->map, 0, sizeof(memdesc->map));
 	} else {
