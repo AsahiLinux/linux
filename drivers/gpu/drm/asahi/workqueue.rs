@@ -370,7 +370,16 @@ impl Job::ver {
         } else if let Some(work) = inner.pending.first() {
             Some(work.get_fence())
         } else {
-            pr_err!("WorkQueue: Cannot submit, but queue is empty?\n");
+            pr_err!(
+                "WorkQueue: Cannot submit, but queue is empty? {} > {}, {} > {} (pend={} ls={:#x?} lc={:#x?})\n",
+                inner.free_slots(),
+                self.event_count,
+                inner.free_space(),
+                self.pending.len(),
+                inner.pending.len(),
+                inner.last_submitted,
+                inner.last_completed,
+            );
             None
         }
     }
@@ -751,7 +760,11 @@ impl WorkQueue for WorkQueue::ver {
         let event = inner.event.as_ref();
         let value = match event {
             None => {
-                pr_err!("WorkQueue: signal() called but no event?\n");
+                mod_pr_debug!("WorkQueue: signal() called but no event?\n");
+
+                if inner.pending_jobs > 0 || !inner.pending.is_empty() {
+                    pr_crit!("WorkQueue: signal() called with no event and pending jobs.\n");
+                }
                 return true;
             }
             Some(event) => event.0.current(),
@@ -848,7 +861,11 @@ impl WorkQueue for WorkQueue::ver {
         let mut inner = self.inner.lock();
 
         if inner.event.is_none() {
-            pr_err!("WorkQueue: signal_fault() called but no event?\n");
+            mod_pr_debug!("WorkQueue: signal_fault() called but no event?\n");
+
+            if inner.pending_jobs > 0 || !inner.pending.is_empty() {
+                pr_crit!("WorkQueue: signal_fault() called with no event and pending jobs.\n");
+            }
             return;
         }
 
@@ -877,7 +894,11 @@ impl WorkQueue for WorkQueue::ver {
         let mut inner = self.inner.lock();
 
         if inner.event.is_none() {
-            pr_err!("WorkQueue: fail_all() called but no event?\n");
+            mod_pr_debug!("WorkQueue: fail_all() called but no event?\n");
+
+            if inner.pending_jobs > 0 || !inner.pending.is_empty() {
+                pr_crit!("WorkQueue: fail_all() called with no event and pending jobs.\n");
+            }
             return;
         }
 
