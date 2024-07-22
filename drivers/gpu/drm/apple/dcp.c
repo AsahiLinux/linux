@@ -191,6 +191,17 @@ bool dcp_has_panel(struct apple_dcp *dcp)
 	return dcp->panel.width_mm > 0;
 }
 
+int dcp_set_crc(struct drm_crtc *crtc, bool enabled)
+{
+	struct apple_crtc *ac = to_apple_crtc(crtc);
+	struct apple_dcp *dcp = platform_get_drvdata(ac->dcp);
+
+	dcp->crc_enabled = enabled;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dcp_set_crc);
+
 /*
  * Helper to send a DRM vblank event. We do not know how call swap_submit_dcp
  * without surfaces. To avoid timeouts in drm_atomic_helper_wait_for_vblanks

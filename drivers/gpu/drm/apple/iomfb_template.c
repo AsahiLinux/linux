@@ -125,6 +125,10 @@ static void dcpep_cb_swap_complete(struct apple_dcp *dcp,
 	dcp->last_swap_id = resp->swap_id;
 
 	dcp_drm_crtc_page_flip(dcp, now);
+	if (dcp->crc_enabled) {
+		u32 crc32 = 0;
+		drm_crtc_add_crc_entry(&dcp->crtc->base, true, resp->swap_id, &crc32);
+	}
 }
 
 /* special */

@@ -261,6 +261,59 @@ static void apple_crtc_cleanup(struct drm_crtc *crtc)
 	kfree(to_apple_crtc(crtc));
 }
 
+static int apple_crtc_parse_crc_source(const char *source, bool *enabled)
+{
+	int ret = 0;
+
+	if (!source) {
+		*enabled = false;
+	} else if (strcmp(source, "auto") == 0) {
+		*enabled = true;
+	} else {
+		*enabled = false;
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int apple_crtc_set_crc_source(struct drm_crtc *crtc, const char *source)
+{
+	bool enabled = false;
+
+	int ret = apple_crtc_parse_crc_source(source, &enabled);
+
+	if (!ret)
+		dcp_set_crc(crtc, enabled);
+
+	return ret;
+}
+
+static int apple_crtc_verify_crc_source(struct drm_crtc *crtc,
+					const char *source,
+					size_t *values_cnt)
+{
+	bool enabled;
+
+	if (apple_crtc_parse_crc_source(source, &enabled) < 0) {
+		pr_warn("dcp: Invalid CRC source name %s\n", source);
+		return -EINVAL;
+	}
+
+	*values_cnt = 1;
+
+	return 0;
+}
+
+static const char * const apple_crtc_crc_sources[] = {"auto"};
+
+static const char *const * apple_crtc_get_crc_sources(struct drm_crtc *crtc,
+						      size_t *count)
+{
+	*count = ARRAY_SIZE(apple_crtc_crc_sources);
+	return apple_crtc_crc_sources;
+}
+
 static const struct drm_crtc_funcs apple_crtc_funcs = {
 	.atomic_destroy_state	= drm_atomic_helper_crtc_destroy_state,
 	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
@@ -268,6 +321,10 @@ static const struct drm_crtc_funcs apple_crtc_funcs = {
 	.page_flip		= drm_atomic_helper_page_flip,
 	.reset			= drm_atomic_helper_crtc_reset,
 	.set_config             = drm_atomic_helper_set_config,
+	.set_crc_source		= apple_crtc_set_crc_source,
+	.verify_crc_source	= apple_crtc_verify_crc_source,
+	.get_crc_sources	= apple_crtc_get_crc_sources,
+
 };
 
 static const struct drm_mode_config_funcs apple_mode_config_funcs = {
