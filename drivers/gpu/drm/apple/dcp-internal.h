@@ -198,6 +198,9 @@ struct apple_dcp {
 	/* clear all surfaces on init */
 	bool surfaces_cleared;
 
+	/* enable CRC calculation */
+	bool crc_enabled;
+
 	/* Modes valid for the connected display */
 	struct dcp_display_mode *modes;
 	unsigned int nr_modes;
