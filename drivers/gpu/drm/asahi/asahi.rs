@@ -38,7 +38,7 @@ kernel::module_platform_driver! {
             description: "Debug flags",
         },
         fault_control: u32 {
-            default: 0,
+            default: 0xb,
             permissions: 0,
             description: "Fault control (0x0: hard faults, 0xb: macOS default)",
         },
