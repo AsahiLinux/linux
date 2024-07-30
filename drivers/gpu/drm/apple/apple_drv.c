@@ -46,7 +46,7 @@
 
 #define FRAC_16_16(mult, div)    (((mult) << 16) / (div))
 
-#define MAX_COPROCESSORS 2
+#define MAX_COPROCESSORS 3
 
 struct apple_drm_private {
 	struct drm_device drm;
