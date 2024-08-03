@@ -562,7 +562,8 @@ static int apple_drm_init_dcp(struct device *dev)
 			of_node_put(np);
 			continue;
 		}
-		dcp_ext = of_device_is_compatible(np, "apple,dcpext");
+		dcp_ext = of_device_is_compatible(np, "apple,dcpext") ||
+		          of_property_present(np, "phys");
 
 		dcp[num_dcp] = of_find_device_by_node(np);
 		of_node_put(np);
