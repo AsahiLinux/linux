@@ -9,6 +9,8 @@
 
 /dts-v1/;
 
+#define ENABLE_DCPEXT_TYPEC
+
 #include "t8112.dtsi"
 #include "t8112-jxxx.dtsi"
 
@@ -65,6 +67,47 @@
 	phy-names = "dp-phy";
 	apple,dptx-phy = <5>;
 };
+
+#ifdef ENABLE_DCPEXT_TYPEC
+/ {
+	aliases {
+		dcp = &dcp;
+	};
+};
+
+&display {
+	/* dispext0_dart needs to be first for m1n1's */
+	iommus = <&dispext0_dart 0>, <&disp0_dart 0>;
+};
+
+&disp0_dart {
+	status = "okay";
+};
+
+&dcp {
+	status = "okay";
+	apple,connector-type = "DP";
+
+	/* hacks */
+	apple,dptx-phy = <1>;
+	phys = <&atcphy1 PHY_TYPE_DP>;
+	phy-names = "dp-phy";
+	mux-controls = <&atcphy1_xbar 0>;
+	mux-control-names = "dp-xbar";
+	mux-index = <0>;
+};
+
+&dcpext {
+	/delete-property/ mux-controls;
+	/delete-property/ mux-control-names;
+	/delete-property/ mux-index;
+};
+
+&typec1 {
+	/* hacks */
+	displayport = <&dcp>;
+};
+#endif
 
 /* remove once m1n1 enables sio nodes after setup */
 &sio {
