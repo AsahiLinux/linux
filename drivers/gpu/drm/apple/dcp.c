@@ -370,7 +370,7 @@ int dcp_get_connector_type(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_GPL(dcp_get_connector_type);
 
-#define DPTX_CONNECT_TIMEOUT msecs_to_jiffies(1000)
+#define DPTX_CONNECT_TIMEOUT msecs_to_jiffies(2000)
 
 static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 {
@@ -410,23 +410,15 @@ static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 
 	usleep_range(5, 10);
 
+	if (dcp->connector_type == DRM_MODE_CONNECTOR_DisplayPort)
+		dptxport_set_hpd(dcp->dptxport[port].service, true);
+
 	return 0;
 
 out_unlock:
 	mutex_unlock(&dcp->hpd_mutex);
 	return ret;
 }
-
-int dcp_dptx_connect_oob(struct platform_device *pdev, u32 port)
-{
-	struct apple_dcp *dcp = platform_get_drvdata(pdev);
-	int err = dcp_dptx_connect(dcp, port);
-	if (err < 0)
-		return err;
-	dptxport_set_hpd(dcp->dptxport[port].service, true);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(dcp_dptx_connect_oob);
 
 static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 {
@@ -441,6 +433,13 @@ static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 
 	return 0;
 }
+
+int dcp_dptx_connect_oob(struct platform_device *pdev, u32 port)
+{
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+	return dcp_dptx_connect(dcp, port);
+}
+EXPORT_SYMBOL_GPL(dcp_dptx_connect_oob);
 
 int dcp_dptx_disconnect_oob(struct platform_device *pdev, u32 port)
 {
