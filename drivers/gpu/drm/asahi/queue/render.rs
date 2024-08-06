@@ -88,6 +88,15 @@ impl super::QueueInner::ver {
             return Err(EINVAL);
         }
 
+        // Overflow safety: all these calculations are done in u32.
+        // At 64Kx64K max dimensions above, this is 2**32 pixels max.
+        // In terms of tiles that are always larger than one pixel,
+        // this can never overflow. Note that real actual dimensions
+        // are limited to 16K * 16K below anyway.
+        //
+        // Once we multiply by the layer count, then we need to check
+        // for overflow or use u64.
+
         let tile_width = 32u32;
         let tile_height = 32u32;
 
@@ -135,12 +144,13 @@ impl super::QueueInner::ver {
         let rgn_entry_size = 5;
         // Macrotile stride in 32-bit words
         let rgn_size = align(rgn_entry_size * tiles_per_mtile * utiles_per_tile, 4) / 4;
-        let tilemap_size = (4 * rgn_size * mtiles * layers) as usize;
+        let tilemap_size = (4 * rgn_size * mtiles) as usize * layers as usize;
 
         let tpc_entry_size = 8;
         // TPC stride in 32-bit words
         let tpc_mtile_stride = tpc_entry_size * utiles_per_tile * tiles_per_mtile / 4;
-        let tpc_size = (num_clusters * (4 * tpc_mtile_stride * mtiles) * layers) as usize;
+        let tpc_size =
+            (4 * tpc_mtile_stride * mtiles) as usize * layers as usize * num_clusters as usize;
 
         // No idea where this comes from, but it fits what macOS does...
         // GUESS: Number of 32K heap blocks to fit a 5-byte region header/pointer per tile?
