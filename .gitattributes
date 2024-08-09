@@ -1,5 +1,13 @@
-# SPDX-License-Identifier: GPL-2.0-only
-*.[ch] diff=cpp
-*.dts diff=dts
-*.dts[io] diff=dts
-*.rs diff=rust
+# Automatically normalize line endings.
+*	text=auto
+
+# MSVC files have to be CRLF
+*.vcproj	text eol=crlf
+*.sln	text eol=crlf
+
+# Do not change external files
+external/**	-text
+DoConfig/fltk/**	-text
+
+# TSC files are not text, but 'git diff' likes to think they are
+*.tsc	binary

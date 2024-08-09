@@ -1,173 +1,105 @@
-# SPDX-License-Identifier: GPL-2.0-only
-#
-# NOTE! Don't add files that are generated in specific
-# subdirectories here. Add them in the ".gitignore" file
-# in that subdirectory instead.
-#
-# NOTE! Please use 'git ls-files -i -c --exclude-per-directory=.gitignore'
-# command after changing this file, to see if there are
-# any tracked files which get ignored after the change.
-#
-# Normal rules (sorted alphabetically)
-#
-.*
-*.a
-*.asn1.[ch]
-*.bin
-*.bz2
-*.c.[012]*.*
-*.dt.yaml
-*.dtb
-*.dtbo
-*.dtb.S
-*.dtbo.S
-*.dwo
-*.elf
-*.gcno
-*.gz
-*.i
-*.ko
-*.lex.c
-*.ll
-*.lst
-*.lz4
-*.lzma
-*.lzo
-*.mod
-*.mod.c
-*.o
-*.o.*
-*.patch
-*.rmeta
-*.rpm
-*.rsi
-*.s
-*.so
-*.so.dbg
-*.su
-*.symtypes
-*.symversions
-*.tab.[ch]
-*.tar
-*.xz
-*.zst
-Module.symvers
-dtbs-list
-modules.order
+# Exclude obj directory (object files for Makefile build)
+/obj
 
-#
-# Top-level generic files
-#
-/linux
-/modules-only.symvers
-/vmlinux
-/vmlinux.32
-/vmlinux.map
-/vmlinux.symvers
-/vmlinux-gdb.py
-/vmlinuz
-/System.map
-/Module.markers
-/modules.builtin
-/modules.builtin.modinfo
-/modules.nsdeps
+# Exclude the (recommended) CMake build directory
+/build*
 
-#
-# RPM spec file (make rpm-pkg)
-#
-/rpmbuild/
+# Exclude executables
+/game_english/CSE2_debug.exe
+/game_english/DoConfig_debug.exe
+/game_english/CSE2.exe
+/game_english/DoConfig.exe
+/game_english/CSE2_debug
+/game_english/DoConfig_debug
+/game_english/CSE2
+/game_english/DoConfig
+/game_english/CSE2_debug.rpx
+/game_english/CSE2.rpx
+/game_english/CSE2.3dsx
+/game_english/\!CSE2
+/game_japanese/CSE2_debug.exe
+/game_japanese/DoConfig_debug.exe
+/game_japanese/CSE2.exe
+/game_japanese/DoConfig.exe
+/game_japanese/CSE2_debug
+/game_japanese/DoConfig_debug
+/game_japanese/CSE2
+/game_japanese/DoConfig
+/game_japanese/CSE2_debug.rpx
+/game_japanese/CSE2.rpx
+/game_japanese/CSE2.3dsx
+/game_japanese/\!CSE2
 
-#
-# Debian directory (make deb-pkg)
-#
-/debian/
+# Exclude MSVC debug data
+/game_english/CSE2_debug.ilk
+/game_english/CSE2_debug.pdb
+/game_english/DoConfig_debug.ilk
+/game_english/DoConfig_debug.pdb
+/game_english/CSE2.ilk
+/game_english/CSE2.pdb
+/game_english/DoConfig.ilk
+/game_english/DoConfig.pdb
+/game_japanese/CSE2_debug.ilk
+/game_japanese/CSE2_debug.pdb
+/game_japanese/DoConfig_debug.ilk
+/game_japanese/DoConfig_debug.pdb
+/game_japanese/CSE2.ilk
+/game_japanese/CSE2.pdb
+/game_japanese/DoConfig.ilk
+/game_japanese/DoConfig.pdb
 
-#
-# Snap directory (make snap-pkg)
-#
-/snap/
+# Exclude misc. MSVC junk
+/.vs
+/out
+/CMakeSettings.json
 
-#
-# tar directory (make tar*-pkg)
-#
-/tar-install/
+# Exclude save data
+/game_english/Config.dat
+/game_english/Profile.dat
+/game_english/290.rec
+/game_english/window.rect
+/game_japanese/Config.dat
+/game_japanese/Profile.dat
+/game_japanese/290.rec
+/game_japanese/window.rect
 
-#
-# We don't want to ignore the following even if they are dot-files
-#
-!.clang-format
-!.cocciconfig
-!.editorconfig
-!.get_maintainer.ignore
-!.gitattributes
-!.gitignore
-!.kunitconfig
-!.mailmap
-!.rustfmt.toml
+# Exclude configuration files
+/game_english/fps
+/game_english/mute
+/game_english/save
+/game_english/s_reverse
+/game_japanese/fps
+/game_japanese/mute
+/game_japanese/save
+/game_japanese/s_reverse
 
-#
-# Generated include files
-#
-/include/config/
-/include/generated/
-/arch/*/include/generated/
+# Exclude error logs
+/game_english/error.log
+/game_japanese/error.log
 
-# stgit generated dirs
-patches-*
+###################
+# Accurate branch #
+###################
 
-# quilt's files
-patches
-series
+# Exclude devilution-comparer assembly output
+/devilution/orig.asm
+/devilution/compare.asm
 
-# ctags files
-tags
-TAGS
+# Exclude MSVC IntelliSense database
+/vs2003/CSE2.ncb
 
-# cscope files
-cscope.*
-ncscope.*
+# Exclude MSVC Solution User Options file
+/vs2003/CSE2.suo
 
-# gnu global files
-GPATH
-GRTAGS
-GSYMS
-GTAGS
+# Exclude MSVC build folders
+/vs2003/Debug
+/vs2003/Release
+/vs2003/Debug (Japanese)
+/vs2003/Release (Japanese)
 
-# id-utils files
-ID
+###################
+# Portable branch #
+###################
 
-*.orig
-*~
-\#*#
-
-#
-# Leavings from module signing
-#
-extra_certificates
-signing_key.pem
-signing_key.priv
-signing_key.x509
-x509.genkey
-
-# Kconfig presets
-/all.config
-/alldef.config
-/allmod.config
-/allno.config
-/allrandom.config
-/allyes.config
-
-# Kconfig savedefconfig output
-/defconfig
-
-# Kdevelop4
-*.kdev4
-
-# Clang's compilation database file
-/compile_commands.json
-
-# Documentation toolchain
-sphinx_*/
-
-# Rust analyzer configuration
-/rust-project.json
+# Exclude converted resource files
+/src/Resource

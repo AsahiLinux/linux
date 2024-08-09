@@ -1,0 +1,133 @@
+# Optimize git clone
+git:
+    depth: 5
+
+# Bionic is the most recent version of Ubuntu I can get to work properly
+dist: bionic
+
+# Enable C++ language support
+language: cpp
+
+compiler:
+    - gcc
+
+os:
+    - linux
+#    - windows
+
+addons:
+  apt:
+    sources:
+        - sourceline: 'deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main'
+          key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+        - sourceline: 'ppa:ubuntu-toolchain-r/test'
+    packages:
+        - make
+        - mingw-w64
+
+env:
+    - SIXTY_FOUR_BIT=false FIX_BUGS=0 JAPANESE=0
+    - SIXTY_FOUR_BIT=false FIX_BUGS=0 JAPANESE=1
+    - SIXTY_FOUR_BIT=false FIX_BUGS=1 JAPANESE=0
+    - SIXTY_FOUR_BIT=false FIX_BUGS=1 JAPANESE=1
+    - SIXTY_FOUR_BIT=true FIX_BUGS=0 JAPANESE=0
+    - SIXTY_FOUR_BIT=true FIX_BUGS=0 JAPANESE=1
+    - SIXTY_FOUR_BIT=true FIX_BUGS=1 JAPANESE=0
+    - SIXTY_FOUR_BIT=true FIX_BUGS=1 JAPANESE=1
+
+before_install:
+    # Setup MSYS2
+    - |
+      if [ "$TRAVIS_OS_NAME" == "windows" ]; then
+        [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
+        choco uninstall -y mingw
+        choco upgrade --no-progress -y msys2
+        export msys2='cmd //C RefreshEnv.cmd '
+        export msys2+='& set MSYS=winsymlinks:nativestrict '
+        export msys2+='& C:\\tools\\msys64\\msys2_shell.cmd -defterm -no-start'
+        if [ "$SIXTY_FOUR_BIT" == "true" ]; then
+            export mingw="$msys2 -mingw64 -full-path -here -c "\"\$@"\" --"
+        else
+            export mingw="$msys2 -mingw32 -full-path -here -c "\"\$@"\" --"
+        fi
+        export msys2+=" -msys2 -c "\"\$@"\" --"
+        if [ "$SIXTY_FOUR_BIT" == "true" ]; then
+            $msys2 pacman --sync --noconfirm --needed make mingw-w64-x86_64-toolchain
+        else
+            $msys2 pacman --sync --noconfirm --needed make mingw-w64-i686-toolchain
+        fi
+        taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
+        export PATH=/C/tools/msys64/mingw64/bin:$PATH
+        export MAKE=mingw32-make  # so that Autotools can find it
+      fi
+
+    # Set URL for Discord send script
+    - DISCORD_SEND_SCRIPT_URL=https://raw.githubusercontent.com/DiscordHooks/travis-ci-discord-webhook/master/send.sh
+    - DISCORD_SEND_SCRIPT_FILENAME=discordSendNotification.sh
+
+    # Display available disk space
+    - df -h
+
+    # Display Travis OS name
+    - echo $TRAVIS_OS_NAME
+
+    # Define CC and CXX
+    - |
+      if [ "$SIXTY_FOUR_BIT" == "true" ]; then
+        export CC="x86_64-w64-mingw32-gcc"
+        export CXX="x86_64-w64-mingw32-g++"
+      else
+        export CC="i686-w64-mingw32-gcc"
+        export CXX="i686-w64-mingw32-g++"
+      fi
+
+    # Define WINDRES
+    - |
+      if [ "$TRAVIS_OS_NAME" == "windows" ]; then
+        export WINDRES="windres"
+      else
+        if [ "$SIXTY_FOUR_BIT" == "true" ]; then
+          export WINDRES="x86_64-w64-mingw32-windres"
+        else
+          export WINDRES="i686-w64-mingw32-windres"
+        fi
+      fi
+
+    # Display compilers name/version
+    - $mingw echo ${CC}
+    - $mingw echo ${CXX}
+    - $mingw ${CC} --version
+    - $mingw ${CXX} --version
+
+before_cache:
+    - |
+      if [ "$TRAVIS_OS_NAME" == "windows" ]; then
+        # https://unix.stackexchange.com/a/137322/107554
+        $msys2 pacman --sync --clean --noconfirm
+      fi
+
+cache:
+    directories:
+    - $HOME/AppData/Local/Temp/chocolatey
+    - /C/tools/msys64
+
+install:
+    # Get number of cores (or 2 by default if somehow none of these are available somehow)
+    - JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
+    - echo $JOBS
+
+script:
+    # Build
+    - $mingw make -j ${JOBS} FIX_BUGS=${FIX_BUGS} JAPANESE=${JAPANESE} RELEASE=1 WINDOWS=1 STATIC=1 CXXFLAGS="-Wall -Wextra -pedantic"
+
+after_success:
+    # Send success notification to Discord through DISCORD_WEBHOOK_URL
+    - travis_retry wget ${DISCORD_SEND_SCRIPT_URL} -O ${DISCORD_SEND_SCRIPT_FILENAME}
+    - chmod +x ${DISCORD_SEND_SCRIPT_FILENAME}
+    - ./${DISCORD_SEND_SCRIPT_FILENAME} success $DISCORD_WEBHOOK_URL
+
+after_failure:
+    # Send failure notification to Discord through DISCORD_WEBHOOK_URL
+    - travis_retry wget ${DISCORD_SEND_SCRIPT_URL} -O ${DISCORD_SEND_SCRIPT_FILENAME}
+    - chmod +x ${DISCORD_SEND_SCRIPT_FILENAME}
+    - ./${DISCORD_SEND_SCRIPT_FILENAME} failure $DISCORD_WEBHOOK_URL

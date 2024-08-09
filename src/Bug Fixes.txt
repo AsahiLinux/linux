@@ -1,0 +1,5 @@
+Main.cpp : void SystemTask()
+	Pixel intended for the second alternate up key to be the plus key, Japanese keyboards have the plus key where the semi-colon key is, causing errors on other keyboard layouts)
+
+SelStage.cpp : int StageSelectLoop(int *p_event)
+	The screencap that serves as the menu's background was being drawn with transparency enabled. This can cause moving sprites (like the text) to leave a trail.

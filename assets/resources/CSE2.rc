@@ -1,0 +1,284 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource1.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Japanese resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_JPN)
+#ifdef _WIN32
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
+#pragma code_page(932)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,6
+ PRODUCTVERSION 1,0,0,6
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041104b0"
+        BEGIN
+            VALUE "FileDescription", "Doukutsu"
+            VALUE "FileVersion", "1, 0, 0, 6"
+            VALUE "InternalName", "Doukutsu Monogatari"
+            VALUE "LegalCopyright", "I can't get MSVC2003 to understand Japanese so here's a placeholder"
+            VALUE "OriginalFilename", "Doukutsu.exe"
+            VALUE "ProductName", "I can't get MSVC2003 to understand Japanese so here's a placeholder"
+            VALUE "ProductVersion", "1, 0, 0, 6"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x411, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+CREDIT01                BITMAP                  "BITMAP/Credit01.bmp"
+CREDIT02                BITMAP                  "BITMAP/Credit02.bmp"
+CREDIT03                BITMAP                  "BITMAP/Credit03.bmp"
+CREDIT04                BITMAP                  "BITMAP/Credit04.bmp"
+CREDIT05                BITMAP                  "BITMAP/Credit05.bmp"
+CREDIT06                BITMAP                  "BITMAP/Credit06.bmp"
+CREDIT07                BITMAP                  "BITMAP/Credit07.bmp"
+CREDIT08                BITMAP                  "BITMAP/Credit08.bmp"
+CREDIT09                BITMAP                  "BITMAP/Credit09.bmp"
+CREDIT10                BITMAP                  "BITMAP/Credit10.bmp"
+CREDIT11                BITMAP                  "BITMAP/Credit11.bmp"
+CREDIT12                BITMAP                  "BITMAP/Credit12.bmp"
+CREDIT14                BITMAP                  "BITMAP/Credit14.bmp"
+CREDIT15                BITMAP                  "BITMAP/Credit15.bmp"
+CREDIT16                BITMAP                  "BITMAP/Credit16.bmp"
+CREDIT17                BITMAP                  "BITMAP/Credit17.bmp"
+CREDIT18                BITMAP                  "BITMAP/Credit18.bmp"
+PIXEL                   BITMAP                  "BITMAP/pixel.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ORG
+//
+
+ACCESS                  ORG                     "ORG/Access.org"
+ANZEN                   ORG                     "ORG/Anzen.org"
+BALCONY                 ORG                     "ORG/Balcony.org"
+BALLOS                  ORG                     "ORG/Ballos.org"
+BDOWN                   ORG                     "ORG/BreakDown.org"
+CEMETERY                ORG                     "ORG/Cemetery.org"
+CURLY                   ORG                     "ORG/Curly.org"
+DR                      ORG                     "ORG/Dr.org"
+ENDING                  ORG                     "ORG/Ending.org"
+ESCAPE                  ORG                     "ORG/Escape.org"
+FANFALE1                ORG                     "ORG/Fanfale1.org"
+FANFALE2                ORG                     "ORG/Fanfale2.org"
+FANFALE3                ORG                     "ORG/Fanfale3.org"
+FIREEYE                 ORG                     "ORG/FireEye.org"
+GAMEOVER                ORG                     "ORG/Gameover.org"
+GINSUKE                 ORG                     "ORG/Ginsuke.org"
+GRAND                   ORG                     "ORG/Grand.org"
+GRAVITY                 ORG                     "ORG/Gravity.org"
+HELL                    ORG                     "ORG/Hell.org"
+IRONH                   ORG                     "ORG/ironH.org"
+JENKA                   ORG                     "ORG/Jenka.org"
+JENKA2                  ORG                     "ORG/Jenka2.org"
+KODOU                   ORG                     "ORG/Kodou.org"
+LASTBTL                 ORG                     "ORG/LastBtl.org"
+LASTBT3                 ORG                     "ORG/LastBtl3.org"
+LASTCAVE                ORG                     "ORG/LastCave.org"
+MARINE                  ORG                     "ORG/Marine.org"
+MAZE                    ORG                     "ORG/Maze.org"
+MDOWN2                  ORG                     "ORG/MDown2.org"
+OSIDE                   ORG                     "ORG/Oside.org"
+MURA                    ORG                     "ORG/Mura.org"
+PLANT                   ORG                     "ORG/Plant.org"
+QUIET                   ORG                     "ORG/quiet.org"
+REQUIEM                 ORG                     "ORG/Requiem.org"
+TOROKO                  ORG                     "ORG/Toroko.org"
+VIVI                    ORG                     "ORG/Vivi.org"
+WANPAK2                 ORG                     "ORG/Wanpak2.org"
+WANPAKU                 ORG                     "ORG/Wanpaku.org"
+WEED                    ORG                     "ORG/Weed.org"
+WHITE                   ORG                     "ORG/White.org"
+XXXX                    ORG                     "ORG/XXXX.org"
+ZONBIE                  ORG                     "ORG/Zonbie.org"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// WAVE
+//
+
+WAVE100                 WAVE                    "WAVE/Wave.dat"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Cursor
+//
+
+CURSOR_IKA              CURSOR                  "CURSOR/CURSOR_IKA.cur"
+CURSOR_NORMAL           CURSOR                  "CURSOR/CURSOR_NORMAL.cur"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+0                       ICON                    "ICON/0.ico"
+ICON_MINI               ICON                    "ICON/ICON_MINI.ico"
+#endif    // Japanese resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource1.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+MENU_MAIN MENU 
+BEGIN
+    MENUITEM "Quit",                        40001
+    MENUITEM "Volume",                      40004
+    MENUITEM "Version",                     40002
+    MENUITEM "Debug Save",                  40005
+    MENUITEM "Mute",                        40007
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+DLG_ABOUT DIALOGEX 0, 0, 123, 75
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+FONT 9, "Arial", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",1,37,54,50,14,BS_FLAT
+    CTEXT           "---",1011,7,14,109,35
+END
+
+DLG_MUTE DIALOGEX 0, 0, 118, 111
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Mute"
+FONT 9, "Arial", 400, 0, 0x80
+BEGIN
+    DEFPUSHBUTTON   "OK",1,7,90,50,14
+    PUSHBUTTON      "Cancel",2,61,90,50,14
+    CONTROL         "0",1010,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,7,7,20,10
+    CONTROL         "1",1018,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,17,15,20,10
+    CONTROL         "2",1019,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,26,24,20,10
+    CONTROL         "3",1020,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,35,33,20,10
+    CONTROL         "4",1021,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,45,41,20,10
+    CONTROL         "5",1022,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,54,50,20,10
+    CONTROL         "6",1023,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,63,58,20,10
+    CONTROL         "7",1024,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | 
+                    WS_TABSTOP,73,67,20,10
+END
+
+DLG_SAVE DIALOGEX 0, 0, 118, 47
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Save"
+FONT 9, "Arial", 0, 0, 0x1
+BEGIN
+    EDITTEXT        1008,36,8,72,12,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",1,8,28,48,12
+    PUSHBUTTON      "Cancel",2,60,28,48,12
+    LTEXT           "Name",-1,8,8,20,12,SS_CENTERIMAGE
+END
+
+DLG_YESNO DIALOGEX 0, 0, 119, 49
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION
+FONT 9, "Arial", 400, 0, 0x80
+BEGIN
+    PUSHBUTTON      "Yes",1,7,28,50,14,BS_FLAT
+    PUSHBUTTON      "No",2,62,28,50,14,BS_FLAT
+    CTEXT           "---",1009,7,8,105,15,SS_CENTERIMAGE
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

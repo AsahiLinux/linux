@@ -1,0 +1,3327 @@
+# conversion between function and file location of the functions
+# = (0x401000 - PE header offset) (0x400 for VC5 linker)
+address_offset = 0x400000
+
+[[func]]
+name = "ClearArmsData"
+addr = 0x401000
+
+[[func]]
+name = "ClearItemData"
+addr = 0x401030
+
+[[func]]
+name = "AddArmsData"
+addr = 0x401050
+
+[[func]]
+name = "SubArmsData"
+addr = 0x401160
+
+[[func]]
+name = "TradeArms"
+addr = 0x401220
+
+[[func]]
+name = "AddItemData"
+addr = 0x4012D0
+
+[[func]]
+name = "SubItemData"
+addr = 0x401330
+
+[[func]]
+name = "MoveCampCursor"
+addr = 0x4013C0
+
+[[func]]
+name = "PutCampObject"
+addr = 0x4016F0
+
+[[func]]
+name = "CampLoop"
+addr = 0x401D10
+
+[[func]]
+name = "CheckItem"
+addr = 0x401F20
+
+[[func]]
+name = "CheckArms"
+addr = 0x401F60
+
+[[func]]
+name = "UseArmsEnergy"
+addr = 0x401FA0
+
+[[func]]
+name = "ChargeArmsEnergy"
+addr = 0x402020
+
+[[func]]
+name = "FullArmsEnergy"
+addr = 0x402090
+
+[[func]]
+name = "RotationArms"
+addr = 0x4020E0
+
+[[func]]
+name = "RotationArmsRev"
+addr = 0x402190
+
+[[func]]
+name = "ChangeToFirstArms"
+addr = 0x402240
+
+[[func]]
+name = "InitBack"
+addr = 0x402270
+size = 0x100
+
+[[func]]
+name = "ActBack"
+addr = 0x402370
+
+[[func]]
+name = "PutBack"
+addr = 0x4023D0
+
+[[func]]
+name = "PutFront"
+addr = 0x402830
+
+[[func]]
+name = "JudgeHitBulletBlock"
+addr = 0x4029B0
+
+[[func]]
+name = "JudgeHitBulletBlock2"
+addr = 0x402B30
+
+[[func]]
+name = "JudgeHitBulletTriangleA"
+addr = 0x402FC0
+
+[[func]]
+name = "JudgeHitBulletTriangleB"
+addr = 0x4030B0
+
+[[func]]
+name = "JudgeHitBulletTriangleC"
+addr = 0x4031A0
+
+[[func]]
+name = "JudgeHitBulletTriangleD"
+addr = 0x403290
+
+[[func]]
+name = "JudgeHitBulletTriangleE"
+addr = 0x403380
+
+[[func]]
+name = "JudgeHitBulletTriangleF"
+addr = 0x403470
+
+[[func]]
+name = "JudgeHitBulletTriangleG"
+addr = 0x403560
+
+[[func]]
+name = "JudgeHitBulletTriangleH"
+addr = 0x403650
+
+[[func]]
+name = "HitBulletMap"
+addr = 0x403740
+
+[[func]]
+name = "InitBullet"
+addr = 0x403C00
+
+[[func]]
+name = "CountArmsBullet"
+addr = 0x403C40
+
+[[func]]
+name = "CountBulletNum"
+addr = 0x403CB0
+
+[[func]]
+name = "DeleteBullet"
+addr = 0x403D10
+
+[[func]]
+name = "ClearBullet"
+addr = 0x403D80
+
+[[func]]
+name = "PutBullet"
+addr = 0x403DC0
+
+[[func]]
+name = "SetBullet"
+addr = 0x403F80
+
+[[func]]
+name = "ActBullet_Frontia1"
+addr = 0x404160
+
+[[func]]
+name = "ActBullet_Frontia2"
+addr = 0x4043F0
+
+[[func]]
+name = "ActBullet_PoleStar"
+addr = 0x4047B0
+
+[[func]]
+name = "ActBullet_FireBall"
+addr = 0x404B30
+
+[[func]]
+name = "ActBullet_MachineGun"
+addr = 0x405120
+
+[[func]]
+name = "ActBullet_Missile"
+addr = 0x4055A0
+
+[[func]]
+name = "ActBullet_Bom"
+addr = 0x405D80
+
+[[func]]
+name = "ActBullet_Bubblin1"
+addr = 0x405F30
+
+[[func]]
+name = "ActBullet_Bubblin2"
+addr = 0x406190
+
+[[func]]
+name = "ActBullet_Bubblin3"
+addr = 0x4064D0
+
+[[func]]
+name = "ActBullet_Spine"
+addr = 0x4068B0
+
+[[func]]
+name = "ActBullet_Sword1"
+addr = 0x406BB0
+
+[[func]]
+name = "ActBullet_Sword2"
+addr = 0x406E60
+
+[[func]]
+name = "ActBullet_Sword3"
+addr = 0x407110
+
+[[func]]
+name = "ActBullet_Edge"
+addr = 0x4075E0
+
+[[func]]
+name = "ActBullet_Drop"
+addr = 0x4078A0
+
+[[func]]
+name = "ActBullet_SuperMissile"
+addr = 0x407910
+
+[[func]]
+name = "ActBullet_SuperBom"
+addr = 0x408080
+
+[[func]]
+name = "ActBullet_Nemesis"
+addr = 0x408230
+
+[[func]]
+name = "ActBullet_Spur"
+addr = 0x408710
+
+[[func]]
+name = "ActBullet_SpurTail"
+addr = 0x408AE0
+
+[[func]]
+name = "ActBullet_EnemyClear"
+addr = 0x408F40
+
+[[func]]
+name = "ActBullet_Star"
+addr = 0x408F90
+
+[[func]]
+name = "ActBullet"
+addr = 0x408FC0
+
+[[func]]
+name = "IsActiveSomeBullet"
+addr = 0x4095C0
+
+[[func]]
+name = "InitCaret"
+addr = 0x409650
+
+[[func]]
+name = "ActCaret00"
+addr = 0x409670
+
+[[func]]
+name = "ActCaret01"
+addr = 0x409680
+
+[[func]]
+name = "ActCaret02"
+addr = 0x409880
+
+[[func]]
+name = "ActCaret03"
+addr = 0x409B80
+
+[[func]]
+name = "ActCaret04"
+addr = 0x409C70
+
+[[func]]
+name = "ActCaret05"
+addr = 0x409E00
+
+[[func]]
+name = "ActCaret07"
+addr = 0x409F60
+
+[[func]]
+name = "ActCaret08"
+addr = 0x40A120
+
+[[func]]
+name = "ActCaret09"
+addr = 0x40A1B0
+
+[[func]]
+name = "ActCaret10"
+addr = 0x40A280
+
+[[func]]
+name = "ActCaret11"
+addr = 0x40A3F0
+
+[[func]]
+name = "ActCaret12"
+addr = 0x40A5A0
+
+[[func]]
+name = "ActCaret13"
+addr = 0x40A650
+
+[[func]]
+name = "ActCaret14"
+addr = 0x40A7E0
+
+[[func]]
+name = "ActCaret15"
+addr = 0x40A8F0
+
+[[func]]
+name = "ActCaret16"
+addr = 0x40A9E0
+
+[[func]]
+name = "ActCaret17"
+addr = 0x40AAA0
+
+[[func]]
+name = "ActCaret"
+addr = 0x40AB50
+
+[[func]]
+name = "PutCaret"
+addr = 0x40ABC0
+
+[[func]]
+name = "SetCaret"
+addr = 0x40AC90
+
+[[func]]
+name = "LoadConfigData"
+addr = 0x40AD60
+
+[[func]]
+name = "DefaultConfigData"
+addr = 0x40AE30
+
+[[func]]
+name = "VersionDialog"
+addr = 0x40AEC0
+
+[[func]]
+name = "DebugMuteDialog"
+addr = 0x40AFC0
+
+[[func]]
+name = "DebugSaveDialog"
+addr = 0x40B1D0
+
+[[func]]
+name = "QuitDialog"
+addr = 0x40B290
+
+[[func]]
+name = "SetClientOffset"
+addr = 0x40B320
+
+[[func]]
+name = "Flip_SystemTask"
+addr = 0x40B340
+
+[[func]]
+name = "StartDirectDraw"
+addr = 0x40B450
+
+[[func]]
+name = "EndDirectDraw"
+addr = 0x40B6C0
+
+[[func]]
+name = "ReleaseSurface"
+addr = 0x40B7A0
+
+[[func]]
+name = "MakeSurface_Resource"
+addr = 0x40B800
+size = 0x2BB
+
+[[func]]
+name = "MakeSurface_File"
+addr = 0x40BAC0
+size = 0x34F
+
+[[func]]
+name = "ReloadBitmap_Resource"
+addr = 0x40BE10
+
+[[func]]
+name = "ReloadBitmap_File"
+addr = 0x40BFD0
+
+[[func]]
+name = "MakeSurface_Generic"
+addr = 0x40C1D0
+
+[[func]]
+name = "BackupSurface"
+addr = 0x40C320
+
+[[func]]
+name = "PutBitmap3"
+addr = 0x40C3C0
+
+[[func]]
+name = "PutBitmap4"
+addr = 0x40C5B0
+
+[[func]]
+name = "Surface2Surface"
+addr = 0x40C7A0
+
+[[func]]
+name = "GetCortBoxColor"
+addr = 0x40C8B0
+
+[[func]]
+name = "CortBox"
+addr = 0x40C9E0
+
+[[func]]
+name = "CortBox2"
+addr = 0x40CA80
+
+[[func]]
+name = "out"
+addr = 0x40CB30
+
+[[func]]
+name = "RestoreSurfaces"
+addr = 0x40CB60
+
+[[func]]
+name = "InitTextObject"
+addr = 0x40CD50
+
+[[func]]
+name = "PutText"
+addr = 0x40CE00
+
+[[func]]
+name = "PutText2"
+addr = 0x40CEB0
+
+[[func]]
+name = "EndTextObject"
+addr = 0x40CF70
+
+[[func]]
+name = "ActionStripper"
+addr = 0x40CF90
+
+[[func]]
+name = "PutStripper"
+addr = 0x40D010
+
+[[func]]
+name = "SetStripper"
+addr = 0x40D150
+
+[[func]]
+name = "RestoreStripper"
+addr = 0x40D240
+
+[[func]]
+name = "ActionIllust"
+addr = 0x40D2D0
+
+[[func]]
+name = "PutIllust"
+addr = 0x40D350
+
+[[func]]
+name = "ReloadIllust"
+addr = 0x40D3A0
+
+[[func]]
+name = "InitCreditScript"
+addr = 0x40D3E0
+
+[[func]]
+name = "ReleaseCreditScript"
+addr = 0x40D410
+
+[[func]]
+name = "StartCreditScript"
+addr = 0x40D440
+
+[[func]]
+name = "ActionCredit"
+addr = 0x40D5C0
+
+[[func]]
+name = "ActionCredit_Read"
+addr = 0x40D620
+
+[[func]]
+name = "GetScriptNumber"
+addr = 0x40DB00
+
+[[func]]
+name = "SetCreditIllust"
+addr = 0x40DB40
+
+[[func]]
+name = "CutCreditIllust"
+addr = 0x40DB60
+
+[[func]]
+name = "Scene_DownIsland"
+addr = 0x40DB70
+
+[[func]]
+name = "Call_Escape"
+addr = 0x40DD70
+
+[[func]]
+name = "InitFade"
+addr = 0x40DE60
+
+[[func]]
+name = "SetFadeMask"
+addr = 0x40DE90
+
+[[func]]
+name = "ClearFade"
+addr = 0x40DEA0
+
+[[func]]
+name = "StartFadeOut"
+addr = 0x40DEC0
+
+[[func]]
+name = "StartFadeIn"
+addr = 0x40DF50
+
+[[func]]
+name = "ProcFade"
+addr = 0x40DFE0
+
+[[func]]
+name = "PutFade"
+addr = 0x40E770
+
+[[func]]
+name = "GetFadeActive"
+addr = 0x40E830
+
+[[func]]
+name = "InitFlags"
+addr = 0x40E850
+
+[[func]]
+name = "InitSkipFlags"
+addr = 0x40E870
+
+[[func]]
+name = "SetNPCFlag"
+addr = 0x40E890
+
+[[func]]
+name = "CutNPCFlag"
+addr = 0x40E8E0
+
+[[func]]
+name = "GetNPCFlag"
+addr = 0x40E930
+
+[[func]]
+name = "SetSkipFlag"
+addr = 0x40E970
+
+[[func]]
+name = "CutSkipFlag"
+addr = 0x40E9C0
+
+[[func]]
+name = "GetSkipFlag"
+addr = 0x40EA10
+
+[[func]]
+name = "InitFlash"
+addr = 0x40EA50
+
+[[func]]
+name = "SetFlash"
+addr = 0x40EA70
+
+[[func]]
+name = "ActFlash_Explosion"
+addr = 0x40EAC0
+
+[[func]]
+name = "ActFlash_Flash"
+addr = 0x40ED20
+
+[[func]]
+name = "ActFlash"
+addr = 0x40EDE0
+
+[[func]]
+name = "PutFlash"
+addr = 0x40EE20
+
+[[func]]
+name = "ResetFlash"
+addr = 0x40EE60
+
+[[func]]
+name = "MoveFrame3"
+addr = 0x40EE70
+
+[[func]]
+name = "GetFramePosition"
+addr = 0x40F020
+
+[[func]]
+name = "SetFramePosition"
+addr = 0x40F040
+
+[[func]]
+name = "SetFrameMyChar"
+addr = 0x40F130
+
+[[func]]
+name = "SetFrameTargetMyChar"
+addr = 0x40F220
+
+[[func]]
+name = "SetFrameTargetNpChar"
+addr = 0x40F250
+
+[[func]]
+name = "SetFrameTargetBoss"
+addr = 0x40F2D0
+
+[[func]]
+name = "SetQuake"
+addr = 0x40F310
+
+[[func]]
+name = "SetQuake2"
+addr = 0x40F320
+
+[[func]]
+name = "ResetQuake"
+addr = 0x40F330
+
+[[func]]
+name = "Random"
+addr = 0x40F350
+
+[[func]]
+name = "PutNumber4"
+addr = 0x40F380
+
+[[func]]
+name = "Game"
+addr = 0x40F5F0
+
+[[func]]
+name = "ModeOpening"
+addr = 0x40F730
+
+[[func]]
+name = "ModeTitle"
+addr = 0x40F9B0
+
+[[func]]
+name = "ModeAction"
+addr = 0x410400
+
+[[func]]
+name = "GetCompileDate"
+addr = 0x4108B0
+
+[[func]]
+name = "GetCompileVersion"
+addr = 0x410990
+
+[[func]]
+name = "OpenSoundVolume"
+addr = 0x410AB0
+
+[[func]]
+name = "DeleteLog"
+addr = 0x410BC0
+
+[[func]]
+name = "WriteLog"
+addr = 0x410C10
+
+[[func]]
+name = "GetDateLimit"
+addr = 0x410CA0
+
+[[func]]
+name = "IsKeyFile"
+addr = 0x410D10
+
+[[func]]
+name = "GetFileSizeLong"
+addr = 0x410D80
+
+[[func]]
+name = "ErrorLog"
+addr = 0x410DE0
+
+[[func]]
+name = "IsShiftJIS"
+addr = 0x410E90
+
+[[func]]
+name = "CenteringWindowByParent"
+addr = 0x410EE0
+
+[[func]]
+name = "LoadWindowRect"
+addr = 0x410FE0
+
+[[func]]
+name = "SaveWindowRect"
+addr = 0x4111F0
+
+[[func]]
+name = "IsEnableBitmap"
+addr = 0x4112E0
+
+[[func]]
+name = "LoadGenericData"
+addr = 0x411390
+
+[[func]]
+name = "ReleaseDirectInput"
+addr = 0x411E10
+
+[[func]]
+name = "ActivateDirectInput"
+addr = 0x411E60
+size = 0x46
+
+[[func]]
+name = "InitDirectInput"
+addr = 0x411EB0
+
+[[func]]
+name = "HookAllDirectInputDevices"
+addr = 0x411EF0
+
+[[func]]
+name = "EnumDevices_Callback"
+addr = 0x411FC0
+
+[[func]]
+name = "GetJoystickStatus"
+addr = 0x4120F0
+
+[[func]]
+name = "ResetJoystickStatus"
+addr = 0x412250
+
+[[func]]
+name = "GetTrg"
+addr = 0x4122E0
+
+[[func]]
+name = "SetWindowName"
+addr = 0x412320
+
+[[func]]
+name = "PutFramePerSecound"
+addr = 0x412370
+
+[[func]]
+name = "CountFramePerSecound"
+addr = 0x4123A0
+
+[[func]]
+name = "WinMain"
+addr = 0x412420
+
+[[func]]
+name = "InactiveWindow"
+addr = 0x412BC0
+
+[[func]]
+name = "ActiveWindow"
+addr = 0x412BF0
+
+[[func]]
+name = "DragAndDropHandler"
+addr = 0x412C30
+
+[[func]]
+name = "WindowProcedure"
+addr = 0x412CA0
+
+[[func]]
+name = "SystemTask"
+addr = 0x413570
+
+[[func]]
+name = "JoystickProc"
+addr = 0x4135E0
+
+[[func]]
+name = "InitMapData2"
+addr = 0x413750
+
+[[func]]
+name = "LoadMapData2"
+addr = 0x413770
+
+[[func]]
+name = "LoadAttributeData"
+addr = 0x4138A0
+
+[[func]]
+name = "EndMapData"
+addr = 0x413930
+
+[[func]]
+name = "ReleasePartsImage"
+addr = 0x413950
+
+[[func]]
+name = "GetMapData"
+addr = 0x413960
+
+[[func]]
+name = "GetAttribute"
+addr = 0x4139A0
+
+[[func]]
+name = "DeleteMapParts"
+addr = 0x413A00
+
+[[func]]
+name = "ShiftMapParts"
+addr = 0x413A20
+
+[[func]]
+name = "ChangeMapParts"
+addr = 0x413A60
+
+[[func]]
+name = "PutStage_Back"
+addr = 0x413AF0
+
+[[func]]
+name = "PutStage_Front"
+addr = 0x413C60
+
+[[func]]
+name = "PutMapDataVector"
+addr = 0x413E40
+
+[[func]]
+name = "ReadyMapName"
+addr = 0x4140F0
+
+[[func]]
+name = "PutMapName"
+addr = 0x414250
+
+[[func]]
+name = "StartMapName"
+addr = 0x414310
+
+[[func]]
+name = "RestoreMapName"
+addr = 0x414330
+
+[[func]]
+name = "WriteMiniMapLine"
+addr = 0x4143C0
+
+[[func]]
+name = "MiniMapLoop"
+addr = 0x414640
+
+[[func]]
+name = "IsMapping"
+addr = 0x414B00
+
+[[func]]
+name = "StartMapping"
+addr = 0x414B20
+
+[[func]]
+name = "SetMapping"
+addr = 0x414B40
+
+[[func]]
+name = "InitMyChar"
+addr = 0x414B50
+
+[[func]]
+name = "AnimationMyChar"
+addr = 0x414BF0
+
+[[func]]
+name = "ShowMyChar"
+addr = 0x415220
+
+[[func]]
+name = "PutMyChar"
+addr = 0x415250
+
+[[func]]
+name = "ActMyChar_Normal"
+addr = 0x4156C0
+
+[[func]]
+name = "ActMyChar_Stream"
+addr = 0x416470
+
+[[func]]
+name = "ActMyChar"
+addr = 0x4168C0
+
+[[func]]
+name = "AirProcess"
+addr = 0x416990
+
+[[func]]
+name = "GetMyCharPosition"
+addr = 0x416AA0
+
+[[func]]
+name = "SetMyCharPosition"
+addr = 0x416AC0
+
+[[func]]
+name = "MoveMyChar"
+addr = 0x416B30
+
+[[func]]
+name = "ZeroMyCharXMove"
+addr = 0x416B50
+
+[[func]]
+name = "GetUnitMyChar"
+addr = 0x416B60
+
+[[func]]
+name = "SetMyCharDirect"
+addr = 0x416B70
+
+[[func]]
+name = "ChangeMyUnit"
+addr = 0x416C40
+
+[[func]]
+name = "PitMyChar"
+addr = 0x416C50
+
+[[func]]
+name = "EquipItem"
+addr = 0x416C70
+
+[[func]]
+name = "ResetCheck"
+addr = 0x416CA0
+
+[[func]]
+name = "SetNoise"
+addr = 0x416CC0
+
+[[func]]
+name = "CutNoise"
+addr = 0x416D40
+
+[[func]]
+name = "ResetNoise"
+addr = 0x416D80
+
+[[func]]
+name = "SleepNoise"
+addr = 0x416DF0
+
+[[func]]
+name = "ResetMyCharFlag"
+addr = 0x416E20
+
+[[func]]
+name = "JudgeHitMyCharBlock"
+addr = 0x416E30
+
+[[func]]
+name = "PutlittleStar"
+addr = 0x417160
+
+[[func]]
+name = "JudgeHitMyCharTriangleA"
+addr = 0x4171D0
+
+[[func]]
+name = "JudgeHitMyCharTriangleB"
+addr = 0x4172E0
+
+[[func]]
+name = "JudgeHitMyCharTriangleC"
+addr = 0x4173F0
+
+[[func]]
+name = "JudgeHitMyCharTriangleD"
+addr = 0x417500
+
+[[func]]
+name = "JudgeHitMyCharTriangleE"
+addr = 0x417610
+
+[[func]]
+name = "JudgeHitMyCharTriangleF"
+addr = 0x417720
+
+[[func]]
+name = "JudgeHitMyCharTriangleG"
+addr = 0x417830
+
+[[func]]
+name = "JudgeHitMyCharTriangleH"
+addr = 0x417940
+
+[[func]]
+name = "JudgeHitMyCharWater"
+addr = 0x417A50
+
+[[func]]
+name = "JudgeHitMyCharDamage"
+addr = 0x417AE0
+
+[[func]]
+name = "JudgeHitMyCharDamageW"
+addr = 0x417B70
+
+[[func]]
+name = "JudgeHitMyCharVectLeft"
+addr = 0x417C00
+
+[[func]]
+name = "JudgeHitMyCharVectUp"
+addr = 0x417C90
+
+[[func]]
+name = "JudgeHitMyCharVectRight"
+addr = 0x417D20
+
+[[func]]
+name = "JudgeHitMyCharVectDown"
+addr = 0x417DB0
+
+[[func]]
+name = "HitMyCharMap"
+addr = 0x417E40
+
+[[func]]
+name = "JudgeHitMyCharNPC"
+addr = 0x4187F0
+
+[[func]]
+name = "JudgeHitMyCharNPC3"
+addr = 0x418B10
+
+[[func]]
+name = "JudgeHitMyCharNPC4"
+addr = 0x418C20
+
+[[func]]
+name = "HitMyCharNpChar"
+addr = 0x419030
+
+[[func]]
+name = "HitMyCharBoss"
+addr = 0x419450
+
+[[func]]
+name = "AddExpMyChar"
+addr = 0x4196F0
+
+[[func]]
+name = "ZeroExpMyChar"
+addr = 0x419890
+
+[[func]]
+name = "IsMaxExpMyChar"
+addr = 0x4198C0
+
+[[func]]
+name = "DamageMyChar"
+addr = 0x419910
+
+[[func]]
+name = "ZeroArmsEnergy_All"
+addr = 0x419B50
+
+[[func]]
+name = "AddBulletMyChar"
+addr = 0x419BA0
+
+[[func]]
+name = "AddLifeMyChar"
+addr = 0x419C60
+
+[[func]]
+name = "AddMaxLifeMyChar"
+addr = 0x419CB0
+
+[[func]]
+name = "PutArmsEnergy"
+addr = 0x419D10
+
+[[func]]
+name = "PutActiveArmsList"
+addr = 0x41A0B0
+
+[[func]]
+name = "PutMyLife"
+addr = 0x41A1D0
+
+[[func]]
+name = "PutMyAir"
+addr = 0x41A350
+
+[[func]]
+name = "PutTimeCounter"
+addr = 0x41A430
+
+[[func]]
+name = "SaveTimeCounter"
+addr = 0x41A5D0
+
+[[func]]
+name = "LoadTimeCounter"
+addr = 0x41A7C0
+
+[[func]]
+name = "MakeSoundObject8"
+addr = 0x41A8F0
+
+[[func]]
+name = "ChangeOrganFrequency"
+addr = 0x41ABA0
+size = 0xC9
+
+[[func]]
+name = "ChangeOrganPan"
+addr = 0x41AC70
+size = 0xA2
+
+[[func]]
+name = "ChangeOrganVolume"
+addr = 0x41AD20
+size = 0x98
+
+[[func]]
+name = "PlayOrganObject"
+addr = 0x41ADC0
+
+[[func]]
+name = "ReleaseOrganyaObject"
+addr = 0x41B2A0
+
+[[func]]
+name = "InitWaveData100"
+addr = 0x41B380
+
+[[func]]
+name = "MakeOrganyaWave"
+addr = 0x41B3F0
+
+[[func]]
+name = "ChangeDramFrequency"
+addr = 0x41B440
+
+[[func]]
+name = "ChangeDramPan"
+addr = 0x41B480
+
+[[func]]
+name = "ChangeDramVolume"
+addr = 0x41B4D0
+
+[[func]]
+name = "PlayDramObject"
+addr = 0x41B510
+
+[[func]]
+name = "OrgData::OrgData"
+addr = 0x41B600
+
+[[func]]
+name = "OrgData::InitOrgData"
+addr = 0x41B650
+
+[[func]]
+name = "OrgData::SetMusicInfo"
+addr = 0x41B730
+
+[[func]]
+name = "OrgData::NoteAlloc"
+addr = 0x41B890
+
+[[func]]
+name = "OrgData::ReleaseNote"
+addr = 0x41BA70
+
+[[func]]
+name = "OrgData::InitMusicData"
+addr = 0x41BAD0
+
+[[func]]
+name = "OrgData::GetMusicInfo"
+addr = 0x41C0B0
+
+[[func]]
+name = "InitMMTimer"
+addr = 0x41C180
+
+[[func]]
+name = "StartTimer"
+addr = 0x41C1E0
+size = 0x4A
+
+[[func]]
+name = "TimerProc"
+addr = 0x41C230
+
+[[func]]
+name = "QuitMMTimer"
+addr = 0x41C250
+
+[[func]]
+name = "OrgData::PlayData"
+addr = 0x41C2B0
+
+[[func]]
+name = "OrgData::SetPlayPointer"
+addr = 0x41C630
+
+[[func]]
+name = "StartOrganya"
+addr = 0x41C6C0
+
+[[func]]
+name = "LoadOrganya"
+addr = 0x41C6F0
+
+[[func]]
+name = "SetOrganyaPosition"
+addr = 0x41C730
+
+[[func]]
+name = "GetOrganyaPosition"
+addr = 0x41C770
+
+[[func]]
+name = "PlayOrganyaMusic"
+addr = 0x41C790
+
+[[func]]
+name = "ChangeOrganyaVolume"
+addr = 0x41C7C0
+
+[[func]]
+name = "StopOrganyaMusic"
+addr = 0x41C7F0
+
+[[func]]
+name = "SetOrganyaFadeout"
+addr = 0x41C880
+
+[[func]]
+name = "EndOrganya"
+addr = 0x41C890
+
+[[func]]
+name = "MakeWaveTables"
+addr = 0x41C8F0
+
+[[func]]
+name = "MakePixelWaveData"
+addr = 0x41CB10
+
+[[func]]
+name = "IsProfile"
+addr = 0x41CFC0
+
+[[func]]
+name = "SaveProfile"
+addr = 0x41D040
+
+[[func]]
+name = "LoadProfile"
+addr = 0x41D260
+
+[[func]]
+name = "InitializeGame"
+addr = 0x41D550
+
+[[func]]
+name = "ClearPermitStage"
+addr = 0x41D610
+
+[[func]]
+name = "AddPermitStage"
+addr = 0x41D630
+
+[[func]]
+name = "SubPermitStage"
+addr = 0x41D6A0
+
+[[func]]
+name = "MoveStageSelectCursor"
+addr = 0x41D740
+
+[[func]]
+name = "PutStageSelectObject"
+addr = 0x41D840
+
+[[func]]
+name = "StageSelectLoop"
+addr = 0x41DA00
+
+[[func]]
+name = "ShootBullet_Frontia1"
+addr = 0x41DBD0
+
+[[func]]
+name = "ShootBullet_PoleStar"
+addr = 0x41DE60
+
+[[func]]
+name = "ShootBullet_FireBall"
+addr = 0x41E110
+
+[[func]]
+name = "ShootBullet_Machinegun1"
+addr = 0x41E3D0
+
+[[func]]
+name = "ShootBullet_Missile"
+addr = 0x41E7B0
+
+[[func]]
+name = "ShootBullet_Bubblin1"
+addr = 0x41EFD0
+
+[[func]]
+name = "ShootBullet_Bubblin2"
+addr = 0x41F280
+
+[[func]]
+name = "ShootBullet_Sword"
+addr = 0x41F580
+
+[[func]]
+name = "ShootBullet_Nemesis"
+addr = 0x41F710
+
+[[func]]
+name = "ResetSpurCharge"
+addr = 0x41F9E0
+
+[[func]]
+name = "ShootBullet_Spur"
+addr = 0x41FA10
+
+[[func]]
+name = "ShootBullet"
+addr = 0x41FE70
+
+[[func]]
+name = "InitDirectSound"
+addr = 0x4200C0
+
+[[func]]
+name = "EndDirectSound"
+addr = 0x4201A0
+
+[[func]]
+name = "InitSoundObject"
+addr = 0x420240
+
+[[func]]
+name = "LoadSoundObject"
+addr = 0x420390
+
+[[func]]
+name = "PlaySoundObject"
+addr = 0x420640
+
+[[func]]
+name = "ChangeSoundFrequency"
+addr = 0x420720
+size = 0x34
+
+[[func]]
+name = "ChangeSoundVolume"
+addr = 0x420760
+size = 0x35
+
+[[func]]
+name = "ChangeSoundPan"
+addr = 0x4207A0
+size = 0x36
+
+[[func]]
+name = "MakePixToneObject"
+addr = 0x4207E0
+
+[[func]]
+name = "TransferStage"
+addr = 0x420BE0
+
+[[func]]
+name = "ChangeMusic"
+addr = 0x420EE0
+
+[[func]]
+name = "ReCallMusic"
+addr = 0x420F50
+
+[[func]]
+name = "InitStar"
+addr = 0x420FA0
+
+[[func]]
+name = "ActStar"
+addr = 0x421040
+
+[[func]]
+name = "PutStar"
+addr = 0x4213B0
+
+[[func]]
+name = "InitTextScript2"
+addr = 0x4214E0
+
+[[func]]
+name = "EndTextScript"
+addr = 0x421570
+
+[[func]]
+name = "EncryptionBinaryData2"
+addr = 0x4215C0
+
+[[func]]
+name = "LoadTextScript2"
+addr = 0x421660
+
+[[func]]
+name = "LoadTextScript_Stage"
+addr = 0x421750
+
+[[func]]
+name = "GetTextScriptPath"
+addr = 0x4218E0
+
+[[func]]
+name = "GetTextScriptNo"
+addr = 0x421900
+
+[[func]]
+name = "StartTextScript"
+addr = 0x421990
+
+[[func]]
+name = "JumpTextScript"
+addr = 0x421AF0
+
+[[func]]
+name = "StopTextScript"
+addr = 0x421C50
+
+[[func]]
+name = "CheckNewLine"
+addr = 0x421C80
+
+[[func]]
+name = "SetNumberTextScript"
+addr = 0x421D10
+
+[[func]]
+name = "ClearTextLine"
+addr = 0x421E90
+
+[[func]]
+name = "PutTextScript"
+addr = 0x421F10
+
+[[func]]
+name = "TextScriptProc"
+addr = 0x422510
+
+[[func]]
+name = "RestoreTextScript"
+addr = 0x425790
+
+[[func]]
+name = "InitTriangleTable"
+addr = 0x4257F0
+
+[[func]]
+name = "GetSin"
+addr = 0x4258B0
+
+[[func]]
+name = "GetCos"
+addr = 0x4258C0
+
+[[func]]
+name = "GetArktan"
+addr = 0x4258E0
+
+[[func]]
+name = "ClearValueView"
+addr = 0x425BC0
+
+[[func]]
+name = "SetValueView"
+addr = 0x425BF0
+
+[[func]]
+name = "ActValueView"
+addr = 0x426360
+
+[[func]]
+name = "PutValueView"
+addr = 0x426430
+
+[[func]]
+name = "ActNpc000"
+addr = 0x426530
+
+[[func]]
+name = "ActNpc001"
+addr = 0x4265B0
+
+[[func]]
+name = "ActNpc002"
+addr = 0x426AF0
+
+[[func]]
+name = "ActNpc003"
+addr = 0x426FD0
+
+[[func]]
+name = "ActNpc004"
+addr = 0x427040
+
+[[func]]
+name = "ActNpc005"
+addr = 0x427480
+
+[[func]]
+name = "ActNpc006"
+addr = 0x427820
+
+[[func]]
+name = "ActNpc007"
+addr = 0x427C60
+
+[[func]]
+name = "ActNpc008"
+addr = 0x427F00
+
+[[func]]
+name = "ActNpc009"
+addr = 0x428260
+
+[[func]]
+name = "ActNpc010"
+addr = 0x428540
+
+[[func]]
+name = "ActNpc011"
+addr = 0x4289B0
+
+[[func]]
+name = "ActNpc012"
+addr = 0x428B10
+
+[[func]]
+name = "ActNpc013"
+addr = 0x429940
+
+[[func]]
+name = "ActNpc014"
+addr = 0x429A30
+
+[[func]]
+name = "ActNpc015"
+addr = 0x429BF0
+
+[[func]]
+name = "ActNpc016"
+addr = 0x429E00
+
+[[func]]
+name = "ActNpc017"
+addr = 0x42A0B0
+
+[[func]]
+name = "ActNpc018"
+addr = 0x42A360
+
+[[func]]
+name = "ActNpc019"
+addr = 0x42A490
+
+[[func]]
+name = "ActNpc020"
+addr = 0x42A830
+
+[[func]]
+name = "ActNpc021"
+addr = 0x42A940
+
+[[func]]
+name = "ActNpc022"
+addr = 0x42A9C0
+
+[[func]]
+name = "ActNpc023"
+addr = 0x42AA70
+
+[[func]]
+name = "ActNpc024"
+addr = 0x42ABD0
+
+[[func]]
+name = "ActNpc025"
+addr = 0x42B280
+
+[[func]]
+name = "ActNpc026"
+addr = 0x42B5E0
+
+[[func]]
+name = "ActNpc027"
+addr = 0x42BA90
+
+[[func]]
+name = "ActNpc028"
+addr = 0x42BAE0
+
+[[func]]
+name = "ActNpc029"
+addr = 0x42C1A0
+
+[[func]]
+name = "ActNpc030"
+addr = 0x42C320
+
+[[func]]
+name = "ActNpc031"
+addr = 0x42C4C0
+
+[[func]]
+name = "ActNpc032"
+addr = 0x42CA10
+
+[[func]]
+name = "ActNpc033"
+addr = 0x42CAC0
+
+[[func]]
+name = "ActNpc034"
+addr = 0x42CC20
+
+[[func]]
+name = "ActNpc035"
+addr = 0x42CCB0
+
+[[func]]
+name = "ActNpc036"
+addr = 0x42D010
+
+[[func]]
+name = "ActNpc037"
+addr = 0x42D760
+
+[[func]]
+name = "ActNpc038"
+addr = 0x42D810
+
+[[func]]
+name = "ActNpc039"
+addr = 0x42D960
+
+[[func]]
+name = "ActNpc040"
+addr = 0x42D9F0
+
+[[func]]
+name = "ActNpc041"
+addr = 0x42DE00
+
+[[func]]
+name = "ActNpc042"
+addr = 0x42DE70
+
+[[func]]
+name = "ActNpc043"
+addr = 0x42E9F0
+
+[[func]]
+name = "ActNpc044"
+addr = 0x42EAB0
+
+[[func]]
+name = "ActNpc045"
+addr = 0x42F060
+
+[[func]]
+name = "ActNpc046"
+addr = 0x42F320
+
+[[func]]
+name = "ActNpc047"
+addr = 0x42F3F0
+
+[[func]]
+name = "ActNpc048"
+addr = 0x42F780
+
+[[func]]
+name = "ActNpc049"
+addr = 0x42F9E0
+
+[[func]]
+name = "ActNpc050"
+addr = 0x42FEC0
+
+[[func]]
+name = "ActNpc051"
+addr = 0x4301B0
+
+[[func]]
+name = "ActNpc052"
+addr = 0x430780
+
+[[func]]
+name = "ActNpc053"
+addr = 0x4307D0
+
+[[func]]
+name = "ActNpc054"
+addr = 0x430B00
+
+[[func]]
+name = "ActNpc055"
+addr = 0x430EB0
+
+[[func]]
+name = "ActNpc056"
+addr = 0x4311D0
+
+[[func]]
+name = "ActNpc057"
+addr = 0x4315E0
+
+[[func]]
+name = "ActNpc058"
+addr = 0x431C20
+
+[[func]]
+name = "ActNpc059"
+addr = 0x4321F0
+
+[[func]]
+name = "ActNpc060"
+addr = 0x432460
+
+[[func]]
+name = "ActNpc061"
+addr = 0x432B50
+
+[[func]]
+name = "ActNpc062"
+addr = 0x4334C0
+
+[[func]]
+name = "ActNpc063"
+addr = 0x4336C0
+
+[[func]]
+name = "ActNpc064"
+addr = 0x433C00
+
+[[func]]
+name = "ActNpc065"
+addr = 0x433FC0
+
+[[func]]
+name = "ActNpc066"
+addr = 0x4342B0
+
+[[func]]
+name = "ActNpc067"
+addr = 0x4345E0
+
+[[func]]
+name = "ActNpc068"
+addr = 0x434D10
+
+[[func]]
+name = "ActNpc069"
+addr = 0x4355F0
+
+[[func]]
+name = "ActNpc070"
+addr = 0x435AB0
+
+[[func]]
+name = "ActNpc071"
+addr = 0x435BA0
+
+[[func]]
+name = "ActNpc072"
+addr = 0x435DE0
+
+[[func]]
+name = "ActNpc073"
+addr = 0x435FC0
+
+[[func]]
+name = "ActNpc074"
+addr = 0x436180
+
+[[func]]
+name = "ActNpc075"
+addr = 0x436540
+
+[[func]]
+name = "ActNpc076"
+addr = 0x436650
+
+[[func]]
+name = "ActNpc077"
+addr = 0x436690
+
+[[func]]
+name = "ActNpc078"
+addr = 0x4367E0
+
+[[func]]
+name = "ActNpc079"
+addr = 0x436870
+
+[[func]]
+name = "ActNpc080"
+addr = 0x436AE0
+
+[[func]]
+name = "ActNpc081"
+addr = 0x4370F0
+
+[[func]]
+name = "ActNpc082"
+addr = 0x4375E0
+
+[[func]]
+name = "ActNpc083"
+addr = 0x437D90
+
+[[func]]
+name = "ActNpc084"
+addr = 0x438250
+
+[[func]]
+name = "ActNpc085"
+addr = 0x4383D0
+
+[[func]]
+name = "ActNpc086"
+addr = 0x438590
+
+[[func]]
+name = "ActNpc087"
+addr = 0x438850
+
+[[func]]
+name = "ActNpc088"
+addr = 0x438B10
+
+[[func]]
+name = "ActNpc089"
+addr = 0x439580
+
+[[func]]
+name = "ActNpc090"
+addr = 0x439B00
+
+[[func]]
+name = "ActNpc091"
+addr = 0x439B50
+
+[[func]]
+name = "ActNpc092"
+addr = 0x439BC0
+
+[[func]]
+name = "ActNpc093"
+addr = 0x439DC0
+
+[[func]]
+name = "ActNpc094"
+addr = 0x43A220
+
+[[func]]
+name = "ActNpc095"
+addr = 0x43A680
+
+[[func]]
+name = "ActNpc096"
+addr = 0x43AAF0
+
+[[func]]
+name = "ActNpc097"
+addr = 0x43AD10
+
+[[func]]
+name = "ActNpc098"
+addr = 0x43AF20
+
+[[func]]
+name = "ActNpc099"
+addr = 0x43B140
+
+[[func]]
+name = "ActNpc100"
+addr = 0x43B350
+
+[[func]]
+name = "ActNpc101"
+addr = 0x43B410
+
+[[func]]
+name = "ActNpc102"
+addr = 0x43B4E0
+
+[[func]]
+name = "ActNpc103"
+addr = 0x43B5F0
+
+[[func]]
+name = "ActNpc104"
+addr = 0x43B7F0
+
+[[func]]
+name = "ActNpc105"
+addr = 0x43BD00
+
+[[func]]
+name = "ActNpc106"
+addr = 0x43BDB0
+
+[[func]]
+name = "ActNpc107"
+addr = 0x43BE00
+
+[[func]]
+name = "ActNpc108"
+addr = 0x43C4B0
+
+[[func]]
+name = "ActNpc109"
+addr = 0x43C610
+
+[[func]]
+name = "ActNpc110"
+addr = 0x43C8E0
+
+[[func]]
+name = "ActNpc111"
+addr = 0x43CDE0
+
+[[func]]
+name = "ActNpc112"
+addr = 0x43D0A0
+
+[[func]]
+name = "ActNpc113"
+addr = 0x43D320
+
+[[func]]
+name = "ActNpc114"
+addr = 0x43D860
+
+[[func]]
+name = "ActNpc115"
+addr = 0x43DAE0
+
+[[func]]
+name = "ActNpc116"
+addr = 0x43E190
+
+[[func]]
+name = "ActNpc117"
+addr = 0x43E1E0
+
+[[func]]
+name = "ActNpc118"
+addr = 0x43E9B0
+
+[[func]]
+name = "ActNpc119"
+addr = 0x43F230
+
+[[func]]
+name = "ActNpc120"
+addr = 0x43F280
+
+[[func]]
+name = "ActNpc121"
+addr = 0x43F310
+
+[[func]]
+name = "ActNpc122"
+addr = 0x43F4A0
+
+[[func]]
+name = "ActNpc123"
+addr = 0x43FC70
+
+[[func]]
+name = "ActNpc124"
+addr = 0x43FEF0
+
+[[func]]
+name = "ActNpc125"
+addr = 0x4400D0
+
+[[func]]
+name = "ActNpc126"
+addr = 0x4401F0
+
+[[func]]
+name = "ActNpc127"
+addr = 0x440760
+
+[[func]]
+name = "ActNpc128"
+addr = 0x4408B0
+
+[[func]]
+name = "ActNpc129"
+addr = 0x440CF0
+
+[[func]]
+name = "ActNpc130"
+addr = 0x441000
+
+[[func]]
+name = "ActNpc131"
+addr = 0x441360
+
+[[func]]
+name = "ActNpc132"
+addr = 0x441440
+
+[[func]]
+name = "ActNpc133"
+addr = 0x4419B0
+
+[[func]]
+name = "ActNpc134"
+addr = 0x441B20
+
+[[func]]
+name = "ActNpc135"
+addr = 0x441EC0
+
+[[func]]
+name = "ActNpc136"
+addr = 0x442340
+
+[[func]]
+name = "ActNpc137"
+addr = 0x442540
+
+[[func]]
+name = "ActNpc138"
+addr = 0x442590
+
+[[func]]
+name = "ActNpc139"
+addr = 0x442790
+
+[[func]]
+name = "ActNpc140"
+addr = 0x442BF0
+
+[[func]]
+name = "ActNpc141"
+addr = 0x443AC0
+
+[[func]]
+name = "ActNpc142"
+addr = 0x443EC0
+
+[[func]]
+name = "ActNpc143"
+addr = 0x444190
+
+[[func]]
+name = "ActNpc144"
+addr = 0x444230
+
+[[func]]
+name = "ActNpc145"
+addr = 0x444620
+
+[[func]]
+name = "ActNpc146"
+addr = 0x444780
+
+[[func]]
+name = "ActNpc147"
+addr = 0x444930
+
+[[func]]
+name = "ActNpc148"
+addr = 0x445050
+
+[[func]]
+name = "ActNpc149"
+addr = 0x445170
+
+[[func]]
+name = "ActNpc150"
+addr = 0x445660
+
+[[func]]
+name = "ActNpc151"
+addr = 0x445E30
+
+[[func]]
+name = "ActNpc152"
+addr = 0x445FA0
+
+[[func]]
+name = "ActNpc153"
+addr = 0x446020
+
+[[func]]
+name = "ActNpc154"
+addr = 0x446500
+
+[[func]]
+name = "ActNpc155"
+addr = 0x446710
+
+[[func]]
+name = "ActNpc156"
+addr = 0x446B60
+
+[[func]]
+name = "ActNpc157"
+addr = 0x446CA0
+
+[[func]]
+name = "ActNpc158"
+addr = 0x447180
+
+[[func]]
+name = "ActNpc159"
+addr = 0x4474C0
+
+[[func]]
+name = "ActNpc160"
+addr = 0x447700
+
+[[func]]
+name = "ActNpc161"
+addr = 0x447CB0
+
+[[func]]
+name = "ActNpc162"
+addr = 0x447E90
+
+[[func]]
+name = "ActNpc163"
+addr = 0x4482A0
+
+[[func]]
+name = "ActNpc164"
+addr = 0x448410
+
+[[func]]
+name = "ActNpc165"
+addr = 0x448580
+
+[[func]]
+name = "ActNpc166"
+addr = 0x4486E0
+
+[[func]]
+name = "ActNpc167"
+addr = 0x4487F0
+
+[[func]]
+name = "ActNpc168"
+addr = 0x448A10
+
+[[func]]
+name = "ActNpc169"
+addr = 0x448BE0
+
+[[func]]
+name = "ActNpc170"
+addr = 0x4495A0
+
+[[func]]
+name = "ActNpc171"
+addr = 0x4498C0
+
+[[func]]
+name = "ActNpc172"
+addr = 0x449C10
+
+[[func]]
+name = "ActNpc173"
+addr = 0x449D70
+
+[[func]]
+name = "ActNpc174"
+addr = 0x44A3C0
+
+[[func]]
+name = "ActNpc175"
+addr = 0x44A610
+
+[[func]]
+name = "ActNpc176"
+addr = 0x44A7D0
+
+[[func]]
+name = "ActNpc177"
+addr = 0x44ABB0
+
+[[func]]
+name = "ActNpc178"
+addr = 0x44AEE0
+
+[[func]]
+name = "ActNpc179"
+addr = 0x44B080
+
+[[func]]
+name = "ActNpc180"
+addr = 0x44B210
+
+[[func]]
+name = "ActNpc181"
+addr = 0x44BE10
+
+[[func]]
+name = "ActNpc182"
+addr = 0x44C220
+
+[[func]]
+name = "ActNpc183"
+addr = 0x44C630
+
+[[func]]
+name = "ActNpc184"
+addr = 0x44C7A0
+
+[[func]]
+name = "ActNpc185"
+addr = 0x44CA60
+
+[[func]]
+name = "ActNpc186"
+addr = 0x44CBE0
+
+[[func]]
+name = "ActNpc187"
+addr = 0x44CDB0
+
+[[func]]
+name = "ActNpc188"
+addr = 0x44D070
+
+[[func]]
+name = "ActNpc189"
+addr = 0x44D3A0
+
+[[func]]
+name = "ActNpc190"
+addr = 0x44D5E0
+
+[[func]]
+name = "ActNpc191"
+addr = 0x44D740
+
+[[func]]
+name = "ActNpc192"
+addr = 0x44DA00
+
+[[func]]
+name = "ActNpc193"
+addr = 0x44DE20
+
+[[func]]
+name = "ActNpc194"
+addr = 0x44DEA0
+
+[[func]]
+name = "ActNpc195"
+addr = 0x44DF10
+
+[[func]]
+name = "ActNpc196"
+addr = 0x44DF60
+
+[[func]]
+name = "ActNpc197"
+addr = 0x44E020
+
+[[func]]
+name = "ActNpc198"
+addr = 0x44E260
+
+[[func]]
+name = "ActNpc199"
+addr = 0x44E400
+
+[[func]]
+name = "ActNpc200"
+addr = 0x44E5F0
+
+[[func]]
+name = "ActNpc201"
+addr = 0x44EC40
+
+[[func]]
+name = "ActNpc202"
+addr = 0x44ECE0
+
+[[func]]
+name = "ActNpc203"
+addr = 0x44EE40
+
+[[func]]
+name = "ActNpc204"
+addr = 0x44F1F0
+
+[[func]]
+name = "ActNpc205"
+addr = 0x44F3E0
+
+[[func]]
+name = "ActNpc206"
+addr = 0x44F6D0
+
+[[func]]
+name = "ActNpc207"
+addr = 0x44FB40
+
+[[func]]
+name = "ActNpc208"
+addr = 0x44FCB0
+
+[[func]]
+name = "ActNpc209"
+addr = 0x450280
+
+[[func]]
+name = "ActNpc210"
+addr = 0x450400
+
+[[func]]
+name = "ActNpc211"
+addr = 0x450760
+
+[[func]]
+name = "ActNpc212"
+addr = 0x450810
+
+[[func]]
+name = "ActNpc213"
+addr = 0x450BF0
+
+[[func]]
+name = "ActNpc214"
+addr = 0x4512A0
+
+[[func]]
+name = "ActNpc215"
+addr = 0x451430
+
+[[func]]
+name = "ActNpc216"
+addr = 0x4517F0
+
+[[func]]
+name = "ActNpc217"
+addr = 0x451840
+
+[[func]]
+name = "ActNpc218"
+addr = 0x451CA0
+
+[[func]]
+name = "ActNpc219"
+addr = 0x451DA0
+
+[[func]]
+name = "ActNpc220"
+addr = 0x451E90
+
+[[func]]
+name = "ActNpc221"
+addr = 0x452000
+
+[[func]]
+name = "ActNpc222"
+addr = 0x452470
+
+[[func]]
+name = "ActNpc223"
+addr = 0x4524E0
+
+[[func]]
+name = "ActNpc224"
+addr = 0x452700
+
+[[func]]
+name = "ActNpc225"
+addr = 0x4528D0
+
+[[func]]
+name = "ActNpc226"
+addr = 0x452A50
+
+[[func]]
+name = "ActNpc227"
+addr = 0x452D10
+
+[[func]]
+name = "ActNpc228"
+addr = 0x452D60
+
+[[func]]
+name = "ActNpc229"
+addr = 0x4530D0
+
+[[func]]
+name = "ActNpc230"
+addr = 0x453190
+
+[[func]]
+name = "ActNpc231"
+addr = 0x453260
+
+[[func]]
+name = "ActNpc232"
+addr = 0x4536F0
+
+[[func]]
+name = "ActNpc233"
+addr = 0x4539B0
+
+[[func]]
+name = "ActNpc234"
+addr = 0x453E60
+
+[[func]]
+name = "ActNpc235"
+addr = 0x453F20
+
+[[func]]
+name = "ActNpc236"
+addr = 0x454310
+
+[[func]]
+name = "ActNpc237"
+addr = 0x4548B0
+
+[[func]]
+name = "ActNpc238"
+addr = 0x454A00
+
+[[func]]
+name = "ActNpc239"
+addr = 0x454DF0
+
+[[func]]
+name = "ActNpc240"
+addr = 0x454F00
+
+[[func]]
+name = "ActNpc241"
+addr = 0x455370
+
+[[func]]
+name = "ActNpc242"
+addr = 0x455710
+
+[[func]]
+name = "ActNpc243"
+addr = 0x455A10
+
+[[func]]
+name = "ActNpc244"
+addr = 0x455AB0
+
+[[func]]
+name = "ActNpc245"
+addr = 0x455C10
+
+[[func]]
+name = "ActNpc246"
+addr = 0x455E00
+
+[[func]]
+name = "ActNpc247"
+addr = 0x456110
+
+[[func]]
+name = "ActNpc248"
+addr = 0x456F50
+
+[[func]]
+name = "ActNpc249"
+addr = 0x4570B0
+
+[[func]]
+name = "ActNpc250"
+addr = 0x457180
+
+[[func]]
+name = "ActNpc251"
+addr = 0x457470
+
+[[func]]
+name = "ActNpc252"
+addr = 0x457570
+
+[[func]]
+name = "ActNpc253"
+addr = 0x4579D0
+
+[[func]]
+name = "ActNpc254"
+addr = 0x457B00
+
+[[func]]
+name = "ActNpc255"
+addr = 0x457D70
+
+[[func]]
+name = "ActNpc256"
+addr = 0x458010
+
+[[func]]
+name = "ActNpc257"
+addr = 0x458360
+
+[[func]]
+name = "ActNpc258"
+addr = 0x4585A0
+
+[[func]]
+name = "ActNpc259"
+addr = 0x4585F0
+
+[[func]]
+name = "ActNpc260"
+addr = 0x458810
+
+[[func]]
+name = "ActNpc261"
+addr = 0x458A70
+
+[[func]]
+name = "ActNpc262"
+addr = 0x458C30
+
+[[func]]
+name = "ActNpc263"
+addr = 0x458DF0
+
+[[func]]
+name = "ActNpc264"
+addr = 0x459950
+
+[[func]]
+name = "ActNpc265"
+addr = 0x459B30
+
+[[func]]
+name = "ActNpc266"
+addr = 0x459C00
+
+[[func]]
+name = "ActNpc267"
+addr = 0x459D80
+
+[[func]]
+name = "ActNpc268"
+addr = 0x45B3D0
+
+[[func]]
+name = "ActNpc269"
+addr = 0x45BCB0
+
+[[func]]
+name = "ActNpc270"
+addr = 0x45BF10
+
+[[func]]
+name = "ActNpc271"
+addr = 0x45C230
+
+[[func]]
+name = "ActNpc272"
+addr = 0x45C500
+
+[[func]]
+name = "ActNpc273"
+addr = 0x45C5A0
+
+[[func]]
+name = "ActNpc274"
+addr = 0x45C750
+
+[[func]]
+name = "ActNpc275"
+addr = 0x45CC80
+
+[[func]]
+name = "ActNpc276"
+addr = 0x45CEA0
+
+[[func]]
+name = "ActNpc277"
+addr = 0x45D780
+
+[[func]]
+name = "ActNpc278"
+addr = 0x45D930
+
+[[func]]
+name = "ActNpc279"
+addr = 0x45DCF0
+
+[[func]]
+name = "ActNpc280"
+addr = 0x45E110
+
+[[func]]
+name = "ActNpc281"
+addr = 0x45E360
+
+[[func]]
+name = "ActNpc282"
+addr = 0x45E4C0
+
+[[func]]
+name = "ActNpc283"
+addr = 0x45E950
+
+[[func]]
+name = "ActNpc284"
+addr = 0x45F910
+
+[[func]]
+name = "ActNpc285"
+addr = 0x460910
+
+[[func]]
+name = "ActNpc286"
+addr = 0x460AE0
+
+[[func]]
+name = "ActNpc287"
+addr = 0x460BB0
+
+[[func]]
+name = "ActNpc288"
+addr = 0x460D70
+
+[[func]]
+name = "ActNpc289"
+addr = 0x4610D0
+
+[[func]]
+name = "ActNpc290"
+addr = 0x4614A0
+
+[[func]]
+name = "ActNpc291"
+addr = 0x461800
+
+[[func]]
+name = "ActNpc292"
+addr = 0x4618B0
+
+[[func]]
+name = "ActNpc293"
+addr = 0x4618C0
+
+[[func]]
+name = "ActNpc294"
+addr = 0x4619E0
+
+[[func]]
+name = "ActNpc295"
+addr = 0x461B90
+
+[[func]]
+name = "ActNpc296"
+addr = 0x461E40
+
+[[func]]
+name = "ActNpc297"
+addr = 0x461FD0
+
+[[func]]
+name = "ActNpc298"
+addr = 0x462050
+
+[[func]]
+name = "ActNpc299"
+addr = 0x4623D0
+
+[[func]]
+name = "ActNpc300"
+addr = 0x4624E0
+
+[[func]]
+name = "ActNpc301"
+addr = 0x4625A0
+
+[[func]]
+name = "ActNpc302"
+addr = 0x462890
+
+[[func]]
+name = "ActNpc303"
+addr = 0x462AF0
+
+[[func]]
+name = "ActNpc304"
+addr = 0x462C80
+
+[[func]]
+name = "ActNpc305"
+addr = 0x462E00
+
+[[func]]
+name = "ActNpc306"
+addr = 0x462F60
+
+[[func]]
+name = "ActNpc307"
+addr = 0x4630F0
+
+[[func]]
+name = "ActNpc308"
+addr = 0x4632B0
+
+[[func]]
+name = "ActNpc309"
+addr = 0x463710
+
+[[func]]
+name = "ActNpc310"
+addr = 0x463AC0
+
+[[func]]
+name = "ActNpc311"
+addr = 0x464090
+
+[[func]]
+name = "ActNpc312"
+addr = 0x464740
+
+[[func]]
+name = "ActNpc313"
+addr = 0x464BB0
+
+[[func]]
+name = "ActNpc314"
+addr = 0x465CC0
+
+[[func]]
+name = "ActNpc315"
+addr = 0x465F60
+
+[[func]]
+name = "ActNpc316"
+addr = 0x4664B0
+
+[[func]]
+name = "ActNpc317"
+addr = 0x466790
+
+[[func]]
+name = "ActNpc318"
+addr = 0x466B80
+
+[[func]]
+name = "ActNpc319"
+addr = 0x466E50
+
+[[func]]
+name = "ActNpc320"
+addr = 0x4670C0
+
+[[func]]
+name = "ActNpc321"
+addr = 0x4673F0
+
+[[func]]
+name = "ActNpc322"
+addr = 0x4676D0
+
+[[func]]
+name = "ActNpc323"
+addr = 0x467C60
+
+[[func]]
+name = "ActNpc324"
+addr = 0x467F40
+
+[[func]]
+name = "ActNpc325"
+addr = 0x467FE0
+
+[[func]]
+name = "ActNpc326"
+addr = 0x468230
+
+[[func]]
+name = "ActNpc327"
+addr = 0x468830
+
+[[func]]
+name = "ActNpc328"
+addr = 0x468990
+
+[[func]]
+name = "ActNpc329"
+addr = 0x4689E0
+
+[[func]]
+name = "ActNpc330"
+addr = 0x468A90
+
+[[func]]
+name = "ActNpc331"
+addr = 0x468D70
+
+[[func]]
+name = "ActNpc332"
+addr = 0x468F50
+
+[[func]]
+name = "ActNpc333"
+addr = 0x469140
+
+[[func]]
+name = "ActNpc334"
+addr = 0x469290
+
+[[func]]
+name = "ActNpc335"
+addr = 0x469430
+
+[[func]]
+name = "ActNpc336"
+addr = 0x469610
+
+[[func]]
+name = "ActNpc337"
+addr = 0x4696B0
+
+[[func]]
+name = "ActNpc338"
+addr = 0x469800
+
+[[func]]
+name = "ActNpc339"
+addr = 0x469AA0
+
+[[func]]
+name = "ActNpc340"
+addr = 0x469B40
+
+[[func]]
+name = "ActNpc341"
+addr = 0x46B240
+
+[[func]]
+name = "ActNpc342"
+addr = 0x46B340
+
+[[func]]
+name = "ActNpc343"
+addr = 0x46BD80
+
+[[func]]
+name = "ActNpc344"
+addr = 0x46BE10
+
+[[func]]
+name = "ActNpc345"
+addr = 0x46BF00
+
+[[func]]
+name = "ActNpc346"
+addr = 0x46C1D0
+
+[[func]]
+name = "ActNpc347"
+addr = 0x46C710
+
+[[func]]
+name = "ActNpc348"
+addr = 0x46C9B0
+
+[[func]]
+name = "ActNpc349"
+addr = 0x46CAC0
+
+[[func]]
+name = "ActNpc350"
+addr = 0x46CB50
+
+[[func]]
+name = "ActNpc351"
+addr = 0x46D340
+
+[[func]]
+name = "ActNpc352"
+addr = 0x46D5D0
+
+[[func]]
+name = "ActNpc353"
+addr = 0x46DBE0
+
+[[func]]
+name = "ActNpc354"
+addr = 0x46E110
+
+[[func]]
+name = "ActNpc355"
+addr = 0x46E280
+
+[[func]]
+name = "ActNpc356"
+addr = 0x46E480
+
+[[func]]
+name = "ActNpc357"
+addr = 0x46E730
+
+[[func]]
+name = "ActNpc358"
+addr = 0x46E870
+
+[[func]]
+name = "ActNpc359"
+addr = 0x46E9E0
+
+[[func]]
+name = "ActNpc360"
+addr = 0x46EA90
+
+[[func]]
+name = "InitNpChar"
+addr = 0x46EB30
+
+[[func]]
+name = "LoadEvent"
+addr = 0x46EB50
+
+[[func]]
+name = "SetUniqueParameter"
+addr = 0x46EE50
+
+[[func]]
+name = "SetNpChar"
+addr = 0x46EFD0
+
+[[func]]
+name = "SetDestroyNpChar"
+addr = 0x46F150
+
+[[func]]
+name = "SetDestroyNpCharUp"
+addr = 0x46F200
+
+[[func]]
+name = "SetExpObjects"
+addr = 0x46F2B0
+
+[[func]]
+name = "SetBulletObject"
+addr = 0x46F430
+
+[[func]]
+name = "SetLifeObject"
+addr = 0x46F630
+
+[[func]]
+name = "VanishNpChar"
+addr = 0x46F760
+
+[[func]]
+name = "PutNpChar"
+addr = 0x46F810
+
+[[func]]
+name = "ActNpChar"
+addr = 0x46FA00
+
+[[func]]
+name = "ChangeNpCharByEvent"
+addr = 0x46FAB0
+
+[[func]]
+name = "ChangeCheckableNpCharByEvent"
+addr = 0x46FD10
+
+[[func]]
+name = "SetNpCharActionNo"
+addr = 0x46FF90
+
+[[func]]
+name = "MoveNpChar"
+addr = 0x470060
+
+[[func]]
+name = "BackStepMyChar"
+addr = 0x470150
+
+[[func]]
+name = "DeleteNpCharEvent"
+addr = 0x470250
+
+[[func]]
+name = "DeleteNpCharCode"
+addr = 0x4702D0
+
+[[func]]
+name = "GetNpCharPosition"
+addr = 0x470460
+
+[[func]]
+name = "IsNpCharCode"
+addr = 0x470490
+
+[[func]]
+name = "GetNpCharAlive"
+addr = 0x4704F0
+
+[[func]]
+name = "CountAliveNpChar"
+addr = 0x470560
+
+[[func]]
+name = "JadgeHitNpCharBlock"
+addr = 0x4705C0
+
+[[func]]
+name = "JudgeHitNpCharTriangleA"
+addr = 0x470870
+
+[[func]]
+name = "JudgeHitNpCharTriangleB"
+addr = 0x470970
+
+[[func]]
+name = "JudgeHitNpCharTriangleC"
+addr = 0x470A70
+
+[[func]]
+name = "JudgeHitNpCharTriangleD"
+addr = 0x470B70
+
+[[func]]
+name = "JudgeHitNpCharTriangleE"
+addr = 0x470C70
+
+[[func]]
+name = "JudgeHitNpCharTriangleF"
+addr = 0x470D80
+
+[[func]]
+name = "JudgeHitNpCharTriangleG"
+addr = 0x470E90
+
+[[func]]
+name = "JudgeHitNpCharTriangleH"
+addr = 0x470FA0
+
+[[func]]
+name = "JudgeHitNpCharWater"
+addr = 0x4710B0
+
+[[func]]
+name = "HitNpCharMap"
+addr = 0x471160
+
+[[func]]
+name = "LoseNpChar"
+addr = 0x471B80
+
+[[func]]
+name = "HitNpCharBullet"
+addr = 0x471D50
+
+[[func]]
+name = "LoadNpcTable"
+addr = 0x472400
+
+[[func]]
+name = "ReleaseNpcTable"
+addr = 0x472710
+
+[[func]]
+name = "InitBossChar"
+addr = 0x472740
+
+[[func]]
+name = "PutBossChar"
+addr = 0x472770
+
+[[func]]
+name = "SetBossCharActNo"
+addr = 0x472940
+
+[[func]]
+name = "HitBossBullet"
+addr = 0x472950
+
+[[func]]
+name = "ActBossChar_0"
+addr = 0x472FF0
+
+[[func]]
+name = "ActBossChar"
+addr = 0x473000
+
+[[func]]
+name = "HitBossMap"
+addr = 0x473080
+
+[[func]]
+name = "ActBossChar_Core_Face"
+addr = 0x4739B0
+
+[[func]]
+name = "ActBossChar_Core_Tail"
+addr = 0x473BD0
+
+[[func]]
+name = "ActBossChar_Core_Mini"
+addr = 0x473DE0
+
+[[func]]
+name = "ActBossChar_Core_Hit"
+addr = 0x474340
+
+[[func]]
+name = "ActBossChar_Core"
+addr = 0x474400
+
+[[func]]
+name = "ActBossChar_Undead"
+addr = 0x4753D0
+
+[[func]]
+name = "ActBossCharA_Head"
+addr = 0x476790
+
+[[func]]
+name = "ActBossCharA_Tail"
+addr = 0x4769A0
+
+[[func]]
+name = "ActBossCharA_Face"
+addr = 0x476B90
+
+[[func]]
+name = "ActBossCharA_Mini"
+addr = 0x476E50
+
+[[func]]
+name = "ActBossCharA_Hit"
+addr = 0x477230
+
+[[func]]
+name = "ActBossChar_Ballos"
+addr = 0x4772F0
+
+[[func]]
+name = "ActBossChar_Eye"
+addr = 0x478AA0
+
+[[func]]
+name = "ActBossChar_Body"
+addr = 0x478F20
+
+[[func]]
+name = "ActBossChar_HITAI"
+addr = 0x478FE0
+
+[[func]]
+name = "ActBossChar_HARA"
+addr = 0x479010
+
+[[func]]
+name = "ActBossChar_Frog"
+addr = 0x479030
+
+[[func]]
+name = "ActBossChar02_01"
+addr = 0x47A6A0
+
+[[func]]
+name = "ActBossChar02_02"
+addr = 0x47A800
+
+[[func]]
+name = "ActBossChar_Ironhead"
+addr = 0x47A8A0
+
+[[func]]
+name = "InitBossLife"
+addr = 0x47B450
+size = 0xF
+
+[[func]]
+name = "StartBossLife"
+addr = 0x47B460
+
+[[func]]
+name = "StartBossLife2"
+addr = 0x47B500
+
+[[func]]
+name = "PutBossLife"
+addr = 0x47B540
+
+[[func]]
+name = "ActBossChar_Omega"
+addr = 0x47B6F0
+
+[[func]]
+name = "ActBoss01_12"
+addr = 0x47C380
+
+[[func]]
+name = "ActBoss01_34"
+addr = 0x47C4E0
+
+[[func]]
+name = "ActBoss01_5"
+addr = 0x47C7A0
+
+[[func]]
+name = "ActBossChar_Press"
+addr = 0x47C820
+
+[[func]]
+name = "ActBossChar_Twin"
+addr = 0x47D170
+
+[[func]]
+name = "ActBossCharT_DragonBody"
+addr = 0x47DAA0
+
+[[func]]
+name = "ActBossCharT_DragonHead"
+addr = 0x47DF10
+
+[[func]]
+name = "ActBossChar_MonstX"
+addr = 0x47E6F0
+
+[[func]]
+name = "ActBossChar03_01"
+addr = 0x47F710
+
+[[func]]
+name = "ActBossChar03_02"
+addr = 0x480090
+
+[[func]]
+name = "ActBossChar03_03"
+addr = 0x4802A0
+
+[[func]]
+name = "ActBossChar03_04"
+addr = 0x480550
+
+[[func]]
+name = "ActBossChar03_face"
+addr = 0x4808C0
