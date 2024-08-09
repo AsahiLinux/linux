@@ -1,2 +1,0 @@
-# Whole machine hangs
-kms_cursor_legacy@all-pipes-torture-move
