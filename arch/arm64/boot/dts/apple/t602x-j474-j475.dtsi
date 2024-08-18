@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR MIT
 /*
- * Mac Mini (M2 Pro, 2023) and Mac Studio (2023)
+ * Mac mini (M2 Pro, 2023) and Mac Studio (2023)
  *
  * This file contains the parts common to J474 and J475 devices with t6020,
  * t6021 and t6022.
