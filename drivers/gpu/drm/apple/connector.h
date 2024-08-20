@@ -8,6 +8,7 @@
 
 #include <drm/drm_atomic.h>
 #include "drm/drm_connector.h"
+#include "drm/drm_edid.h"
 
 struct apple_connector;
 
@@ -20,6 +21,8 @@ struct apple_connector {
 	bool connected;
 
 	struct platform_device *dcp;
+
+	const struct drm_edid *drm_edid;
 
 	/* Workqueue for sending hotplug events to the associated device */
 	struct work_struct hotplug_wq;
