@@ -293,7 +293,11 @@ static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
             service_name = name;
         }
 
-	ops = afk_match_service(ep, service_name);
+	if (ep->match_epic_name)
+		ops = afk_match_service(ep, epic_name);
+	else
+		ops = afk_match_service(ep, service_name);
+
 	if (!ops) {
 		dev_err(ep->dcp->dev,
 			"AFK[ep:%02x]: unable to match service %s on channel %d\n",
