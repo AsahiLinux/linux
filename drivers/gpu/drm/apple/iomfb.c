@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/soc/apple/rtkit.h>
 
+#include <drm/drm_edid.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -241,6 +242,11 @@ void dcp_hotplug(struct work_struct *work)
 	dev_info(dcp->dev, "%s() connected:%d valid_mode:%d nr_modes:%u\n", __func__,
 		 connector->connected, dcp->valid_mode, dcp->nr_modes);
 
+	if (!connector->connected) {
+		drm_edid_free(connector->drm_edid);
+		connector->drm_edid = NULL;
+	}
+
 	/*
 	 * DCP defers link training until we set a display mode. But we set
 	 * display modes from atomic_flush, so userspace needs to trigger a
@@ -390,6 +396,20 @@ int dcp_get_modes(struct drm_connector *connector)
 
 		drm_mode_probed_add(connector, mode);
 	}
+
+	if (dcp->nr_modes && dcp->dcpavserv.enabled &&
+	    !apple_connector->drm_edid) {
+		const struct drm_edid *edid;
+		edid = dcpavserv_copy_edid(dcp->dcpavserv.service);
+		if (IS_ERR_OR_NULL(edid)) {
+			dev_info(dcp->dev, "copy_edid failed: %pe\n", edid);
+		} else {
+			drm_edid_free(apple_connector->drm_edid);
+			apple_connector->drm_edid = edid;
+		}
+	}
+	if (dcp->nr_modes && apple_connector->drm_edid)
+		drm_edid_connector_update(connector, apple_connector->drm_edid);
 
 	return dcp->nr_modes;
 }

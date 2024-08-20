@@ -242,6 +242,8 @@ static void dcp_rtk_crashed(void *cookie, const void *crashlog, size_t crashlog_
 	dev_err(dcp->dev, "DCP has crashed\n");
 	if (dcp->connector) {
 		dcp->connector->connected = 0;
+		drm_edid_free(dcp->connector->drm_edid);
+		dcp->connector->drm_edid = NULL;
 		schedule_work(&dcp->connector->hotplug_wq);
 	}
 	complete(&dcp->start_done);
