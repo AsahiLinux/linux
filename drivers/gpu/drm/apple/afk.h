@@ -182,6 +182,8 @@ struct apple_dcp_afkep {
 	u32 num_channels;
 
 	struct dentry *debugfs_entry;
+
+	bool match_epic_name;
 };
 
 struct apple_dcp_afkep *afk_init(struct apple_dcp *dcp, u32 endpoint,
