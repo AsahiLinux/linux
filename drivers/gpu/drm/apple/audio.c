@@ -18,6 +18,7 @@
 #include <linux/of_graph.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -377,6 +378,7 @@ static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (!dcpaud_connection_up(dcpaud))
 			return -ENXIO;
 
+		WARN_ON(pm_runtime_get_sync(dcpaud->dev) < 0);
 		ret = dcp_audiosrv_startlink(dcpaud->dcp_dev,
 					     &dcpaud->selected_cookie);
 		if (ret < 0)
@@ -403,6 +405,8 @@ static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		ret = dcp_audiosrv_stoplink(dcpaud->dcp_dev);
+		pm_runtime_mark_last_busy(dcpaud->dev);
+		__pm_runtime_put_autosuspend(dcpaud->dev);
 		if (ret < 0)
 			return ret;
 		break;
@@ -605,6 +609,13 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 	int index;
 	int ret;
 
+	pm_runtime_get_noresume(dev);
+	pm_runtime_set_active(dev);
+
+	ret = devm_pm_runtime_enable(dev);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable runtime PM: %d\n", ret);
+
 	/* find linked DCP instance */
 	endpoint = of_graph_get_endpoint_by_regs(dev->of_node, 0, 0);
 	if (endpoint) {
@@ -614,35 +625,34 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 	if (!dcp_node || !of_device_is_available(dcp_node)) {
 		of_node_put(dcp_node);
 		dev_info(dev, "No audio support\n");
-		return 0;
+		goto rpm_put;
 	}
 
 	index = of_property_match_string(dev->of_node, "dma-names", "tx");
 	if (index < 0) {
 		dev_err(dev, "No dma-names property\n");
-		return 0;
+		goto rpm_put;
 	}
 
 	if (of_parse_phandle_with_args(dev->of_node, "dmas", "#dma-cells", index,
 				       &dma_spec) || !dma_spec.np) {
 		dev_err(dev, "Failed to parse dmas property\n");
-		return 0;
+		goto rpm_put;
 	}
 
 	dcp_pdev = of_find_device_by_node(dcp_node);
 	of_node_put(dcp_node);
 	if (!dcp_pdev) {
 		dev_info(dev, "No DP/HDMI audio device, dcp not ready\n");
-		return 0;
+		goto rpm_put;
 	}
 	dcpaud->dcp_dev = &dcp_pdev->dev;
-
 
 	dma_pdev = of_find_device_by_node(dma_spec.np);
 	of_node_put(dma_spec.np);
 	if (!dma_pdev) {
 		dev_info(dev, "No DMA device\n");
-		return 0;
+		goto rpm_put;
 	}
 	dcpaud->dma_dev = &dma_pdev->dev;
 
@@ -662,6 +672,9 @@ static int dcpaud_comp_bind(struct device *dev, struct device *main, void *data)
 		dcpaud_expose_debugfs_blob(dcpaud, "product_attrs", dcpaud->productattrs,
 					DCPAUD_PRODUCTATTRS_MAXSIZE);
 	}
+
+rpm_put:
+	pm_runtime_put(dev);
 
 	return 0;
 }
@@ -718,7 +731,22 @@ static void dcpaud_shutdown(struct platform_device *pdev)
 	component_del(&pdev->dev, &dcpaud_comp_ops);
 }
 
-// static DEFINE_SIMPLE_DEV_PM_OPS(dcpaud_pm_ops, dcpaud_suspend, dcpaud_resume);
+static __maybe_unused int dcpaud_suspend(struct device *dev)
+{
+	/*
+	 * Using snd_power_change_state() does not work since the sound card
+	 * is what resumes runtime PM.
+	 */
+
+	return 0;
+}
+
+static __maybe_unused int dcpaud_resume(struct device *dev)
+{
+	return 0;
+}
+
+static DEFINE_RUNTIME_DEV_PM_OPS(dcpaud_pm_ops, dcpaud_suspend, dcpaud_resume, NULL);
 
 static const struct of_device_id dcpaud_of_match[] = {
 	{ .compatible = "apple,dpaudio" },
@@ -728,7 +756,8 @@ static const struct of_device_id dcpaud_of_match[] = {
 static struct platform_driver dcpaud_driver = {
 	.driver = {
 		.name = "dcp-dp-audio",
-		.of_match_table      = dcpaud_of_match,
+		.of_match_table	= dcpaud_of_match,
+		.pm		= pm_ptr(&dcpaud_pm_ops),
 	},
 	.probe		= dcpaud_probe,
 	.remove		= dcpaud_remove,
