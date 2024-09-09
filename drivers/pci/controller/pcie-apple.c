@@ -562,6 +562,12 @@ static int apple_pcie_setup_link(struct apple_pcie *pcie,
 	u32 stat;
 	int ret;
 
+	/*
+	 * Assert PERST# and configure the pin as output.
+	 * The Aquantia AQC113 10GB nic used desktop macs is sensitive to
+	 * deasserting it without prior clock setup.
+	 * Observed on M1 Max/Ultra Mac Studios under m1n1's hypervisor.
+	 */
 	reset = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "reset",
 				      GPIOD_OUT_HIGH, "PERST#");
 	if (IS_ERR(reset))
