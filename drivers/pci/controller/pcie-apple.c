@@ -562,7 +562,7 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 	int ret, i;
 
 	reset = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "reset",
-				      GPIOD_OUT_LOW, "PERST#");
+				      GPIOD_OUT_HIGH, "PERST#");
 	if (IS_ERR(reset))
 		return PTR_ERR(reset);
 
