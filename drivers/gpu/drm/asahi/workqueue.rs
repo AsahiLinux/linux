@@ -555,8 +555,10 @@ impl<'a> Drop for JobSubmission::ver<'a> {
             self.command_count
         );
         event.1.sub(self.event_count as u32);
+        let val = event.1;
         inner.commit_seq -= self.command_count as u64;
         inner.event_seq -= self.event_count as u64;
+        inner.last_submitted = Some(val);
         mod_pr_debug!("WorkQueue({:?}): Dropped JobSubmission\n", inner.pipe_type);
     }
 }
