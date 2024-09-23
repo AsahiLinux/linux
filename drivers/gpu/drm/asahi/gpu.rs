@@ -34,7 +34,7 @@ use kernel::{
 use crate::alloc::Allocator;
 use crate::debug::*;
 use crate::driver::{AsahiDevRef, AsahiDevice};
-use crate::fw::channels::PipeType;
+use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::{U32, U64};
 use crate::{
     alloc, buffer, channel, event, fw, gem, hw, initdata, mem, mmu, queue, regs, workqueue,
@@ -255,6 +255,14 @@ pub(crate) trait GpuManager: Send + Sync {
     fn handle_timeout(&self, counter: u32, event_slot: i32, unk: u32);
     /// Handle a GPU fault event.
     fn handle_fault(&self);
+    /// Handle a channel error event.
+    fn handle_channel_error(
+        &self,
+        error_type: ChannelErrorType,
+        pipe_type: u32,
+        event_slot: u32,
+        event_value: u32,
+    );
     /// Acknowledge a Buffer grow op.
     fn ack_grow(&self, buffer_slot: u32, vm_slot: u32, counter: u32);
     /// Wait for the GPU to become idle and power off.
@@ -1342,6 +1350,91 @@ impl GpuManager for GpuManager::ver {
         };
         self.mark_pending_events(None, error);
         self.recover();
+    }
+
+    fn handle_channel_error(
+        &self,
+        error_type: ChannelErrorType,
+        pipe_type: u32,
+        event_slot: u32,
+        event_value: u32,
+    ) {
+        dev_err!(self.dev.as_ref(), " (\\________/) \n");
+        dev_err!(self.dev.as_ref(), "  |        |  \n");
+        dev_err!(self.dev.as_ref(), "'.| \\  , / |.'\n");
+        dev_err!(self.dev.as_ref(), "--| / (( \\ |--\n");
+        dev_err!(self.dev.as_ref(), ".'|  _-_-  |'.\n");
+        dev_err!(self.dev.as_ref(), "  |________|  \n");
+        dev_err!(self.dev.as_ref(), "GPU channel error nya~!!!!!\n");
+        dev_err!(self.dev.as_ref(), "  Error type: {:?}\n", error_type);
+        dev_err!(self.dev.as_ref(), "  Pipe type: {}\n", pipe_type);
+        dev_err!(self.dev.as_ref(), "  Event slot: {}\n", event_slot);
+        dev_err!(self.dev.as_ref(), "  Event value: {:#x?}\n", event_value);
+
+        self.event_manager.mark_error(
+            event_slot,
+            event_value,
+            workqueue::WorkError::ChannelError(error_type),
+        );
+
+        let wq = match self.event_manager.get_owner(event_slot) {
+            Some(wq) => wq,
+            None => {
+                dev_err!(
+                    self.dev.as_ref(),
+                    "Workqueue not found for this event slot!\n"
+                );
+                return;
+            }
+        };
+
+        let wq = match wq.as_any().downcast_ref::<workqueue::WorkQueue::ver>() {
+            Some(wq) => wq,
+            None => {
+                dev_crit!(self.dev.as_ref(), "GpuManager mismatched with WorkQueue!\n");
+                return;
+            }
+        };
+
+        if debug_enabled(DebugFlags::VerboseFaults) {
+            wq.dump_info();
+        }
+
+        let dc = fw::channels::DeviceControlMsg::ver::RecoverChannel {
+            pipe_type,
+            work_queue: wq.info_pointer(),
+            event_value,
+            __pad: Default::default(),
+        };
+
+        mod_dev_dbg!(self.dev, "Recover Channel command: {:?}\n", &dc);
+        let mut txch = self.tx_channels.lock();
+
+        let token = txch.device_control.send(&dc);
+        {
+            let mut guard = self.rtkit.lock();
+            let rtk = guard.as_mut().unwrap();
+            if rtk
+                .send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)
+                .is_err()
+            {
+                dev_err!(
+                    self.dev.as_ref(),
+                    "Failed to send Recover Channel command\n"
+                );
+            }
+        }
+
+        if txch.device_control.wait_for(token).is_err() {
+            dev_err!(
+                self.dev.as_ref(),
+                "Timed out waiting for Recover Channel command\n"
+            );
+        }
+
+        if debug_enabled(DebugFlags::VerboseFaults) {
+            wq.dump_info();
+        }
     }
 
     fn ack_grow(&self, buffer_slot: u32, vm_slot: u32, counter: u32) {

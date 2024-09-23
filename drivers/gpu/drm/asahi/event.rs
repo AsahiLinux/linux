@@ -216,6 +216,16 @@ impl EventManager {
         }
     }
 
+    /// Returns a reference to the workqueue owning an event.
+    pub(crate) fn get_owner(
+        &self,
+        slot: u32,
+    ) -> Option<Arc<dyn workqueue::WorkQueue + Send + Sync>> {
+        self.alloc
+            .with_inner(|inner| inner.owners[slot as usize].as_ref().cloned())
+            .map(|a| a.clone())
+    }
+
     /// Fail all commands, used when the GPU crashes.
     pub(crate) fn fail_all(&self, error: workqueue::WorkError) {
         let mut owners: KVec<Arc<dyn workqueue::WorkQueue + Send + Sync>> = KVec::new();

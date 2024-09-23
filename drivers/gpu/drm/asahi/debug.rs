@@ -66,6 +66,7 @@ pub(crate) enum DebugFlags {
     Debug6 = 54,
     Debug7 = 55,
 
+    VerboseFaults = 61,
     AllowUnknownOverrides = 62,
     OopsOnGpuCrash = 63,
 }

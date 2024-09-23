@@ -392,6 +392,34 @@ impl EventChannel::ver {
                                 )
                             }
                         },
+                        EventMsg::ChannelError {
+                            error_type,
+                            pipe_type,
+                            event_slot,
+                            event_value,
+                        } => match self.gpu.as_ref() {
+                            Some(gpu) => {
+                                let error_type = match error_type {
+                                    0 => ChannelErrorType::MemoryError,
+                                    1 => ChannelErrorType::DMKill,
+                                    2 => ChannelErrorType::Aborted,
+                                    3 => ChannelErrorType::Unk3,
+                                    a => ChannelErrorType::Unknown(a),
+                                };
+                                gpu.handle_channel_error(
+                                    error_type,
+                                    pipe_type,
+                                    event_slot,
+                                    event_value,
+                                );
+                            }
+                            None => {
+                                dev_crit!(
+                                    self.dev.as_ref(),
+                                    "EventChannel: No GPU manager available!\n"
+                                )
+                            }
+                        },
                         msg => {
                             dev_crit!(self.dev.as_ref(), "Unknown event message: {:?}\n", msg);
                         }

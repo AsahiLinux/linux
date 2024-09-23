@@ -14,13 +14,14 @@
 //! up its associated event.
 
 use crate::debug::*;
-use crate::fw::channels::PipeType;
+use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::*;
 use crate::fw::workqueue::*;
 use crate::no_debug;
 use crate::object::OpaqueGpuObject;
 use crate::regs::FaultReason;
 use crate::{channel, driver, event, fw, gpu, object, regs};
+use core::any::Any;
 use core::num::NonZeroU64;
 use core::sync::atomic::Ordering;
 use kernel::{
@@ -47,6 +48,8 @@ pub(crate) enum WorkError {
     Fault(regs::FaultInfo),
     /// Work failed due to an error caused by other concurrent GPU work.
     Killed,
+    /// Channel error
+    ChannelError(ChannelErrorType),
     /// The GPU crashed.
     NoDevice,
     /// Unknown reason.
@@ -78,6 +81,9 @@ impl From<WorkError> for uapi::drm_asahi_result_info {
                 status: match a {
                     WorkError::Timeout => uapi::drm_asahi_status_DRM_ASAHI_STATUS_TIMEOUT,
                     WorkError::Killed => uapi::drm_asahi_status_DRM_ASAHI_STATUS_KILLED,
+                    WorkError::ChannelError(_) => {
+                        uapi::drm_asahi_status_DRM_ASAHI_STATUS_CHANNEL_ERROR
+                    }
                     WorkError::NoDevice => uapi::drm_asahi_status_DRM_ASAHI_STATUS_NO_DEVICE,
                     _ => uapi::drm_asahi_status_DRM_ASAHI_STATUS_UNKNOWN_ERROR,
                 },
@@ -96,6 +102,7 @@ impl From<WorkError> for kernel::error::Error {
             WorkError::Unknown => ENODATA,
             WorkError::Killed => ECANCELED,
             WorkError::NoDevice => ENODEV,
+            WorkError::ChannelError(_) => EIO,
         }
     }
 }
@@ -600,20 +607,26 @@ impl WorkQueue::ver {
         size: u32,
     ) -> Result<Arc<WorkQueue::ver>> {
         let gpu_buf = alloc.private.array_empty_tagged(0x2c18, b"GPBF")?;
-        let shared = &mut alloc.shared;
+        let mut state = alloc.shared.new_default::<RingState>()?;
+        let ring = alloc.shared.array_empty(size as usize)?;
         let inner = WorkQueueInner::ver {
             dev: dev.into(),
             event_manager,
-            info: alloc.private.new_init(
+            // Use shared (coherent) state with verbose faults so we can dump state correctly
+            info: if debug_enabled(DebugFlags::VerboseFaults) {
+                &mut alloc.shared
+            } else {
+                &mut alloc.private
+            }
+            .new_init(
                 try_init!(QueueInfo::ver {
                     state: {
-                        let mut s = shared.new_default::<RingState>()?;
-                        s.with_mut(|raw, _inner| {
+                        state.with_mut(|raw, _inner| {
                             raw.rb_size = size;
                         });
-                        s
+                        state
                     },
-                    ring: shared.array_empty(size as usize)?,
+                    ring,
                     gpu_buf,
                     notifier_list: notifier_list,
                     gpu_context: gpu_context,
@@ -638,7 +651,7 @@ impl WorkQueue::ver {
                         #[ver(V >= V13_2 && G < G14X)]
                         unk_84_0: 0,
                         unk_84_state: Default::default(),
-                        unk_88: 0,
+                        error_count: Default::default(),
                         unk_8c: 0,
                         unk_90: 0,
                         unk_94: 0,
@@ -743,11 +756,35 @@ impl WorkQueue::ver {
     pub(crate) fn pipe_type(&self) -> PipeType {
         self.inner.lock().pipe_type
     }
+
+    pub(crate) fn dump_info(&self) {
+        pr_info!("WorkQueue @ {:?}:", self.info_pointer);
+        self.inner.lock().info.with(|raw, _inner| {
+            pr_info!("  GPU rptr1: {:#x}", raw.gpu_rptr1.load(Ordering::Relaxed));
+            pr_info!("  GPU rptr1: {:#x}", raw.gpu_rptr2.load(Ordering::Relaxed));
+            pr_info!("  GPU rptr1: {:#x}", raw.gpu_rptr3.load(Ordering::Relaxed));
+            pr_info!("  Event ID: {:#x}", raw.event_id.load(Ordering::Relaxed));
+            pr_info!("  Busy: {:#x}", raw.busy.load(Ordering::Relaxed));
+            pr_info!("  Unk 84: {:#x}", raw.unk_84_state.load(Ordering::Relaxed));
+            pr_info!(
+                "  Error count: {:#x}",
+                raw.error_count.load(Ordering::Relaxed)
+            );
+            pr_info!("  Pending: {:#x}", raw.pending.load(Ordering::Relaxed));
+        });
+    }
+
+    pub(crate) fn info_pointer(&self) -> GpuWeakPointer<QueueInfo::ver> {
+        self.info_pointer
+    }
 }
 
 /// Trait used to erase the version-specific type of WorkQueues, to avoid leaking
 /// version-specificity into the event module.
 pub(crate) trait WorkQueue {
+    /// Cast as an Any type.
+    fn as_any(&self) -> &dyn Any;
+
     fn signal(&self) -> bool;
     fn mark_error(&self, value: event::EventValue, error: WorkError);
     fn fail_all(&self, error: WorkError);
@@ -755,6 +792,10 @@ pub(crate) trait WorkQueue {
 
 #[versions(AGX)]
 impl WorkQueue for WorkQueue::ver {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Signal a workqueue that some work was completed.
     ///
     /// This will check the event stamp value to find out exactly how many commands were processed.

@@ -135,7 +135,7 @@ pub(crate) mod raw {
         #[ver(V >= V13_2 && G < G14X)]
         pub(crate) unk_84_0: u32,
         pub(crate) unk_84_state: AtomicU32,
-        pub(crate) unk_88: u32,
+        pub(crate) error_count: AtomicU32,
         pub(crate) unk_8c: u32,
         pub(crate) unk_90: u32,
         pub(crate) unk_94: u32,

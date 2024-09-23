@@ -184,8 +184,16 @@ pub(crate) enum DeviceControlMsg {
         halt_count: U64,
         __pad: Pad<{ DEVICECONTROL_SZ::ver - 0x1c }>,
     },
-    Unk0e(Array<DEVICECONTROL_SZ::ver, u8>),
-    Unk0f(Array<DEVICECONTROL_SZ::ver, u8>),
+    RecoverChannel {
+        pipe_type: u32,
+        work_queue: GpuWeakPointer<super::workqueue::QueueInfo::ver>,
+        event_value: u32,
+        __pad: Pad<{ DEVICECONTROL_SZ::ver - 0x10 }>,
+    },
+    IdlePowerOff {
+        val: u32,
+        __pad: Pad<{ DEVICECONTROL_SZ::ver - 0x4 }>,
+    },
     Unk10(Array<DEVICECONTROL_SZ::ver, u8>),
     Unk11(Array<DEVICECONTROL_SZ::ver, u8>),
     Unk12(Array<DEVICECONTROL_SZ::ver, u8>),
@@ -236,6 +244,17 @@ pub(crate) struct FwCtlMsg {
 
 pub(crate) const EVENT_SZ: usize = 0x34;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(C, u32)]
+#[allow(dead_code)]
+pub(crate) enum ChannelErrorType {
+    MemoryError,
+    DMKill,
+    Aborted,
+    Unk3,
+    Unknown(u32),
+}
+
 #[derive(Debug, Copy, Clone)]
 #[repr(C, u32)]
 #[allow(dead_code)]
@@ -258,12 +277,19 @@ pub(crate) enum EventMsg {
         vm_slot: u32,
         buffer_slot: u32,
         counter: u32,
-    }, // Max discriminant: 0x7
+    },
+    ChannelError {
+        error_type: u32,
+        pipe_type: u32,
+        event_slot: u32,
+        event_value: u32,
+    },
+    // Max discriminant: 0x8
 }
 
 static_assert!(core::mem::size_of::<EventMsg>() == 4 + EVENT_SZ);
 
-pub(crate) const EVENT_MAX: u32 = 0x7;
+pub(crate) const EVENT_MAX: u32 = 0x8;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
