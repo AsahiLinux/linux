@@ -371,7 +371,7 @@ impl Job::ver {
             Some(work.get_fence())
         } else {
             pr_err!(
-                "WorkQueue: Cannot submit, but queue is empty? {} > {}, {} > {} (pend={} ls={:#x?} lc={:#x?})\n",
+                "WorkQueue: Cannot submit, but queue is empty? {} > {}, {} > {} (pend={} ls={:#x?} lc={:#x?}) ev={:#x?}\n",
                 inner.free_slots(),
                 self.event_count,
                 inner.free_space(),
@@ -379,6 +379,7 @@ impl Job::ver {
                 inner.pending.len(),
                 inner.last_submitted,
                 inner.last_completed,
+                inner.event.as_ref().map(|a| a.1),
             );
             None
         }
@@ -509,7 +510,7 @@ impl Drop for Job::ver {
         if self.committed && !self.submitted {
             let pipe_type = inner.pipe_type;
             let event = inner.event.as_mut().expect("Job lost its event");
-            mod_pr_debug!(
+            pr_info!(
                 "WorkQueue({:?}): Roll back {} events (slot {} val {:#x?}) and {} commands\n",
                 pipe_type,
                 self.event_count,
@@ -545,8 +546,8 @@ impl<'a> Drop for JobSubmission::ver<'a> {
 
         let pipe_type = inner.pipe_type;
         let event = inner.event.as_mut().expect("JobSubmission lost its event");
-        mod_pr_debug!(
-            "WorkQueue({:?}): Roll back {} events (slot {} val {:#x?}) and {} commands\n",
+        pr_info!(
+            "WorkQueue({:?}): JobSubmission: Roll back {} events (slot {} val {:#x?}) and {} commands\n",
             pipe_type,
             self.event_count,
             event.0.slot(),
@@ -770,6 +771,18 @@ impl WorkQueue for WorkQueue::ver {
             Some(event) => event.0.current(),
         };
 
+        if let Some(lc) = inner.last_completed {
+            if value < lc {
+                pr_err!(
+                    "WorkQueue: event rolled back? cur {:#x?}, lc {:#x?}, ls {:#x?}",
+                    value,
+                    inner.last_completed,
+                    inner.last_submitted
+                );
+            }
+        } else {
+            pr_crit!("WorkQueue: signal() called with no last_completed.\n");
+        }
         inner.last_completed = Some(value);
 
         mod_pr_debug!(
