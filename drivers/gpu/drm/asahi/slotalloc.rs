@@ -15,6 +15,7 @@
 //! of serious system contention most allocation requests will be immediately fulfilled from the
 //! previous slot without doing an LRU scan.
 
+use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut};
 use kernel::{
     error::{code::*, Result},
@@ -107,6 +108,7 @@ struct SlotAllocatorInner<T: SlotItem> {
     slots: KVec<Option<Entry<T>>>,
     get_count: u64,
     drop_count: u64,
+    slot_limit: usize,
 }
 
 /// A single slot allocator instance.
@@ -155,6 +157,7 @@ impl<T: SlotItem> SlotAllocator<T> {
             slots,
             get_count: 0,
             drop_count: 0,
+            slot_limit: usize::MAX,
         };
 
         let alloc = Arc::pin_init(
@@ -174,6 +177,13 @@ impl<T: SlotItem> SlotAllocator<T> {
     pub(crate) fn with_inner<RetVal>(&self, cb: impl FnOnce(&mut T::Data) -> RetVal) -> RetVal {
         let mut inner = self.0.inner.lock();
         cb(&mut inner.data)
+    }
+
+    /// Set the slot limit for this allocator. New bindings will not use slots above
+    /// this threshold.
+    pub(crate) fn set_limit(&self, limit: Option<NonZeroUsize>) {
+        let mut inner = self.0.inner.lock();
+        inner.slot_limit = limit.unwrap_or(NonZeroUsize::MAX).get();
     }
 
     /// Gets a fresh slot, optionally reusing a previous allocation if a `SlotToken` is provided.
@@ -199,18 +209,20 @@ impl<T: SlotItem> SlotAllocator<T> {
         let mut inner = self.0.inner.lock();
 
         if let Some(token) = token {
-            let slot = &mut inner.slots[token.slot as usize];
-            if slot.is_some() {
-                let count = slot.as_ref().unwrap().get_time;
-                if count == token.time {
-                    let mut guard = Guard {
-                        item: Some(slot.take().unwrap().item),
-                        token,
-                        changed: false,
-                        alloc: self.0.clone(),
-                    };
-                    cb(&mut inner.data, &mut guard)?;
-                    return Ok(guard);
+            if (token.slot as usize) < inner.slot_limit {
+                let slot = &mut inner.slots[token.slot as usize];
+                if slot.is_some() {
+                    let count = slot.as_ref().unwrap().get_time;
+                    if count == token.time {
+                        let mut guard = Guard {
+                            item: Some(slot.take().unwrap().item),
+                            token,
+                            changed: false,
+                            alloc: self.0.clone(),
+                        };
+                        cb(&mut inner.data, &mut guard)?;
+                        return Ok(guard);
+                    }
                 }
             }
         }
@@ -221,6 +233,9 @@ impl<T: SlotItem> SlotAllocator<T> {
             let mut oldest_slot = 0u32;
 
             for (i, slot) in inner.slots.iter().enumerate() {
+                if i >= inner.slot_limit {
+                    break;
+                }
                 if let Some(slot) = slot.as_ref() {
                     if slot.drop_time < oldest_time {
                         oldest_slot = i as u32;
@@ -230,7 +245,7 @@ impl<T: SlotItem> SlotAllocator<T> {
             }
 
             if oldest_time == u64::MAX {
-                if first {
+                if first && inner.slot_limit == usize::MAX {
                     pr_warn!(
                         "{}: out of slots, blocking\n",
                         core::any::type_name::<Self>()
