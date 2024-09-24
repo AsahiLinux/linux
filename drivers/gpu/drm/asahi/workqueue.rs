@@ -661,6 +661,14 @@ impl WorkQueue::ver {
         let gpu_buf = alloc.private.array_empty_tagged(0x2c18, b"GPBF")?;
         let mut state = alloc.shared.new_default::<RingState>()?;
         let ring = alloc.shared.array_empty(size as usize)?;
+        let mut prio = *raw::PRIORITY.get(priority as usize).ok_or(EINVAL)?;
+
+        if pipe_type == PipeType::Compute && !debug_enabled(DebugFlags::Debug0) {
+            // Hack to disable compute preemption until we fix it
+            prio.0 = 0;
+            prio.5 = 1;
+        }
+
         let inner = WorkQueueInner::ver {
             dev: dev.into(),
             event_manager,
@@ -693,7 +701,7 @@ impl WorkQueue::ver {
                         gpu_rptr2: Default::default(),
                         gpu_rptr3: Default::default(),
                         event_id: AtomicI32::new(-1),
-                        priority: *raw::PRIORITY.get(priority as usize).ok_or(EINVAL)?,
+                        priority: prio,
                         unk_4c: -1,
                         uuid: id as u32,
                         unk_54: -1,

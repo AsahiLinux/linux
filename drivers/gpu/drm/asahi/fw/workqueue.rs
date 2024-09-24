@@ -98,7 +98,14 @@ pub(crate) mod raw {
 
     #[derive(Debug, Clone, Copy)]
     #[repr(C)]
-    pub(crate) struct Priority(u32, u32, U64, u32, u32, u32);
+    pub(crate) struct Priority(
+        pub(crate) u32,
+        pub(crate) u32,
+        pub(crate) U64,
+        pub(crate) u32,
+        pub(crate) u32,
+        pub(crate) u32,
+    );
 
     pub(crate) const PRIORITY: [Priority; 4] = [
         Priority(0, 0, U64(0xffff_ffff_ffff_0000), 1, 0, 1),

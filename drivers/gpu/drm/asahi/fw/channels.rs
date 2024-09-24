@@ -113,7 +113,7 @@ impl TxChannelState for FwCtlChannelState {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 #[repr(u32)]
 pub(crate) enum PipeType {
     #[default]
