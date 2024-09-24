@@ -13,8 +13,8 @@ static int summit_set_brightness(struct device *dev)
 {
 	struct summit_data *panel = dev_get_drvdata(dev);
 	int level = backlight_get_brightness(panel->bl);
-	ssize_t err = mipi_dsi_dcs_write(panel->dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-					 &level, 1);
+	int err = mipi_dsi_dcs_set_display_brightness(panel->dsi, level);
+
 	if (err < 0)
 		return err;
 	return 0;
@@ -70,10 +70,10 @@ static int summit_resume(struct device *dev)
 
 static int summit_suspend(struct device *dev)
 {
-	int level = 0;
 	struct summit_data *panel = dev_get_drvdata(dev);
-	ssize_t err = mipi_dsi_dcs_write(panel->dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-					 &level, 1);
+
+	int err = mipi_dsi_dcs_set_display_brightness(panel->dsi, 0);
+
 	if (err < 0)
 		return err;
 	return 0;
