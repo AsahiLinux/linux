@@ -150,6 +150,12 @@ impl EventManager {
             owners,
         };
 
+        for slot in 0..NUM_EVENTS {
+            inner.stamps[slot as usize]
+                .0
+                .store((slot as u32) << 24, Ordering::Relaxed);
+        }
+
         Ok(EventManager {
             alloc: slotalloc::SlotAllocator::new(
                 NUM_EVENTS,
