@@ -46,7 +46,11 @@ static int summit_probe(struct mipi_dsi_device *dsi)
 
 	mipi_dsi_set_drvdata(dsi, panel);
 	panel->dsi = dsi;
-	props.max_brightness = 255;
+
+	int ret = device_property_read_u32(dev, "max-brightness", &props.max_brightness);
+
+	if (ret)
+		props.max_brightness = 255;
 	props.type = BACKLIGHT_RAW;
 
 	panel->bl = devm_backlight_device_register(dev, dev_name(dev),
