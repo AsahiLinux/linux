@@ -440,7 +440,7 @@ impl Job::ver {
 
         inner.pending.reserve(command_count, GFP_KERNEL)?;
 
-        inner.last_submitted = inner.event.as_ref().map(|e| e.1);
+        inner.last_submitted = Some(self.event_info.value);
         mod_dev_dbg!(
             inner.dev,
             "WorkQueue: submitting {} cmds at {:#x?}, lc {:#x?}, cur {:#x?}, pending {}, events {}\n",
