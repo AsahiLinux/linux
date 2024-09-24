@@ -33,6 +33,7 @@ use kernel::{
         Arc, Mutex,
     },
     uapi,
+    workqueue::{self, impl_has_work, new_work, Work, WorkItem},
 };
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::WorkQueue;
@@ -172,6 +173,32 @@ pub(crate) trait GenSubmittedWork: Send + Sync {
     fn get_fence(&self) -> dma_fence::Fence;
 }
 
+#[pin_data]
+struct SubmittedWorkContainer {
+    #[pin]
+    work: Work<Self>,
+    inner: KBox<dyn GenSubmittedWork>,
+}
+
+impl_has_work! {
+    impl HasWork<Self> for SubmittedWorkContainer { self.work }
+}
+
+impl WorkItem for SubmittedWorkContainer {
+    type Pointer = Pin<KBox<SubmittedWorkContainer>>;
+
+    fn run(this: Pin<KBox<SubmittedWorkContainer>>) {
+        mod_pr_debug!("WorkQueue: Freeing command @ {:?}\n", this.inner.gpu_va());
+    }
+}
+
+impl SubmittedWorkContainer {
+    fn inner_mut(self: Pin<&mut Self>) -> &mut KBox<dyn GenSubmittedWork> {
+        // SAFETY: inner does not require structural pinning.
+        unsafe { &mut self.get_unchecked_mut().inner }
+    }
+}
+
 impl<O: OpaqueGpuObject, C: FnOnce(&mut O, Option<WorkError>) + Send + Sync> GenSubmittedWork
     for SubmittedWork<O, C>
 {
@@ -220,7 +247,7 @@ struct WorkQueueInner {
     pipe_type: PipeType,
     size: u32,
     wptr: u32,
-    pending: Vec<Box<dyn GenSubmittedWork>>,
+    pending: KVec<Pin<KBox<SubmittedWorkContainer>>>,
     last_token: Option<event::Token>,
     pending_jobs: usize,
     last_submitted: Option<event::EventValue>,
@@ -269,7 +296,7 @@ pub(crate) struct Job {
     wq: Arc<WorkQueue::ver>,
     event_info: QueueEventInfo::ver,
     start_value: EventValue,
-    pending: Vec<Box<dyn GenSubmittedWork>>,
+    pending: KVec<Pin<KBox<SubmittedWorkContainer>>>,
     committed: bool,
     submitted: bool,
     event_count: usize,
@@ -318,17 +345,23 @@ impl Job::ver {
             return Err(EINVAL);
         }
 
+        let fence = self.fence.clone();
+        let value = self.event_info.value.next();
+
         self.pending.push(
-            Box::new(
-                SubmittedWork::<_, _> {
-                    object: command,
-                    value: self.event_info.value.next(),
-                    error: None,
-                    callback: Some(callback),
-                    wptr: 0,
-                    vm_slot,
-                    fence: self.fence.clone(),
-                },
+            KBox::try_pin_init(
+                try_pin_init!(SubmittedWorkContainer {
+                    work <- new_work!("SubmittedWorkWrapper::work"),
+                    inner: KBox::new(SubmittedWork::<_, _> {
+                        object: command,
+                        value,
+                        error: None,
+                        callback: Some(callback),
+                        wptr: 0,
+                        vm_slot,
+                        fence,
+                    }, GFP_KERNEL)?
+                }),
                 GFP_KERNEL,
             )?,
             GFP_KERNEL,
@@ -375,7 +408,7 @@ impl Job::ver {
         if inner.free_slots() > self.event_count && inner.free_space() > self.pending.len() {
             None
         } else if let Some(work) = inner.pending.first() {
-            Some(work.get_fence())
+            Some(work.inner.get_fence())
         } else {
             pr_err!(
                 "WorkQueue: Cannot submit, but queue is empty? {} > {}, {} > {} (pend={} ls={:#x?} lc={:#x?}) ev={:#x?} cur={:#x?} slot {:?}\n",
@@ -453,11 +486,11 @@ impl Job::ver {
         );
 
         for mut command in self.pending.drain(..) {
-            command.set_wptr(wptr);
+            command.as_mut().inner_mut().set_wptr(wptr);
 
             let next_wptr = (wptr + 1) % inner.size;
             assert!(inner.doneptr() != next_wptr);
-            inner.info.ring[wptr as usize] = command.gpu_va().get();
+            inner.info.ring[wptr as usize] = command.inner.gpu_va().get();
             wptr = next_wptr;
 
             // Cannot fail, since we did a reserve(1) above
@@ -862,11 +895,11 @@ impl WorkQueue for WorkQueue::ver {
         let mut completed_commands: usize = 0;
 
         for cmd in inner.pending.iter() {
-            if cmd.value() <= value {
+            if cmd.inner.value() <= value {
                 mod_pr_debug!(
                     "WorkQueue({:?}): Command at value {:#x?} complete\n",
                     inner.pipe_type,
-                    cmd.value()
+                    cmd.inner.value()
                 );
                 completed_commands += 1;
             } else {
@@ -878,25 +911,17 @@ impl WorkQueue for WorkQueue::ver {
             return inner.pending.is_empty();
         }
 
-        let mut completed = Vec::new();
-
-        if completed.reserve(completed_commands, GFP_KERNEL).is_err() {
-            pr_crit!(
-                "WorkQueue({:?}): Failed to allocate space for {} completed commands\n",
-                inner.pipe_type,
-                completed_commands
-            );
-        }
-
+        let last_wptr = inner.pending[completed_commands - 1].inner.wptr();
         let pipe_type = inner.pipe_type;
 
-        for cmd in inner.pending.drain(..completed_commands) {
-            if completed.push(cmd, GFP_KERNEL).is_err() {
-                pr_crit!(
-                    "WorkQueue({:?}): Failed to signal a completed command\n",
-                    pipe_type,
-                );
-            }
+        for mut cmd in inner.pending.drain(..completed_commands) {
+            mod_pr_debug!(
+                "WorkQueue({:?}): Queueing command @ {:?} for cleanup\n",
+                pipe_type,
+                cmd.inner.gpu_va()
+            );
+            cmd.as_mut().inner_mut().complete();
+            workqueue::system().enqueue(cmd);
         }
 
         mod_pr_debug!(
@@ -908,12 +933,10 @@ impl WorkQueue for WorkQueue::ver {
             inner.last_completed,
         );
 
-        if let Some(i) = completed.last() {
-            inner
-                .info
-                .state
-                .with(|raw, _inner| raw.cpu_freeptr.store(i.wptr(), Ordering::Release));
-        }
+        inner
+            .info
+            .state
+            .with(|raw, _inner| raw.cpu_freeptr.store(last_wptr, Ordering::Release));
 
         let empty = inner.pending.is_empty();
         if empty && inner.pending_jobs == 0 {
@@ -921,16 +944,6 @@ impl WorkQueue for WorkQueue::ver {
             inner.last_submitted = None;
             inner.last_completed = None;
         }
-
-        let dev = inner.dev.clone();
-        core::mem::drop(inner);
-
-        for cmd in completed.iter_mut() {
-            cmd.complete();
-        }
-
-        let gpu = &dev.data().gpu;
-        gpu.add_completed_work(completed);
 
         empty
     }
@@ -960,8 +973,8 @@ impl WorkQueue for WorkQueue::ver {
         );
 
         for cmd in inner.pending.iter_mut() {
-            if cmd.value() <= value {
-                cmd.mark_error(error);
+            if cmd.inner.value() <= value {
+                cmd.as_mut().inner_mut().mark_error(error);
             } else {
                 break;
             }
@@ -1002,8 +1015,8 @@ impl WorkQueue for WorkQueue::ver {
         core::mem::drop(inner);
 
         for mut cmd in cmds {
-            cmd.mark_error(error);
-            cmd.complete();
+            cmd.as_mut().inner_mut().mark_error(error);
+            cmd.as_mut().inner_mut().complete();
         }
     }
 }

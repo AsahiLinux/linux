@@ -206,8 +206,6 @@ pub(crate) struct GpuManager {
     event_manager: Arc<event::EventManager>,
     buffer_mgr: buffer::BufferManager::ver,
     ids: SequenceIDs,
-    #[pin]
-    garbage_work: Mutex<Vec<Box<dyn workqueue::GenSubmittedWork>>>,
     #[allow(clippy::vec_box)]
     #[pin]
     garbage_contexts: Mutex<KVec<KBox<fw::types::GpuObject<fw::workqueue::GpuContextData>>>>,
@@ -273,10 +271,8 @@ pub(crate) trait GpuManager: Send + Sync {
     fn get_cfg(&self) -> &'static hw::HwConfig;
     /// Get the dynamic GPU configuration for this SoC.
     fn get_dyncfg(&self) -> &hw::DynConfig;
-    /// Register completed work as garbage
-    fn add_completed_work(&self, work: Vec<Box<dyn workqueue::GenSubmittedWork>>);
     /// Register an unused context as garbage
-    fn free_context(&self, data: Box<fw::types::GpuObject<fw::workqueue::GpuContextData>>);
+    fn free_context(&self, data: KBox<fw::types::GpuObject<fw::workqueue::GpuContextData>>);
     /// Check whether the GPU is crashed
     fn is_crashed(&self) -> bool;
 }
@@ -717,7 +713,6 @@ impl GpuManager::ver {
                 pipes,
                 buffer_mgr,
                 ids: Default::default(),
-                garbage_work <- Mutex::new_named(Vec::new(), c_str!("garbage_work")),
                 garbage_contexts <- Mutex::new_named(KVec::new(), c_str!("garbage_contexts")),
             }),
             GFP_KERNEL,
@@ -1165,12 +1160,6 @@ impl GpuManager for GpuManager::ver {
     }
 
     fn alloc(&self) -> Guard<'_, KernelAllocators, MutexBackend> {
-        /*
-         * TODO: This should be done in a workqueue or something.
-         * Clean up completed jobs
-         */
-        self.garbage_work.lock().clear();
-
         /* Clean up idle contexts */
         let mut garbage_ctx = KVec::new();
         core::mem::swap(&mut *self.garbage_contexts.lock(), &mut garbage_ctx);
@@ -1504,24 +1493,6 @@ impl GpuManager for GpuManager::ver {
 
     fn get_dyncfg(&self) -> &hw::DynConfig {
         &self.dyncfg
-    }
-
-    fn add_completed_work(&self, work: Vec<Box<dyn workqueue::GenSubmittedWork>>) {
-        let mut garbage = self.garbage_work.lock();
-
-        if garbage.reserve(work.len(), GFP_KERNEL).is_err() {
-            dev_err!(
-                self.dev,
-                "Failed to reserve space for completed work, deadlock possible.\n"
-            );
-            return;
-        }
-
-        for i in work {
-            garbage
-                .push(i, GFP_KERNEL)
-                .expect("push() failed after reserve()");
-        }
     }
 
     fn free_context(&self, ctx: KBox<fw::types::GpuObject<fw::workqueue::GpuContextData>>) {
