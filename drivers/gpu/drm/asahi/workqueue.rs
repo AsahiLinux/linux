@@ -378,7 +378,7 @@ impl Job::ver {
             Some(work.get_fence())
         } else {
             pr_err!(
-                "WorkQueue: Cannot submit, but queue is empty? {} > {}, {} > {} (pend={} ls={:#x?} lc={:#x?}) ev={:#x?}\n",
+                "WorkQueue: Cannot submit, but queue is empty? {} > {}, {} > {} (pend={} ls={:#x?} lc={:#x?}) ev={:#x?} cur={:#x?} slot {:?}\n",
                 inner.free_slots(),
                 self.event_count,
                 inner.free_space(),
@@ -387,6 +387,8 @@ impl Job::ver {
                 inner.last_submitted,
                 inner.last_completed,
                 inner.event.as_ref().map(|a| a.1),
+                inner.event.as_ref().map(|a| a.0.current()),
+                inner.event.as_ref().map(|a| a.0.slot()),
             );
             None
         }
@@ -439,6 +441,16 @@ impl Job::ver {
         inner.pending.reserve(command_count, GFP_KERNEL)?;
 
         inner.last_submitted = inner.event.as_ref().map(|e| e.1);
+        mod_dev_dbg!(
+            inner.dev,
+            "WorkQueue: submitting {} cmds at {:#x?}, lc {:#x?}, cur {:#x?}, pending {}, events {}\n",
+            self.pending.len(),
+            inner.last_submitted,
+            inner.last_completed,
+            inner.event.as_ref().map(|a| a.0.current()),
+            inner.pending.len(),
+            self.event_count,
+        );
 
         for mut command in self.pending.drain(..) {
             command.set_wptr(wptr);
@@ -513,6 +525,13 @@ impl Drop for Job::ver {
     fn drop(&mut self) {
         mod_pr_debug!("WorkQueue: Dropping Job\n");
         let mut inner = self.wq.inner.lock();
+
+        if !self.committed {
+            pr_info!(
+                "WorkQueue: Dropping uncommitted job with {} events\n",
+                self.event_count
+            );
+        }
 
         if self.committed && !self.submitted {
             let pipe_type = inner.pipe_type;
@@ -732,7 +751,12 @@ impl WorkQueue::ver {
 
         let ev = &inner.event.as_ref().unwrap();
 
-        mod_pr_debug!("WorkQueue({:?}): New job\n", inner.pipe_type);
+        mod_pr_debug!(
+            "WorkQueue({:?}): New job at value {:#x?} slot {}\n",
+            inner.pipe_type,
+            ev.1,
+            ev.0.slot()
+        );
         Ok(Job::ver {
             wq: self.clone(),
             event_info: QueueEventInfo::ver {
@@ -876,9 +900,12 @@ impl WorkQueue for WorkQueue::ver {
         }
 
         mod_pr_debug!(
-            "WorkQueue({:?}): Completed {} commands\n",
+            "WorkQueue({:?}): Completed {} commands, left pending {}, ls {:#x?}, lc {:#x?}\n",
             inner.pipe_type,
-            completed_commands
+            completed_commands,
+            inner.pending.len(),
+            inner.last_submitted,
+            inner.last_completed,
         );
 
         if let Some(i) = completed.last() {

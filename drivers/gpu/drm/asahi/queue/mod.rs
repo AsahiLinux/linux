@@ -204,7 +204,7 @@ impl QueueJob::ver {
     }
 
     fn commit(&mut self) -> Result {
-        mod_dev_dbg!(self.dev, "QueueJob: Committing\n");
+        mod_dev_dbg!(self.dev, "QueueJob {}: Committing\n", self.id);
 
         self.sj_vtx.as_mut().map(|a| a.commit()).unwrap_or(Ok(()))?;
         self.sj_frag
@@ -794,16 +794,31 @@ impl Queue for Queue::ver {
             }
         }
 
-        mod_dev_dbg!(self.dev, "Queue: Committing job\n");
+        mod_dev_dbg!(
+            self.dev,
+            "Queue {}: Committing job {}\n",
+            self.inner.id,
+            job.id
+        );
         job.commit()?;
 
-        mod_dev_dbg!(self.dev, "Queue: Arming job\n");
-        let job = job.arm();
+        mod_dev_dbg!(self.dev, "Queue {}: Arming job {}\n", self.inner.id, job.id);
+        let mut job = job.arm();
         let out_fence = job.fences().finished();
-        mod_dev_dbg!(self.dev, "Queue: Pushing job\n");
+        mod_dev_dbg!(
+            self.dev,
+            "Queue {}: Pushing job {}\n",
+            self.inner.id,
+            job.id
+        );
         job.push();
 
-        mod_dev_dbg!(self.dev, "Queue: Adding {} out_syncs\n", out_syncs.len());
+        mod_dev_dbg!(
+            self.dev,
+            "Queue {}: Adding {} out_syncs\n",
+            self.inner.id,
+            out_syncs.len()
+        );
         for mut sync in out_syncs {
             if let Some(chain) = sync.chain_fence.take() {
                 sync.syncobj
