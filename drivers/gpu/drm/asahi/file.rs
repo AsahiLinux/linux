@@ -9,7 +9,10 @@
 
 use crate::debug::*;
 use crate::driver::AsahiDevice;
-use crate::{alloc, buffer, driver, gem, hw, mmu, queue, util::RangeExt};
+use crate::{
+    alloc, buffer, driver, gem, hw, mmu, queue,
+    util::{align, align_down, RangeExt},
+};
 use core::mem::MaybeUninit;
 use core::ops::Range;
 use kernel::dma_fence::RawDmaFence;
@@ -319,7 +322,11 @@ impl File {
             return Err(EINVAL);
         }
 
-        let kernel_half_size = (kernel_range.range() >> 1) & !(mmu::UAT_PGMSK as u64);
+        // Align to buffer::PAGE_SIZE so the allocators are happy
+        let kernel_range = align(kernel_range.start, buffer::PAGE_SIZE as u64)
+            ..align_down(kernel_range.end, buffer::PAGE_SIZE as u64);
+
+        let kernel_half_size = align_down(kernel_range.range() >> 1, buffer::PAGE_SIZE as u64);
         let kernel_gpu_range = kernel_range.start..(kernel_range.start + kernel_half_size);
         let kernel_gpufw_range = kernel_gpu_range.end..kernel_range.end;
 

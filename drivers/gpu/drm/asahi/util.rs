@@ -25,6 +25,26 @@ where
     (a + b - one) & !(b - one)
 }
 
+/// Aligns an integer type down to a power of two.
+pub(crate) fn align_down<T>(a: T, b: T) -> T
+where
+    T: Copy
+        + Default
+        + BitAnd<Output = T>
+        + Not<Output = T>
+        + Sub<Output = T>
+        + Div<Output = T>
+        + core::cmp::PartialEq,
+{
+    let def: T = Default::default();
+    #[allow(clippy::eq_op)]
+    let one: T = !def / !def;
+
+    assert!((b & (b - one)) == def);
+
+    a & !(b - one)
+}
+
 /// Integer division rounding up.
 pub(crate) fn div_ceil<T>(a: T, b: T) -> T
 where
