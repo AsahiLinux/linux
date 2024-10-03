@@ -357,7 +357,7 @@ static int macsmc_gpio_probe(struct platform_device *pdev)
 	smcgp->ic.irq_bus_lock = macsmc_gpio_irq_bus_lock;
 	smcgp->ic.irq_bus_sync_unlock = macsmc_gpio_irq_bus_sync_unlock;
 	smcgp->ic.irq_set_type = macsmc_gpio_irq_set_type;
-	smcgp->ic.flags = IRQCHIP_IMMUTABLE | IRQCHIP_SET_TYPE_MASKED, IRQCHIP_MASK_ON_SUSPEND;
+	smcgp->ic.flags = IRQCHIP_IMMUTABLE | IRQCHIP_SET_TYPE_MASKED | IRQCHIP_MASK_ON_SUSPEND;
 
 	smcgp->gc.irq.chip = &smcgp->ic;
 	smcgp->gc.irq.parent_handler = NULL;
