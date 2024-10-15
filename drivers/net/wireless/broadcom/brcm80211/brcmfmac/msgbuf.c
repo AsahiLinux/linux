@@ -47,9 +47,35 @@
 #define MSGBUF_TYPE_RX_CMPLT			0x12
 #define MSGBUF_TYPE_LPBK_DMAXFER		0x13
 #define MSGBUF_TYPE_LPBK_DMAXFER_CMPLT		0x14
+#define MSGBUF_TYPE_FLOW_RING_RESUME		0x15
+#define MSGBUF_TYPE_FLOW_RING_RESUME_CMPLT	0x16
+#define MSGBUF_TYPE_FLOW_RING_SUSPEND		0x17
+#define MSGBUF_TYPE_FLOW_RING_SUSPEND_CMPLT	0x18
+#define MSGBUF_TYPE_INFO_BUF_POST		0x19
+#define MSGBUF_TYPE_INFO_BUF_CMPLT		0x1A
+#define MSGBUF_TYPE_H2D_RING_CREATE		0x1B
+#define MSGBUF_TYPE_D2H_RING_CREATE		0x1C
+#define MSGBUF_TYPE_H2D_RING_CREATE_CMPLT	0x1D
+#define MSGBUF_TYPE_D2H_RING_CREATE_CMPLT	0x1E
+#define MSGBUF_TYPE_H2D_RING_CONFIG		0x1F
+#define MSGBUF_TYPE_D2H_RING_CONFIG		0x20
+#define MSGBUF_TYPE_H2D_RING_CONFIG_CMPLT	0x21
+#define MSGBUF_TYPE_D2H_RING_CONFIG_CMPLT	0x22
+#define MSGBUF_TYPE_H2D_MAILBOX_DATA		0x23
+#define MSGBUF_TYPE_D2H_MAILBOX_DATA		0x24
+#define MSGBUF_TYPE_TIMSTAMP_BUFPOST		0x25
+#define MSGBUF_TYPE_HOSTTIMSTAMP		0x26
+#define MSGBUF_TYPE_HOSTTIMSTAMP_CMPLT		0x27
+#define MSGBUF_TYPE_FIRMWARE_TIMESTAMP		0x28
+#define MSGBUF_TYPE_SNAPSHOT_UPLOAD		0x29
+#define MSGBUF_TYPE_SNAPSHOT_CMPLT		0x2A
+#define MSGBUF_TYPE_H2D_RING_DELETE		0x2B
+#define MSGBUF_TYPE_D2H_RING_DELETE		0x2C
+#define MSGBUF_TYPE_H2D_RING_DELETE_CMPLT	0x2D
+#define MSGBUF_TYPE_D2H_RING_DELETE_CMPLT	0x2E
 
 #define NR_TX_PKTIDS				2048
-#define NR_RX_PKTIDS				1024
+#define NR_RX_PKTIDS				2048
 
 #define BRCMF_IOCTL_REQ_PKTID			0xFFFE
 
@@ -216,6 +242,19 @@ struct msgbuf_flowring_flush_resp {
 	struct msgbuf_common_hdr	msg;
 	struct msgbuf_completion_hdr	compl_hdr;
 	__le32				rsvd0[3];
+};
+
+struct msgbuf_h2d_mailbox_data {
+	struct msgbuf_common_hdr	msg;
+	__le32				data;
+	__le32				rsvd0[7];
+};
+
+struct msgbuf_d2h_mailbox_data {
+	struct msgbuf_common_hdr	msg;
+	struct msgbuf_completion_hdr	compl_hdr;
+	__le32				data;
+	__le32				rsvd0[2];
 };
 
 struct brcmf_msgbuf_work_item {
@@ -1285,6 +1324,16 @@ brcmf_msgbuf_process_flow_ring_delete_response(struct brcmf_msgbuf *msgbuf,
 }
 
 
+static void brcmf_msgbuf_process_d2h_mailbox_data(struct brcmf_msgbuf *msgbuf,
+						  void *buf)
+{
+	struct msgbuf_d2h_mailbox_data *d2h_mb_data = buf;
+	struct brcmf_pub *drvr = msgbuf->drvr;
+
+	brcmf_bus_d2h_mb_rx(drvr->bus_if, le32_to_cpu(d2h_mb_data->data));
+}
+
+
 static void brcmf_msgbuf_process_msgtype(struct brcmf_msgbuf *msgbuf, void *buf)
 {
 	struct brcmf_pub *drvr = msgbuf->drvr;
@@ -1326,6 +1375,10 @@ static void brcmf_msgbuf_process_msgtype(struct brcmf_msgbuf *msgbuf, void *buf)
 	case MSGBUF_TYPE_RX_CMPLT:
 		brcmf_dbg(MSGBUF, "MSGBUF_TYPE_RX_CMPLT\n");
 		brcmf_msgbuf_process_rx_complete(msgbuf, buf);
+		break;
+	case MSGBUF_TYPE_D2H_MAILBOX_DATA:
+		brcmf_dbg(MSGBUF, "MSGBUF_TYPE_D2H_MAILBOX_DATA\n");
+		brcmf_msgbuf_process_d2h_mailbox_data(msgbuf, buf);
 		break;
 	default:
 		bphy_err(drvr, "Unsupported msgtype %d\n", msg->msgtype);
@@ -1464,6 +1517,38 @@ void brcmf_msgbuf_delete_flowring(struct brcmf_pub *drvr, u16 flowid)
 		brcmf_msgbuf_remove_flowring(msgbuf, flowid);
 	}
 }
+
+
+int brcmf_msgbuf_h2d_mb_write(struct brcmf_pub *drvr, u32 data)
+{
+	struct brcmf_msgbuf *msgbuf = (struct brcmf_msgbuf *)drvr->proto->pd;
+	struct brcmf_commonring *commonring;
+	struct msgbuf_h2d_mailbox_data *request;
+	void *ret_ptr;
+	int err;
+
+	commonring = msgbuf->commonrings[BRCMF_H2D_MSGRING_CONTROL_SUBMIT];
+	brcmf_commonring_lock(commonring);
+	ret_ptr = brcmf_commonring_reserve_for_write(commonring);
+	if (!ret_ptr) {
+		bphy_err(drvr, "Failed to reserve space in commonring\n");
+		brcmf_commonring_unlock(commonring);
+		return -ENOMEM;
+	}
+
+	request = (struct msgbuf_h2d_mailbox_data *)ret_ptr;
+	request->msg.msgtype = MSGBUF_TYPE_H2D_MAILBOX_DATA;
+	request->msg.ifidx = -1;
+	request->msg.flags = 0;
+	request->msg.request_id = 0;
+	request->data = data;
+
+	err = brcmf_commonring_write_complete(commonring);
+	brcmf_commonring_unlock(commonring);
+
+	return err;
+}
+
 
 #ifdef DEBUG
 static int brcmf_msgbuf_stats_read(struct seq_file *seq, void *data)

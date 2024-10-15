@@ -352,6 +352,7 @@ int brcmf_fweh_register(struct brcmf_pub *drvr, enum brcmf_fweh_event_code code,
 				       void *data));
 void brcmf_fweh_unregister(struct brcmf_pub *drvr,
 			   enum brcmf_fweh_event_code code);
+int brcmf_fweh_init_events(struct brcmf_if *ifp);
 int brcmf_fweh_activate_events(struct brcmf_if *ifp);
 void brcmf_fweh_process_event(struct brcmf_pub *drvr,
 			      struct brcmf_event *event_packet,
