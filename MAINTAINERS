@@ -2093,6 +2093,15 @@ F:	include/dt-bindings/interrupt-controller/apple-aic.h
 F:	include/dt-bindings/pinctrl/apple.h
 F:	include/linux/soc/apple/*
 
+ARM/APPLE SMC HWMON DRIVER
+M:	James Calligeros <jcalligeros99@gmail.com>
+L:	asahi@lists.linux.dev
+S:	Maintained
+W:	https://asahilinux.org
+B:	https://github.com/AsahiLinux/linux/issues
+C:	irc://irc.oftc.net/asahi-dev
+F:	drivers/hwmon/macsmc-hwmon.c
+
 ARM/ARTPEC MACHINE SUPPORT
 M:	Jesper Nilsson <jesper.nilsson@axis.com>
 M:	Lars Persson <lars.persson@axis.com>

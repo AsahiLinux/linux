@@ -1560,6 +1560,19 @@ config SENSORS_LM95245
 	  This driver can also be built as a module. If so, the module
 	  will be called lm95245.
 
+config SENSORS_MACSMC
+	tristate "Apple SMC (Apple Silicon)"
+	depends on APPLE_SMC && OF
+	depends on ARCH_APPLE && ARM64
+	help
+	  This driver exposes the temperature, voltage, current, power, and fan
+	  sensors present on Apple Silicon devices, such as the M-series Macs.
+
+	  Say Y here if you have an Apple Silicon device.
+
+	  This driver can also be built as a module. If so, the module will be called
+	  macsmc_hwmon.
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	depends on HAS_IOPORT
