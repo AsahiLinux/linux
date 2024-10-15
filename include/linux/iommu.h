@@ -271,12 +271,18 @@ enum iommu_resv_type {
 	IOMMU_RESV_MSI,
 	/* Software-managed MSI translation window */
 	IOMMU_RESV_SW_MSI,
+	/*
+	 * Memory regions which must be mapped with the specified mapping
+	 * at all times.
+	 */
+	IOMMU_RESV_TRANSLATED,
 };
 
 /**
  * struct iommu_resv_region - descriptor for a reserved memory region
  * @list: Linked list pointers
  * @start: System physical start address of the region
+ * @start: Device virtual start address of the region for IOMMU_RESV_TRANSLATED
  * @length: Length of the region in bytes
  * @prot: IOMMU Protection flags (READ/WRITE/...)
  * @type: Type of the reserved region
@@ -285,6 +291,7 @@ enum iommu_resv_type {
 struct iommu_resv_region {
 	struct list_head	list;
 	phys_addr_t		start;
+	dma_addr_t		dva;
 	size_t			length;
 	int			prot;
 	enum iommu_resv_type	type;
@@ -819,6 +826,9 @@ extern bool iommu_default_passthrough(void);
 extern struct iommu_resv_region *
 iommu_alloc_resv_region(phys_addr_t start, size_t length, int prot,
 			enum iommu_resv_type type, gfp_t gfp);
+extern struct iommu_resv_region *
+iommu_alloc_resv_region_tr(phys_addr_t start, dma_addr_t dva_start, size_t length,
+			   int prot, enum iommu_resv_type type, gfp_t gfp);
 extern int iommu_get_group_resv_regions(struct iommu_group *group,
 					struct list_head *head);
 
