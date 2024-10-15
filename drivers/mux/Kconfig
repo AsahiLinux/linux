@@ -31,6 +31,19 @@ config MUX_ADGS1408
 	  To compile the driver as a module, choose M here: the module will
 	  be called mux-adgs1408.
 
+config MUX_APPLE_DPXBAR
+	tristate "Apple Silicon Display Crossbar"
+	depends on ARCH_APPLE
+	help
+	  Apple Silicon Display Crossbar multiplexer.
+
+	  This drivers adds support for the display crossbar used to route
+	  display controller streams to the three different modes
+	  (DP AltMode, USB4 Tunnel #0/#1) of the Type-C ports.
+
+	  To compile this driver as a module, chose M here: the module will be
+	  called mux-apple-display-crossbar.
+
 config MUX_GPIO
 	tristate "GPIO-controlled Multiplexer"
 	depends on GPIOLIB || COMPILE_TEST
