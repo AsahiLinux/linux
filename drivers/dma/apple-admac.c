@@ -252,7 +252,7 @@ static struct dma_async_tx_descriptor *admac_prep_dma_cyclic(
 		size_t period_len, enum dma_transfer_direction direction,
 		unsigned long flags)
 {
-	struct admac_chan *adchan = container_of(chan, struct admac_chan, chan);
+	struct admac_chan *adchan = to_admac_chan(chan);
 	struct admac_tx *adtx;
 
 	if (direction != admac_chan_direction(adchan->no))
