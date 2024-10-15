@@ -299,6 +299,19 @@ config NVMEM_SNVS_LPGPR
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem-snvs-lpgpr.
 
+config NVMEM_SPMI_MFD
+	tristate "Generic SPMI MFD NVMEM"
+	depends on MFD_SIMPLE_MFD_SPMI || COMPILE_TEST
+	default ARCH_APPLE
+	help
+	  Say y here to build a generic driver to expose an SPMI MFD device
+	  as a NVMEM provider. This can be used for PMIC/PMU devices which
+	  are used to store power and RTC-related settings on certain
+	  platforms, such as Apple Silicon Macs.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called nvmem-spmi-mfd.
+
 config NVMEM_SPMI_SDAM
 	tristate "SPMI SDAM Support"
 	depends on SPMI
