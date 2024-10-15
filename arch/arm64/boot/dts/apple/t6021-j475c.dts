@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Mac Studio (M2 Max, 2023)
+ *
+ * target-type: J475c
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6021.dtsi"
+#include "t602x-j474-j475.dtsi"
+
+/ {
+	compatible = "apple,j475c", "apple,t6021", "apple,arm-platform";
+	model = "Apple Mac Studio (M2 Max, 2023)";
+};
+
+&wifi0 {
+	compatible = "pci14e4,4434";
+	brcm,board-type = "apple,canary";
+};
+
+&bluetooth0 {
+	compatible = "pci14e4,5f72";
+	brcm,board-type = "apple,canary";
+};
+
+&pinctrl_ap {
+	usb_hub_oe-hog {
+		gpio-hog;
+		gpios = <231 0>;
+		input;
+		line-name = "usb-hub-oe";
+	};
+
+	usb_hub_rst-hog {
+		gpio-hog;
+		gpios = <232 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "usb-hub-rst";
+	};
+};
+
+&sound {
+	compatible = "apple,j475-macaudio", "apple,j375-macaudio", "apple,macaudio";
+	model = "Mac Studio J475";
+};
+
+&lpdptxphy {
+	status = "okay";
+};
+
+
+#define USE_DCPEXT0 1
+
+#if USE_DCPEXT0
+/ {
+	aliases {
+		dcpext0 = &dcpext0;
+		/delete-property/ dcp;
+	};
+};
+
+&framebuffer0 {
+	power-domains = <&ps_dispext0_cpu0>, <&ps_dptx_phy_ps>;
+};
+
+&dcp {
+	status = "disabled";
+};
+&display {
+	iommus = <&dispext0_dart 0>;
+};
+&dispext0_dart {
+	status = "okay";
+};
+&dcpext0_dart {
+	status = "okay";
+};
+&dcpext0_mbox {
+	status = "okay";
+};
+&dpaudio1 {
+	status = "okay";
+};
+&dcpext0 {
+#else
+&dpaudio0 {
+	status = "okay";
+};
+&dcp {
+#endif
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 25 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+	dp2hdmi-pwren-gpios = <&smc_gpio 25 GPIO_ACTIVE_HIGH>;
+
+	phys = <&lpdptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <4>;
+};
+
+#include "hwmon-fan-dual.dtsi"

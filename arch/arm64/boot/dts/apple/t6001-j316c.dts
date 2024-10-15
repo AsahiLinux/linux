@@ -16,3 +16,23 @@
 	compatible = "apple,j316c", "apple,t6001", "apple,arm-platform";
 	model = "Apple MacBook Pro (16-inch, M1 Max, 2021)";
 };
+
+&wifi0 {
+	brcm,board-type = "apple,madagascar";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,madagascar";
+};
+
+&panel {
+	compatible = "apple,panel-j316", "apple,panel-mini-led", "apple,panel";
+	width-mm = <346>;
+	height-mm = <223>;
+	adj-height-mm = <216>;
+};
+
+&sound {
+	compatible = "apple,j316-macaudio", "apple,macaudio";
+	model = "MacBook Pro J316";
+};

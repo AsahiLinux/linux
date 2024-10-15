@@ -1,0 +1,616 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Nodes common to all T602x family SoCs (M2 Pro/Max/Ultra)
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+ / {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	aliases {
+		gpu = &gpu;
+	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_e00>;
+				};
+				core1 {
+					cpu = <&cpu_e01>;
+				};
+				core2 {
+					cpu = <&cpu_e02>;
+				};
+				core3 {
+					cpu = <&cpu_e03>;
+				};
+			};
+			cluster1 {
+				core0 {
+					cpu = <&cpu_p00>;
+				};
+				core1 {
+					cpu = <&cpu_p01>;
+				};
+				core2 {
+					cpu = <&cpu_p02>;
+				};
+				core3 {
+					cpu = <&cpu_p03>;
+				};
+			};
+
+			cluster2 {
+				core0 {
+					cpu = <&cpu_p10>;
+				};
+				core1 {
+					cpu = <&cpu_p11>;
+				};
+				core2 {
+					cpu = <&cpu_p12>;
+				};
+				core3 {
+					cpu = <&cpu_p13>;
+				};
+			};
+		};
+
+		cpu_e00: cpu@0 {
+			compatible = "apple,blizzard";
+			device_type = "cpu";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* to be filled by loader */
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size  = <0x20000>;
+			d-cache-size = <0x10000>;
+			operating-points-v2 = <&blizzard_opp>;
+			capacity-dmips-mhz = <756>;
+			performance-domains = <&cpufreq_e>;
+		};
+
+		cpu_e01: cpu@1 {
+			compatible = "apple,blizzard";
+			device_type = "cpu";
+			reg = <0x0 0x1>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* to be filled by loader */
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size  = <0x20000>;
+			d-cache-size = <0x10000>;
+			operating-points-v2 = <&blizzard_opp>;
+			capacity-dmips-mhz = <756>;
+			performance-domains = <&cpufreq_e>;
+		};
+
+		cpu_e02: cpu@2 {
+			compatible = "apple,blizzard";
+			device_type = "cpu";
+			reg = <0x0 0x2>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* to be filled by loader */
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size  = <0x20000>;
+			d-cache-size = <0x10000>;
+			operating-points-v2 = <&blizzard_opp>;
+			capacity-dmips-mhz = <756>;
+			performance-domains = <&cpufreq_e>;
+		};
+
+		cpu_e03: cpu@3 {
+			compatible = "apple,blizzard";
+			device_type = "cpu";
+			reg = <0x0 0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* to be filled by loader */
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size  = <0x20000>;
+			d-cache-size = <0x10000>;
+			operating-points-v2 = <&blizzard_opp>;
+			capacity-dmips-mhz = <756>;
+			performance-domains = <&cpufreq_e>;
+		};
+
+		cpu_p00: cpu@10100 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p0>;
+		};
+
+		cpu_p01: cpu@10101 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p0>;
+		};
+
+		cpu_p02: cpu@10102 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p0>;
+		};
+
+		cpu_p03: cpu@10103 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10103>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p0>;
+		};
+
+		cpu_p10: cpu@10200 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10200>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_2>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p1>;
+		};
+
+		cpu_p11: cpu@10201 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10201>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_2>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p1>;
+		};
+
+		cpu_p12: cpu@10202 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10202>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_2>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p1>;
+		};
+
+		cpu_p13: cpu@10203 {
+			compatible = "apple,avalanche";
+			device_type = "cpu";
+			reg = <0x0 0x10203>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>; /* To be filled by loader */
+			next-level-cache = <&l2_cache_2>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+			operating-points-v2 = <&avalanche_opp>;
+			capacity-dmips-mhz = <1024>;
+			performance-domains = <&cpufreq_p1>;
+		};
+
+		l2_cache_0: l2-cache-0 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x400000>;
+		};
+
+		l2_cache_1: l2-cache-1 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x1000000>;
+		};
+
+		l2_cache_2: l2-cache-2 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x1000000>;
+		};
+	 };
+
+	blizzard_opp: opp-table-0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		/* pstate #1 is a dummy clone of #2 */
+		opp02 {
+			opp-hz = /bits/ 64 <912000000>;
+			opp-level = <2>;
+			clock-latency-ns = <7700>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <1284000000>;
+			opp-level = <3>;
+			clock-latency-ns = <25000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <1752000000>;
+			opp-level = <4>;
+			clock-latency-ns = <33000>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <2004000000>;
+			opp-level = <5>;
+			clock-latency-ns = <38000>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <2256000000>;
+			opp-level = <6>;
+			clock-latency-ns = <44000>;
+		};
+		opp07 {
+			opp-hz = /bits/ 64 <2424000000>;
+			opp-level = <7>;
+			clock-latency-ns = <48000>;
+		};
+	};
+
+	avalanche_opp: opp-table-1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp01 {
+			opp-hz = /bits/ 64 <702000000>;
+			opp-level = <1>;
+			clock-latency-ns = <7400>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <948000000>;
+			opp-level = <2>;
+			clock-latency-ns = <18000>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <1188000000>;
+			opp-level = <3>;
+			clock-latency-ns = <21000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <1452000000>;
+			opp-level = <4>;
+			clock-latency-ns = <24000>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1704000000>;
+			opp-level = <5>;
+			clock-latency-ns = <28000>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1968000000>;
+			opp-level = <6>;
+			clock-latency-ns = <31000>;
+		};
+		opp07 {
+			opp-hz = /bits/ 64 <2208000000>;
+			opp-level = <7>;
+			clock-latency-ns = <33000>;
+		};
+		opp08 {
+			opp-hz = /bits/ 64 <2400000000>;
+			opp-level = <8>;
+			clock-latency-ns = <45000>;
+		};
+		opp09 {
+			opp-hz = /bits/ 64 <2568000000>;
+			opp-level = <9>;
+			clock-latency-ns = <47000>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <2724000000>;
+			opp-level = <10>;
+			clock-latency-ns = <50000>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <2868000000>;
+			opp-level = <11>;
+			clock-latency-ns = <52000>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <3000000000>;
+			opp-level = <12>;
+			clock-latency-ns = <57000>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <3132000000>;
+			opp-level = <13>;
+			clock-latency-ns = <60000>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <3264000000>;
+			opp-level = <14>;
+			clock-latency-ns = <64000>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <3360000000>;
+			opp-level = <15>;
+			clock-latency-ns = <64000>;
+			turbo-mode;
+		};
+		opp16 {
+			opp-hz = /bits/ 64 <3408000000>;
+			opp-level = <16>;
+			clock-latency-ns = <64000>;
+			turbo-mode;
+		};
+		opp17 {
+			opp-hz = /bits/ 64 <3504000000>;
+			opp-level = <17>;
+			clock-latency-ns = <64000>;
+			turbo-mode;
+		};
+	};
+
+	gpu_opp: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <0>;
+			opp-microvolt = GPU_REPEAT(400000);
+			opp-microwatt = <0>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <444000000>;
+			opp-microvolt = GPU_REPEAT(637000);
+			opp-microwatt = <4295000>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <612000000>;
+			opp-microvolt = GPU_REPEAT(656000);
+			opp-microwatt = <6251000>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <808000000>;
+			opp-microvolt = GPU_REPEAT(687000);
+			opp-microwatt = <8625000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <968000000>;
+			opp-microvolt = GPU_REPEAT(725000);
+			opp-microwatt = <11948000>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1110000000>;
+			opp-microvolt = GPU_REPEAT(790000);
+			opp-microwatt = <15071000>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1236000000>;
+			opp-microvolt = GPU_REPEAT(843000);
+			opp-microwatt = <18891000>;
+		};
+		opp07 {
+			opp-hz = /bits/ 64 <1338000000>;
+			opp-microvolt = GPU_REPEAT(887000);
+			opp-microwatt = <21960000>;
+		};
+		opp08 {
+			opp-hz = /bits/ 64 <1398000000>;
+			opp-microvolt = GPU_REPEAT(918000);
+			opp-microwatt = <22800000>;
+		};
+	};
+
+	gpu_cs_opp: opp-table-gpu-cs {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <24>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <444000000>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <612000000>;
+			opp-microvolt = GPU_DIE_REPEAT(678000);
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <808000000>;
+			opp-microvolt = GPU_DIE_REPEAT(737000);
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <1024000000>;
+			opp-microvolt = GPU_DIE_REPEAT(815000);
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1140000000>;
+			opp-microvolt = GPU_DIE_REPEAT(862000);
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1236000000>;
+			opp-microvolt = GPU_DIE_REPEAT(893000);
+		};
+	};
+
+	gpu_afr_opp: opp-table-gpu-afr {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <24>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = GPU_DIE_REPEAT(668000);
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <552000000>;
+			opp-microvolt = GPU_DIE_REPEAT(678000);
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <760000000>;
+			opp-microvolt = GPU_DIE_REPEAT(737000);
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <980000000>;
+			opp-microvolt = GPU_DIE_REPEAT(815000);
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <1098000000>;
+			opp-microvolt = GPU_DIE_REPEAT(862000);
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1200000000>;
+			opp-microvolt = GPU_DIE_REPEAT(893000);
+		};
+	};
+
+	pmu-e {
+		compatible = "apple,blizzard-pmu";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_FIQ 0 AIC_CPU_PMU_E IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	pmu-p {
+		compatible = "apple,avalanche-pmu";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_FIQ 0 AIC_CPU_PMU_P IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupt-parent = <&aic>;
+		interrupt-names = "phys", "virt", "hyp-phys", "hyp-virt";
+		interrupts = <AIC_FIQ 0 AIC_TMR_GUEST_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ 0 AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ 0 AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ 0 AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	clkref: clock-ref {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "clkref";
+	};
+
+	clk_200m: clock-200m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+		clock-output-names = "clk_200m";
+	};
+
+	clk_disp0: clock-disp0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <257142848>; /* TODO: check */
+		clock-output-names = "clk_disp0";
+	};
+
+	clk_dispext0: clock-dispext0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0";
+	};
+
+	clk_dispext0_die1: clock-dispext0_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0_die1";
+	};
+
+	clk_dispext1: clock-dispext1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1";
+	};
+
+	clk_dispext1_die1: clock-dispext1_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1_die1";
+	};
+
+	/*
+	 * This is a fabulated representation of the input clock
+	 * to NCO since we don't know the true clock tree.
+	 */
+	nco_clkref: clock-ref-nco {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-output-names = "nco_ref";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		uat_handoff: uat-handoff {
+			reg = <0 0 0 0>;
+			no-map;
+		};
+
+		uat_pagetables: uat-pagetables {
+			reg = <0 0 0 0>;
+			no-map;
+		};
+
+		uat_ttbs: uat-ttbs {
+			reg = <0 0 0 0>;
+			no-map;
+		};
+	};
+};

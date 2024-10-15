@@ -17,8 +17,73 @@
 	model = "Apple Mac mini (M2, 2023)";
 
 	aliases {
+		bluetooth0 = &bluetooth0;
+		/delete-property/ dcp;
+		dcpext = &dcpext;
 		ethernet0 = &ethernet0;
+		sio = &sio;
+		wifi0 = &wifi0;
 	};
+};
+
+&framebuffer0 {
+	power-domains = <&ps_dispext_cpu0>, <&ps_dptx_ext_phy>;
+};
+
+&dptxphy {
+	status = "okay";
+};
+
+&dcp {
+	status = "disabled";
+};
+
+&display {
+	iommus = <&dispext0_dart 0>;
+};
+&dispext0_dart {
+	status = "okay";
+};
+&dcpext_dart {
+	status = "okay";
+};
+&dcpext_mbox {
+	status = "okay";
+};
+&dcpext {
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 49 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 21 GPIO_ACTIVE_HIGH>;
+	dp2hdmi-pwren-gpios = <&smc_gpio 22 GPIO_ACTIVE_HIGH>;
+
+	phys = <&dptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <5>;
+};
+
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
+        status = "okay";
+};
+
+&dpaudio1 {
+	status = "okay";
+};
+
+/*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Back-left";
+};
+
+&typec1 {
+	label = "USB-C Back-right";
 };
 
 /*
@@ -28,10 +93,28 @@
  */
 &port00 {
 	bus-range = <1 1>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
+	wifi0: wifi@0,0 {
+		compatible = "pci14e4,4434";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 10];
+		apple,antenna-sku = "XX";
+		brcm,board-type = "apple,miyake";
+	};
+
+	bluetooth0: bluetooth@0,1 {
+		compatible = "pci14e4,5f72";
+		reg = <0x10100 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-bd-address = [00 00 00 00 00 00];
+		brcm,board-type = "apple,miyake";
+	};
 };
 
 &port01 {
 	bus-range = <2 2>;
+	pwren-gpios = <&smc_gpio 24 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };
 
@@ -52,3 +135,63 @@
 &pcie2_dart {
 	status = "okay";
 };
+
+&i2c1 {
+	speaker_amp: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		shutdown-gpios = <&pinctrl_ap 88 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+	};
+
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 12 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <149 IRQ_TYPE_LEVEL_LOW>;
+		#sound-dai-cells = <0>;
+		cirrus,ts-inv = <1>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+/ {
+	sound {
+		compatible = "apple,j473-macaudio", "apple,macaudio";
+		model = "Mac mini J473";
+
+		dai-link@0 {
+			link-name = "Speaker";
+
+			cpu {
+				sound-dai = <&mca 0>;
+			};
+			codec {
+				sound-dai = <&speaker_amp>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+
+	};
+};
+
+&gpu {
+	apple,perf-base-pstate = <3>;
+};
+
+#include "hwmon-mini.dtsi"

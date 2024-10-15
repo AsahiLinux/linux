@@ -184,6 +184,33 @@ struct data data_append_integer(struct data d, uint64_t value, int bits)
 	}
 }
 
+struct data data_append_float(struct data d, double value, int bits)
+{
+	float f32;
+	uint32_t u32;
+	double f64;
+	uint64_t u64;
+	fdt32_t value_32;
+	fdt64_t value_64;
+
+	switch (bits) {
+	case 32:
+		f32 = value;
+		memcpy(&u32, &f32, sizeof(u32));
+		value_32 = cpu_to_fdt32(u32);
+		return data_append_data(d, &value_32, 4);
+
+	case 64:
+		f64 = value;
+		memcpy(&u64, &f64, sizeof(u64));
+		value_64 = cpu_to_fdt64(u64);
+		return data_append_data(d, &value_64, 8);
+
+	default:
+		die("Invalid literal size (%d)\n", bits);
+	}
+}
+
 struct data data_append_re(struct data d, uint64_t address, uint64_t size)
 {
 	struct fdt_reserve_entry re;

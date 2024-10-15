@@ -11,13 +11,37 @@
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/apple.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/spmi/spmi.h>
 
 #include "multi-die-cpp.h"
+
+#ifndef GPU_REPEAT
+# define GPU_REPEAT(x) <x x x x>
+#endif
 
 #include "t600x-common.dtsi"
 
 / {
 	compatible = "apple,t6001", "apple,arm-platform";
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		uat_handoff: uat-handoff {
+			reg = <0 0 0 0>;
+		};
+
+		uat_pagetables: uat-pagetables {
+			reg = <0 0 0 0>;
+		};
+
+		uat_ttbs: uat-ttbs {
+			reg = <0 0 0 0>;
+		};
+	};
 
 	soc {
 		compatible = "simple-bus";
@@ -26,6 +50,8 @@
 
 		ranges;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
@@ -60,4 +86,8 @@
 				&cpu_p10 &cpu_p11 &cpu_p12 &cpu_p13>;
 		};
 	};
+};
+
+&gpu {
+	compatible = "apple,agx-t6001", "apple,agx-g13x";
 };

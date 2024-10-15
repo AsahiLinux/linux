@@ -30,6 +30,19 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j313", "apple,panel";
+		width-mm = <286>;
+		height-mm = <179>;
+		apple,max-brightness = <420>;
+	};
+};
+
+&framebuffer0 {
+	panel = &panel;
+};
+
 &bluetooth0 {
 	brcm,board-type = "apple,shikoku";
 };
@@ -41,3 +54,123 @@
 &fpwm1 {
 	status = "okay";
 };
+
+/*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Left-back";
+};
+
+&typec1 {
+	label = "USB-C Left-front";
+};
+
+&spi3 {
+	status = "okay";
+
+	hid-transport@0 {
+		compatible = "apple,spi-hid-transport";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		/*
+		 * Apple's ADT specifies 20us CS change delays, and the
+		 * SPI HID interface metadata specifies 45us. Using either
+		 * seems not to be reliable, but adding both works, so
+		 * best guess is they are cumulative.
+		 */
+		spi-cs-setup-delay-ns = <65000>;
+		spi-cs-hold-delay-ns = <65000>;
+		spi-cs-inactive-delay-ns = <250000>;
+		spien-gpios = <&pinctrl_ap 195 0>;
+		interrupts-extended = <&pinctrl_nub 13 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+/* Virtual regulator representing the shared shutdown GPIO */
+/ {
+	speaker_sdz: fixed-regulator-tas5770-sdz {
+		compatible = "regulator-fixed";
+		regulator-name = "tas5770-sdz";
+		startup-delay-us = <5000>;
+		gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&i2c1 {
+	speaker_left: codec@31 {
+		compatible = "ti,tas5770l", "ti,tas2770";
+		reg = <0x31>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left";
+		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+		ti,sdout-zero-fill;
+	};
+};
+
+&i2c3 {
+	speaker_right: codec@34 {
+		compatible = "ti,tas5770l", "ti,tas2770";
+		reg = <0x34>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right";
+		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
+		ti,sdout-zero-fill;
+	};
+
+	jack_codec: codec@48 {
+		compatible = "cirrus,cs42l83";
+		reg = <0x48>;
+		reset-gpios = <&pinctrl_nub 11 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <183 IRQ_TYPE_LEVEL_LOW>;
+		#sound-dai-cells = <0>;
+		cirrus,ts-inv = <1>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+/ {
+	sound {
+		compatible = "apple,j313-macaudio", "apple,macaudio";
+		model = "MacBook Air J313";
+
+		dai-link@0 {
+			link-name = "Speakers";
+
+			cpu {
+				sound-dai = <&mca 0>, <&mca 1>;
+			};
+			codec {
+				sound-dai = <&speaker_left>, <&speaker_right>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
+#include "isp-imx248.dtsi"
+
+&isp {
+	apple,platform-id = <1>;
+};
+
+#include "hwmon-laptop.dtsi"

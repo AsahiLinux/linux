@@ -9,6 +9,8 @@
 
 /* This chip is just a cut down version of t6001, so include it and disable the missing parts */
 
+#define GPU_REPEAT(x) <x x>
+
 #include "t6001.dtsi"
 
 / {
@@ -16,3 +18,7 @@
 };
 
 /delete-node/ &pmgr_south;
+
+&gpu {
+	compatible = "apple,agx-t6000", "apple,agx-g13x";
+};

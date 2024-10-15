@@ -18,7 +18,21 @@
 
 	aliases {
 		ethernet0 = &ethernet0;
+		sio = &sio;
 	};
+};
+
+&dcp {
+	apple,connector-type = "HDMI-A";
+};
+
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
+        status = "okay";
+};
+
+&dpaudio0 {
+	status = "okay";
 };
 
 &bluetooth0 {
@@ -27,6 +41,18 @@
 
 &wifi0 {
 	brcm,board-type = "apple,atlantisb";
+};
+
+/*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Back-left";
+};
+
+&typec1 {
+	label = "USB-C Back-right";
 };
 
 /*
@@ -58,6 +84,65 @@
 	status = "okay";
 };
 
+&i2c1 {
+	speaker_amp: codec@31 {
+		compatible = "ti,tas5770l", "ti,tas2770";
+		reg = <0x31>;
+		shutdown-gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+		ti,sdout-zero-fill;
+	};
+};
+
 &i2c2 {
 	status = "okay";
+
+	jack_codec: codec@48 {
+		compatible = "cirrus,cs42l83";
+		reg = <0x48>;
+		reset-gpios = <&pinctrl_nub 11 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <183 IRQ_TYPE_LEVEL_LOW>;
+		#sound-dai-cells = <0>;
+		cirrus,ts-inv = <1>;
+		sound-name-prefix = "Jack";
+	};
 };
+
+/ {
+	sound {
+		compatible = "apple,j274-macaudio", "apple,macaudio";
+		model = "Mac mini J274";
+
+		dai-link@0 {
+			link-name = "Speaker";
+
+			cpu {
+				sound-dai = <&mca 0>;
+			};
+			codec {
+				sound-dai = <&speaker_amp>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+
+	};
+};
+
+&gpu {
+	apple,perf-base-pstate = <3>;
+};
+
+#include "hwmon-mini.dtsi"

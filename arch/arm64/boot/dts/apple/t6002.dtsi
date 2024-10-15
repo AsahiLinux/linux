@@ -11,8 +11,14 @@
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/apple.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/spmi/spmi.h>
 
 #include "multi-die-cpp.h"
+
+#ifndef GPU_REPEAT
+# define GPU_REPEAT(x) <x x x x x x x x>
+#endif
 
 #include "t600x-common.dtsi"
 
@@ -234,6 +240,8 @@
 			 <0x5 0x80000000 0x5 0x80000000 0x1 0x80000000>,
 			 <0x7 0x0 0x7 0x0 0xf 0x80000000>;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
@@ -245,6 +253,8 @@
 		ranges = <0x2 0x0 0x22 0x0 0x4 0x0>,
 			 <0x7 0x0 0x27 0x0 0xf 0x80000000>;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
@@ -295,7 +305,21 @@
 	};
 };
 
+&dcpext0_die1 {
+	// TODO: verify
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x9c0>;
+};
+
+&dcpext1_die1 {
+	// TODO: verify
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x9c8>;
+};
+
 &ps_gfx {
 	// On t6002, the die0 GPU power domain needs both AFR power domains
 	power-domains = <&ps_afr>, <&ps_afr_die1>;
+};
+
+&gpu {
+	compatible = "apple,agx-t6002", "apple,agx-g13x";
 };

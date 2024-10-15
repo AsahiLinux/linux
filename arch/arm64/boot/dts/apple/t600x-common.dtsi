@@ -11,6 +11,10 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		gpu = &gpu;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -225,26 +229,31 @@
 			opp-hz = /bits/ 64 <600000000>;
 			opp-level = <1>;
 			clock-latency-ns = <7500>;
+			opp-microwatt = <47296>;
 		};
 		opp02 {
 			opp-hz = /bits/ 64 <972000000>;
 			opp-level = <2>;
 			clock-latency-ns = <23000>;
+			opp-microwatt = <99715>;
 		};
 		opp03 {
 			opp-hz = /bits/ 64 <1332000000>;
 			opp-level = <3>;
 			clock-latency-ns = <29000>;
+			opp-microwatt = <188860>;
 		};
 		opp04 {
 			opp-hz = /bits/ 64 <1704000000>;
 			opp-level = <4>;
 			clock-latency-ns = <40000>;
+			opp-microwatt = <288891>;
 		};
 		opp05 {
 			opp-hz = /bits/ 64 <2064000000>;
 			opp-level = <5>;
 			clock-latency-ns = <50000>;
+			opp-microwatt = <412979>;
 		};
 	};
 
@@ -255,82 +264,139 @@
 			opp-hz = /bits/ 64 <600000000>;
 			opp-level = <1>;
 			clock-latency-ns = <8000>;
+			opp-microwatt = <290230>;
 		};
 		opp02 {
 			opp-hz = /bits/ 64 <828000000>;
 			opp-level = <2>;
 			clock-latency-ns = <18000>;
+			opp-microwatt = <449013>;
 		};
 		opp03 {
 			opp-hz = /bits/ 64 <1056000000>;
 			opp-level = <3>;
 			clock-latency-ns = <19000>;
+			opp-microwatt = <647097>;
 		};
 		opp04 {
 			opp-hz = /bits/ 64 <1296000000>;
 			opp-level = <4>;
 			clock-latency-ns = <23000>;
+			opp-microwatt = <865620>;
 		};
 		opp05 {
 			opp-hz = /bits/ 64 <1524000000>;
 			opp-level = <5>;
 			clock-latency-ns = <24000>;
+			opp-microwatt = <1112838>;
 		};
 		opp06 {
 			opp-hz = /bits/ 64 <1752000000>;
 			opp-level = <6>;
 			clock-latency-ns = <28000>;
+			opp-microwatt = <1453271>;
 		};
 		opp07 {
 			opp-hz = /bits/ 64 <1980000000>;
 			opp-level = <7>;
 			clock-latency-ns = <31000>;
+			opp-microwatt = <1776667>;
 		};
 		opp08 {
 			opp-hz = /bits/ 64 <2208000000>;
 			opp-level = <8>;
 			clock-latency-ns = <45000>;
+			opp-microwatt = <2366690>;
 		};
 		opp09 {
 			opp-hz = /bits/ 64 <2448000000>;
 			opp-level = <9>;
 			clock-latency-ns = <49000>;
+			opp-microwatt = <2892193>;
 		};
 		opp10 {
 			opp-hz = /bits/ 64 <2676000000>;
 			opp-level = <10>;
 			clock-latency-ns = <53000>;
+			opp-microwatt = <3475417>;
 		};
 		opp11 {
 			opp-hz = /bits/ 64 <2904000000>;
 			opp-level = <11>;
 			clock-latency-ns = <56000>;
+			opp-microwatt = <3959410>;
 		};
 		opp12 {
 			opp-hz = /bits/ 64 <3036000000>;
 			opp-level = <12>;
 			clock-latency-ns = <56000>;
+			opp-microwatt = <4540620>;
 		};
-		/* Not available until CPU deep sleep is implemented
 		opp13 {
 			opp-hz = /bits/ 64 <3132000000>;
 			opp-level = <13>;
 			clock-latency-ns = <56000>;
+			opp-microwatt = <4745031>;
 			turbo-mode;
 		};
 		opp14 {
 			opp-hz = /bits/ 64 <3168000000>;
 			opp-level = <14>;
 			clock-latency-ns = <56000>;
+			opp-microwatt = <4822390>;
 			turbo-mode;
 		};
 		opp15 {
 			opp-hz = /bits/ 64 <3228000000>;
 			opp-level = <15>;
 			clock-latency-ns = <56000>;
+			opp-microwatt = <4951324>;
 			turbo-mode;
 		};
-		*/
+	};
+
+	gpu_opp: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		/*
+		 * NOTE: The voltage and power values are device-specific and
+		 * must be filled in by the bootloader.
+		 */
+		opp00 {
+			opp-hz = /bits/ 64 <0>;
+			opp-microvolt = GPU_REPEAT(400000);
+			opp-microwatt = <0>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <388800000>;
+			opp-microvolt = GPU_REPEAT(634000);
+			opp-microwatt = <25011450>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <486000000>;
+			opp-microvolt = GPU_REPEAT(650000);
+			opp-microwatt = <31681170>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <648000000>;
+			opp-microvolt = GPU_REPEAT(668000);
+			opp-microwatt = <41685750>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <777600000>;
+			opp-microvolt = GPU_REPEAT(715000);
+			opp-microwatt = <56692620>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <972000000>;
+			opp-microvolt = GPU_REPEAT(778000);
+			opp-microwatt = <83371500>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <1296000000>;
+			opp-microvolt = GPU_REPEAT(903000);
+			opp-microwatt = <166743000>;
+		};
 	};
 
 	pmu-e {
@@ -362,6 +428,47 @@
 		clock-output-names = "clkref";
 	};
 
+	clk_200m: clock-200m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+		clock-output-names = "clk_200m";
+	};
+
+	clk_disp0: clock-disp0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <237333328>;
+		clock-output-names = "clk_disp0";
+	};
+
+	clk_dispext0: clock-dispext0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0";
+	};
+
+	clk_dispext0_die1: clock-dispext0_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0_die1";
+	};
+
+	clk_dispext1: clock-dispext1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1";
+	};
+
+	clk_dispext1_die1: clock-dispext1_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1_die1";
+	};
 	/*
 	 * This is a fabulated representation of the input clock
 	 * to NCO since we don't know the true clock tree.
@@ -370,5 +477,26 @@
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-output-names = "nco_ref";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		uat_handoff: uat-handoff {
+			reg = <0 0 0 0>;
+			no-map;
+		};
+
+		uat_pagetables: uat-pagetables {
+			reg = <0 0 0 0>;
+			no-map;
+		};
+
+		uat_ttbs: uat-ttbs {
+			reg = <0 0 0 0>;
+			no-map;
+		};
 	};
 };

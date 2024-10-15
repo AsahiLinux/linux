@@ -16,3 +16,30 @@
 	compatible = "apple,j375c", "apple,t6001", "apple,arm-platform";
 	model = "Apple Mac Studio (M1 Max, 2022)";
 };
+
+&dpaudio0 {
+	status = "okay";
+};
+
+&sound {
+	compatible = "apple,j375-macaudio", "apple,macaudio";
+	model = "Mac Studio J375";
+};
+
+&pinctrl_ap {
+	usb_hub_oe-hog {
+		gpio-hog;
+		gpios = <230 0>;
+		input;
+		line-name = "usb-hub-oe";
+	};
+
+	usb_hub_rst-hog {
+		gpio-hog;
+		gpios = <231 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "usb-hub-rst";
+	};
+};
+
+#include "hwmon-fan-dual.dtsi"

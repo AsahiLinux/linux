@@ -13,7 +13,18 @@
 
 / {
 	aliases {
+		atcphy0 = &atcphy0;
+		atcphy1 = &atcphy1;
+		atcphy2 = &atcphy2;
+		atcphy3 = &atcphy3;
+		bluetooth0 = &bluetooth0;
+		dcp = &dcp;
+		dcpext0 = &dcpext0;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
+		nvram = &nvram;
 		serial0 = &serial0;
+		sio = &sio;
 		wifi0 = &wifi0;
 	};
 
@@ -29,7 +40,16 @@
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
 			status = "disabled";
+			power-domains = <&ps_disp0_cpu0>;
+			panel = &panel;
 		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		/* To be filled by loader */
 	};
 
 	memory@10000000000 {
@@ -54,6 +74,64 @@
 	status = "okay";
 };
 
+&dcp {
+	panel: panel {
+		apple,max-brightness = <500>;
+	};
+};
+
+&display {
+	iommus = <&disp0_dart 0>, <&dispext0_dart 0>;
+};
+
+&dispext0_dart {
+	status = "okay";
+};
+
+&dcpext0_dart {
+	status = "okay";
+};
+
+&dcpext0_mbox {
+	status = "okay";
+};
+
+&dcpext0 {
+	/* enabled by the loader */
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_nub 15 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+	dp2hdmi-pwren-gpios = <&smc_gpio 6 GPIO_ACTIVE_HIGH>;
+
+	phy-names = "dp-phy";
+	phys = <&atcphy3 PHY_TYPE_DP>;
+	phy-names = "dp-phy";
+	mux-controls = <&atcphy3_xbar 0>;
+	mux-control-names = "dp-xbar";
+	mux-index = <0>;
+	apple,dptx-phy = <3>;
+};
+
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
+        status = "okay";
+};
+
+&dpaudio1 {
+	status = "okay";
+};
+
+&atcphy3 {
+	apple,mode-fixed-dp;
+};
+
+&atcphy3_xbar {
+	status = "okay";
+};
+
 /* USB Type C */
 &i2c0 {
 	hpm0: usb-pd@38 {
@@ -62,6 +140,30 @@
 		interrupt-parent = <&pinctrl_ap>;
 		interrupts = <174 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "irq";
+
+		typec0: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Left Rear";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec0_con_hs: endpoint {
+						remote-endpoint = <&typec0_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec0_con_ss: endpoint {
+						remote-endpoint = <&typec0_usb_ss>;
+					};
+				};
+			};
+		};
 	};
 
 	hpm1: usb-pd@3f {
@@ -70,6 +172,30 @@
 		interrupt-parent = <&pinctrl_ap>;
 		interrupts = <174 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "irq";
+
+		typec1: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Left Front";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec1_con_hs: endpoint {
+						remote-endpoint = <&typec1_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec1_con_ss: endpoint {
+						remote-endpoint = <&typec1_usb_ss>;
+					};
+				};
+			};
+		};
 	};
 
 	hpm2: usb-pd@3b {
@@ -78,6 +204,30 @@
 		interrupt-parent = <&pinctrl_ap>;
 		interrupts = <174 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "irq";
+
+		typec2: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Right";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec2_con_hs: endpoint {
+						remote-endpoint = <&typec2_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec2_con_ss: endpoint {
+						remote-endpoint = <&typec2_usb_ss>;
+					};
+				};
+			};
+		};
 	};
 
 	/* MagSafe port */
@@ -90,24 +240,159 @@
 	};
 };
 
+/* Virtual regulator representing the shared shutdown GPIO */
+/ {
+	speaker_sdz: fixed-regulator-sn012776-sdz {
+		compatible = "regulator-fixed";
+		regulator-name = "sn012776-sdz";
+		startup-delay-us = <5000>;
+		gpios = <&pinctrl_ap 178 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	speaker_left_tweet: codec@3a {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3a>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Tweeter";
+		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <8>;
+		ti,vmon-slot-no = <10>;
+	};
+
+	speaker_left_woof1: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Woofer 1";
+		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+		ti,sdout-force-zero-mask = <0xf0f0f0>;
+	};
+
+	speaker_left_woof2: codec@39 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x39>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Woofer 2";
+		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <16>;
+		ti,vmon-slot-no = <18>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 4 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupts-extended = <&pinctrl_ap 180 IRQ_TYPE_LEVEL_LOW>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+&i2c3 {
+	status = "okay";
+
+	speaker_right_tweet: codec@3d {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3d>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Tweeter";
+		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <12>;
+		ti,vmon-slot-no = <14>;
+	};
+
+	speaker_right_woof1: codec@3b {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3b>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Woofer 1";
+		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
+		ti,sdout-force-zero-mask = <0x0f0f0f>;
+	};
+
+	speaker_right_woof2: codec@3c {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3c>;
+		SDZ-supply = <&speaker_sdz>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Woofer 2";
+		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <20>;
+		ti,vmon-slot-no = <22>;
+	};
+};
+
 &nco_clkref {
 	clock-frequency = <1068000000>;
 };
+
+#ifndef NO_SPI_TRACKPAD
+&spi3 {
+	status = "okay";
+
+	hid-transport@0 {
+		compatible = "apple,spi-hid-transport";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		/*
+		 * Apple's ADT specifies 20us CS change delays, and the
+		 * SPI HID interface metadata specifies 45us. Using either
+		 * seems not to be reliable, but adding both works, so
+		 * best guess is they are cumulative.
+		*/
+		spi-cs-setup-delay-ns = <65000>;
+		spi-cs-hold-delay-ns = <65000>;
+		spi-cs-inactive-delay-ns = <250000>;
+		spien-gpios = <&pinctrl_ap 194 0>;
+		interrupts-extended = <&pinctrl_nub 6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+#endif
 
 /* PCIe devices */
 &port00 {
 	/* WLAN */
 	bus-range = <1 1>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
 	wifi0: wifi@0,0 {
+		compatible = "pci14e4,4433";
 		reg = <0x10000 0x0 0x0 0x0 0x0>;
 		/* To be filled by the loader */
 		local-mac-address = [00 10 18 00 00 10];
+		apple,antenna-sku = "XX";
+	};
+
+	bluetooth0: network@0,1 {
+		compatible = "pci14e4,5f71";
+		reg = <0x10100 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-bd-address = [00 00 00 00 00 00];
 	};
 };
 
 &port01 {
 	/* SD card reader */
 	bus-range = <2 2>;
+	pwren-gpios = <&smc_gpio 26 GPIO_ACTIVE_HIGH>;
+	status = "okay";
 	sdhci0: mmc@0,0 {
 		compatible = "pci17a0,9755";
 		reg = <0x20000 0x0 0x0 0x0 0x0>;
@@ -119,3 +404,123 @@
 &fpwm0 {
 	status = "okay";
 };
+
+&pcie0_dart_1 {
+	status = "okay";
+};
+
+/* USB controllers */
+&dwc3_0 {
+	port {
+		typec0_usb_hs: endpoint {
+			remote-endpoint = <&typec0_con_hs>;
+		};
+	};
+};
+
+&dwc3_1 {
+	port {
+		typec1_usb_hs: endpoint {
+			remote-endpoint = <&typec1_con_hs>;
+		};
+	};
+};
+
+&dwc3_2 {
+	port {
+		typec2_usb_hs: endpoint {
+			remote-endpoint = <&typec2_con_hs>;
+		};
+	};
+};
+
+/* Type-C PHYs */
+&atcphy0 {
+	port {
+		typec0_usb_ss: endpoint {
+			remote-endpoint = <&typec0_con_ss>;
+		};
+	};
+};
+
+&atcphy1 {
+	port {
+		typec1_usb_ss: endpoint {
+			remote-endpoint = <&typec1_con_ss>;
+		};
+	};
+};
+
+&atcphy2 {
+	port {
+		typec2_usb_ss: endpoint {
+			remote-endpoint = <&typec2_con_ss>;
+		};
+	};
+};
+
+/* ATC3 is used for DisplayPort -> HDMI only */
+&dwc3_3_dart_0 {
+	status = "disabled";
+};
+
+&dwc3_3_dart_1 {
+	status = "disabled";
+};
+
+&dwc3_3 {
+	status = "disabled";
+};
+/* Delete unused dwc3_3 to prevent dt_disable_missing_devs() from disabling
+ * atcphy3 via phandle references from a disablecd device.
+ */
+/delete-node/ &dwc3_3;
+
+&ps_atc3_usb_aon {
+	/delete-property/ apple,always-on;
+};
+
+/ {
+	sound: sound {
+		/* compatible is set per machine */
+
+		dai-link@0 {
+			link-name = "Speakers";
+
+			cpu {
+				sound-dai = <&mca 0>, <&mca 1>;
+			};
+			codec {
+				sound-dai = <&speaker_left_woof1>,
+					    <&speaker_left_tweet>,
+					    <&speaker_left_woof2>,
+					    <&speaker_right_woof1>,
+					    <&speaker_right_tweet>,
+					    <&speaker_right_woof2>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
+#include "spi1-nvram.dtsi"
+
+#include "isp-imx558.dtsi"
+
+&isp {
+	apple,platform-id = <3>;
+};
+
+#include "hwmon-common.dtsi"
+#include "hwmon-fan-dual.dtsi"
+#include "hwmon-laptop.dtsi"

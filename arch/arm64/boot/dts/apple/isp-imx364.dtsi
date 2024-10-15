@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * ISP configuration for platforms with IMX364 sensor.
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include "isp-common.dtsi"
+
+&isp {
+	apple,temporal-filter = <0>;
+
+	sensor-presets {
+		/* 1920x1080 */
+		preset0 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <1920 1080>;
+			apple,crop = <0 0 1920 1080>;
+		};
+		/* 1440x720 (4:3) */
+		preset1 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <1440 1080>;
+			apple,crop = <240 0 1440 1080>;
+		};
+		/* 1280x720 (16:9) */
+		preset2 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <1280 720>;
+			apple,crop = <0 0 1920 1080>;
+		};
+		/* 960x720 (4:3) */
+		preset3{
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <960 720>;
+			apple,crop = <240 0 1440 1080>;
+		};
+		/* 960x540 (16:9) */
+		preset4 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <960 540>;
+			apple,crop = <0 0 1920 1080>;
+		};
+		/* 640x480 (4:3) */
+		preset5 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <640 480>;
+			apple,crop = <240 0 1440 1080>;
+		};
+		/* 640x360 (16:9) */
+		preset6 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <640 360>;
+			apple,crop = <0 0 1920 1080>;
+		};
+		/* 320x180 (16:9) */
+		preset7 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1080>;
+			apple,output-size = <320 180>;
+			apple,crop = <0 0 1920 1080>;
+		};
+	};
+};

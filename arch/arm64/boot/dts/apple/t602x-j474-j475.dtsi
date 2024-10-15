@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Mac mini (M2 Pro, 2023) and Mac Studio (2023)
+ *
+ * This file contains the parts common to J474 and J475 devices with t6020,
+ * t6021 and t6022.
+ *
+ * target-type: J474s / J375c / J375d
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/*
+ * These model is very similar to the previous generation Mac Studio, other than
+ * the GPIO indices.
+ */
+
+#include "t600x-j375.dtsi"
+
+&framebuffer0 {
+	power-domains = <&ps_disp0_cpu0>, <&ps_dptx_phy_ps>;
+};
+
+&hpm0 {
+	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&hpm1 {
+	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&hpm2 {
+	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&hpm3  {
+	interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+};
+
+/* PCIe devices */
+&port00 {
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
+};
+
+#ifndef NO_PCIE_SDHC
+&port01 {
+	pwren-gpios = <&smc_gpio 22 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&pcie0_dart_1 {
+	status = "okay";
+};
+#endif
+
+&port03 {
+	/* USB xHCI */
+	pwren-gpios = <&smc_gpio 19 GPIO_ACTIVE_HIGH>;
+};
+
+&speaker {
+	shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&jack_codec {
+	reset-gpios = <&pinctrl_nub 8 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 59 IRQ_TYPE_LEVEL_LOW>;
+};

@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * ISP configuration for platforms with IMX558 sensor in
+ * config #0 mode.
+ *
+ * These platforms enable MLVNR for all configs except
+ * #0, which we don't support. Config #0 is an uncropped
+ * square 1920x1920 sensor, with dark corners.
+ * Therefore, we synthesize common resolutions by using
+ * crop/scale while always choosing config #0.
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include "isp-common.dtsi"
+
+&isp {
+	apple,temporal-filter = <0>;
+
+	sensor-presets {
+		/* 1920x1080 */
+		preset0 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <1920 1080>;
+			apple,crop = <0 420 1920 1080>;
+		};
+		/* 1080x1920 */
+		preset1 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <1080 1920>;
+			apple,crop = <420 0 1080 1920>;
+		};
+		/* 1920x1440 */
+		preset2 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <1920 1440>;
+			apple,crop = <0 240 1920 1440>;
+		};
+		/* 1440x1920 */
+		preset3 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <1440 1920>;
+			apple,crop = <240 0 1440 1920>;
+		};
+		/* 1280x720 */
+		preset4 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <1280 720>;
+			apple,crop = <0 420 1920 1080>;
+		};
+		/* 720x1280 */
+		preset5 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <720 1280>;
+			apple,crop = <420 0 1080 1920>;
+		};
+		/* 1280x960 */
+		preset6 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <1280 960>;
+			apple,crop = <0 240 1920 1440>;
+		};
+		/* 960x1280 */
+		preset7 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <960 1280>;
+			apple,crop = <240 0 1440 1920>;
+		};
+		/* 640x480 */
+		preset8 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <640 480>;
+			apple,crop = <0 240 1920 1440>;
+		};
+		/* 480x640 */
+		preset9 {
+			apple,config-index = <0>;
+			apple,input-size = <1920 1920>;
+			apple,output-size = <480 640>;
+			apple,crop = <240 0 1440 1920>;
+		};
+	};
+};

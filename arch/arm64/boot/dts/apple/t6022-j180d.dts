@@ -1,0 +1,490 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Mac Pro (M2 Ultra, 2023)
+ *
+ * target-type: J180d
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6022.dtsi"
+#include "t6022-jxxxd.dtsi"
+
+/ {
+	compatible = "apple,j180d", "apple,t6022", "apple,arm-platform";
+	model = "Apple Mac Pro (M2 Ultra, 2023)";
+	aliases {
+		atcphy0 = &atcphy0;
+		atcphy1 = &atcphy1;
+		atcphy2 = &atcphy2;
+		atcphy3 = &atcphy3;
+		atcphy4 = &atcphy0_die1;
+		atcphy5 = &atcphy1_die1;
+		atcphy6 = &atcphy2_die1;
+		atcphy7 = &atcphy3_die1;
+		//bluetooth0 = &bluetooth0;
+		//ethernet0 = &ethernet0;
+		//ethernet1 = &ethernet1;
+		nvram = &nvram;
+		serial0 = &serial0;
+		//wifi0 = &wifi0;
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		stdout-path = "serial0";
+
+		framebuffer0: framebuffer@0 {
+			compatible = "apple,simple-framebuffer", "simple-framebuffer";
+			reg = <0 0 0 0>; /* To be filled by loader */
+			/* Format properties will be added by loader */
+			status = "disabled";
+			power-domains = <&ps_dispext0_cpu0_die1>, <&ps_dptx_phy_ps_die1>;
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		/* To be filled by loader */
+	};
+
+	memory@10000000000 {
+		device_type = "memory";
+		reg = <0x100 0 0x2 0>; /* To be filled by loader */
+	};
+};
+
+&serial0 {
+	status = "okay";
+};
+
+/* USB Type C Rear */
+&i2c0 {
+	hpm2: usb-pd@3b {
+		compatible = "apple,cd321x";
+		reg = <0x3b>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+		typec2: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Back 1";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec2_con_hs: endpoint {
+						remote-endpoint = <&typec2_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec2_con_ss: endpoint {
+						remote-endpoint = <&typec2_usb_ss>;
+					};
+				};
+			};
+		};
+	};
+
+	hpm3: usb-pd@3c {
+		compatible = "apple,cd321x";
+		reg = <0x3c>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+		typec3: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Back 2";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec3_con_hs: endpoint {
+						remote-endpoint = <&typec3_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec3_con_ss: endpoint {
+						remote-endpoint = <&typec3_usb_ss>;
+					};
+				};
+			};
+		};
+	};
+
+	/* hpm4 included from t6022-jxxxd.dtsi */
+
+	/* hpm5 included from t6022-jxxxd.dtsi */
+
+	hpm6: usb-pd@3d {
+		compatible = "apple,cd321x";
+		reg = <0x3d>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+		typec6: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Back 5";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec6_con_hs: endpoint {
+						remote-endpoint = <&typec6_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec6_con_ss: endpoint {
+						remote-endpoint = <&typec6_usb_ss>;
+					};
+				};
+			};
+		};
+	};
+
+	hpm7: usb-pd@3e {
+		compatible = "apple,cd321x";
+		reg = <0x3e>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <44 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+		typec7: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Back 6";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec7_con_hs: endpoint {
+						remote-endpoint = <&typec7_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec7_con_ss: endpoint {
+						remote-endpoint = <&typec7_usb_ss>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&hpm4 {
+	label = "USB-C Back 3";
+};
+
+&hpm5 {
+	label = "USB-C Back 4";
+};
+
+/* USB Type C Front */
+&i2c3 {
+	status = "okay";
+
+	hpm0: usb-pd@38 {
+		compatible = "apple,cd321x";
+		reg = <0x38>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <60 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+		typec0: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Top Right";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec0_con_hs: endpoint {
+						remote-endpoint = <&typec0_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec0_con_ss: endpoint {
+						remote-endpoint = <&typec0_usb_ss>;
+					};
+				};
+			};
+		};
+	};
+
+	hpm1: usb-pd@3f {
+		compatible = "apple,cd321x";
+		reg = <0x3f>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <60 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+		typec1: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Top Left";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					typec1_con_hs: endpoint {
+						remote-endpoint = <&typec1_usb_hs>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					typec1_con_ss: endpoint {
+						remote-endpoint = <&typec1_usb_ss>;
+					};
+				};
+			};
+		};
+	};
+};
+
+/* USB controllers */
+&dwc3_0 {
+	port {
+		typec0_usb_hs: endpoint {
+			remote-endpoint = <&typec0_con_hs>;
+		};
+	};
+};
+
+&dwc3_1 {
+	port {
+		typec1_usb_hs: endpoint {
+			remote-endpoint = <&typec1_con_hs>;
+		};
+	};
+};
+
+&dwc3_2 {
+	port {
+		typec2_usb_hs: endpoint {
+			remote-endpoint = <&typec2_con_hs>;
+		};
+	};
+};
+
+&dwc3_3 {
+	port {
+		typec3_usb_hs: endpoint {
+			remote-endpoint = <&typec3_con_hs>;
+		};
+	};
+};
+
+&dwc3_2_die1 {
+	port {
+		typec6_usb_hs: endpoint {
+			remote-endpoint = <&typec6_con_hs>;
+		};
+	};
+};
+
+&dwc3_3_die1 {
+	port {
+		typec7_usb_hs: endpoint {
+			remote-endpoint = <&typec7_con_hs>;
+		};
+	};
+};
+
+/* Type-C PHYs */
+&atcphy0 {
+	port {
+		typec0_usb_ss: endpoint {
+			remote-endpoint = <&typec0_con_ss>;
+		};
+	};
+};
+
+&atcphy1 {
+	port {
+		typec1_usb_ss: endpoint {
+			remote-endpoint = <&typec1_con_ss>;
+		};
+	};
+};
+
+&atcphy2 {
+	port {
+		typec2_usb_ss: endpoint {
+			remote-endpoint = <&typec2_con_ss>;
+		};
+	};
+};
+
+&atcphy3 {
+	port {
+		typec3_usb_ss: endpoint {
+			remote-endpoint = <&typec3_con_ss>;
+		};
+	};
+};
+
+&atcphy2_die1 {
+	port {
+		typec6_usb_ss: endpoint {
+			remote-endpoint = <&typec6_con_ss>;
+		};
+	};
+};
+
+&atcphy3_die1 {
+	port {
+		typec7_usb_ss: endpoint {
+			remote-endpoint = <&typec7_con_ss>;
+		};
+	};
+};
+
+/* Audio */
+&i2c1 {
+	status = "okay";
+
+	speaker_tweeter: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Tweeter";
+		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
+	};
+
+	speaker_woofer: codec@39 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x39>;
+		shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Woofer";
+		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 8 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupts-extended = <&pinctrl_ap 59 IRQ_TYPE_LEVEL_LOW>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+&nco_clkref {
+	clock-frequency = <1068000000>;
+};
+
+/ {
+	sound: sound {
+		compatible = "apple,j180-macaudio", "apple,macaudio";
+		model = "Mac Pro J180";
+
+		dai-link@0 {
+			link-name = "Speakers";
+			/*
+			* DANGER ZONE: You can blow your speakers!
+			*
+			* The drivers are not ready, and unless you are careful
+			* to attenuate the audio stream, you run the risk of
+			* blowing your speakers.
+			*/
+			status = "disabled";
+			cpu {
+				sound-dai = <&mca 0>;
+			};
+			codec {
+				sound-dai = <&speaker_woofer>, <&speaker_tweeter>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie0_dart_0 {
+	status = "disabled";
+};
+
+&pcie_ge {
+	status = "ok";
+};
+
+&pcie_ge_dart {
+	status = "ok";
+};
+
+&pcie_ge_die1 {
+	status = "ok";
+};
+
+&pcie_ge_dart_die1 {
+	status = "ok";
+};
+
+&gpu {
+	apple,idleoff-standby-timer = <3000>;
+	apple,perf-base-pstate = <5>;
+	apple,perf-boost-ce-step = <100>;
+	apple,perf-boost-min-util = <75>;
+	apple,perf-tgt-utilization = <70>;
+};
+
+#include "spi1-nvram.dtsi"

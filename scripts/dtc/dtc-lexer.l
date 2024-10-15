@@ -151,6 +151,28 @@ static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
 			return DT_LABEL;
 		}
 
+<V1>[-+]?(([0-9]+\.[0-9]*)|([0-9]*\.[0-9]+))(e[-+]?[0-9]+)?f? {
+			char *e;
+			DPRINT("Floating-point Literal: '%s'\n", yytext);
+
+			errno = 0;
+			yylval.floating = strtod(yytext, &e);
+
+			if (*e && (*e != 'f' || e[1])) {
+				lexical_error("Bad floating-point literal '%s'",
+					      yytext);
+			}
+
+			if (errno == ERANGE)
+				lexical_error("Floating-point literal '%s' out of range",
+					      yytext);
+			else
+				/* ERANGE is the only strtod error triggerable
+				 *  by strings matching the pattern */
+				assert(errno == 0);
+			return DT_FP_LITERAL;
+		}
+
 <V1>([0-9]+|0[xX][0-9a-fA-F]+)(U|L|UL|LL|ULL)? {
 			char *e;
 			DPRINT("Integer Literal: '%s'\n", yytext);

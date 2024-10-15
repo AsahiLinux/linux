@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * hwmon sensors expected on all systems
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+&smc {
+	hwmon {
+		apple,power-keys {
+			power-PSTR {
+				apple,key-id = "PSTR";
+				label = "Total System Power";
+			};
+			power-PDTR {
+				apple,key-id = "PDTR";
+				label = "AC Input Power";
+			};
+			power-PMVR {
+				apple,key-id = "PMVR";
+				label = "3.8 V Rail Power";
+			};
+		};
+		apple,temp-keys {
+			temp-TH0x {
+				apple,key-id = "TH0x";
+				label = "NAND Flash Temperature";
+			};
+		};
+		apple,volt-keys {
+			volt-VD0R {
+				apple,key-id = "VD0R";
+				label = "AC Input Voltage";
+			};
+		};
+		apple,current-keys {
+			current-ID0R {
+				apple,key-id = "ID0R";
+				label = "AC Input Current";
+			};
+		};
+	};
+};

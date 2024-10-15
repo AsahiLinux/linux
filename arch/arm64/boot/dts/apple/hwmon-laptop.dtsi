@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * hwmon sensors expected on all laptops
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+&smc {
+	hwmon {
+		apple,power-keys {
+			power-PHPC {
+				apple,key-id = "PHPC";
+				label = "Heatpipe Power";
+			};
+		};
+		apple,temp-keys {
+			temp-TB0T {
+				apple,key-id = "TB0T";
+				label = "Battery Hotspot";
+			};
+			temp-TCHP {
+				apple,key-id = "TCHP";
+				label = "Charge Regulator Temp";
+			};
+			temp-TW0P {
+				apple,key-id = "TW0P";
+				label = "WiFi/BT Module Temp";
+			};
+		};
+		apple,volt-keys {
+			volt-SBAV {
+				apple,key-id = "SBAV";
+				label = "Battery Voltage";
+			};
+			volt-VD0R {
+				apple,key-id = "VD0R";
+				label = "Charger Input Voltage";
+			};
+		};
+	};
+};

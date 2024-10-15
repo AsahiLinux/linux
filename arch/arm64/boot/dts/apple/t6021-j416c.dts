@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (16-inch, M2 Max, 2022)
+ *
+ * target-type: J416c
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6021.dtsi"
+#include "t602x-j414-j416.dtsi"
+
+/ {
+	compatible = "apple,j416c", "apple,t6021", "apple,arm-platform";
+	model = "Apple MacBook Pro (16-inch, M2 Max, 2023)";
+};
+
+/* This machine model (only) has two extra boost CPU P-states *
+ * Disabled: Only the highest CPU bin (38 GPU cores) has this.
+ * Keep this disabled until m1n1 learns how to remove these OPPs
+ * for unsupported machines, otherwise it breaks cpufreq.
+&avalanche_opp {
+	opp18 {
+		opp-hz = /bits/ 64 <3528000000>;
+		opp-level = <18>;
+		clock-latency-ns = <67000>;
+		turbo-mode;
+	};
+	opp19 {
+		opp-hz = /bits/ 64 <3696000000>;
+		opp-level = <19>;
+		clock-latency-ns = <67000>;
+		turbo-mode;
+	};
+};
+*/
+
+&wifi0 {
+	brcm,board-type = "apple,amami";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,amami";
+};
+
+&panel {
+	compatible = "apple,panel-j416", "apple,panel-mini-led", "apple,panel";
+	width-mm = <346>;
+	height-mm = <223>;
+	adj-height-mm = <216>;
+};
+
+&sound {
+	compatible = "apple,j416-macaudio", "apple,j316-macaudio", "apple,macaudio";
+	model = "MacBook Pro J416";
+};
+
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j416c.bin";
+};

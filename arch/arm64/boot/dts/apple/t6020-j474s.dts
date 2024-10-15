@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Mac mini (M2 Pro, 2023)
+ *
+ * target-type: J474s
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6020.dtsi"
+
+#define NO_PCIE_SDHC
+#include "t602x-j474-j475.dtsi"
+
+/ {
+	compatible = "apple,j474s", "apple,t6020", "apple,arm-platform";
+	model = "Apple Mac mini (M2 Pro, 2023)";
+};
+
+&wifi0 {
+	compatible = "pci14e4,4434";
+	brcm,board-type = "apple,tasmania";
+};
+
+&bluetooth0 {
+	compatible = "pci14e4,5f72";
+	brcm,board-type = "apple,tasmania";
+};
+
+/* PCIe devices */
+&port01 {
+	/*
+	 * TODO: do not enable port without device. This works around a Linux
+	 * bug which results in mismatched iommus on gaps in PCI(e) ports / bus
+	 * numbers.
+	 */
+	bus-range = <2 2>;
+	status = "okay";
+};
+
+&sound {
+	compatible = "apple,j474-macaudio", "apple,j473-macaudio", "apple,macaudio";
+	model = "Mac mini J474";
+};
+
+&lpdptxphy {
+	status = "okay";
+};
+
+#define USE_DCPEXT0 1
+
+#if USE_DCPEXT0
+/ {
+	aliases {
+		dcpext0 = &dcpext0;
+		/delete-property/ dcp;
+	};
+};
+
+&framebuffer0 {
+	power-domains = <&ps_dispext0_cpu0>, <&ps_dptx_phy_ps>;
+};
+
+&dcp {
+	status = "disabled";
+};
+&display {
+	iommus = <&dispext0_dart 0>;
+};
+&dispext0_dart {
+	status = "okay";
+};
+&dcpext0_dart {
+	status = "okay";
+};
+&dcpext0_mbox {
+	status = "okay";
+};
+&dpaudio1 {
+	status = "okay";
+};
+&dcpext0 {
+#else
+&dpaudio0 {
+	status = "okay";
+};
+&dcp {
+#endif
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 25 GPIO_ACTIVE_HIGH>;
+
+	hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+	dp2hdmi-pwren-gpios = <&smc_gpio 25 GPIO_ACTIVE_HIGH>;
+
+	phys = <&lpdptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <4>;
+};
+
+&gpu {
+	/* Apple does not do this, but they probably should */
+	apple,perf-base-pstate = <3>;
+};
+
+#include "hwmon-mini.dtsi"

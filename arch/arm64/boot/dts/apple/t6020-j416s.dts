@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (16-inch, M2 Pro, 2023)
+ *
+ * target-type: J416s
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6020.dtsi"
+#include "t602x-j414-j416.dtsi"
+
+/ {
+	compatible = "apple,j416s", "apple,t6020", "apple,arm-platform";
+	model = "Apple MacBook Pro (16-inch, M2 Pro, 2023)";
+};
+
+&wifi0 {
+	brcm,board-type = "apple,amami";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,amami";
+};
+
+&panel {
+	compatible = "apple,panel-j416", "apple,panel-mini-led", "apple,panel";
+	width-mm = <346>;
+	height-mm = <223>;
+	adj-height-mm = <216>;
+};
+
+&sound {
+	compatible = "apple,j416-macaudio", "apple,j316-macaudio", "apple,macaudio";
+	model = "MacBook Pro J416";
+};
+
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j416s.bin";
+};

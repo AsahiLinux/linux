@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (14-inch, M2 Max, 2023)
+ *
+ * target-type: J414c
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6021.dtsi"
+#include "t602x-j414-j416.dtsi"
+
+/ {
+	compatible = "apple,j414c", "apple,t6021", "apple,arm-platform";
+	model = "Apple MacBook Pro (14-inch, M2 Max, 2023)";
+};
+
+&wifi0 {
+	brcm,board-type = "apple,tokara";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,tokara";
+};
+
+&panel {
+	compatible = "apple,panel-j414", "apple,panel-mini-led", "apple,panel";
+	width-mm = <302>;
+	height-mm = <196>;
+	adj-height-mm = <189>;
+};
+
+&sound {
+	compatible = "apple,j414-macaudio", "apple,j314-macaudio", "apple,macaudio";
+	model = "MacBook Pro J414";
+};
+
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j414c.bin";
+};
