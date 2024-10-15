@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config VIDEO_APPLE_ISP
+	tristate "Apple Silicon Image Signal Processor driver"
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_V4L2
+	select VIDEOBUF2_DMA_SG
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on V4L_PLATFORM_DRIVERS
+	depends on VIDEO_DEV
