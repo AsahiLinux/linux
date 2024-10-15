@@ -5,6 +5,7 @@
  * SMBus host driver for PA Semi PWRficient
  */
 
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
@@ -20,27 +21,39 @@
 /* Register offsets */
 #define REG_MTXFIFO	0x00
 #define REG_MRXFIFO	0x04
+#define REG_XFSTA	0x0c
 #define REG_SMSTA	0x14
 #define REG_IMASK	0x18
 #define REG_CTL		0x1c
 #define REG_REV		0x28
 
 /* Register defs */
-#define MTXFIFO_READ	0x00000400
-#define MTXFIFO_STOP	0x00000200
-#define MTXFIFO_START	0x00000100
-#define MTXFIFO_DATA_M	0x000000ff
+#define MTXFIFO_READ	BIT(10)
+#define MTXFIFO_STOP	BIT(9)
+#define MTXFIFO_START	BIT(8)
+#define MTXFIFO_DATA_M	GENMASK(7, 0)
 
-#define MRXFIFO_EMPTY	0x00000100
-#define MRXFIFO_DATA_M	0x000000ff
+#define MRXFIFO_EMPTY	BIT(8)
+#define MRXFIFO_DATA_M	GENMASK(7, 0)
 
-#define SMSTA_XEN	0x08000000
-#define SMSTA_MTN	0x00200000
+#define SMSTA_XIP	BIT(28)
+#define SMSTA_XEN	BIT(27)
+#define SMSTA_JMD	BIT(25)
+#define SMSTA_JAM	BIT(24)
+#define SMSTA_MTO	BIT(23)
+#define SMSTA_MTA	BIT(22)
+#define SMSTA_MTN	BIT(21)
+#define SMSTA_MRNE	BIT(19)
+#define SMSTA_MTE	BIT(16)
+#define SMSTA_TOM	BIT(6)
 
-#define CTL_MRR		0x00000400
-#define CTL_MTR		0x00000200
-#define CTL_EN		0x00000800
-#define CTL_CLK_M	0x000000ff
+#define CTL_EN		BIT(11)
+#define CTL_MRR		BIT(10)
+#define CTL_MTR		BIT(9)
+#define CTL_UJM		BIT(8)
+#define CTL_CLK_M	GENMASK(7, 0)
+
+#define TRANSFER_TIMEOUT_MS	100
 
 static inline void reg_write(struct pasemi_smbus *smbus, int reg, int val)
 {
@@ -61,7 +74,7 @@ static inline int reg_read(struct pasemi_smbus *smbus, int reg)
 
 static void pasemi_reset(struct pasemi_smbus *smbus)
 {
-	u32 val = (CTL_MTR | CTL_MRR | (smbus->clk_div & CTL_CLK_M));
+	u32 val = (CTL_MTR | CTL_MRR | CTL_UJM | (smbus->clk_div & CTL_CLK_M));
 
 	if (smbus->hw_rev >= 6)
 		val |= CTL_EN;
@@ -70,23 +83,51 @@ static void pasemi_reset(struct pasemi_smbus *smbus)
 	reinit_completion(&smbus->irq_completion);
 }
 
-static void pasemi_smb_clear(struct pasemi_smbus *smbus)
+static int pasemi_smb_clear(struct pasemi_smbus *smbus)
 {
-	unsigned int status;
+	unsigned int status, xfstatus;
+	int timeout = TRANSFER_TIMEOUT_MS;
 
 	status = reg_read(smbus, REG_SMSTA);
+
+	/* First wait for the bus to go idle */
+	while ((status & (SMSTA_XIP | SMSTA_JAM)) && timeout--) {
+		msleep(1);
+		status = reg_read(smbus, REG_SMSTA);
+	}
+
+	xfstatus = reg_read(smbus, REG_XFSTA);
+
+	if (timeout < 0) {
+		dev_warn(smbus->dev, "Bus is still stuck (status 0x%08x xfstatus 0x%08x)\n",
+			 status, xfstatus);
+		return -EIO;
+	}
+
+	/* If any badness happened or there is data in the FIFOs, reset the FIFOs */
+	if ((status & (SMSTA_MRNE | SMSTA_JMD | SMSTA_MTO | SMSTA_TOM | SMSTA_MTN | SMSTA_MTA)) ||
+		!(status & SMSTA_MTE)) {
+		dev_warn(smbus->dev, "Issuing reset due to status 0x%08x (xfstatus 0x%08x)\n",
+			 status, xfstatus);
+		pasemi_reset(smbus);
+	}
+
+	/* Clear the flags */
 	reg_write(smbus, REG_SMSTA, status);
+
+	return 0;
 }
 
 static int pasemi_smb_waitready(struct pasemi_smbus *smbus)
 {
-	int timeout = 100;
+	int timeout = TRANSFER_TIMEOUT_MS;
 	unsigned int status;
 
 	if (smbus->use_irq) {
 		reinit_completion(&smbus->irq_completion);
-		reg_write(smbus, REG_IMASK, SMSTA_XEN | SMSTA_MTN);
-		wait_for_completion_timeout(&smbus->irq_completion, msecs_to_jiffies(100));
+		/* XEN should be set when a transaction terminates, whether due to error or not */
+		reg_write(smbus, REG_IMASK, SMSTA_XEN);
+		wait_for_completion_timeout(&smbus->irq_completion, msecs_to_jiffies(timeout));
 		reg_write(smbus, REG_IMASK, 0);
 		status = reg_read(smbus, REG_SMSTA);
 	} else {
@@ -97,15 +138,31 @@ static int pasemi_smb_waitready(struct pasemi_smbus *smbus)
 		}
 	}
 
+	/* Controller timeout? */
+	if (status & SMSTA_TOM) {
+		dev_warn(smbus->dev, "Controller timeout, status 0x%08x\n", status);
+		return -EIO;
+	}
+
+	/* Peripheral timeout? */
+	if (status & SMSTA_MTO) {
+		dev_warn(smbus->dev, "Peripheral timeout, status 0x%08x\n", status);
+		return -ETIME;
+	}
+
+	/* Still stuck in a transaction? */
+	if (status & SMSTA_XIP) {
+		dev_warn(smbus->dev, "Bus stuck, status 0x%08x\n", status);
+		return -EIO;
+	}
+
+	/* Arbitration loss? */
+	if (status & SMSTA_MTA)
+		return -EBUSY;
+
 	/* Got NACK? */
 	if (status & SMSTA_MTN)
 		return -ENXIO;
-
-	if (timeout < 0) {
-		dev_warn(smbus->dev, "Timeout, status 0x%08x\n", status);
-		reg_write(smbus, REG_SMSTA, status);
-		return -ETIME;
-	}
 
 	/* Clear XEN */
 	reg_write(smbus, REG_SMSTA, SMSTA_XEN);
@@ -167,7 +224,8 @@ static int pasemi_i2c_xfer(struct i2c_adapter *adapter,
 	struct pasemi_smbus *smbus = adapter->algo_data;
 	int ret, i;
 
-	pasemi_smb_clear(smbus);
+	if (pasemi_smb_clear(smbus))
+		return -EIO;
 
 	ret = 0;
 
@@ -190,7 +248,8 @@ static int pasemi_smb_xfer(struct i2c_adapter *adapter,
 	addr <<= 1;
 	read_flag = read_write == I2C_SMBUS_READ;
 
-	pasemi_smb_clear(smbus);
+	if (pasemi_smb_clear(smbus))
+		return -EIO;
 
 	switch (size) {
 	case I2C_SMBUS_QUICK:

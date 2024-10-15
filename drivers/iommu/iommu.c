@@ -2081,6 +2081,15 @@ static int __iommu_attach_device(struct iommu_domain *domain,
 	if (unlikely(domain->ops->attach_dev == NULL))
 		return -ENODEV;
 
+	/*
+	 * Ensure we do not try to attach devices to FQ domains if the
+	 * IOMMU does not support them. We can safely fall back to
+	 * non-FQ.
+	 */
+	if (domain->type == IOMMU_DOMAIN_DMA_FQ &&
+	    !device_iommu_capable(dev, IOMMU_CAP_DEFERRED_FLUSH))
+		domain->type = IOMMU_DOMAIN_DMA;
+
 	ret = domain->ops->attach_dev(domain, dev);
 	if (ret)
 		return ret;

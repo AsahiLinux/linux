@@ -550,7 +550,7 @@ static u64 __of_translate_address(struct device_node *node,
 		pbus = of_match_bus(parent);
 		pbus->count_cells(dev, &pna, &pns);
 		if (!OF_CHECK_COUNTS(pna, pns)) {
-			pr_err("Bad cell count for %pOF\n", dev);
+			pr_debug("Bad cell count for %pOF\n", dev);
 			return OF_BAD_ADDR;
 		}
 

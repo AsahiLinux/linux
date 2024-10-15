@@ -34,6 +34,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/serial.h>
 #include <linux/serial_core.h>
 #include <linux/serial_s3c.h>
@@ -1296,30 +1297,49 @@ static int apple_s5l_serial_startup(struct uart_port *port)
 	return ret;
 }
 
+static int __maybe_unused s3c24xx_serial_runtime_suspend(struct device *dev)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	int timeout = 10000;
+
+	while (--timeout && !s3c24xx_serial_txempty_nofifo(port))
+		udelay(100);
+
+	if (!IS_ERR(ourport->baudclk))
+		clk_disable_unprepare(ourport->baudclk);
+
+	clk_disable_unprepare(ourport->clk);
+	return 0;
+};
+
+static int __maybe_unused s3c24xx_serial_runtime_resume(struct device *dev)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+
+	clk_prepare_enable(ourport->clk);
+
+	if (!IS_ERR(ourport->baudclk))
+		clk_prepare_enable(ourport->baudclk);
+	return 0;
+};
+
 static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			      unsigned int old)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
-	int timeout = 10000;
 
 	ourport->pm_level = level;
 
 	switch (level) {
-	case 3:
-		while (--timeout && !s3c24xx_serial_txempty_nofifo(port))
-			udelay(100);
-
-		if (!IS_ERR(ourport->baudclk))
-			clk_disable_unprepare(ourport->baudclk);
-
-		clk_disable_unprepare(ourport->clk);
+	case UART_PM_STATE_OFF:
+		pm_runtime_mark_last_busy(port->dev);
+		pm_runtime_put_sync(port->dev);
 		break;
 
-	case 0:
-		clk_prepare_enable(ourport->clk);
-
-		if (!IS_ERR(ourport->baudclk))
-			clk_prepare_enable(ourport->baudclk);
+	case UART_PM_STATE_ON:
+		pm_runtime_get_sync(port->dev);
 		break;
 	default:
 		dev_err(port->dev, "s3c24xx_serial: unknown pm %d\n", level);
@@ -2042,18 +2062,15 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		}
 	}
 
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
 	dev_dbg(&pdev->dev, "%s: adding port\n", __func__);
 	uart_add_one_port(&s3c24xx_uart_drv, &ourport->port);
 	platform_set_drvdata(pdev, &ourport->port);
 
-	/*
-	 * Deactivate the clock enabled in s3c24xx_serial_init_port here,
-	 * so that a potential re-enablement through the pm-callback overlaps
-	 * and keeps the clock enabled in this case.
-	 */
-	clk_disable_unprepare(ourport->clk);
-	if (!IS_ERR(ourport->baudclk))
-		clk_disable_unprepare(ourport->baudclk);
+	pm_runtime_put_sync(&pdev->dev);
 
 	probe_index++;
 
@@ -2063,18 +2080,32 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 static void s3c24xx_serial_remove(struct platform_device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
-	if (port)
+	if (port) {
+		pm_runtime_get_sync(&dev->dev);
 		uart_remove_one_port(&s3c24xx_uart_drv, port);
+
+		clk_disable_unprepare(ourport->clk);
+		if (!IS_ERR(ourport->baudclk))
+			clk_disable_unprepare(ourport->baudclk);
+
+		pm_runtime_disable(&dev->dev);
+		pm_runtime_set_suspended(&dev->dev);
+		pm_runtime_put_noidle(&dev->dev);
+	}
 
 	uart_unregister_driver(&s3c24xx_uart_drv);
 }
 
 /* UART power management code */
-#ifdef CONFIG_PM_SLEEP
-static int s3c24xx_serial_suspend(struct device *dev)
+
+static int __maybe_unused s3c24xx_serial_suspend(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
+
+	if (!console_suspend_enabled && uart_console(port))
+		device_set_wakeup_path(dev);
 
 	if (port)
 		uart_suspend_port(&s3c24xx_uart_drv, port);
@@ -2082,7 +2113,7 @@ static int s3c24xx_serial_suspend(struct device *dev)
 	return 0;
 }
 
-static int s3c24xx_serial_resume(struct device *dev)
+static int __maybe_unused s3c24xx_serial_resume(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
@@ -2102,7 +2133,7 @@ static int s3c24xx_serial_resume(struct device *dev)
 	return 0;
 }
 
-static int s3c24xx_serial_resume_noirq(struct device *dev)
+static int __maybe_unused s3c24xx_serial_resume_noirq(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
@@ -2176,13 +2207,9 @@ static int s3c24xx_serial_resume_noirq(struct device *dev)
 static const struct dev_pm_ops s3c24xx_serial_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(s3c24xx_serial_suspend, s3c24xx_serial_resume)
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(NULL, s3c24xx_serial_resume_noirq)
+	SET_RUNTIME_PM_OPS(s3c24xx_serial_runtime_suspend,
+			   s3c24xx_serial_runtime_resume, NULL)
 };
-#define SERIAL_SAMSUNG_PM_OPS	(&s3c24xx_serial_pm_ops)
-
-#else /* !CONFIG_PM_SLEEP */
-
-#define SERIAL_SAMSUNG_PM_OPS	NULL
-#endif /* CONFIG_PM_SLEEP */
 
 /* Console code */
 
@@ -2657,7 +2684,7 @@ static struct platform_driver samsung_serial_driver = {
 	.id_table	= s3c24xx_serial_driver_ids,
 	.driver		= {
 		.name	= "samsung-uart",
-		.pm	= SERIAL_SAMSUNG_PM_OPS,
+		.pm	= &s3c24xx_serial_pm_ops,
 		.of_match_table	= of_match_ptr(s3c24xx_uart_dt_match),
 	},
 };
