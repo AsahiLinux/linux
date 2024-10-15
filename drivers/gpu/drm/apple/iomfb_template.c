@@ -900,6 +900,7 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 		swap->swap.bl_power = 0;
 	}
 
+	/* Null all surfaces */
 	for (int l = 0; l < SWAP_SURFACES; l++)
 		swap->surf_null[l] = true;
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
@@ -1270,7 +1271,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
 
-	/* Reset to defaults */
+	/* Reset all surfaces to defaults */
 	memset(req, 0, sizeof(*req));
 	for (l = 0; l < SWAP_SURFACES; l++)
 		req->surf_null[l] = true;
@@ -1291,8 +1292,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		dcp->surfaces_cleared = true;
 	}
 
-	// Surface 0 has limitations at least on t600x.
-	l = 1;
 	for_each_oldnew_plane_in_state(state, plane, old_state, new_state, plane_idx) {
 		struct drm_framebuffer *fb = new_state->fb;
 		struct drm_gem_dma_object *obj;
@@ -1303,7 +1302,19 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		if (old_state->crtc != crtc && new_state->crtc != crtc)
 			continue;
 
-		WARN_ON(l >= SWAP_SURFACES);
+		/*
+		 * Plane order is nondeterministic for this iterator. DCP will
+		 * almost always crash at some point if the z order of planes
+		 * flip-flops around. Make sure we are always blending them
+		 * in the correct order.
+		 *
+		 * Despite having 4 surfaces, we can only blend two. Surface 0 is
+		 * also unusable on some machines, so ignore it.
+		 */
+
+		l = MAX_BLEND_SURFACES - new_state->normalized_zpos;
+
+		WARN_ON(l > MAX_BLEND_SURFACES);
 
 		req->swap.swap_enabled |= BIT(l);
 
@@ -1329,7 +1340,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		}
 
 		if (!new_state->fb) {
-			l += 1;
 			continue;
 		}
 		req->surf_null[l] = false;
@@ -1379,7 +1389,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 			.has_planes = 1,
 		};
 
-		l += 1;
 	}
 
 	if (!has_surface && !crtc_state->color_mgmt_changed) {
