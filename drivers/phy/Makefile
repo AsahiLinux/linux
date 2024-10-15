@@ -13,6 +13,7 @@ obj-$(CONFIG_USB_LGM_PHY)		+= phy-lgm-usb.o
 obj-$(CONFIG_PHY_AIROHA_PCIE)		+= phy-airoha-pcie.o
 obj-y					+= allwinner/	\
 					   amlogic/	\
+					   apple/	\
 					   broadcom/	\
 					   cadence/	\
 					   freescale/	\
