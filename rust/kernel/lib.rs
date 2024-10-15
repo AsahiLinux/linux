@@ -12,11 +12,17 @@
 //! do so first instead of bypassing this crate.
 
 #![no_std]
+#![feature(associated_type_defaults)]
 #![feature(coerce_unsized)]
+#![feature(const_mut_refs)]
+#![feature(const_refs_to_cell)]
 #![feature(dispatch_from_dyn)]
+#![feature(duration_constants)]
 #![feature(new_uninit)]
 #![feature(receiver_trait)]
+#![feature(type_alias_impl_trait)]
 #![feature(unsize)]
+#![warn(clippy::undocumented_unsafe_blocks)]
 
 // Ensure conditional compilation based on the kernel configuration works;
 // otherwise we may silently break things like initcall handling.
@@ -30,19 +36,33 @@ pub mod alloc;
 #[cfg(CONFIG_BLOCK)]
 pub mod block;
 mod build_assert;
+pub mod delay;
 pub mod device;
+#[cfg(CONFIG_DMA_SHARED_BUFFER)]
+pub mod dma_fence;
+pub mod driver;
+#[cfg(CONFIG_DRM = "y")]
+pub mod drm;
 pub mod error;
 #[cfg(CONFIG_RUST_FW_LOADER_ABSTRACTIONS)]
 pub mod firmware;
 pub mod init;
+pub mod io_buffer;
+pub mod io_mem;
+pub mod io_pgtable;
 pub mod ioctl;
 #[cfg(CONFIG_KUNIT)]
 pub mod kunit;
+pub mod module_param;
 #[cfg(CONFIG_NET)]
 pub mod net;
+pub mod of;
 pub mod page;
+pub mod platform;
 pub mod prelude;
 pub mod print;
+pub mod siphash;
+pub mod soc;
 mod static_assert;
 #[doc(hidden)]
 pub mod std_vendor;
@@ -52,7 +72,9 @@ pub mod task;
 pub mod time;
 pub mod types;
 pub mod uaccess;
+pub mod user_ptr;
 pub mod workqueue;
+pub mod xarray;
 
 #[doc(hidden)]
 pub use bindings;
@@ -61,6 +83,16 @@ pub use uapi;
 
 #[doc(hidden)]
 pub use build_error::build_error;
+
+pub(crate) mod private {
+    #[allow(unreachable_pub)]
+    pub trait Sealed {}
+}
+
+/// Page size defined in terms of the `PAGE_SHIFT` macro from C.
+///
+/// [`PAGE_SHIFT`]: ../../../include/asm-generic/page.h
+pub const PAGE_SIZE: usize = 1 << bindings::PAGE_SHIFT;
 
 /// Prefix to appear before log messages printed from within the `kernel` crate.
 const __LOG_PREFIX: &[u8] = b"rust_kernel\0";
@@ -75,7 +107,7 @@ pub trait Module: Sized + Sync + Send {
     /// should do.
     ///
     /// Equivalent to the `module_init` macro in the C API.
-    fn init(module: &'static ThisModule) -> error::Result<Self>;
+    fn init(name: &'static crate::str::CStr, module: &'static ThisModule) -> error::Result<Self>;
 }
 
 /// Equivalent to `THIS_MODULE` in the C API.
@@ -101,6 +133,43 @@ impl ThisModule {
     /// It is up to the user to use it correctly.
     pub const fn as_ptr(&self) -> *mut bindings::module {
         self.0
+    }
+
+    /// Locks the module parameters to access them.
+    ///
+    /// Returns a [`KParamGuard`] that will release the lock when dropped.
+    pub fn kernel_param_lock(&self) -> KParamGuard<'_> {
+        // SAFETY: `kernel_param_lock` will check if the pointer is null and
+        // use the built-in mutex in that case.
+        #[cfg(CONFIG_SYSFS)]
+        unsafe {
+            bindings::kernel_param_lock(self.0)
+        }
+
+        KParamGuard {
+            #[cfg(CONFIG_SYSFS)]
+            this_module: self,
+            phantom: core::marker::PhantomData,
+        }
+    }
+}
+
+/// Scoped lock on the kernel parameters of [`ThisModule`].
+///
+/// Lock will be released when this struct is dropped.
+pub struct KParamGuard<'a> {
+    #[cfg(CONFIG_SYSFS)]
+    this_module: &'a ThisModule,
+    phantom: core::marker::PhantomData<&'a ()>,
+}
+
+#[cfg(CONFIG_SYSFS)]
+impl<'a> Drop for KParamGuard<'a> {
+    fn drop(&mut self) {
+        // SAFETY: `kernel_param_lock` will check if the pointer is null and
+        // use the built-in mutex in that case. The existence of `self`
+        // guarantees that the lock is held.
+        unsafe { bindings::kernel_param_unlock(self.this_module.0) }
     }
 }
 

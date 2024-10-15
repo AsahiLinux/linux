@@ -2665,6 +2665,49 @@ err_free_ops:
 EXPORT_SYMBOL_GPL(drm_gpuvm_prefetch_ops_create);
 
 /**
+ * drm_gpuvm_bo_unmap() - unmaps a GEM
+ * @vm_bo: the &drm_gpuvm_bo abstraction
+ *
+ * This function calls the unmap callback for every GPUVA attached to a GEM.
+ *
+ * It is the callers responsibility to protect the GEMs GPUVA list against
+ * concurrent access using the GEMs dma_resv lock.
+ *
+ * Returns: a pointer to the &drm_gpuva_ops on success, an ERR_PTR on failure
+ */
+int
+drm_gpuvm_bo_unmap(struct drm_gpuvm_bo *vm_bo, void *priv)
+{
+	struct drm_gpuva_op *op;
+	int ret;
+
+	if (unlikely(!vm_bo->vm))
+		return -EINVAL;
+
+	const struct drm_gpuvm_ops *vm_ops = vm_bo->vm->ops;
+
+	if (unlikely(!(vm_ops && vm_ops->sm_step_unmap)))
+		return -EINVAL;
+
+	struct drm_gpuva_ops *ops = drm_gpuvm_bo_unmap_ops_create(vm_bo);
+        if (IS_ERR(ops))
+                return PTR_ERR(ops);
+
+	drm_gpuva_for_each_op(op, ops) {
+		drm_WARN_ON(vm_bo->vm->drm, op->op != DRM_GPUVA_OP_UNMAP);
+
+		ret = op_unmap_cb(vm_ops, priv, op->unmap.va, false);
+		if (ret)
+			goto cleanup;
+	}
+
+cleanup:
+	drm_gpuva_ops_free(vm_bo->vm, ops);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(drm_gpuvm_bo_unmap);
+
+/**
  * drm_gpuvm_bo_unmap_ops_create() - creates the &drm_gpuva_ops to unmap a GEM
  * @vm_bo: the &drm_gpuvm_bo abstraction
  *

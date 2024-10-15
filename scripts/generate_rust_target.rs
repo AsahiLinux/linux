@@ -158,10 +158,29 @@ fn main() {
         }
     } else if cfg.has("X86_64") {
         ts.push("arch", "x86_64");
-        ts.push(
-            "data-layout",
-            "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128",
-        );
+        let mut llvm_version: u32 = 18;
+        if cfg.has("RUSTC_LLVM_VERSION_TEXT") {
+            let llvm_str = cfg
+                .0
+                .get("CONFIG_RUSTC_LLVM_VERSION_TEXT")
+                .unwrap()
+                .split_once(".")
+                .unwrap()
+                .0;
+            llvm_version = llvm_str.parse().unwrap();
+        }
+        // intentially broken indent
+        if llvm_version >= 18 {
+            ts.push(
+                "data-layout",
+                "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128",
+            );
+        } else {
+            ts.push(
+                "data-layout",
+                "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128",
+            );
+        }
         let mut features = "-mmx,+soft-float".to_string();
         if cfg.has("MITIGATION_RETPOLINE") {
             features += ",+retpoline-external-thunk";

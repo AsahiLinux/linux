@@ -2,6 +2,11 @@
 
 #include <linux/uaccess.h>
 
+unsigned long rust_helper_clear_user(void __user *to, unsigned long n)
+{
+	return clear_user(to, n);
+}
+
 unsigned long rust_helper_copy_from_user(void *to, const void __user *from,
 					 unsigned long n)
 {

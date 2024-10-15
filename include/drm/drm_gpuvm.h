@@ -1205,6 +1205,7 @@ int drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm, void *priv,
 
 int drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm, void *priv,
 		       u64 addr, u64 range);
+int drm_gpuvm_bo_unmap(struct drm_gpuvm_bo *bo, void *priv);
 
 void drm_gpuva_map(struct drm_gpuvm *gpuvm,
 		   struct drm_gpuva *va,

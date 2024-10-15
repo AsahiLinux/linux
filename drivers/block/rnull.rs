@@ -20,6 +20,7 @@ use kernel::{
     error::Result,
     new_mutex, pr_info,
     prelude::*,
+    str::CStr,
     sync::{Arc, Mutex},
     types::ARef,
 };
@@ -36,7 +37,7 @@ struct NullBlkModule {
 }
 
 impl kernel::Module for NullBlkModule {
-    fn init(_module: &'static ThisModule) -> Result<Self> {
+    fn init(_name: &'static CStr, _module: &'static ThisModule) -> Result<Self> {
         pr_info!("Rust null_blk loaded\n");
         let tagset = Arc::pin_init(TagSet::new(1, 256, 1), flags::GFP_KERNEL)?;
 

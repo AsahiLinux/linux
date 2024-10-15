@@ -1334,7 +1334,32 @@ EXPORT_SYMBOL(drm_sched_init);
 void drm_sched_fini(struct drm_gpu_scheduler *sched)
 {
 	struct drm_sched_entity *s_entity;
+	struct drm_sched_job *s_job, *tmp;
 	int i;
+
+	/*
+	* Stop the scheduler, detaching all jobs from their hardware callbacks
+	* and cleaning up complete jobs.
+	*/
+	drm_sched_stop(sched, NULL);
+
+	/*
+	 * Iterate through the pending job list and free all jobs.
+	 * This assumes the driver has either guaranteed jobs are already stopped, or that
+	 * otherwise it is responsible for keeping any necessary data structures for
+	 * in-progress jobs alive even when the free_job() callback is called early (e.g. by
+	 * putting them in its own queue or doing its own refcounting).
+	 */
+	list_for_each_entry_safe(s_job, tmp, &sched->pending_list, list) {
+		spin_lock(&sched->job_list_lock);
+		list_del_init(&s_job->list);
+		spin_unlock(&sched->job_list_lock);
+
+		drm_sched_fence_finished(s_job->s_fence, -ESRCH);
+
+		WARN_ON(s_job->s_fence->parent);
+		sched->ops->free_job(s_job);
+	}
 
 	drm_sched_wqueue_stop(sched);
 

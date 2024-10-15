@@ -34,6 +34,9 @@ use core::{
 };
 use macros::pin_data;
 
+#[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+use crate::sync::lockdep::LockdepMap;
+
 mod std_vendor;
 
 /// A reference-counted pointer to an instance of `T`.
@@ -130,6 +133,17 @@ pub struct Arc<T: ?Sized> {
     _p: PhantomData<ArcInner<T>>,
 }
 
+#[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+#[pin_data]
+#[repr(C)]
+struct ArcInner<T: ?Sized> {
+    refcount: Opaque<bindings::refcount_t>,
+    lockdep_map: LockdepMap,
+    data: T,
+}
+
+// FIXME: pin_data does not work well with cfg attributes within the struct definition.
+#[cfg(not(CONFIG_RUST_EXTRA_LOCKDEP))]
 #[pin_data]
 #[repr(C)]
 struct ArcInner<T: ?Sized> {
@@ -195,11 +209,14 @@ unsafe impl<T: ?Sized + Sync + Send> Sync for Arc<T> {}
 
 impl<T> Arc<T> {
     /// Constructs a new reference counted instance of `T`.
+    #[track_caller]
     pub fn new(contents: T, flags: Flags) -> Result<Self, AllocError> {
         // INVARIANT: The refcount is initialised to a non-zero value.
         let value = ArcInner {
             // SAFETY: There are no safety requirements for this FFI call.
             refcount: Opaque::new(unsafe { bindings::REFCOUNT_INIT(1) }),
+            #[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+            lockdep_map: LockdepMap::new(),
             data: contents,
         };
 
@@ -214,6 +231,7 @@ impl<T> Arc<T> {
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
     #[inline]
+    #[track_caller]
     pub fn pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> error::Result<Self>
     where
         Error: From<E>,
@@ -225,6 +243,7 @@ impl<T> Arc<T> {
     ///
     /// This is equivalent to [`Arc<T>::pin_init`], since an [`Arc`] is always pinned.
     #[inline]
+    #[track_caller]
     pub fn init<E>(init: impl Init<T, E>, flags: Flags) -> error::Result<Self>
     where
         Error: From<E>,
@@ -415,15 +434,50 @@ impl<T: ?Sized> Drop for Arc<T> {
         // freed/invalid memory as long as it is never dereferenced.
         let refcount = unsafe { self.ptr.as_ref() }.refcount.get();
 
+        #[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+        // SAFETY: By the type invariant, there is necessarily a reference to the object.
+        // We cannot hold the map lock across the reference decrement, as we might race
+        // another thread. Therefore, we lock and immediately drop the guard here. This
+        // only serves to inform lockdep of the dependency up the call stack.
+        unsafe { self.ptr.as_ref() }.lockdep_map.lock();
+
         // INVARIANT: If the refcount reaches zero, there are no other instances of `Arc`, and
         // this instance is being dropped, so the broken invariant is not observable.
         // SAFETY: Also by the type invariant, we are allowed to decrement the refcount.
         let is_zero = unsafe { bindings::refcount_dec_and_test(refcount) };
+
         if is_zero {
             // The count reached zero, we must free the memory.
-            //
-            // SAFETY: The pointer was initialised from the result of `Box::leak`.
-            unsafe { drop(Box::from_raw(self.ptr.as_ptr())) };
+
+            #[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+            // SAFETY: If we get this far, we had the last reference to the object.
+            // That means we are responsible for freeing it, so we can safely lock
+            // the fake lock again. This wraps dropping the inner object, which
+            // informs lockdep of the dependencies down the call stack.
+            let guard = unsafe { self.ptr.as_ref() }.lockdep_map.lock();
+
+            // SAFETY: The pointer was initialised from the result of `Box::leak`,
+            // and the value is valid.
+            unsafe { core::ptr::drop_in_place(&mut self.ptr.as_mut().data) };
+
+            // We need to drop the lock guard before freeing the LockdepMap itself
+            #[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+            core::mem::drop(guard);
+
+            #[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+            // SAFETY: The pointer was initialised from the result of `Box::leak`,
+            // and the lockdep map is valid.
+            unsafe {
+                core::ptr::drop_in_place(&mut self.ptr.as_mut().lockdep_map)
+            };
+
+            // SAFETY: The pointer was initialised from the result of `Box::leak`, and
+            // a ManuallyDrop<T> is compatible. We already dropped the contents above.
+            unsafe {
+                drop(Box::from_raw(
+                    self.ptr.as_ptr() as *mut ManuallyDrop<ArcInner<T>>
+                ))
+            };
         }
     }
 }
@@ -658,6 +712,7 @@ pub struct UniqueArc<T: ?Sized> {
 
 impl<T> UniqueArc<T> {
     /// Tries to allocate a new [`UniqueArc`] instance.
+    #[track_caller]
     pub fn new(value: T, flags: Flags) -> Result<Self, AllocError> {
         Ok(Self {
             // INVARIANT: The newly-created object has a refcount of 1.
@@ -666,8 +721,24 @@ impl<T> UniqueArc<T> {
     }
 
     /// Tries to allocate a new [`UniqueArc`] instance whose contents are not initialised yet.
+    #[track_caller]
     pub fn new_uninit(flags: Flags) -> Result<UniqueArc<MaybeUninit<T>>, AllocError> {
         // INVARIANT: The refcount is initialised to a non-zero value.
+        #[cfg(CONFIG_RUST_EXTRA_LOCKDEP)]
+        let inner = {
+            let map = LockdepMap::new();
+            Box::try_init::<AllocError>(
+                try_init!(ArcInner {
+                // SAFETY: There are no safety requirements for this FFI call.
+                refcount: Opaque::new(unsafe { bindings::REFCOUNT_INIT(1) }),
+                lockdep_map: map,
+                data <- init::uninit::<T, AllocError>(),
+            }? AllocError),
+                flags,
+            )?
+        };
+        // FIXME: try_init!() does not work with cfg attributes.
+        #[cfg(not(CONFIG_RUST_EXTRA_LOCKDEP))]
         let inner = Box::try_init::<AllocError>(
             try_init!(ArcInner {
                 // SAFETY: There are no safety requirements for this FFI call.

@@ -264,7 +264,13 @@ else
 bindgen_c_flags_lto = $(bindgen_c_flags)
 endif
 
-bindgen_c_flags_final = $(bindgen_c_flags_lto) -D__BINDGEN__
+# replace '-fmin-function-alignment' with '-falign-functions'. LLVM does not
+# ignore the latter in cold functions. See:
+# 5270316c9fec ("kbuild: Use -fmin-function-alignment when available")
+# c27cd083cfb9 ("Compiler attributes: GCC cold function alignment workarounds")
+bindgen_c_flags_align = $(subst -fmin-function-alignment=,-falign-functions=,$(bindgen_c_flags_lto))
+
+bindgen_c_flags_final = $(bindgen_c_flags_align) -D__BINDGEN__
 
 quiet_cmd_bindgen = BINDGEN $@
       cmd_bindgen = \
@@ -354,7 +360,7 @@ quiet_cmd_rustc_library = $(if $(skip_clippy),RUSTC,$(RUSTC_OR_CLIPPY_QUIET)) L 
 		--emit=dep-info=$(depfile) --emit=obj=$@ \
 		--emit=metadata=$(dir $@)$(patsubst %.o,lib%.rmeta,$(notdir $@)) \
 		--crate-type rlib -L$(objtree)/$(obj) \
-		--crate-name $(patsubst %.o,%,$(notdir $@)) $< \
+		--crate-name $(patsubst %.o,%,$(notdir $@)) $(abspath $<) \
 		--sysroot=/dev/null \
 	$(if $(rustc_objcopy),;$(OBJCOPY) $(rustc_objcopy) $@)
 

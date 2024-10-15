@@ -305,6 +305,11 @@ struct drm_sched_fence {
          */
 	spinlock_t			lock;
         /**
+         * @sched_name: the name of the scheduler that owns this fence. We
+	 * keep a copy here since fences can outlive their scheduler.
+         */
+	char sched_name[16];
+        /**
          * @owner: job owner for debugging
          */
 	void				*owner;

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
+// FIXME
+#![allow(clippy::undocumented_unsafe_blocks)]
 
 //! Work queues.
 //!
@@ -367,7 +369,7 @@ impl<T: ?Sized, const ID: u64> Work<T, ID> {
     /// Creates a new instance of [`Work`].
     #[inline]
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(name: &'static CStr, key: &'static LockClassKey) -> impl PinInit<Self>
+    pub fn new(name: &'static CStr, key: LockClassKey) -> impl PinInit<Self>
     where
         T: WorkItem<ID>,
     {

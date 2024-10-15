@@ -8,6 +8,9 @@ void rust_helper___spin_lock_init(spinlock_t *lock, const char *name,
 {
 #ifdef CONFIG_DEBUG_SPINLOCK
 	__raw_spin_lock_init(spinlock_check(lock), name, key, LD_WAIT_CONFIG);
+#elif defined(CONFIG_PREEMPT_RT)
+	rt_mutex_base_init(&lock->lock);
+	__rt_spin_lock_init(lock, name, key, false);
 #else
 	spin_lock_init(lock);
 #endif
