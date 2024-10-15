@@ -89,9 +89,20 @@ config APPLE_ADMAC
 	tristate "Apple ADMAC support"
 	depends on ARCH_APPLE || COMPILE_TEST
 	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
 	default ARCH_APPLE
 	help
 	  Enable support for Audio DMA Controller found on Apple Silicon SoCs.
+
+config APPLE_SIO
+	tristate "Apple SIO support"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on APPLE_RTKIT
+	select DMA_ENGINE
+	default m if ARCH_APPLE
+	help
+	  Enable support for the SIO coprocessor found on Apple Silicon SoCs
+	  where it provides DMA services.
 
 config AT_HDMAC
 	tristate "Atmel AHB DMA support"
