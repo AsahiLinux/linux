@@ -363,6 +363,14 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 */
 	init_task.thread_info.ttbr0 = phys_to_ttbr(__pa_symbol(reserved_pg_dir));
 #endif
+#ifdef CONFIG_ARM64_ACTLR_STATE
+	/* Store the boot CPU ACTLR_EL1 value as the default. This will only
+	 * be actually restored during context switching iff the platform is
+	 * known to use ACTLR_EL1 for exposable features and its layout is
+	 * known to be the same on all CPUs.
+	 */
+	init_task.thread.actlr = read_sysreg(actlr_el1);
+#endif
 
 	if (boot_args[1] || boot_args[2] || boot_args[3]) {
 		pr_err("WARNING: x1-x3 nonzero in violation of boot protocol:\n"

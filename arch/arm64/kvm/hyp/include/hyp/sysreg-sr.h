@@ -16,6 +16,9 @@
 #include <asm/kvm_hyp.h>
 #include <asm/kvm_mmu.h>
 
+#define SYS_IMP_APL_ACTLR_EL12		sys_reg(3, 6, 15, 14, 6)
+#define SYS_ACTLR_EL12			sys_reg(3, 5, 1, 0, 1)
+
 static inline void __sysreg_save_common_state(struct kvm_cpu_context *ctxt)
 {
 	ctxt_sys_reg(ctxt, MDSCR_EL1)	= read_sysreg(mdscr_el1);
@@ -101,6 +104,12 @@ static inline void __sysreg_save_el1_state(struct kvm_cpu_context *ctxt)
 	ctxt_sys_reg(ctxt, SP_EL1)	= read_sysreg(sp_el1);
 	ctxt_sys_reg(ctxt, ELR_EL1)	= read_sysreg_el1(SYS_ELR);
 	ctxt_sys_reg(ctxt, SPSR_EL1)	= read_sysreg_el1(SYS_SPSR);
+	if (IS_ENABLED(CONFIG_ARM64_ACTLR_STATE)) {
+		if (alternative_has_cap_unlikely(ARM64_HAS_ACTLR_VIRT))
+			ctxt_sys_reg(ctxt, ACTLR_EL1)	= read_sysreg_s(SYS_ACTLR_EL12);
+		else if (alternative_has_cap_unlikely(ARM64_HAS_ACTLR_VIRT_APPLE))
+			ctxt_sys_reg(ctxt, ACTLR_EL1)	= read_sysreg_s(SYS_IMP_APL_ACTLR_EL12);
+	}
 }
 
 static inline void __sysreg_save_el2_return_state(struct kvm_cpu_context *ctxt)
@@ -170,6 +179,13 @@ static inline void __sysreg_restore_el1_state(struct kvm_cpu_context *ctxt)
 	write_sysreg_el1(ctxt_sys_reg(ctxt, CNTKCTL_EL1), SYS_CNTKCTL);
 	write_sysreg(ctxt_sys_reg(ctxt, PAR_EL1),	par_el1);
 	write_sysreg(ctxt_sys_reg(ctxt, TPIDR_EL1),	tpidr_el1);
+
+	if (IS_ENABLED(CONFIG_ARM64_ACTLR_STATE)) {
+		if (alternative_has_cap_unlikely(ARM64_HAS_ACTLR_VIRT))
+			write_sysreg_s(ctxt_sys_reg(ctxt, ACTLR_EL1), SYS_ACTLR_EL12);
+		else if (alternative_has_cap_unlikely(ARM64_HAS_ACTLR_VIRT_APPLE))
+			write_sysreg_s(ctxt_sys_reg(ctxt, ACTLR_EL1), SYS_IMP_APL_ACTLR_EL12);
+	}
 
 	if (ctxt_has_mte(ctxt)) {
 		write_sysreg_el1(ctxt_sys_reg(ctxt, TFSR_EL1), SYS_TFSR);

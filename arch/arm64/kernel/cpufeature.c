@@ -1029,7 +1029,7 @@ static void init_cpu_ftr_reg(u32 sys_reg, u64 new)
 extern const struct arm64_cpu_capabilities arm64_errata[];
 static const struct arm64_cpu_capabilities arm64_features[];
 
-static void __init
+void __init
 init_cpucap_indirect_list_from_array(const struct arm64_cpu_capabilities *caps)
 {
 	for (; caps->matches; caps++) {
@@ -1541,8 +1541,8 @@ has_always(const struct arm64_cpu_capabilities *entry, int scope)
 	return true;
 }
 
-static bool
-feature_matches(u64 reg, const struct arm64_cpu_capabilities *entry)
+bool
+cpufeature_matches(u64 reg, const struct arm64_cpu_capabilities *entry)
 {
 	int val, min, max;
 	u64 tmp;
@@ -1595,14 +1595,14 @@ has_user_cpuid_feature(const struct arm64_cpu_capabilities *entry, int scope)
 	if (!mask)
 		return false;
 
-	return feature_matches(val, entry);
+	return cpufeature_matches(val, entry);
 }
 
 static bool
 has_cpuid_feature(const struct arm64_cpu_capabilities *entry, int scope)
 {
 	u64 val = read_scoped_sysreg(entry, scope);
-	return feature_matches(val, entry);
+	return cpufeature_matches(val, entry);
 }
 
 const struct cpumask *system_32bit_el0_cpumask(void)
@@ -3144,10 +3144,38 @@ static void update_cpu_capabilities(u16 scope_mask)
 
 	scope_mask &= ARM64_CPUCAP_SCOPE_MASK;
 	for (i = 0; i < ARM64_NCAPS; i++) {
+		bool matches;
+
 		caps = cpucap_ptrs[i];
-		if (!caps || !(caps->type & scope_mask) ||
-		    cpus_have_cap(caps->capability) ||
-		    !caps->matches(caps, cpucap_default_scope(caps)))
+		if (!caps || !(caps->type & scope_mask))
+			continue;
+
+		if (!(scope_mask & SCOPE_LOCAL_CPU) && cpus_have_cap(caps->capability))
+			continue;
+
+		matches = caps->matches(caps, cpucap_default_scope(caps));
+
+		if (matches == cpus_have_cap(caps->capability))
+			continue;
+
+		if (!matches) {
+			/*
+			 * Cap detected on boot CPU but not this CPU,
+			 * disable it if not optional.
+			 */
+			if (!cpucap_late_cpu_optional(caps)) {
+				__clear_bit(caps->capability, system_cpucaps);
+				pr_info("missing on secondary: %s\n", caps->desc);
+			}
+			continue;
+		}
+
+		if (!(scope_mask & (SCOPE_BOOT_CPU | SCOPE_SYSTEM)) &&
+		    cpucap_late_cpu_permitted(caps))
+			/*
+			 * Cap detected on this CPU but not boot CPU,
+			 * skip it if permitted for late CPUs.
+			 */
 			continue;
 
 		if (caps->desc && !caps->cpus)
@@ -3495,6 +3523,7 @@ void __init setup_boot_cpu_features(void)
 	 * handle the boot CPU.
 	 */
 	init_cpucap_indirect_list();
+	init_cpucap_indirect_list_impdef();
 
 	/*
 	 * Detect broken pseudo-NMI. Must be called _before_ the call to

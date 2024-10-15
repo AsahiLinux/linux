@@ -411,6 +411,9 @@ config KASAN_SHADOW_OFFSET
 config UNWIND_TABLES
 	bool
 
+config ARM64_ACTLR_STATE
+	bool
+
 source "arch/arm64/Kconfig.platforms"
 
 menu "Kernel Features"
@@ -2205,6 +2208,17 @@ config ARM64_DEBUG_PRIORITY_MASKING
 
 	  If unsure, say N
 endif # ARM64_PSEUDO_NMI
+
+config ARM64_MEMORY_MODEL_CONTROL
+	bool "Runtime memory model control"
+	default ARCH_APPLE
+	select ARM64_ACTLR_STATE
+	help
+	  Some ARM64 CPUs support runtime switching of the CPU memory
+	  model, which can be useful to emulate other CPU architectures
+	  which have different memory models. Say Y to enable support
+	  for the PR_SET_MEM_MODEL/PR_GET_MEM_MODEL prctl() calls on
+	  CPUs with this feature.
 
 config RELOCATABLE
 	bool "Build a relocatable kernel image" if EXPERT
