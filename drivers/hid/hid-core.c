@@ -436,7 +436,10 @@ static int hid_parser_global(struct hid_parser *parser, struct hid_item *item)
 
 	case HID_GLOBAL_ITEM_TAG_REPORT_SIZE:
 		parser->global.report_size = item_udata(item);
-		if (parser->global.report_size > 256) {
+		/* Arbitrary maximum. Some Apple devices have 16384 here.
+		 * This * HID_MAX_USAGES must fit in a signed integer.
+		 */
+		if (parser->global.report_size > 16384) {
 			hid_err(parser->device, "invalid report_size %d\n",
 					parser->global.report_size);
 			return -1;
@@ -2263,6 +2266,12 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 		break;
 	case BUS_I2C:
 		bus = "I2C";
+		break;
+	case BUS_SPI:
+		bus = "SPI";
+		break;
+	case BUS_HOST:
+		bus = "HOST";
 		break;
 	case BUS_VIRTUAL:
 		bus = "VIRTUAL";
