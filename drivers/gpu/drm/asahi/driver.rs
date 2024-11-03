@@ -76,6 +76,8 @@ impl drv::Driver for AsahiDriver {
             ioctl::AUTH | ioctl::RENDER_ALLOW, crate::file::File::queue_destroy),
         (ASAHI_SUBMIT,          drm_asahi_submit,
             ioctl::AUTH | ioctl::RENDER_ALLOW, crate::file::File::submit),
+        (ASAHI_GET_TIME,        drm_asahi_get_time,
+            ioctl::AUTH | ioctl::RENDER_ALLOW, crate::file::File::get_time),
     }
 }
 

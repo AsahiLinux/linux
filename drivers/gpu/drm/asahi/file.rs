@@ -235,7 +235,7 @@ impl File {
             unstable_uabi_version: uapi::DRM_ASAHI_UNSTABLE_UABI_VERSION,
             pad0: 0,
 
-            feat_compat: gpu.get_cfg().gpu_feat_compat,
+            feat_compat: gpu.get_cfg().gpu_feat_compat | hw::feat::compat::GETTIME,
             feat_incompat: gpu.get_cfg().gpu_feat_incompat,
 
             gpu_generation: gpu.get_dyncfg().id.gpu_gen as u32,
@@ -924,6 +924,32 @@ impl File {
             }
             Ok(_) => Ok(0),
         }
+    }
+
+    /// IOCTL: get_time: Get the current GPU timer value.
+    pub(crate) fn get_time(
+        _device: &AsahiDevice,
+        data: &mut uapi::drm_asahi_get_time,
+        _file: &DrmFile,
+    ) -> Result<u32> {
+        if data.extensions != 0 || data.flags != 0 {
+            cls_pr_debug!(Errors, "get_time: Unexpected extensions or flags\n");
+            return Err(EINVAL);
+        }
+
+        let gputime: u64;
+
+        // SAFETY: Assembly only loads the timer
+        unsafe {
+            core::arch::asm!(
+                "mrs {x}, CNTPCT_EL0",
+                x = out(reg) gputime
+            );
+        }
+
+        data.gpu_timestamp = gputime;
+
+        Ok(0)
     }
 }
 
