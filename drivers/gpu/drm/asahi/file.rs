@@ -519,7 +519,7 @@ impl File {
 
         match data.op {
             uapi::drm_asahi_bind_op_ASAHI_BIND_OP_BIND => Self::do_gem_bind(device, data, file),
-            uapi::drm_asahi_bind_op_ASAHI_BIND_OP_UNBIND => Err(ENOTSUPP),
+            uapi::drm_asahi_bind_op_ASAHI_BIND_OP_UNBIND => Self::do_gem_unbind(device, data, file),
             uapi::drm_asahi_bind_op_ASAHI_BIND_OP_UNBIND_ALL => {
                 Self::do_gem_unbind_all(device, data, file)
             }
@@ -605,6 +605,66 @@ impl File {
         }
 
         vm.bind_object(&bo.gem, data.addr, data.range, data.offset, prot)?;
+
+        Ok(0)
+    }
+
+    pub(crate) fn do_gem_unbind(
+        _device: &AsahiDevice,
+        data: &mut uapi::drm_asahi_gem_bind,
+        file: &DrmFile,
+    ) -> Result<u32> {
+        if data.offset != 0 || data.flags != 0 || data.handle != 0 {
+            cls_pr_debug!(Errors, "gem_unbind: offset/flags/handle not zero\n");
+            return Err(EINVAL);
+        }
+
+        if (data.addr | data.range) as usize & mmu::UAT_PGMSK != 0 {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Addr/range/offset not page aligned: {:#x} {:#x}\n",
+                data.addr,
+                data.range
+            );
+            return Err(EINVAL); // Must be page aligned
+        }
+
+        let start = data.addr;
+        let end = data.addr.checked_add(data.range).ok_or(EINVAL)?;
+        let range = start..end;
+
+        if !VM_USER_RANGE.is_superset(range.clone()) {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Invalid unmap range {:#x}..{:#x} (not contained in user range)\n",
+                start,
+                end
+            );
+            return Err(EINVAL); // Invalid map range
+        }
+
+        let guard = file
+            .inner()
+            .vms()
+            .get(data.vm_id.try_into()?)
+            .ok_or(ENOENT)?;
+
+        // Clone it immediately so we aren't holding the XArray lock
+        let vm = guard.borrow().vm.clone();
+        let kernel_range = guard.borrow().kernel_range.clone();
+        core::mem::drop(guard);
+
+        if kernel_range.overlaps(range.clone()) {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind: Invalid unmap range {:#x}..{:#x} (intrudes in kernel range)\n",
+                start,
+                end
+            );
+            return Err(EINVAL);
+        }
+
+        vm.unmap_range(range.start, range.range())?;
 
         Ok(0)
     }
