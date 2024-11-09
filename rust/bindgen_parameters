@@ -12,6 +12,9 @@
 
 # Packed type cannot transitively contain a `#[repr(align)]` type.
 --opaque-type alt_instr
+--opaque-type snd_codec_options
+--opaque-type snd_codec
+--opaque-type snd_compr_params
 --opaque-type x86_msi_data
 --opaque-type x86_msi_addr_lo
 
