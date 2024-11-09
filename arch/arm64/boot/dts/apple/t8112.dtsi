@@ -1334,6 +1334,68 @@
 				     <AIC_IRQ 307 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		aop_mbox: mbox@24a408000 {
+			compatible = "apple,t8112-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x4a408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 318 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 319 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 320 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			status = "disabled";
+		};
+
+		aop_dart: iommu@24a808000 {
+			compatible = "apple,t8112-dart", "apple,t8110-dart";
+			reg = <0x2 0x4a808000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 338 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		aop_admac: dma-controller@24a980000 {
+			compatible = "apple,t8112-admac", "apple,admac";
+			reg = <0x2 0x4a980000 0x0 0x34000>;
+			#dma-cells = <1>;
+			dma-channels = <16>;
+			interrupts-extended = <0>,
+					      <0>,
+					      <&aic AIC_IRQ 359 IRQ_TYPE_LEVEL_HIGH>,
+					      <0>;
+			iommus = <&aop_dart 10>;
+			status = "disabled";
+		};
+
+		aop: aop@24ac00000 {
+			compatible = "apple,t8112-aop";
+			reg = <0x2 0x4ac00000 0x0 0x1e0000>,
+			      <0x2 0x4a400000 0x0 0x6c000>;
+			mboxes = <&aop_mbox>;
+			mbox-names = "mbox";
+			iommus = <&aop_dart 0>;
+
+			status = "disabled";
+
+			aop_audio: audio {
+				compatible = "apple,t8112-aop-audio", "apple,aop-audio";
+				dmas = <&aop_admac 1>;
+				dma-names = "dma";
+			};
+
+			aop_als: als {
+				compatible = "apple,t8112-aop-als", "apple,aop-als";
+				// intentionally empty
+			};
+
+			las {
+				compatible = "apple,t8112-aop-las", "apple,aop-las";
+			};
+		};
+
 		mtp: mtp@24e400000 {
 			compatible = "apple,t8112-mtp", "apple,t8112-rtk-helper-asc4", "apple,mtp", "apple,rtk-helper-asc4";
 			reg = <0x2 0x4e400000 0x0 0x4000>,
