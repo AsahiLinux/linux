@@ -90,6 +90,13 @@ impl<Ctx: DeviceContext> Device<Ctx> {
         }
     }
 
+    /// Returns the driver_data pointer.
+    pub fn get_drvdata<T>(&self) -> *mut T {
+        // SAFETY: dev_get_drvdata returns a field of the device,
+        //   pointer to which is valid by type invariant
+        unsafe { bindings::dev_get_drvdata(self.as_raw()) as *mut T }
+    }
+
     /// Convert a raw C `struct device` pointer to a `&'a Device`.
     ///
     /// # Safety

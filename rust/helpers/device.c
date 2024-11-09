@@ -2,6 +2,11 @@
 
 #include <linux/device.h>
 
+void *rust_helper_dev_get_drvdata(struct device *dev)
+{
+	return dev_get_drvdata(dev);
+}
+
 int rust_helper_devm_add_action(struct device *dev,
 				void (*action)(void *),
 				void *data)
