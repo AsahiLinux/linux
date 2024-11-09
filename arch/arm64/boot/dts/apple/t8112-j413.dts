@@ -168,6 +168,11 @@
 	status = "okay";
 };
 
+&aop_audio {
+	apple,chassis-name = "J413";
+	apple,machine-kind = "MacBook Air";
+};
+
 / {
 	sound {
 		compatible = "apple,j413-macaudio", "apple,macaudio";

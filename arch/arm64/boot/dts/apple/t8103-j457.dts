@@ -97,6 +97,11 @@
 	};
 };
 
+&aop_audio {
+	apple,chassis-name = "J457";
+	apple,machine-kind = "iMac";
+};
+
 / {
 	sound {
 		compatible = "apple,j457-macaudio", "apple,macaudio";
