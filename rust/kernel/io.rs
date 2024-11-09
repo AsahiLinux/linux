@@ -270,6 +270,27 @@ impl<const SIZE: usize> Io<SIZE> {
         Ok(())
     }
 
+    /// Copy memory block to i/o memory from the specified buffer.
+    pub fn try_memcpy_toio(&self, offset: usize, buffer: &[u8]) -> Result {
+        if buffer.len() == 0 || !Self::length_valid(offset, buffer.len(), self.maxsize()) {
+            return Err(EINVAL);
+        }
+        // no need to check since offset + buffer.len() - 1 is valid
+        let addr = self.io_addr::<crate::ffi::c_char>(offset)?;
+
+        // SAFETY:
+        //   - The type invariants guarantee that `adr` is a valid pointer.
+        //   - The bounds of `buffer` are checked with a call to `length_valid`.
+        unsafe {
+            bindings::memcpy_toio(
+                addr as *mut _,
+                buffer.as_ptr() as *const _,
+                buffer.len() as _,
+            )
+        };
+        Ok(())
+    }
+
     define_read!(read8, try_read8, readb -> u8);
     define_read!(read16, try_read16, readw -> u16);
     define_read!(read32, try_read32, readl -> u32);
