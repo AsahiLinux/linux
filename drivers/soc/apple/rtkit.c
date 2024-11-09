@@ -639,6 +639,12 @@ int apple_rtkit_poll(struct apple_rtkit *rtk)
 }
 EXPORT_SYMBOL_GPL(apple_rtkit_poll);
 
+bool apple_rtkit_has_endpoint(struct apple_rtkit *rtk, u8 ep)
+{
+	return test_bit(ep, rtk->endpoints);
+}
+EXPORT_SYMBOL_GPL(apple_rtkit_has_endpoint);
+
 int apple_rtkit_start_ep(struct apple_rtkit *rtk, u8 endpoint)
 {
 	u64 msg;
