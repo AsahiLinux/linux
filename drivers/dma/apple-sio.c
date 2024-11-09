@@ -16,6 +16,7 @@
 #include <linux/of_device.h>
 #include <linux/of_dma.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/soc/apple/rtkit.h>
 
 #include "dmaengine.h"
@@ -809,10 +810,19 @@ static int sio_probe(struct platform_device *pdev)
 	if (IS_ERR(sio->base))
 		return PTR_ERR(sio->base);
 
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	err = devm_pm_runtime_enable(&pdev->dev);
+	if (err < 0)
+		return dev_err_probe(&pdev->dev, err,
+				     "pm_runtime_enable failed: %d\n", err);
+
 	sio->rtk = devm_apple_rtkit_init(&pdev->dev, sio, NULL, 0, &sio_rtkit_ops);
-	if (IS_ERR(sio->rtk))
-		return dev_err_probe(&pdev->dev, PTR_ERR(sio->rtk),
-				     "couldn't initialize rtkit\n");
+	if (IS_ERR(sio->rtk)) {
+		err = PTR_ERR(sio->rtk);
+		dev_err(&pdev->dev, "couldn't initialize rtkit\n");
+		goto rpm_put;
+	}
 	for (i = 1; i < SIO_NTAGS; i++)
 		init_completion(&sio->tags.completions[i]);
 
@@ -881,7 +891,10 @@ static int sio_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, err, "failed to register with OF\n");
 	}
 
-	return 0;
+rpm_put:
+	pm_runtime_put(&pdev->dev);
+
+	return err;
 }
 
 static void sio_remove(struct platform_device *pdev)
@@ -898,10 +911,26 @@ static const struct of_device_id sio_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sio_of_match);
 
+static __maybe_unused int sio_suspend(struct device *dev)
+{
+	/*
+	 * TODO: SIO coproc sleep state
+	 */
+	return 0;
+}
+
+static __maybe_unused int sio_resume(struct device *dev)
+{
+	return 0;
+}
+
+static DEFINE_RUNTIME_DEV_PM_OPS(sio_pm_ops, sio_suspend, sio_resume, NULL);
+
 static struct platform_driver apple_sio_driver = {
 	.driver = {
 		.name = "apple-sio",
 		.of_match_table = sio_of_match,
+		.pm             = pm_ptr(&sio_pm_ops),
 	},
 	.probe = sio_probe,
 	.remove = sio_remove,
