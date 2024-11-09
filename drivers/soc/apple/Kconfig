@@ -46,6 +46,18 @@ config RUST_APPLE_RTKIT
 	depends on RUST
 	depends on APPLE_RTKIT
 
+config APPLE_AOP
+	tristate "Apple \"Always-on\" Processor"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on RUST
+	select RUST_APPLE_RTKIT
+	default m if ARCH_APPLE
+	help
+	  A co-processor persent on certain Apple SoCs controlling accelerometers,
+	  gyros, ambient light sensors and microphones. Is not actually always on.
+
+	  Say 'y' here if you have an Apple laptop.
+
 endmenu
 
 endif
