@@ -331,6 +331,25 @@ impl<'a> Property<'a> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Copy a device-tree property to a slice
+    ///
+    /// Enforces that the length of the property is an exact match of the slice.
+    pub fn copy_to_slice<T: PropertyUnit>(&self, target: &mut [T]) -> Result<()> {
+        if self.len() % T::UNIT_SIZE != 0 {
+            return Err(EINVAL);
+        }
+
+        if self.len() / T::UNIT_SIZE != target.len() {
+            return Err(EINVAL);
+        }
+
+        let val = self.value();
+        for (i, off) in (0..self.len()).step_by(T::UNIT_SIZE).enumerate() {
+            target[i] = T::from_bytes(&val[off..off + T::UNIT_SIZE])?
+        }
+        Ok(())
+    }
 }
 
 /// A trait that represents a value decodable from a property with a fixed unit size.
