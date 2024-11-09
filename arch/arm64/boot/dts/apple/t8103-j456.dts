@@ -116,6 +116,11 @@
 	};
 };
 
+&aop_audio {
+	apple,chassis-name = "J456";
+	apple,machine-kind = "iMac";
+};
+
 / {
 	sound {
 		compatible = "apple,j456-macaudio", "apple,macaudio";

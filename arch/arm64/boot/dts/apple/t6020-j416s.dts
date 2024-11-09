@@ -32,6 +32,11 @@
 	adj-height-mm = <216>;
 };
 
+&aop_audio {
+	apple,chassis-name = "J416";
+	apple,machine-kind = "MacBook Pro";
+};
+
 &sound {
 	compatible = "apple,j416-macaudio", "apple,j316-macaudio", "apple,macaudio";
 	model = "MacBook Pro J416";

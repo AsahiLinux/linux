@@ -233,6 +233,11 @@
 	status = "okay";
 };
 
+&aop_audio {
+	apple,chassis-name = "J293";
+	apple,machine-kind = "MacBook Pro";
+};
+
 / {
 	sound {
 		compatible = "apple,j293-macaudio", "apple,macaudio";

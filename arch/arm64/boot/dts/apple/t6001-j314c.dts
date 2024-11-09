@@ -32,6 +32,11 @@
 	adj-height-mm = <189>;
 };
 
+&aop_audio {
+	apple,chassis-name = "J314";
+	apple,machine-kind = "MacBook Pro";
+};
+
 &sound {
 	compatible = "apple,j314-macaudio", "apple,macaudio";
 	model = "MacBook Pro J314";
