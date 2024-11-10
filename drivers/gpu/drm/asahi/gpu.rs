@@ -943,13 +943,7 @@ impl GpuManager::ver {
     fn get_fault_info(&self) -> Option<regs::FaultInfo> {
         let data = self.dev.data();
 
-        let res = match data.resources() {
-            Some(res) => res,
-            None => {
-                dev_err!(self.dev, "  Failed to acquire resources\n");
-                return None;
-            }
-        };
+        let res = &data.resources;
 
         let info = res.get_fault_info(self.cfg);
         if info.is_some() {
