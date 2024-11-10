@@ -1368,30 +1368,20 @@ impl Uat {
         size: usize,
         cached: bool,
     ) -> Result<UatRegion> {
-        let rdev = dev.raw_device();
-
         let mut res = core::mem::MaybeUninit::<bindings::resource>::uninit();
 
         let res = unsafe {
-            let idx = bindings::of_property_match_string(
-                (*rdev).of_node,
-                c_str!("memory-region-names").as_char_ptr(),
-                name.as_char_ptr(),
+            let dev_node = dev.of_node().ok_or(EINVAL)?;
+            let node = dev_node.parse_phandle_by_name(
+                c_str!("memory-region"),
+                c_str!("memory-region-names"),
+                name,
             );
-            to_result(idx)?;
-
-            let np = bindings::of_parse_phandle(
-                (*rdev).of_node,
-                c_str!("memory-region").as_char_ptr(),
-                idx,
-            );
-            if np.is_null() {
+            if node.is_none() {
                 dev_err!(dev, "Missing {} region\n", name);
                 return Err(EINVAL);
             }
-            let ret = bindings::of_address_to_resource(np, 0, res.as_mut_ptr());
-            #[cfg(CONFIG_OF_DYNAMIC)]
-            bindings::of_node_put(np);
+            let ret = bindings::of_address_to_resource(node.unwrap().as_raw(), 0, res.as_mut_ptr());
 
             if ret < 0 {
                 dev_err!(dev, "Failed to get {} region\n", name);
