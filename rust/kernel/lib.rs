@@ -15,6 +15,15 @@
 //
 // Please see https://github.com/Rust-for-Linux/linux/issues/2 for details on
 // the unstable features in use.
+
+#![feature(associated_type_defaults)]
+#![feature(cfg_version)]
+#![feature(duration_constants)]
+#![feature(ptr_sub_ptr)]
+#![feature(sized_type_properties)]
+#![feature(slice_range)]
+#![cfg_attr(CONFIG_RUSTC_HAS_COERCE_POINTEE, feature(pin_coerce_unsized_trait))]
+
 //
 // Stable since Rust 1.79.0.
 #![feature(inline_const)]
