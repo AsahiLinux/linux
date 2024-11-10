@@ -435,6 +435,38 @@
 		phandle = <&display>;
 	};
 
+	sep_dart: iommu@394ac0000 {
+		compatible = "apple,t6020-dart", "apple,t8110-dart";
+		reg = <0x3 0x94ac0000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 582 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
+	sep: sep@396400000 {
+		compatible = "apple,sep";
+		reg = <0x3 0x96400000 0x0 0x6C000>;
+		mboxes = <&sep_mbox>;
+		mbox-names = "mbox";
+		iommus = <&sep_dart 0>;
+		power-domains = <&ps_sep>;
+		status = "disabled";
+	};
+
+	sep_mbox: mbox@396408000 {
+		compatible = "apple,t6020-asc-mailbox", "apple,asc-mailbox-v4";
+		reg = <0x3 0x96408000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 576 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 577 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 578 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 579 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "send-empty", "send-not-empty",
+			"recv-empty", "recv-not-empty";
+		#mbox-cells = <0>;
+	};
+
 	fpwm0: pwm@39b030000 {
 		compatible = "apple,t6020-fpwm", "apple,s5l-fpwm";
 		reg = <0x3 0x9b030000 0x0 0x4000>;

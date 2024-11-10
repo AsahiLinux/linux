@@ -250,6 +250,37 @@
 		power-domains = <&ps_disp0_cpu0>;
 	};
 
+	sep_dart: iommu@3952c0000 {
+		compatible = "apple,t6000-dart";
+		reg = <0x3 0x952c0000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 551 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	sep: sep@396400000 {
+		compatible = "apple,sep";
+		reg = <0x3 0x96400000 0x0 0x6C000>;
+		mboxes = <&sep_mbox>;
+		mbox-names = "mbox";
+		iommus = <&sep_dart 0>;
+		power-domains = <&ps_sep>;
+		status = "disabled";
+	};
+
+	sep_mbox: mbox@396408000 {
+		compatible = "apple,t6000-asc-mailbox", "apple,asc-mailbox-v4";
+		reg = <0x3 0x96408000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 545 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 546 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 547 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ 0 548 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "send-empty", "send-not-empty",
+			"recv-empty", "recv-not-empty";
+		#mbox-cells = <0>;
+	};
+
 	dpaudio0: audio-controller@39b500000 {
 		compatible = "apple,t6000-dpaudio", "apple,dpaudio";
 		reg = <0x3 0x9b500000 0x0 0x4000>;

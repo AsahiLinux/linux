@@ -1297,6 +1297,36 @@
 				     <AIC_IRQ 397 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		sep_dart: iommu@2412c0000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x412c0000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 259 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sep: sep@242400000 {
+			compatible = "apple,sep";
+			reg = <0x2 0x42400000 0x0 0x6C000>;
+			mboxes = <&sep_mbox>;
+			mbox-names = "mbox";
+			iommus = <&sep_dart 0>;
+			status = "disabled";
+		};
+
+		sep_mbox: mbox@242408000 {
+			compatible = "apple,t8103-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x42408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 253 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 254 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 255 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 256 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
 		pinctrl_aop: pinctrl@24a820000 {
 			compatible = "apple,t8103-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x4a820000 0x0 0x4000>;
