@@ -3,8 +3,7 @@
 //! Top-level GPU driver implementation.
 
 use kernel::{
-    c_str, device, drm, drm::drv, drm::ioctl, error::code, error::Result, of, platform, prelude::*,
-    sync::Arc,
+    c_str, drm, drm::drv, drm::ioctl, error::Result, of, platform, prelude::*, sync::Arc,
 };
 
 use crate::{debug, file, gem, gpu, hw, regs};
@@ -12,7 +11,32 @@ use crate::{debug, file, gem, gpu, hw, regs};
 use kernel::macros::vtable;
 use kernel::types::ARef;
 
-/// Driver metadata
+/// Convenience type alias for the `device::Data` type for this driver.
+// type DeviceData = device::Data<drv::Registration<AsahiDriver>, regs::Resources, AsahiData>;
+
+/// Holds a reference to the top-level `GpuManager` object.
+// pub(crate) struct AsahiData {
+//     pub(crate) dev: ARef<device::Device>,
+//     pub(crate) gpu: Arc<dyn gpu::GpuManager>,
+// }
+
+#[pin_data]
+pub(crate) struct AsahiData {
+    #[pin]
+    pub(crate) gpu: Arc<dyn gpu::GpuManager>,
+    pub(crate) pdev: platform::Device,
+    pub(crate) resources: regs::Resources,
+}
+
+pub(crate) struct AsahiDriver {
+    _reg: drm::drv::Registration<Self>,
+}
+
+/// Convenience type alias for the DRM device type for this driver.
+pub(crate) type AsahiDevice = kernel::drm::device::Device<AsahiDriver>;
+pub(crate) type AsahiDevRef = ARef<AsahiDevice>;
+
+/// DRM Driver metadata
 const INFO: drv::DriverInfo = drv::DriverInfo {
     major: 0,
     minor: 0,
@@ -22,29 +46,11 @@ const INFO: drv::DriverInfo = drv::DriverInfo {
     date: c_str!("20220831"),
 };
 
-/// Device data for the driver registration.
-///
-/// Holds a reference to the top-level `GpuManager` object.
-pub(crate) struct AsahiData {
-    pub(crate) dev: ARef<device::Device>,
-    pub(crate) gpu: Arc<dyn gpu::GpuManager>,
-}
-
-/// Convenience type alias for the `device::Data` type for this driver.
-type DeviceData = device::Data<drv::Registration<AsahiDriver>, regs::Resources, AsahiData>;
-
-/// Empty struct representing this driver.
-pub(crate) struct AsahiDriver;
-
-/// Convenience type alias for the DRM device type for this driver.
-pub(crate) type AsahiDevice = kernel::drm::device::Device<AsahiDriver>;
-pub(crate) type AsahiDevRef = ARef<AsahiDevice>;
-
 /// DRM Driver implementation for `AsahiDriver`.
 #[vtable]
 impl drv::Driver for AsahiDriver {
     /// Our `DeviceData` type, reference-counted
-    type Data = Arc<DeviceData>;
+    type Data = Arc<AsahiData>;
     /// Our `File` type.
     type File = file::File;
     /// Our `Object` type.
@@ -81,40 +87,61 @@ impl drv::Driver for AsahiDriver {
     }
 }
 
-// OF Device ID table.
-kernel::define_of_id_table! {ASAHI_ID_TABLE, &'static hw::HwConfig, [
-    (of::DeviceId::Compatible(b"apple,agx-t8103"), Some(&hw::t8103::HWCONFIG)),
-    (of::DeviceId::Compatible(b"apple,agx-t8112"), Some(&hw::t8112::HWCONFIG)),
-    (of::DeviceId::Compatible(b"apple,agx-t6000"), Some(&hw::t600x::HWCONFIG_T6000)),
-    (of::DeviceId::Compatible(b"apple,agx-t6001"), Some(&hw::t600x::HWCONFIG_T6001)),
-    (of::DeviceId::Compatible(b"apple,agx-t6002"), Some(&hw::t600x::HWCONFIG_T6002)),
-    (of::DeviceId::Compatible(b"apple,agx-t6020"), Some(&hw::t602x::HWCONFIG_T6020)),
-    (of::DeviceId::Compatible(b"apple,agx-t6021"), Some(&hw::t602x::HWCONFIG_T6021)),
-    (of::DeviceId::Compatible(b"apple,agx-t6022"), Some(&hw::t602x::HWCONFIG_T6022)),
-]}
+// OF Device ID table.s
+kernel::of_device_table!(
+    OF_TABLE,
+    MODULE_OF_TABLE,
+    <AsahiDriver as platform::Driver>::IdInfo,
+    [
+        (
+            of::DeviceId::new(c_str!("apple,agx-t8103")),
+            &hw::t8103::HWCONFIG
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t8112")),
+            &hw::t8112::HWCONFIG
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t6000")),
+            &hw::t600x::HWCONFIG_T6000
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t6001")),
+            &hw::t600x::HWCONFIG_T6001
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t6002")),
+            &hw::t600x::HWCONFIG_T6002
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t6020")),
+            &hw::t602x::HWCONFIG_T6020
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t6021")),
+            &hw::t602x::HWCONFIG_T6021
+        ),
+        (
+            of::DeviceId::new(c_str!("apple,agx-t6022")),
+            &hw::t602x::HWCONFIG_T6022
+        ),
+    ]
+);
 
 /// Platform Driver implementation for `AsahiDriver`.
 impl platform::Driver for AsahiDriver {
-    /// Our `DeviceData` type, reference-counted
-    type Data = Arc<DeviceData>;
-    /// Data associated with each hardware ID.
     type IdInfo = &'static hw::HwConfig;
-
-    // Assign the above OF ID table to this driver.
-    kernel::driver_of_id_table!(ASAHI_ID_TABLE);
+    const OF_ID_TABLE: Option<of::IdTable<Self::IdInfo>> = Some(&OF_TABLE);
 
     /// Device probe function.
-    fn probe(
-        pdev: &mut platform::Device,
-        id_info: Option<&Self::IdInfo>,
-    ) -> Result<Arc<DeviceData>> {
+    fn probe(pdev: &mut platform::Device, info: Option<&Self::IdInfo>) -> Result<Pin<KBox<Self>>> {
         debug::update_debug_flags();
 
-        let dev = device::Device::from_dev(pdev);
+        let dev = pdev.clone();
 
-        dev_info!(dev, "Probing...\n");
+        dev_info!(pdev.as_ref(), "Probing...\n");
 
-        let cfg = id_info.ok_or(ENODEV)?;
+        let cfg = info.ok_or(ENODEV)?;
 
         pdev.set_dma_masks((1 << cfg.uat_oas) - 1)?;
 
@@ -126,25 +153,26 @@ impl platform::Driver for AsahiDriver {
         // Start the coprocessor CPU, so UAT can initialize the handoff
         res.start_cpu()?;
 
-        let node = dev.of_node().ok_or(EIO)?;
-        let compat: Vec<u32> = node.get_property(c_str!("apple,firmware-compat"))?;
+        let node = pdev.as_ref().of_node().ok_or(EIO)?;
+        let compat: KVec<u32> = node.get_property(c_str!("apple,firmware-compat"))?;
 
-        let reg = drm::drv::Registration::<AsahiDriver>::new(&dev)?;
+        let drm = drm::device::Device::<AsahiDriver>::new(dev.as_ref())?;
+
         let gpu = match (cfg.gpu_gen, cfg.gpu_variant, compat.as_slice()) {
             (hw::GpuGen::G13, _, &[12, 3, 0]) => {
-                gpu::GpuManagerG13V12_3::new(reg.device(), &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG13V12_3::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G14, hw::GpuVariant::G, &[12, 4, 0]) => {
-                gpu::GpuManagerG14V12_4::new(reg.device(), &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG14V12_4::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G13, _, &[13, 5, 0]) => {
-                gpu::GpuManagerG13V13_5::new(reg.device(), &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG13V13_5::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G14, hw::GpuVariant::G, &[13, 5, 0]) => {
-                gpu::GpuManagerG14V13_5::new(reg.device(), &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG14V13_5::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G14, _, &[13, 5, 0]) => {
-                gpu::GpuManagerG14XV13_5::new(reg.device(), &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG14XV13_5::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             _ => {
                 dev_info!(
@@ -158,24 +186,19 @@ impl platform::Driver for AsahiDriver {
             }
         };
 
-        let data =
-            kernel::new_device_data!(reg, res, AsahiData { dev, gpu }, "Asahi::Registrations")?;
-
-        let data: Arc<DeviceData> = data.into();
+        let data = Arc::pin_init(
+            try_pin_init!(AsahiData {
+                gpu,
+                pdev: pdev.clone(),
+                resources: res,
+            }),
+            GFP_KERNEL,
+        )?;
 
         data.gpu.init()?;
 
-        kernel::drm_device_register!(
-            // TODO: Expose an API to get a pinned reference here
-            unsafe { Pin::new_unchecked(&mut *data.registrations().ok_or(ENXIO)?) },
-            data.clone(),
-            0
-        )?;
+        let reg = drm::drv::Registration::new(drm, data.clone(), 0)?;
 
-        dev_info!(data.dev, "Probed!\n");
-        Ok(data)
+        Ok(KBox::new(Self { _reg: reg }, GFP_KERNEL)?.into())
     }
 }
-
-// Export the OF ID table as a module ID table, to make modpost/autoloading work.
-kernel::module_of_id_table!(MOD_TABLE, ASAHI_ID_TABLE);
