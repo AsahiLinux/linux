@@ -58,6 +58,18 @@ config APPLE_AOP
 
 	  Say 'y' here if you have an Apple laptop.
 
+config APPLE_SEP
+	tristate "Apple Secure Element Processor"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on RUST
+	select RUST_APPLE_RTKIT
+	default y if ARCH_APPLE
+	help
+	  A security co-processor persent on Apple SoCs, controlling transparent
+	  disk encryption, secure boot, HDCP, biometric auth and probably more.
+
+	  Say 'y' here if you have an Apple SoC.
+
 endmenu
 
 endif
