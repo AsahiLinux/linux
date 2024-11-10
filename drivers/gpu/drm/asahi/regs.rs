@@ -156,7 +156,7 @@ impl Resources {
 
         Ok(Resources {
             // SAFETY: This device does DMA via the UAT IOMMU.
-            dev: device::Device::from_dev(pdev),
+            dev: pdev.get_device(),
             asc: asc_res,
             sgx: sgx_res,
         })
