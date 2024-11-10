@@ -108,8 +108,8 @@ macro_rules! mod_pr_debug (
 /// dev_info!() if debug is enabled for the calling module
 #[macro_export]
 macro_rules! mod_dev_dbg (
-    ($($arg:tt)*) => (
-        $crate::debug! { ::kernel::dev_info! ( $($arg)* ); }
+    ($dev:expr, $($arg:tt)*) => (
+        $crate::debug! { ::kernel::dev_info! ( $dev.as_ref(), $($arg)* ); }
     )
 );
 
@@ -126,9 +126,9 @@ macro_rules! cls_pr_debug (
 /// dev_info!() if debug is enabled for a specific module
 #[macro_export]
 macro_rules! cls_dev_dbg (
-    ($cls:ident, $($arg:tt)*) => (
+    ($cls:ident, $dev:expr, $($arg:tt)*) => (
         if $crate::debug::debug_enabled($crate::debug::DebugFlags::$cls) {
-            ::kernel::dev_info! ( $($arg)* );
+            ::kernel::dev_info! ( $dev.as_ref(), $($arg)* );
         }
     )
 );
