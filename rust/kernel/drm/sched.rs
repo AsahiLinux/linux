@@ -171,7 +171,7 @@ pub struct ArmedJob<'a, T: JobImpl>(KBox<Job<T>>, PhantomData<&'a T>);
 
 impl<'a, T: JobImpl> ArmedJob<'a, T> {
     /// Returns the job fences
-    pub fn fences(&self) -> JobFences<'_> {
+    pub fn fences(&mut self) -> JobFences<'_> {
         // SAFETY: s_fence is always a valid drm_sched_fence pointer
         JobFences(unsafe { &mut *self.0.job.s_fence })
     }
