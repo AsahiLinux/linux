@@ -1172,32 +1172,22 @@ impl GpuManager for GpuManager::ver {
 
         let mut guard = self.alloc.lock();
         let (garbage_count, garbage_bytes) = guard.private.garbage();
-        if garbage_bytes > MAX_FW_ALLOC_GARBAGE {
+        let (ro_garbage_count, ro_garbage_bytes) = guard.gpu_ro.garbage();
+
+        if garbage_bytes > MAX_FW_ALLOC_GARBAGE || ro_garbage_bytes > MAX_FW_ALLOC_GARBAGE {
             mod_dev_dbg!(
                 self.dev,
-                "Collecting kalloc/private garbage ({} objects, {} bytes)\n",
+                "Collecting kalloc garbage (private: {} objects, {} bytes, gpuro: {} objects, {} bytes)\n",
                 garbage_count,
-                garbage_bytes
+                garbage_bytes,
+                ro_garbage_count,
+                ro_garbage_bytes
             );
             if self.flush_fw_cache().is_err() {
                 dev_err!(self.dev.as_ref(), "Failed to flush FW cache\n");
             } else {
                 guard.private.collect_garbage(garbage_count);
-            }
-        }
-
-        let (garbage_count, garbage_bytes) = guard.gpu_ro.garbage();
-        if garbage_bytes > MAX_FW_ALLOC_GARBAGE {
-            mod_dev_dbg!(
-                self.dev,
-                "Collecting kalloc/gpuro garbage ({} objects, {} bytes)\n",
-                garbage_count,
-                garbage_bytes
-            );
-            if self.flush_fw_cache().is_err() {
-                dev_err!(self.dev.as_ref(), "Failed to flush FW cache\n");
-            } else {
-                guard.gpu_ro.collect_garbage(garbage_count);
+                guard.gpu_ro.collect_garbage(ro_garbage_count);
             }
         }
 
