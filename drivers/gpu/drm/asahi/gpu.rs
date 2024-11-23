@@ -94,7 +94,11 @@ const HALT_ENTER_TIMEOUT: Duration = Duration::from_millis(100);
 /// Maximum amount of firmware-private memory garbage allowed before collection.
 /// Collection flushes the FW cache and is expensive, so this needs to be
 /// reasonably high.
-const MAX_FW_ALLOC_GARBAGE: usize = 16 * 1024 * 1024;
+const MAX_FW_ALLOC_GARBAGE_BYTES: usize = 16 * 1024 * 1024;
+/// Maximum count of firmware-private memory garbage objects allowed before collection.
+/// This works out to 16K of memory in the garbage list (8 bytes each), which keeps us
+/// within the safe range for kmalloc (on 16K page systems).
+const MAX_FW_ALLOC_GARBAGE_OBJECTS: usize = 2048;
 
 /// Global allocators used for kernel-half structures.
 pub(crate) struct KernelAllocators {
@@ -1174,7 +1178,11 @@ impl GpuManager for GpuManager::ver {
         let (garbage_count, garbage_bytes) = guard.private.garbage();
         let (ro_garbage_count, ro_garbage_bytes) = guard.gpu_ro.garbage();
 
-        if garbage_bytes > MAX_FW_ALLOC_GARBAGE || ro_garbage_bytes > MAX_FW_ALLOC_GARBAGE {
+        if garbage_bytes > MAX_FW_ALLOC_GARBAGE_BYTES
+            || ro_garbage_bytes > MAX_FW_ALLOC_GARBAGE_BYTES
+            || garbage_count > MAX_FW_ALLOC_GARBAGE_OBJECTS
+            || ro_garbage_count > MAX_FW_ALLOC_GARBAGE_OBJECTS
+        {
             mod_dev_dbg!(
                 self.dev,
                 "Collecting kalloc garbage (private: {} objects, {} bytes, gpuro: {} objects, {} bytes)\n",
