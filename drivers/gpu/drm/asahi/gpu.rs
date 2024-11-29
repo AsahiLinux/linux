@@ -18,7 +18,6 @@ use core::time::Duration;
 
 use kernel::{
     c_str,
-    delay::coarse_sleep,
     error::code::*,
     macros::versions,
     prelude::*,
@@ -269,8 +268,6 @@ pub(crate) trait GpuManager: Send + Sync {
     );
     /// Acknowledge a Buffer grow op.
     fn ack_grow(&self, buffer_slot: u32, vm_slot: u32, counter: u32);
-    /// Wait for the GPU to become idle and power off.
-    fn wait_for_poweroff(&self, timeout: usize) -> Result;
     /// Send a firmware control command (secure cache flush).
     fn fwctl(&self, msg: fw::channels::FwCtlMsg) -> Result;
     /// Get the static GPU configuration for this SoC.
@@ -1451,18 +1448,6 @@ impl GpuManager for GpuManager::ver {
                 dev_err!(self.dev.as_ref(), "Failed to send TVB Grow Ack command\n");
             }
         }
-    }
-
-    fn wait_for_poweroff(&self, timeout: usize) -> Result {
-        self.initdata.runtime_pointers.hwdata_a.with(|raw, _inner| {
-            for _i in 0..timeout {
-                if raw.pwr_status.load(Ordering::Relaxed) == 4 {
-                    return Ok(());
-                }
-                coarse_sleep(Duration::from_millis(1));
-            }
-            Err(ETIMEDOUT)
-        })
     }
 
     fn fwctl(&self, msg: fw::channels::FwCtlMsg) -> Result {
