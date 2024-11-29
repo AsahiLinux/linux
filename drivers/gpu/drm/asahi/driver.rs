@@ -84,6 +84,8 @@ impl drv::Driver for AsahiDriver {
             ioctl::AUTH | ioctl::RENDER_ALLOW, crate::file::File::submit),
         (ASAHI_GET_TIME,        drm_asahi_get_time,
             ioctl::AUTH | ioctl::RENDER_ALLOW, crate::file::File::get_time),
+        (ASAHI_GEM_BIND_OBJECT, drm_asahi_gem_bind_object,
+            ioctl::AUTH | ioctl::RENDER_ALLOW, crate::file::File::gem_bind_object),
     }
 }
 

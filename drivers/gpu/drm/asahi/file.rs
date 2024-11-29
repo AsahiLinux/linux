@@ -160,11 +160,16 @@ impl SyncItem {
     }
 }
 
+pub(crate) enum Object {
+    TimestampBuffer(Arc<mmu::KernelMapping>),
+}
+
 /// State associated with a client.
 pub(crate) struct File {
     id: u64,
     vms: xarray::XArray<KBox<Vm>>,
     queues: xarray::XArray<Arc<Mutex<KBox<dyn queue::Queue>>>>,
+    objects: xarray::XArray<KBox<Object>>,
 }
 
 /// Convenience type alias for our DRM `File` type.
@@ -192,6 +197,7 @@ impl drm::file::DriverFile for File {
                 id,
                 vms: xarray::XArray::new(xarray::flags::ALLOC1),
                 queues: xarray::XArray::new(xarray::flags::ALLOC1),
+                objects: xarray::XArray::new(xarray::flags::ALLOC1),
             },
             GFP_KERNEL,
         )?)
@@ -210,6 +216,12 @@ impl File {
         // SAFETY: Structural pinned projection for queues.
         // We never move out of this field.
         unsafe { self.map_unchecked(|s| &s.queues) }
+    }
+
+    fn objects(self: Pin<&Self>) -> Pin<&xarray::XArray<KBox<Object>>> {
+        // SAFETY: Structural pinned projection for objects.
+        // We never move out of this field.
+        unsafe { self.map_unchecked(|s| &s.objects) }
     }
 
     /// IOCTL: get_param: Get a driver parameter value.
@@ -719,6 +731,141 @@ impl File {
         }
 
         Ok(0)
+    }
+
+    /// IOCTL: gem_bind_object: Map or unmap a GEM object as a special object.
+    pub(crate) fn gem_bind_object(
+        device: &AsahiDevice,
+        data: &mut uapi::drm_asahi_gem_bind_object,
+        file: &DrmFile,
+    ) -> Result<u32> {
+        mod_dev_dbg!(
+            device,
+            "[File {} VM {}]: IOCTL: gem_bind_object op={:?} handle={:#x?} flags={:#x?} {:#x?}:{:#x?} object_handle={:#x?}\n",
+            file.inner().id,
+            data.vm_id,
+            data.op,
+            data.handle,
+            data.flags,
+            data.offset,
+            data.range,
+            data.object_handle
+        );
+
+        if data.extensions != 0 {
+            cls_pr_debug!(Errors, "gem_bind_object: Unexpected extensions\n");
+            return Err(EINVAL);
+        }
+
+        if data.pad != 0 {
+            cls_pr_debug!(Errors, "gem_bind_object: Unexpected pad\n");
+            return Err(EINVAL);
+        }
+
+        if data.vm_id != 0 {
+            cls_pr_debug!(Errors, "gem_bind_object: Unexpected vm_id\n");
+            return Err(EINVAL);
+        }
+
+        match data.op {
+            uapi::drm_asahi_bind_object_op_ASAHI_BIND_OBJECT_OP_BIND => {
+                Self::do_gem_bind_object(device, data, file)
+            }
+            uapi::drm_asahi_bind_object_op_ASAHI_BIND_OBJECT_OP_UNBIND => {
+                Self::do_gem_unbind_object(device, data, file)
+            }
+            _ => {
+                cls_pr_debug!(Errors, "gem_bind_object: Invalid op {}\n", data.op);
+                Err(EINVAL)
+            }
+        }
+    }
+
+    pub(crate) fn do_gem_bind_object(
+        device: &AsahiDevice,
+        data: &mut uapi::drm_asahi_gem_bind_object,
+        file: &DrmFile,
+    ) -> Result<u32> {
+        if (data.range | data.offset) as usize & mmu::UAT_PGMSK != 0 {
+            cls_pr_debug!(
+                Errors,
+                "gem_bind_object: Range/offset not page aligned: {:#x} {:#x}\n",
+                data.range,
+                data.offset
+            );
+            return Err(EINVAL); // Must be page aligned
+        }
+
+        if data.flags != uapi::ASAHI_BIND_OBJECT_USAGE_TIMESTAMPS {
+            cls_pr_debug!(Errors, "gem_bind_object: Invalid flags {:#x}\n", data.flags);
+            return Err(EINVAL);
+        }
+
+        let offset = data.offset.try_into()?;
+        let end_offset = data
+            .offset
+            .checked_add(data.range)
+            .ok_or(EINVAL)?
+            .try_into()?;
+        let bo = gem::lookup_handle(file, data.handle)?;
+
+        let mapping = Arc::new(
+            device
+                .data()
+                .gpu
+                .map_timestamp_buffer(bo, offset..end_offset)?,
+            GFP_KERNEL,
+        )?;
+        let obj = KBox::new(Object::TimestampBuffer(mapping), GFP_KERNEL)?;
+        let handle = file.inner().objects().alloc(obj)? as u64;
+
+        data.object_handle = handle as u32;
+        Ok(0)
+    }
+
+    pub(crate) fn do_gem_unbind_object(
+        _device: &AsahiDevice,
+        data: &mut uapi::drm_asahi_gem_bind_object,
+        file: &DrmFile,
+    ) -> Result<u32> {
+        if data.range != 0 || data.offset != 0 {
+            cls_pr_debug!(
+                Errors,
+                "gem_unbind_object: Range/offset not zero: {:#x} {:#x}\n",
+                data.range,
+                data.offset
+            );
+            return Err(EINVAL);
+        }
+
+        if data.flags != 0 {
+            cls_pr_debug!(
+                Errors,
+                "gem_unbind_object: Invalid flags {:#x}\n",
+                data.flags
+            );
+            return Err(EINVAL);
+        }
+
+        if data.handle != 0 {
+            cls_pr_debug!(
+                Errors,
+                "gem_unbind_object: Invalid handle {}\n",
+                data.handle
+            );
+            return Err(EINVAL);
+        }
+
+        if file
+            .inner()
+            .objects()
+            .remove(data.object_handle as usize)
+            .is_none()
+        {
+            Err(ENOENT)
+        } else {
+            Ok(0)
+        }
     }
 
     /// IOCTL: queue_create: Create a new command submission queue of a given type.
