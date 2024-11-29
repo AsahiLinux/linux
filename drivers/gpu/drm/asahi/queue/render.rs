@@ -311,6 +311,47 @@ impl super::QueueInner::ver {
 
                     ext_ptr = unks.next;
                 }
+                uapi::ASAHI_RENDER_EXT_TIMESTAMPS => {
+                    let mut ext_user_timestamps: uapi::drm_asahi_cmd_render_user_timestamps =
+                        Default::default();
+
+                    let mut ext_reader = unsafe {
+                        UserSlicePtr::new(
+                            ext_ptr as usize as *mut _,
+                            core::mem::size_of::<uapi::drm_asahi_cmd_render_user_timestamps>(),
+                        )
+                        .reader()
+                    };
+                    unsafe {
+                        ext_reader.read_raw(
+                            &mut ext_user_timestamps as *mut _ as *mut u8,
+                            core::mem::size_of::<uapi::drm_asahi_cmd_render_user_timestamps>(),
+                        )?;
+                    }
+
+                    vtx_user_timestamps.start = common::get_timestamp_object(
+                        objects,
+                        ext_user_timestamps.vtx_start_handle,
+                        ext_user_timestamps.vtx_start_offset,
+                    )?;
+                    vtx_user_timestamps.end = common::get_timestamp_object(
+                        objects,
+                        ext_user_timestamps.vtx_end_handle,
+                        ext_user_timestamps.vtx_end_offset,
+                    )?;
+                    frg_user_timestamps.start = common::get_timestamp_object(
+                        objects,
+                        ext_user_timestamps.frg_start_handle,
+                        ext_user_timestamps.frg_start_offset,
+                    )?;
+                    frg_user_timestamps.end = common::get_timestamp_object(
+                        objects,
+                        ext_user_timestamps.frg_end_handle,
+                        ext_user_timestamps.frg_end_offset,
+                    )?;
+
+                    ext_ptr = ext_user_timestamps.next;
+                }
                 _ => {
                     cls_pr_debug!(Errors, "Unknown extension {}\n", ext_type);
                     return Err(EINVAL);

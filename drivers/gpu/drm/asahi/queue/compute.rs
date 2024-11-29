@@ -77,6 +77,54 @@ impl super::QueueInner::ver {
 
         let mut user_timestamps: fw::job::UserTimestamps = Default::default();
 
+        let mut ext_ptr = cmdbuf.extensions;
+        while ext_ptr != 0 {
+            let ext_type = u32::from_ne_bytes(
+                unsafe { UserSlicePtr::new(ext_ptr as usize as *mut _, 4) }
+                    .read_all()?
+                    .try_into()
+                    .or(Err(EINVAL))?,
+            );
+
+            match ext_type {
+                uapi::ASAHI_COMPUTE_EXT_TIMESTAMPS => {
+                    let mut ext_user_timestamps: uapi::drm_asahi_cmd_compute_user_timestamps =
+                        Default::default();
+
+                    let mut ext_reader = unsafe {
+                        UserSlicePtr::new(
+                            ext_ptr as usize as *mut _,
+                            core::mem::size_of::<uapi::drm_asahi_cmd_compute_user_timestamps>(),
+                        )
+                        .reader()
+                    };
+                    unsafe {
+                        ext_reader.read_raw(
+                            &mut ext_user_timestamps as *mut _ as *mut u8,
+                            core::mem::size_of::<uapi::drm_asahi_cmd_compute_user_timestamps>(),
+                        )?;
+                    }
+
+                    user_timestamps.start = common::get_timestamp_object(
+                        objects,
+                        ext_user_timestamps.start_handle,
+                        ext_user_timestamps.start_offset,
+                    )?;
+                    user_timestamps.end = common::get_timestamp_object(
+                        objects,
+                        ext_user_timestamps.end_handle,
+                        ext_user_timestamps.end_offset,
+                    )?;
+
+                    ext_ptr = ext_user_timestamps.next;
+                }
+                _ => {
+                    cls_pr_debug!(Errors, "Unknown extension {}\n", ext_type);
+                    return Err(EINVAL);
+                }
+            }
+        }
+
         // This sequence number increases per new client/VM? assigned to some slot,
         // but it's unclear *which* slot...
         let slot_client_seq: u8 = (self.id & 0xff) as u8;
