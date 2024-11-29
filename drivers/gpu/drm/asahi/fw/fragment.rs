@@ -275,6 +275,7 @@ pub(crate) struct RunFragment {
     pub(crate) vm_bind: mmu::VmBind,
     pub(crate) aux_fb: GpuArray<u8>,
     pub(crate) timestamps: Arc<GpuObject<job::RenderTimestamps>>,
+    pub(crate) user_timestamps: job::UserTimestamps,
 }
 
 #[versions(AGX)]

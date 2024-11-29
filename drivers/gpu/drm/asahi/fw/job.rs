@@ -3,7 +3,8 @@
 //! Common GPU job firmware structures
 
 use super::types::*;
-use crate::{default_zeroed, trivial_gpustruct};
+use crate::{default_zeroed, mmu, trivial_gpustruct};
+use kernel::sync::Arc;
 
 pub(crate) mod raw {
     use super::*;
@@ -119,3 +120,15 @@ pub(crate) mod raw {
 
 trivial_gpustruct!(JobTimestamps);
 trivial_gpustruct!(RenderTimestamps);
+
+#[derive(Debug)]
+pub(crate) struct UserTimestamp {
+    pub(crate) mapping: Arc<mmu::KernelMapping>,
+    pub(crate) offset: usize,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct UserTimestamps {
+    pub(crate) start: Option<UserTimestamp>,
+    pub(crate) end: Option<UserTimestamp>,
+}

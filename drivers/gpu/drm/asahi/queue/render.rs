@@ -271,6 +271,9 @@ impl super::QueueInner::ver {
             return Err(EINVAL);
         }
 
+        let mut vtx_user_timestamps: fw::job::UserTimestamps = Default::default();
+        let mut frg_user_timestamps: fw::job::UserTimestamps = Default::default();
+
         if cmdbuf.fb_width == 0
             || cmdbuf.fb_height == 0
             || cmdbuf.fb_width > 16384
@@ -772,6 +775,7 @@ impl super::QueueInner::ver {
                     vm_bind,
                     aux_fb: self.ualloc.lock().array_empty_tagged(0x8000, b"AXFB")?,
                     timestamps,
+                    user_timestamps: frg_user_timestamps,
                 })
             },
             |inner, _ptr| {
@@ -1295,6 +1299,7 @@ impl super::QueueInner::ver {
                     scene,
                     vm_bind,
                     timestamps,
+                    user_timestamps: vtx_user_timestamps,
                 })
             },
             |inner, _ptr| {

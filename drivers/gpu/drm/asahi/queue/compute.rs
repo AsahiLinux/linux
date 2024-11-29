@@ -85,6 +85,8 @@ impl super::QueueInner::ver {
             return Err(EINVAL);
         }
 
+        let mut user_timestamps: fw::job::UserTimestamps = Default::default();
+
         // This sequence number increases per new client/VM? assigned to some slot,
         // but it's unclear *which* slot...
         let slot_client_seq: u8 = (self.id & 0xff) as u8;
@@ -263,6 +265,7 @@ impl super::QueueInner::ver {
                     notifier,
                     vm_bind,
                     timestamps,
+                    user_timestamps,
                 })
             },
             |inner, _ptr| {
