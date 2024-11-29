@@ -488,12 +488,13 @@ impl VmInner {
         let mut iova = node.start();
         let guard = node.bo.as_ref().ok_or(EINVAL)?.inner().sgt.lock();
         let sgt = guard.as_ref().ok_or(EINVAL)?;
+        let mut offset = node.offset;
 
         for range in sgt.iter() {
-            let addr = range.dma_address();
-            let len = range.dma_len();
+            let mut addr = range.dma_address();
+            let mut len = range.dma_len();
 
-            if (addr | len | iova as usize) & UAT_PGMSK != 0 {
+            if (offset | addr | len | iova as usize) & UAT_PGMSK != 0 {
                 dev_err!(
                     self.dev.as_ref(),
                     "MMU: KernelMapping {:#x}:{:#x} -> {:#x} is not page-aligned\n",
@@ -502,6 +503,17 @@ impl VmInner {
                     iova
                 );
                 return Err(EINVAL);
+            }
+
+            if offset > 0 {
+                let skip = len.min(offset);
+                addr += skip;
+                len -= skip;
+                offset -= skip;
+            }
+
+            if len == 0 {
+                continue;
             }
 
             mod_dev_dbg!(
@@ -592,6 +604,7 @@ pub(crate) struct KernelMappingInner {
     owner: ARef<gpuvm::GpuVm<VmInner>>,
     uat_inner: Arc<UatInner>,
     prot: u32,
+    offset: usize,
     mapped_size: usize,
 }
 
@@ -1084,13 +1097,14 @@ impl Vm {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn map_in_range(
         &self,
-        size: usize,
         gem: &gem::Object,
+        object_range: Range<usize>,
         alignment: u64,
         range: Range<u64>,
         prot: u32,
         guard: bool,
     ) -> Result<KernelMapping> {
+        let size = object_range.range();
         let sgt = gem.sg_table()?;
         let mut inner = self.inner.exec_lock(Some(gem))?;
         let vm_bo = inner.obtain_bo()?;
@@ -1109,6 +1123,7 @@ impl Vm {
                 prot,
                 bo: Some(vm_bo),
                 _gem: Some(gem.reference()),
+                offset: object_range.start,
                 mapped_size: size,
             },
             (size + if guard { UAT_PGSZ } else { 0 }) as u64, // Add guard page
@@ -1152,6 +1167,7 @@ impl Vm {
                 prot,
                 bo: Some(vm_bo),
                 _gem: Some(gem.reference()),
+                offset: 0,
                 mapped_size: size,
             },
             addr,
@@ -1253,6 +1269,7 @@ impl Vm {
                 prot,
                 bo: None,
                 _gem: None,
+                offset: 0,
                 mapped_size: size,
             },
             iova,

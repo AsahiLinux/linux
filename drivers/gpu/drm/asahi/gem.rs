@@ -84,7 +84,26 @@ impl ObjectRef {
         if !self.gem.kernel {
             return Err(EINVAL);
         }
-        vm.map_in_range(self.gem.size(), &self.gem, alignment, range, prot, guard)
+        vm.map_in_range(&self.gem, 0..self.gem.size(), alignment, range, prot, guard)
+    }
+
+    /// Maps a range within an object into a given `Vm` at any free address within a given range.
+    pub(crate) fn map_range_into_range(
+        &mut self,
+        vm: &crate::mmu::Vm,
+        obj_range: Range<usize>,
+        range: Range<u64>,
+        alignment: u64,
+        prot: u32,
+        guard: bool,
+    ) -> Result<crate::mmu::KernelMapping> {
+        if obj_range.end > self.gem.size() {
+            return Err(EINVAL);
+        }
+        if self.gem.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 && vm.is_extobj(&self.gem) {
+            return Err(EINVAL);
+        }
+        vm.map_in_range(&self.gem, obj_range, alignment, range, prot, guard)
     }
 
     /// Maps an object into a given `Vm` at a specific address.

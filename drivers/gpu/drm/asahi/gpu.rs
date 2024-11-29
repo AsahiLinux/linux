@@ -278,6 +278,12 @@ pub(crate) trait GpuManager: Send + Sync {
     fn free_context(&self, data: KBox<fw::types::GpuObject<fw::workqueue::GpuContextData>>);
     /// Check whether the GPU is crashed
     fn is_crashed(&self) -> bool;
+    /// Map a BO as a timestamp buffer
+    fn map_timestamp_buffer(
+        &self,
+        bo: gem::ObjectRef,
+        range: Range<usize>,
+    ) -> Result<mmu::KernelMapping>;
 }
 
 /// Private generic trait for functions that don't need to escape this module.
@@ -1487,6 +1493,21 @@ impl GpuManager for GpuManager::ver {
 
     fn is_crashed(&self) -> bool {
         self.crashed.load(Ordering::Relaxed)
+    }
+
+    fn map_timestamp_buffer(
+        &self,
+        mut bo: gem::ObjectRef,
+        range: Range<usize>,
+    ) -> Result<mmu::KernelMapping> {
+        bo.map_range_into_range(
+            self.uat.kernel_vm(),
+            range,
+            IOVA_KERN_TIMESTAMP_RANGE,
+            mmu::UAT_PGSZ as u64,
+            mmu::PROT_FW_SHARED_RW,
+            false,
+        )
     }
 }
 
