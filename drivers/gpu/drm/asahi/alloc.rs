@@ -26,7 +26,6 @@ use core::fmt;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::mem;
-use core::mem::MaybeUninit;
 use core::ops::Range;
 use core::ptr::NonNull;
 
@@ -54,8 +53,6 @@ pub(crate) trait RawAllocation {
     fn ptr(&self) -> Option<NonNull<u8>>;
     /// Returns the GPU VA pointer as a u64.
     fn gpu_ptr(&self) -> u64;
-    /// Returns the size of the allocation in bytes.
-    fn size(&self) -> usize;
     /// Returns the AsahiDevice that owns this allocation.
     fn device(&self) -> &AsahiDevice;
 }
@@ -191,8 +188,6 @@ pub(crate) trait Allocator {
     // TODO: Needs associated_type_defaults
     // type Allocation<T> = GenericAlloc<T, Self::Raw>;
 
-    /// Returns the `AsahiDevice` associated with this allocator.
-    fn device(&self) -> &AsahiDevice;
     /// Returns whether CPU-side mapping is enabled.
     fn cpu_maps(&self) -> bool;
     /// Returns the minimum alignment for allocations.
@@ -218,36 +213,6 @@ pub(crate) trait Allocator {
         GpuObject::<T, GenericAlloc<T, Self::Raw>>::new(self.alloc_object()?, inner, callback)
     }
 
-    /// Allocate a new GpuStruct object. See [`GpuObject::new_boxed`].
-    #[inline(never)]
-    fn new_boxed<T: GpuStruct>(
-        &mut self,
-        inner: KBox<T>,
-        callback: impl for<'a> FnOnce(
-            &'a T,
-            &'a mut MaybeUninit<T::Raw<'a>>,
-        ) -> Result<&'a mut T::Raw<'a>>,
-    ) -> Result<GpuObject<T, GenericAlloc<T, Self::Raw>>> {
-        GpuObject::<T, GenericAlloc<T, Self::Raw>>::new_boxed(self.alloc_object()?, inner, callback)
-    }
-
-    /// Allocate a new GpuStruct object. See [`GpuObject::new_inplace`].
-    #[inline(never)]
-    fn new_inplace<T: GpuStruct>(
-        &mut self,
-        inner: T,
-        callback: impl for<'a> FnOnce(
-            &'a T,
-            &'a mut MaybeUninit<T::Raw<'a>>,
-        ) -> Result<&'a mut T::Raw<'a>>,
-    ) -> Result<GpuObject<T, GenericAlloc<T, Self::Raw>>> {
-        GpuObject::<T, GenericAlloc<T, Self::Raw>>::new_inplace(
-            self.alloc_object()?,
-            inner,
-            callback,
-        )
-    }
-
     /// Allocate a new GpuStruct object. See [`GpuObject::new_default`].
     #[inline(never)]
     fn new_default<T: GpuStruct + Default>(
@@ -257,25 +222,6 @@ pub(crate) trait Allocator {
         for<'a> <T as GpuStruct>::Raw<'a>: Default + Zeroable,
     {
         GpuObject::<T, GenericAlloc<T, Self::Raw>>::new_default(self.alloc_object()?)
-    }
-
-    /// Allocate a new GpuStruct object. See [`GpuObject::new_init_prealloc`].
-    #[inline(never)]
-    fn new_init_prealloc<
-        'a,
-        T: GpuStruct,
-        I: Init<T, kernel::error::Error>,
-        R: PinInit<T::Raw<'a>, kernel::error::Error>,
-    >(
-        &mut self,
-        inner_init: impl FnOnce(GpuWeakPointer<T>) -> I,
-        raw_init: impl FnOnce(&'a T, GpuWeakPointer<T>) -> R,
-    ) -> Result<GpuObject<T, GenericAlloc<T, Self::Raw>>> {
-        GpuObject::<T, GenericAlloc<T, Self::Raw>>::new_init_prealloc(
-            self.alloc_object()?,
-            inner_init,
-            raw_init,
-        )
     }
 
     /// Allocate a new GpuStruct object. See [`GpuObject::new_init`].
@@ -445,7 +391,6 @@ pub(crate) struct SimpleAllocation {
     dev: AsahiDevRef,
     ptr: Option<NonNull<u8>>,
     gpu_ptr: u64,
-    size: usize,
     _mapping: mmu::KernelMapping,
     obj: crate::gem::ObjectRef,
 }
@@ -476,10 +421,6 @@ impl RawAllocation for SimpleAllocation {
     fn gpu_ptr(&self) -> u64 {
         self.gpu_ptr
     }
-    fn size(&self) -> usize {
-        self.size
-    }
-
     fn device(&self) -> &AsahiDevice {
         &self.dev
     }
@@ -531,10 +472,6 @@ impl SimpleAllocator {
 
 impl Allocator for SimpleAllocator {
     type Raw = SimpleAllocation;
-
-    fn device(&self) -> &AsahiDevice {
-        &self.dev
-    }
 
     fn cpu_maps(&self) -> bool {
         self.cpu_maps
@@ -590,7 +527,6 @@ impl Allocator for SimpleAllocator {
             dev: self.dev.clone(),
             ptr: NonNull::new(ptr),
             gpu_ptr,
-            size,
             _mapping: mapping,
             obj,
         })
@@ -680,9 +616,6 @@ impl RawAllocation for HeapAllocation {
     // See the explanation in ptr().
     fn gpu_ptr(&self) -> u64 {
         self.0.as_ref().unwrap().start()
-    }
-    fn size(&self) -> usize {
-        self.0.as_ref().unwrap().size() as usize
     }
     fn device(&self) -> &AsahiDevice {
         &self.0.as_ref().unwrap().dev
@@ -1029,10 +962,6 @@ impl HeapAllocator {
 
 impl Allocator for HeapAllocator {
     type Raw = HeapAllocation;
-
-    fn device(&self) -> &AsahiDevice {
-        &self.dev
-    }
 
     fn cpu_maps(&self) -> bool {
         self.cpu_maps
