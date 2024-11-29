@@ -691,11 +691,11 @@ impl super::QueueInner::ver {
                         if has_result {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(true),
-                                cur_ts: inner_weak_ptr!(ptr, cur_ts),
-                                start_ts: inner_weak_ptr!(ptr, start_ts),
-                                update_ts: inner_weak_ptr!(ptr, start_ts),
+                                command_time: inner_weak_ptr!(ptr, command_time),
+                                ts_pointers: inner_weak_ptr!(ptr, timestamp_pointers),
+                                update_ts: inner_weak_ptr!(ptr, timestamp_pointers.start_addr),
                                 work_queue: ev_frag.info_ptr,
-                                unk_24: U64(0),
+                                user_ts_pointers: inner_weak_ptr!(ptr, user_timestamp_pointers),
                                 #[ver(V >= V13_0B4)]
                                 unk_ts: inner_weak_ptr!(ptr, unk_ts),
                                 uuid: uuid_3d,
@@ -715,11 +715,11 @@ impl super::QueueInner::ver {
                         if has_result {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(false),
-                                cur_ts: inner_weak_ptr!(ptr, cur_ts),
-                                start_ts: inner_weak_ptr!(ptr, start_ts),
-                                update_ts: inner_weak_ptr!(ptr, end_ts),
+                                command_time: inner_weak_ptr!(ptr, command_time),
+                                ts_pointers: inner_weak_ptr!(ptr, timestamp_pointers),
+                                update_ts: inner_weak_ptr!(ptr, timestamp_pointers.end_addr),
                                 work_queue: ev_frag.info_ptr,
-                                unk_24: U64(0),
+                                user_ts_pointers: inner_weak_ptr!(ptr, user_timestamp_pointers),
                                 #[ver(V >= V13_0B4)]
                                 unk_ts: inner_weak_ptr!(ptr, unk_ts),
                                 uuid: uuid_3d,
@@ -1086,12 +1086,15 @@ impl super::QueueInner::ver {
                     unk_buf_10: U64(1),
                     #[ver(G >= G14X)]
                     unk_buf_10: U64(0),
-                    cur_ts: U64(0),
-                    start_ts: Some(inner_ptr!(inner.timestamps.gpu_pointer(), frag.start)),
-                    end_ts: Some(inner_ptr!(inner.timestamps.gpu_pointer(), frag.end)),
-                    unk_914: 0,
-                    unk_918: U64(0),
-                    unk_920: 0,
+                    command_time: U64(0),
+                    timestamp_pointers <- try_init!(fw::job::raw::TimestampPointers {
+                        start_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), frag.start)),
+                        end_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), frag.end)),
+                    }),
+                    user_timestamp_pointers <- try_init!(fw::job::raw::TimestampPointers {
+                        start_addr: None,
+                        end_addr: None,
+                    }),
                     client_sequence: slot_client_seq,
                     pad_925: Default::default(),
                     unk_928: 0,
@@ -1218,11 +1221,11 @@ impl super::QueueInner::ver {
                         if has_result {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(true),
-                                cur_ts: inner_weak_ptr!(ptr, cur_ts),
-                                start_ts: inner_weak_ptr!(ptr, start_ts),
-                                update_ts: inner_weak_ptr!(ptr, start_ts),
+                                command_time: inner_weak_ptr!(ptr, command_time),
+                                ts_pointers: inner_weak_ptr!(ptr, timestamp_pointers),
+                                update_ts: inner_weak_ptr!(ptr, timestamp_pointers.start_addr),
                                 work_queue: ev_vtx.info_ptr,
-                                unk_24: U64(0),
+                                user_ts_pointers: inner_weak_ptr!(ptr, user_timestamp_pointers),
                                 #[ver(V >= V13_0B4)]
                                 unk_ts: inner_weak_ptr!(ptr, unk_ts),
                                 uuid: uuid_ta,
@@ -1242,11 +1245,11 @@ impl super::QueueInner::ver {
                         if has_result {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(false),
-                                cur_ts: inner_weak_ptr!(ptr, cur_ts),
-                                start_ts: inner_weak_ptr!(ptr, start_ts),
-                                update_ts: inner_weak_ptr!(ptr, end_ts),
+                                command_time: inner_weak_ptr!(ptr, command_time),
+                                ts_pointers: inner_weak_ptr!(ptr, timestamp_pointers),
+                                update_ts: inner_weak_ptr!(ptr, timestamp_pointers.end_addr),
                                 work_queue: ev_vtx.info_ptr,
-                                unk_24: U64(0),
+                                user_ts_pointers: inner_weak_ptr!(ptr, user_timestamp_pointers),
                                 #[ver(V >= V13_0B4)]
                                 unk_ts: inner_weak_ptr!(ptr, unk_ts),
                                 uuid: uuid_ta,
@@ -1540,13 +1543,15 @@ impl super::QueueInner::ver {
                     unk_buf_0: U64(0),
                     unk_buf_8: U64(0),
                     unk_buf_10: U64(0),
-                    cur_ts: U64(0),
-                    start_ts: Some(inner_ptr!(inner.timestamps.gpu_pointer(), vtx.start)),
-                    end_ts: Some(inner_ptr!(inner.timestamps.gpu_pointer(), vtx.end)),
-                    unk_5c4: 0,
-                    unk_5c8: 0,
-                    unk_5cc: 0,
-                    unk_5d0: 0,
+                    command_time: U64(0),
+                    timestamp_pointers <- try_init!(fw::job::raw::TimestampPointers {
+                        start_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), vtx.start)),
+                        end_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), vtx.end)),
+                    }),
+                    user_timestamp_pointers <- try_init!(fw::job::raw::TimestampPointers {
+                        start_addr: None,
+                        end_addr: None,
+                    }),
                     client_sequence: slot_client_seq,
                     pad_5d5: Default::default(),
                     unk_5d8: 0,

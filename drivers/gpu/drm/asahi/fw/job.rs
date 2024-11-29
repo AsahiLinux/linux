@@ -108,6 +108,13 @@ pub(crate) mod raw {
             self.length += core::mem::size_of::<Register>() as u16;
         }
     }
+
+    #[derive(Debug)]
+    #[repr(C)]
+    pub(crate) struct TimestampPointers<'a> {
+        pub(crate) start_addr: Option<GpuPointer<'a, AtomicU64>>,
+        pub(crate) end_addr: Option<GpuPointer<'a, AtomicU64>>,
+    }
 }
 
 trivial_gpustruct!(JobTimestamps);

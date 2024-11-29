@@ -647,7 +647,7 @@ pub(crate) mod raw {
         pub(crate) unk_20: U64,
         pub(crate) unk_28: U64,
         pub(crate) unk_30: U64,
-        pub(crate) unkptr_38: U64,
+        pub(crate) timestamp_area_base: U64,
         pub(crate) pad_40: Pad<0x20>,
 
         #[ver(V < V13_0B4)]
