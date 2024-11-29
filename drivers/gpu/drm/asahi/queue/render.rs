@@ -14,7 +14,7 @@ use crate::fw::types::*;
 use crate::gpu::GpuManager;
 use crate::util::*;
 use crate::workqueue::WorkError;
-use crate::{buffer, fw, gpu, microseq, workqueue};
+use crate::{buffer, file, fw, gpu, microseq, workqueue};
 use crate::{inner_ptr, inner_weak_ptr};
 use core::mem::MaybeUninit;
 use core::sync::atomic::Ordering;
@@ -26,6 +26,7 @@ use kernel::prelude::*;
 use kernel::sync::Arc;
 use kernel::uapi;
 use kernel::user_ptr::UserSlicePtr;
+use kernel::xarray;
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Render;
 
@@ -222,6 +223,7 @@ impl super::QueueInner::ver {
         job: &mut Job<super::QueueJob::ver>,
         cmd: &uapi::drm_asahi_command,
         result_writer: Option<super::ResultWriter>,
+        objects: Pin<&xarray::XArray<KBox<file::Object>>>,
         id: u64,
         flush_stamps: bool,
     ) -> Result {

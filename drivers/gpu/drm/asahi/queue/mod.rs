@@ -13,7 +13,7 @@ use kernel::{
     drm::sched,
     macros::versions,
     sync::{Arc, Mutex},
-    uapi,
+    uapi, xarray,
 };
 
 use crate::alloc::Allocator;
@@ -43,6 +43,7 @@ pub(crate) trait Queue: Send + Sync {
         out_syncs: KVec<file::SyncItem>,
         result_buf: Option<gem::ObjectRef>,
         commands: KVec<uapi::drm_asahi_command>,
+        objects: Pin<&xarray::XArray<KBox<file::Object>>>,
     ) -> Result;
 }
 
@@ -541,6 +542,7 @@ impl Queue for Queue::ver {
         out_syncs: KVec<file::SyncItem>,
         result_buf: Option<gem::ObjectRef>,
         commands: KVec<uapi::drm_asahi_command>,
+        objects: Pin<&xarray::XArray<KBox<file::Object>>>,
     ) -> Result {
         let dev = self.dev.data();
         let gpu = match dev
@@ -753,6 +755,7 @@ impl Queue for Queue::ver {
                         &mut job,
                         &cmd,
                         result_writer,
+                        objects,
                         id,
                         last_render.unwrap() == i,
                     )?;
@@ -774,6 +777,7 @@ impl Queue for Queue::ver {
                         &mut job,
                         &cmd,
                         result_writer,
+                        objects,
                         id,
                         last_compute.unwrap() == i,
                     )?;

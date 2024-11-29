@@ -1052,9 +1052,11 @@ impl File {
             commands.push(unsafe { cmd.assume_init() }, GFP_KERNEL)?;
         }
 
+        let objects = file.inner().objects();
+
         let ret = queue
             .lock()
-            .submit(id, in_syncs, out_syncs, result_buf, commands);
+            .submit(id, in_syncs, out_syncs, result_buf, commands, objects);
 
         match ret {
             Err(ERESTARTSYS) => Err(ERESTARTSYS),
