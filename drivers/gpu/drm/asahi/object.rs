@@ -43,7 +43,7 @@
 //
 // Further discussion: https://github.com/rust-lang/unsafe-code-guidelines/issues/152
 
-use kernel::{error::code::*, prelude::*};
+use kernel::{error::code::*, prelude::*, sync::Arc};
 
 use core::fmt;
 use core::fmt::Debug;
@@ -57,6 +57,7 @@ use core::{mem, ptr, slice};
 use crate::alloc::Allocation;
 use crate::debug::*;
 use crate::fw::types::Zeroable;
+use crate::mmu;
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Object;
 
@@ -88,6 +89,25 @@ impl<'a, T: ?Sized> GpuPointer<'a, T> {
             NonZeroU64::new(self.0.get() + (off as u64)).unwrap(),
             PhantomData,
         )
+    }
+}
+
+impl<'a, T> GpuPointer<'a, T> {
+    /// Create a GPU pointer from a KernelMapping and an offset.
+    /// TODO: Change all GPU pointers to point to the raw types so size_of here is GPU-sound.
+    pub(crate) fn from_mapping(
+        mapping: &'a Arc<mmu::KernelMapping>,
+        offset: usize,
+    ) -> Result<GpuPointer<'a, T>> {
+        let addr = mapping.iova().checked_add(offset as u64).ok_or(EINVAL)?;
+        let end = offset
+            .checked_add(core::mem::size_of::<T>())
+            .ok_or(EINVAL)?;
+        if end > mapping.size() {
+            Err(ERANGE)
+        } else {
+            Ok(Self(addr.try_into().unwrap(), PhantomData))
+        }
     }
 }
 

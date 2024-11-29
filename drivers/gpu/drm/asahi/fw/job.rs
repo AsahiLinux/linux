@@ -4,6 +4,7 @@
 
 use super::types::*;
 use crate::{default_zeroed, mmu, trivial_gpustruct};
+use kernel::prelude::Result;
 use kernel::sync::Arc;
 
 pub(crate) mod raw {
@@ -131,4 +132,25 @@ pub(crate) struct UserTimestamp {
 pub(crate) struct UserTimestamps {
     pub(crate) start: Option<UserTimestamp>,
     pub(crate) end: Option<UserTimestamp>,
+}
+
+impl UserTimestamps {
+    pub(crate) fn any(&self) -> bool {
+        self.start.is_some() || self.end.is_some()
+    }
+
+    pub(crate) fn pointers(&self) -> Result<raw::TimestampPointers<'_>> {
+        Ok(raw::TimestampPointers {
+            start_addr: self
+                .start
+                .as_ref()
+                .map(|a| GpuPointer::from_mapping(&a.mapping, a.offset))
+                .transpose()?,
+            end_addr: self
+                .end
+                .as_ref()
+                .map(|a| GpuPointer::from_mapping(&a.mapping, a.offset))
+                .transpose()?,
+        })
+    }
 }

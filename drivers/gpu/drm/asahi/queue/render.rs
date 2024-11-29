@@ -693,7 +693,7 @@ impl super::QueueInner::ver {
                             notifier_buf: inner_weak_ptr!(notifier.weak_pointer(), state.unk_buf),
                         })?;
 
-                        if has_result {
+                        if has_result || frg_user_timestamps.any() {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(true),
                                 command_time: inner_weak_ptr!(ptr, command_time),
@@ -717,7 +717,7 @@ impl super::QueueInner::ver {
                             header: microseq::op::WaitForIdle2::HEADER,
                         })?;
 
-                        if has_result {
+                        if has_result || frg_user_timestamps.any() {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(false),
                                 command_time: inner_weak_ptr!(ptr, command_time),
@@ -1097,10 +1097,7 @@ impl super::QueueInner::ver {
                         start_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), frag.start)),
                         end_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), frag.end)),
                     }),
-                    user_timestamp_pointers <- try_init!(fw::job::raw::TimestampPointers {
-                        start_addr: None,
-                        end_addr: None,
-                    }),
+                    user_timestamp_pointers: inner.user_timestamps.pointers()?,
                     client_sequence: slot_client_seq,
                     pad_925: Default::default(),
                     unk_928: 0,
@@ -1224,7 +1221,7 @@ impl super::QueueInner::ver {
                             unk_178: (!clustering) as u32,
                         })?;
 
-                        if has_result {
+                        if has_result || vtx_user_timestamps.any() {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(true),
                                 command_time: inner_weak_ptr!(ptr, command_time),
@@ -1248,7 +1245,7 @@ impl super::QueueInner::ver {
                             header: microseq::op::WaitForIdle2::HEADER,
                         })?;
 
-                        if has_result {
+                        if has_result || vtx_user_timestamps.any() {
                             builder.add(microseq::Timestamp::ver {
                                 header: microseq::op::Timestamp::new(false),
                                 command_time: inner_weak_ptr!(ptr, command_time),
@@ -1555,10 +1552,7 @@ impl super::QueueInner::ver {
                         start_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), vtx.start)),
                         end_addr: Some(inner_ptr!(inner.timestamps.gpu_pointer(), vtx.end)),
                     }),
-                    user_timestamp_pointers <- try_init!(fw::job::raw::TimestampPointers {
-                        start_addr: None,
-                        end_addr: None,
-                    }),
+                    user_timestamp_pointers: inner.user_timestamps.pointers()?,
                     client_sequence: slot_client_seq,
                     pad_5d5: Default::default(),
                     unk_5d8: 0,
