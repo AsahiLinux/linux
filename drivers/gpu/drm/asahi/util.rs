@@ -66,7 +66,7 @@ where
 pub(crate) trait RangeExt<T> {
     fn overlaps(&self, other: Self) -> bool;
     fn is_superset(&self, other: Self) -> bool;
-    fn len(&self) -> usize;
+    // fn len(&self) -> usize;
     fn range(&self) -> T;
 }
 
@@ -89,7 +89,7 @@ where
             self.end - self.start
         }
     }
-    fn len(&self) -> usize {
-        self.range().try_into().unwrap()
-    }
+    // fn len(&self) -> usize {
+    //     self.range().try_into().unwrap()
+    // }
 }
