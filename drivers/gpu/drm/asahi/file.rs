@@ -285,6 +285,8 @@ impl File {
             result_compute_size: core::mem::size_of::<uapi::drm_asahi_result_compute>() as u32,
 
             firmware_version: [0; 4],
+
+            user_timestamp_frequency_hz: 1_000_000_000, // User timestamps always in nanoseconds
         };
 
         for (i, mask) in gpu.get_dyncfg().id.core_masks.iter().enumerate() {
