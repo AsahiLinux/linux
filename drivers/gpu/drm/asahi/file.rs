@@ -247,7 +247,9 @@ impl File {
             unstable_uabi_version: uapi::DRM_ASAHI_UNSTABLE_UABI_VERSION,
             pad0: 0,
 
-            feat_compat: gpu.get_cfg().gpu_feat_compat | hw::feat::compat::GETTIME,
+            feat_compat: gpu.get_cfg().gpu_feat_compat
+                | hw::feat::compat::GETTIME
+                | hw::feat::compat::USER_TIMESTAMPS,
             feat_incompat: gpu.get_cfg().gpu_feat_incompat,
 
             gpu_generation: gpu.get_dyncfg().id.gpu_gen as u32,

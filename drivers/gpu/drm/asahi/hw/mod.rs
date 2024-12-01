@@ -96,6 +96,9 @@ pub(crate) mod feat {
             uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_SOFT_FAULTS as u64;
         /// GETTIME API supported
         pub(crate) const GETTIME: u64 = uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_GETTIME as u64;
+        /// User timestamps extension supported
+        pub(crate) const USER_TIMESTAMPS: u64 =
+            uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_USER_TIMESTAMPS as u64;
     }
 
     /// Backwards-incompatible features.
