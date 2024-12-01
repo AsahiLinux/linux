@@ -498,7 +498,8 @@ impl super::QueueInner::ver {
                     wait_slot: ev_vtx.slot,
                     stamp_self: ev_frag.value.next(),
                     uuid: uuid_3d,
-                    barrier_type: 0,
+                    external_barrier: 0,
+                    internal_barrier_type: 0,
                     padding: Default::default(),
                 })
             },

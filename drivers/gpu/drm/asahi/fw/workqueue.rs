@@ -34,9 +34,10 @@ pub(crate) mod raw {
         pub(crate) wait_slot: u32,
         pub(crate) stamp_self: EventValue,
         pub(crate) uuid: u32,
-        pub(crate) barrier_type: u32,
+        pub(crate) external_barrier: u32,
         // G14X addition
-        pub(crate) padding: Pad<0x20>,
+        pub(crate) internal_barrier_type: u32,
+        pub(crate) padding: Pad<0x1c>,
     }
 
     #[derive(Debug, Clone, Copy)]

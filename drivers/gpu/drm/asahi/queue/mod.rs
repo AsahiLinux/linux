@@ -698,7 +698,8 @@ impl Queue for Queue::ver {
                                 wait_slot: event.slot,
                                 stamp_self: queue_job.event_info().value.next(),
                                 uuid: 0xffffbbbb,
-                                barrier_type: 0,
+                                external_barrier: 0,
+                                internal_barrier_type: 1,
                                 padding: Default::default(),
                             })
                         },
