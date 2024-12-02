@@ -161,8 +161,6 @@ static struct snd_soc_dai_link macaudio_fe_links[] = {
 		.name = "Primary",
 		.stream_name = "Primary",
 		.dynamic = 1,
-		.dpcm_playback = 1,
-		.dpcm_capture = 1,
 		.dpcm_merged_rate = 1,
 		.dpcm_merged_chan = 1,
 		.dpcm_merged_format = 1,
@@ -173,18 +171,18 @@ static struct snd_soc_dai_link macaudio_fe_links[] = {
 		.name = "Secondary",
 		.stream_name = "Secondary",
 		.dynamic = 1,
-		.dpcm_playback = 1,
 		.dpcm_merged_rate = 1,
 		.dpcm_merged_chan = 1,
 		.dpcm_merged_format = 1,
 		.dai_fmt = MACAUDIO_DAI_FMT,
+		.playback_only = 1,
 		SND_SOC_DAILINK_REG(secondary),
 	},
 	{
 		.name = "Speaker Sense",
 		.stream_name = "Speaker Sense",
+		.capture_only = 1,
 		.dynamic = 1,
-		.dpcm_capture = 1,
 		.dai_fmt = (SND_SOC_DAIFMT_I2S | \
 					SND_SOC_DAIFMT_CBP_CFP | \
 					SND_SOC_DAIFMT_GATED | \
@@ -443,8 +441,6 @@ static int macaudio_parse_of_be_dai_link(struct macaudio_snd_data *ma,
 	int ret, i;
 
 	link->no_pcm = 1;
-	link->dpcm_playback = 1;
-	link->dpcm_capture = 1;
 
 	link->dai_fmt = MACAUDIO_DAI_FMT;
 
