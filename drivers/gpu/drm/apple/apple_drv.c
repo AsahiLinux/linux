@@ -119,6 +119,7 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 static const struct drm_plane_helper_funcs apple_plane_helper_funcs = {
 	.atomic_check	= apple_plane_atomic_check,
 	.atomic_update	= apple_plane_atomic_update,
+	.get_scanout_buffer = drm_fb_dma_get_scanout_buffer,
 };
 
 static void apple_plane_cleanup(struct drm_plane *plane)
