@@ -82,6 +82,7 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 {
 	struct drm_plane_state *new_plane_state;
 	struct drm_crtc_state *crtc_state;
+	struct drm_rect *dst;
 	int ret;
 
 	new_plane_state = drm_atomic_get_new_plane_state(state, plane);
@@ -123,20 +124,20 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 	 * This is most pertinent to cursors. Userspace should fall back to
 	 * software cursors if the plane check is rejected.
 	 */
-	if ((new_plane_state->crtc_x + 32) > crtc_state->mode.hdisplay ||
-	     (new_plane_state->crtc_y + 32) > crtc_state->mode.vdisplay) {
+	dst = &new_plane_state->dst;
+	if (drm_rect_width(dst) < 32 || drm_rect_height(dst) < 32) {
 		dev_err_once(state->dev->dev,
 			"Plane operation would have crashed DCP! Rejected!\n\
 			DCP requires 32x32 of every plane to be within screen space.\n\
-			Your compositor asked for a screen space area of [%d, %d].\n\
+			Your compositor asked to overlay [%dx%d, %dx%d] on %dx%d.\n\
 			This is not supported, and your compositor should have\n\
 			switched to software compositing when this operation failed.\n\
 			You should not have noticed this at all. If your screen\n\
 			froze/hitched, or your compositor crashed, please report\n\
 			this to the your compositor's developers. We will not\n\
 			throw this error again until you next reboot.\n",
-			crtc_state->mode.hdisplay - new_plane_state->crtc_x,
-			crtc_state->mode.vdisplay - new_plane_state->crtc_y);
+			dst->x1, dst->y1, dst->x2, dst->y2,
+			crtc_state->mode.hdisplay, crtc_state->mode.vdisplay);
 		return -EINVAL;
 	}
 
