@@ -82,6 +82,7 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 {
 	struct drm_plane_state *new_plane_state;
 	struct drm_crtc_state *crtc_state;
+	int ret;
 
 	new_plane_state = drm_atomic_get_new_plane_state(state, plane);
 
@@ -91,6 +92,28 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 	crtc_state = drm_atomic_get_crtc_state(state, new_plane_state->crtc);
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
+
+	/*
+	 * DCP limits downscaling to 2x and upscaling to 4x. Attempting to
+	 * scale outside these bounds errors out when swapping.
+	 *
+	 * This function also takes care of clipping the src/dest rectangles,
+	 * which is required for correct operation. Partially off-screen
+	 * surfaces may appear corrupted.
+	 *
+	 * DCP does not distinguish plane types in the hardware, so we set
+	 * can_position. If the primary plane does not fill the screen, the
+	 * hardware will fill in zeroes (black).
+	 */
+	ret = drm_atomic_helper_check_plane_state(new_plane_state, crtc_state,
+						  FRAC_16_16(1, 2),
+						  FRAC_16_16(4, 1),
+						  true, true);
+	if (ret < 0)
+		return ret;
+
+	if (!new_plane_state->visible)
+		return 0;
 
 	/*
 	 * DCP does not allow a surface to clip off the screen, and will crash
@@ -117,23 +140,7 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
-	/*
-	 * DCP limits downscaling to 2x and upscaling to 4x. Attempting to
-	 * scale outside these bounds errors out when swapping.
-	 *
-	 * This function also takes care of clipping the src/dest rectangles,
-	 * which is required for correct operation. Partially off-screen
-	 * surfaces may appear corrupted.
-	 *
-	 * DCP does not distinguish plane types in the hardware, so we set
-	 * can_position. If the primary plane does not fill the screen, the
-	 * hardware will fill in zeroes (black).
-	 */
-	return drm_atomic_helper_check_plane_state(new_plane_state,
-						   crtc_state,
-						   FRAC_16_16(1, 2),
-						   FRAC_16_16(4, 1),
-						   true, true);
+	return 0;
 }
 
 static void apple_plane_atomic_update(struct drm_plane *plane,
