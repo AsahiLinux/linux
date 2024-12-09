@@ -3,6 +3,7 @@
 //! Kernel page allocation and management.
 
 use crate::{
+    addr::*,
     alloc::{AllocError, Flags},
     bindings,
     error::code::*,
@@ -10,6 +11,7 @@ use crate::{
     types::{Opaque, Ownable, Owned},
     uaccess::UserSliceReader,
 };
+use core::mem::ManuallyDrop;
 use core::ptr::{self, NonNull};
 
 /// A bitwise shift for the page size.
@@ -247,6 +249,69 @@ impl Page {
             // exclusive access to the slice since the caller guarantees that there are no races.
             reader.read_raw(unsafe { core::slice::from_raw_parts_mut(dst.cast(), len) })
         })
+    }
+
+    /// Returns the physical address of this page.
+    pub fn phys(&self) -> PhysicalAddr {
+        // SAFETY: `page` is valid due to the type invariants on `Page`.
+        unsafe { bindings::page_to_phys(self.as_ptr()) }
+    }
+
+    /// Converts a Rust-owned Page into its physical address.
+    /// The caller is responsible for calling `from_phys()` to avoid
+    /// leaking memory.
+    pub fn into_phys(this: Owned<Self>) -> PhysicalAddr {
+        ManuallyDrop::new(this).phys()
+    }
+
+    /// Converts a physical address to a Rust-owned Page.
+    ///
+    /// SAFETY:
+    /// The caller must ensure that the physical address was previously returned
+    /// by a call to `Page::into_phys()`, and that the physical address is no
+    /// longer used after this call, nor is `from_phys()` called again on it.
+    pub unsafe fn from_phys(phys: PhysicalAddr) -> Owned<Self> {
+        // SAFETY: By the safety requirements, the physical address must be valid and
+        // have come from `into_phys()`, so phys_to_page() cannot fail and
+        // must return the original struct page pointer.
+        unsafe { Owned::from_raw(NonNull::new_unchecked(bindings::phys_to_page(phys)).cast()) }
+    }
+
+    /// Borrows a Page from a physical address, without taking over ownership.
+    ///
+    /// If the physical address does not have a `struct page` entry or is not
+    /// part of the System RAM region, returns None.
+    ///
+    /// SAFETY:
+    /// The caller must ensure that the physical address, if it is backed by a
+    /// `struct page`, remains available for the duration of the borrowed
+    /// lifetime.
+    pub unsafe fn borrow_phys(phys: &PhysicalAddr) -> Option<&Self> {
+        // SAFETY: This is always safe, as it is just arithmetic
+        let pfn = unsafe { bindings::phys_to_pfn(*phys) };
+        // SAFETY: This function is safe to call with any pfn
+        if !unsafe { bindings::pfn_valid(pfn) && bindings::page_is_ram(pfn) != 0 } {
+            None
+        } else {
+            // SAFETY: We have just checked that the pfn is valid above, so it must
+            // have a corresponding struct page. By the safety requirements, we can
+            // return a borrowed reference to it.
+            Some(unsafe { &*(bindings::pfn_to_page(pfn) as *mut Self as *const Self) })
+        }
+    }
+
+    /// Borrows a Page from a physical address, without taking over ownership
+    /// nor checking for validity.
+    ///
+    /// SAFETY:
+    /// The caller must ensure that the physical address is backed by a
+    /// `struct page` and corresponds to System RAM.
+    pub unsafe fn borrow_phys_unchecked(phys: &PhysicalAddr) -> &Self {
+        // SAFETY: This is always safe, as it is just arithmetic
+        let pfn = unsafe { bindings::phys_to_pfn(*phys) };
+        // SAFETY: The caller guarantees that the pfn is valid. By the safety
+        // requirements, we can return a borrowed reference to it.
+        unsafe { &*(bindings::pfn_to_page(pfn) as *mut Self as *const Self) }
     }
 }
 
