@@ -100,7 +100,7 @@ impl Page {
     /// different addresses. However, even if the addresses are different, the underlying memory is
     /// still the same for these purposes (e.g., it's still a data race if they both write to the
     /// same underlying byte at the same time).
-    fn with_page_mapped<T>(&self, f: impl FnOnce(*mut u8) -> T) -> T {
+    pub fn with_page_mapped<T>(&self, f: impl FnOnce(*mut u8) -> T) -> T {
         // SAFETY: `page` is valid due to the type invariants on `Page`.
         let mapped_addr = unsafe { bindings::kmap_local_page(self.as_ptr()) };
 
@@ -141,7 +141,7 @@ impl Page {
     /// different addresses. However, even if the addresses are different, the underlying memory is
     /// still the same for these purposes (e.g., it's still a data race if they both write to the
     /// same underlying byte at the same time).
-    fn with_pointer_into_page<T>(
+    pub fn with_pointer_into_page<T>(
         &self,
         off: usize,
         len: usize,
