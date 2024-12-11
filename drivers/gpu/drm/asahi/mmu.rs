@@ -228,8 +228,6 @@ struct StepContext {
     prev_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
     next_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
     vm_bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
-    prev_vm_bo_1: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
-    prev_vm_bo_2: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
     prot: u32,
 }
 
@@ -408,17 +406,6 @@ impl gpuvm::DriverGpuVm for VmInner {
                 dev_err!(self.dev.as_ref(), "step_remap: could not relink next gpuva");
                 return Err(EINVAL);
             }
-        }
-
-        if ctx.prev_vm_bo_1.is_none() {
-            assert!(ctx.prev_vm_bo_1.replace(vm_bo).is_none());
-        } else if ctx.prev_vm_bo_2.is_none() {
-            assert!(ctx.prev_vm_bo_2.replace(vm_bo).is_none());
-        } else {
-            dev_crit!(
-                self.dev.as_ref(),
-                "step_remap: too many remap ops, deadlock expected"
-            );
         }
 
         Ok(())
