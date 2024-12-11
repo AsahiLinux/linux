@@ -337,6 +337,7 @@ impl gpuvm::DriverGpuVm for VmInner {
     fn step_remap(
         self: &mut gpuvm::UpdatingGpuVm<'_, Self>,
         op: &mut gpuvm::OpReMap<Self>,
+        vm_bo: &gpuvm::GpuVmBo<Self>,
         ctx: &mut Self::StepContext,
     ) -> Result {
         let prev_gpuva = ctx.prev_va.take().expect("Multiple step_remap calls");
@@ -344,7 +345,6 @@ impl gpuvm::DriverGpuVm for VmInner {
         let va = op.unmap().va().expect("No previous VA");
         let orig_addr = va.addr();
         let orig_range = va.range();
-        let vm_bo = va.vm_bo();
 
         // Only unmap the hole between prev/next, if they exist
         let unmap_start = if let Some(op) = op.prev_map() {
@@ -371,6 +371,18 @@ impl gpuvm::DriverGpuVm for VmInner {
         );
 
         self.unmap_pages(unmap_start, UAT_PGSZ, (unmap_range >> UAT_PGBIT) as usize)?;
+
+        if let Some(asid) = self.slot() {
+            mem::tlbi_range(asid as u8, unmap_start as usize, unmap_range as usize);
+            mod_dev_dbg!(
+                self.dev,
+                "MMU: flush range: asid={:#x} start={:#x} len={:#x}\n",
+                asid,
+                unmap_start,
+                unmap_range,
+            );
+            mem::sync();
+        }
 
         if op.unmap().unmap_and_unlink_va().is_none() {
             dev_err!(self.dev.as_ref(), "step_unmap: could not unlink gpuva");
@@ -1194,8 +1206,8 @@ impl Vm {
             new_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
             prev_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
             next_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
-            vm_bo: None,
             prot,
+            ..Default::default()
         };
 
         let sgt = gem.sg_table()?;
