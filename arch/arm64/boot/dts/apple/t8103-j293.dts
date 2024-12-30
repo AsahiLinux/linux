@@ -24,6 +24,7 @@
 	 */
 	aliases {
 		touchbar0 = &touchbar0;
+		sep = &sep;
 	};
 
 	led-controller {
@@ -230,6 +231,26 @@
 };
 
 &displaydfr_dart {
+	status = "okay";
+};
+
+&aop_mbox {
+       status = "okay";
+};
+
+&aop_dart {
+       status = "okay";
+};
+
+&aop_admac {
+       status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
+&sep {
 	status = "okay";
 };
 
