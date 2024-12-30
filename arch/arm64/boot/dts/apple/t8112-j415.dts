@@ -190,6 +190,22 @@
 	status = "okay";
 };
 
+&aop_mbox {
+       status = "okay";
+};
+
+&aop_dart {
+       status = "okay";
+};
+
+&aop_admac {
+       status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
 &aop_audio {
 	apple,chassis-name = "J415";
 	apple,machine-kind = "MacBook Air";
