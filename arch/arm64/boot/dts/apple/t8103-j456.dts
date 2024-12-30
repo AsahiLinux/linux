@@ -116,9 +116,30 @@
 	};
 };
 
+&aop_mbox {
+       status = "okay";
+};
+
+&aop_dart {
+       status = "okay";
+};
+
+&aop_admac {
+       status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
+&sep {
+	status = "okay";
+};
+
 &aop_audio {
 	apple,chassis-name = "J456";
 	apple,machine-kind = "iMac";
+	apple,no-beamforming;
 };
 
 / {
