@@ -549,6 +549,22 @@
 	status = "disabled";
 };
 
+&aop_mbox {
+       status = "okay";
+};
+
+&aop_dart {
+       status = "okay";
+};
+
+&aop_admac {
+       status = "okay";
+};
+
+&aop {
+       status = "okay";
+};
+
 / {
 	sound: sound {
 		/* compatible is set per machine */
