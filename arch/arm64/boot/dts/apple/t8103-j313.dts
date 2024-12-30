@@ -18,6 +18,10 @@
 	model = "Apple MacBook Air (M1, 2020)";
 	chassis-type = "laptop";
 
+	aliases {
+		sep = &sep;
+	};
+
 	led-controller {
 		compatible = "pwm-leds";
 		led-0 {
@@ -127,6 +131,26 @@
 		cirrus,ts-inv = <1>;
 		sound-name-prefix = "Jack";
 	};
+};
+
+&aop_mbox {
+       status = "okay";
+};
+
+&aop_dart {
+       status = "okay";
+};
+
+&aop_admac {
+       status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
+&sep {
+	status = "okay";
 };
 
 &aop_audio {
