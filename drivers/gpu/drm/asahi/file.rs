@@ -572,6 +572,11 @@ impl File {
         let end = data.addr.checked_add(data.range).ok_or(EINVAL)?;
         let range = start..end;
 
+        let end_off = data.offset.checked_add(data.range).ok_or(EINVAL)?;
+        if end_off as usize > bo.size() {
+            return Err(EINVAL);
+        }
+
         if !VM_USER_RANGE.is_superset(range.clone()) {
             cls_pr_debug!(
                 Errors,
