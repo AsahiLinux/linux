@@ -31,6 +31,7 @@
 #include <drm/drm_vblank.h>
 
 #include "afk.h"
+#include "av.h"
 #include "dcp.h"
 #include "dcp-internal.h"
 #include "iomfb.h"
@@ -413,6 +414,9 @@ static int dcp_dptx_connect(struct apple_dcp *dcp, u32 port)
 	if (dcp->connector_type == DRM_MODE_CONNECTOR_DisplayPort)
 		dptxport_set_hpd(dcp->dptxport[port].service, true);
 
+	if (dcp->avep)
+		av_service_connect(dcp);
+
 	return 0;
 
 out_unlock:
@@ -444,6 +448,9 @@ EXPORT_SYMBOL_GPL(dcp_dptx_connect_oob);
 int dcp_dptx_disconnect_oob(struct platform_device *pdev, u32 port)
 {
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	if (dcp->avep)
+		av_service_disconnect(dcp);
 
 	if (dcp->dptxport[port].enabled)
 		dptxport_set_hpd(dcp->dptxport[port].service, false);
@@ -632,12 +639,18 @@ void dcp_poweron(struct platform_device *pdev)
 		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
 		break;
 	}
+
+	if (dcp->avep)
+		av_service_connect(dcp);
 }
 EXPORT_SYMBOL(dcp_poweron);
 
 void dcp_poweroff(struct platform_device *pdev)
 {
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	if (dcp->avep)
+		av_service_disconnect(dcp);
 
 	switch (dcp->fw_compat) {
 	case DCP_FIRMWARE_V_12_3:
@@ -1073,6 +1086,7 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 		disable_irq(dcp->hdmi_hpd_irq);
 
 	if (dcp->avep) {
+		av_service_disconnect(dcp);
 		afk_shutdown(dcp->avep);
 		dcp->avep = NULL;
 	}
@@ -1229,6 +1243,9 @@ static int dcp_platform_suspend(struct device *dev)
 {
 	struct apple_dcp *dcp = dev_get_drvdata(dev);
 
+	if (dcp->avep)
+		av_service_disconnect(dcp);
+
 	if (dcp->hdmi_hpd_irq) {
 		disable_irq(dcp->hdmi_hpd_irq);
 		dcp_dptx_disconnect(dcp, 0);
@@ -1256,6 +1273,9 @@ static int dcp_platform_resume(struct device *dev)
 		if (connected)
 			dcp_dptx_connect(dcp, 0);
 	}
+
+	if (dcp->avep)
+		av_service_connect(dcp);
 
 	return 0;
 }
