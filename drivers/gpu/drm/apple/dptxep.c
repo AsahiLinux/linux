@@ -257,7 +257,7 @@ static int dptxport_call_get_max_lane_count(struct apple_epic_service *service,
 		return -EINVAL;
 
 	reply->retcode = cpu_to_le32(0);
-	reply->lane_count = cpu_to_le64(4);
+	reply->lane_count = cpu_to_le64(2);
 
 	ret = phy_validate(dptx->atcphy, PHY_MODE_DP, 0, &phy_ops);
 	if (ret < 0 || phy_ops.dp.lanes < 2) {
@@ -265,9 +265,11 @@ static int dptxport_call_get_max_lane_count(struct apple_epic_service *service,
 		// switched to  DP alt mode
 		dev_dbg(service->ep->dcp->dev, "get_max_lane_count: "
 			"phy_validate ret:%d lanes:%d\n", ret, phy_ops.dp.lanes);
+		dptx->lane_count = 0;
 	} else {
 		reply->retcode = cpu_to_le32(0);
 		reply->lane_count = cpu_to_le64(phy_ops.dp.lanes);
+		dptx->lane_count = phy_ops.dp.lanes;
 	}
 
 	return 0;
@@ -278,6 +280,7 @@ static int dptxport_call_set_active_lane_count(struct apple_epic_service *servic
 					       void *reply_, size_t reply_size)
 {
 	struct dptx_port *dptx = service->cookie;
+	struct apple_dcp *dcp = service->ep->dcp;
 	const struct dptxport_apcall_set_active_lane_count *request = data;
 	struct dptxport_apcall_set_active_lane_count *reply = reply_;
 	int ret = 0;
@@ -290,34 +293,26 @@ static int dptxport_call_set_active_lane_count(struct apple_epic_service *servic
 
 	u64 lane_count = le64_to_cpu(request->lane_count);
 
+	if (dptx->lane_count < lane_count)
+		dev_err(dcp->dev, "set_active_lane_count: unexpected lane "
+			"count:%llu phy: %d\n", lane_count, dptx->lane_count);
+
 	switch (lane_count) {
 	case 0 ... 2:
 	case 4:
 		dptx->phy_ops.dp.lanes = lane_count;
-		dptx->phy_ops.dp.set_lanes = 1;
 		break;
 	default:
-		dev_err(service->ep->dcp->dev, "set_active_lane_count: invalid lane count:%llu\n", lane_count);
+		dev_err(dcp->dev, "set_active_lane_count: invalid lane count:%llu\n", lane_count);
 		retcode = 1;
 		lane_count = 0;
 		break;
 	}
 
-	if (dptx->phy_ops.dp.set_lanes) {
-		if (dptx->atcphy) {
-			ret = phy_configure(dptx->atcphy, &dptx->phy_ops);
-			if (ret)
-				return ret;
-		}
-		dptx->phy_ops.dp.set_lanes = 0;
-	}
-
-	dptx->lane_count = lane_count;
-
 	reply->retcode = cpu_to_le32(retcode);
 	reply->lane_count = cpu_to_le64(lane_count);
 
-	if (dptx->lane_count > 0)
+	if (lane_count > 0)
 		complete(&dptx->linkcfg_completion);
 
 	return ret;
