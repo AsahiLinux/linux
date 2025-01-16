@@ -542,6 +542,9 @@ static int dptxport_call(struct apple_epic_service *service, u32 idx,
 		/* just try to ACK and hope for the best... */
 		dev_info(service->ep->dcp->dev, "DPTXPort: acking unhandled call %u\n",
 			idx);
+		fallthrough;
+	case DPTX_APCALL_GET_DOWN_SPREAD:
+	case DPTX_APCALL_SET_DOWN_SPREAD:
 		memcpy(reply, data, min(reply_size, data_size));
 		if (reply_size >= 4)
 			memset(reply, 0, 4);
