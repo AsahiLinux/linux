@@ -1343,7 +1343,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 			drm_framebuffer_get(old_state->fb);
 		}
 
-		if (!new_state->fb) {
+		if (!new_state->fb || !new_state->visible) {
 			continue;
 		}
 		req->surf_null[l] = false;
