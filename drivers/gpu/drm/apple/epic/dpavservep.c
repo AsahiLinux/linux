@@ -36,6 +36,8 @@ static void dcpavserv_init(struct apple_epic_service *service, const char *name,
 static void dcpavserv_teardown(struct apple_epic_service *service)
 {
 	struct apple_dcp *dcp = service->ep->dcp;
+	service->enabled = false;
+
 	if (dcp->dcpavserv.enabled) {
 		dcp->dcpavserv.enabled = false;
 		dcp->dcpavserv.service = NULL;
@@ -51,6 +53,7 @@ static void dcpdpserv_init(struct apple_epic_service *service, const char *name,
 
 static void dcpdpserv_teardown(struct apple_epic_service *service)
 {
+	service->enabled = false;
 }
 
 struct dcpavserv_status_report {

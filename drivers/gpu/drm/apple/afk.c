@@ -308,6 +308,7 @@ static void afk_recv_handle_init(struct apple_dcp_afkep *ep, u32 channel,
 	ch_idx = ep->num_channels++;
 	spin_lock_init(&ep->services[ch_idx].lock);
 	ep->services[ch_idx].enabled = true;
+	ep->services[ch_idx].torndown = false;
 	ep->services[ch_idx].ops = ops;
 	ep->services[ch_idx].ep = ep;
 	ep->services[ch_idx].channel = channel;
@@ -340,7 +341,12 @@ static void afk_recv_handle_teardown(struct apple_dcp_afkep *ep, u32 channel)
 
 	// TODO: think through what locking is necessary
 	spin_lock_irqsave(&service->lock, flags);
-	service->enabled = false;
+	/*
+	 * teardown must not disable the service since since it may be sent as
+	 * side effect of a COMMAND which for which a reply is expected.
+	 * Seen with DCP's "av" endpoint during the close afk_service_call.
+	 */
+	service->torndown = true;
 	ops = service->ops;
 	spin_unlock_irqrestore(&service->lock, flags);
 
@@ -443,6 +449,12 @@ static void afk_recv_handle_std_service(struct apple_dcp_afkep *ep, u32 channel,
 		dev_warn(ep->dcp->dev,
 			 "AFK[ep:%02x]: std service notify on disabled channel %u\n",
 			 ep->endpoint, channel);
+		return;
+	}
+	if (service->torndown) {
+		dev_warn(ep->dcp->dev,
+			 "AFK[ep:%02x]: std service notify on torn down service "
+			 "(chan:%u)\n", ep->endpoint, channel);
 		return;
 	}
 
