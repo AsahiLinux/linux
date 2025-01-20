@@ -11,16 +11,17 @@ static DEBUG_FLAGS: AtomicU64 = AtomicU64::new(0);
 
 /// Debug flag bit indices
 pub(crate) enum DebugFlags {
-    // 0-3: Memory-related debug
+    // 0-4: Memory-related debug
     Mmu = 0,
-    Alloc = 1,
-    Gem = 2,
-    Object = 3,
+    PgTable = 1,
+    Alloc = 2,
+    Gem = 3,
+    Object = 4,
 
-    // 4-7: Firmware objects and resources
-    Event = 4,
-    Buffer = 5,
-    WorkQueue = 6,
+    // 5-7: Firmware objects and resources
+    Event = 5,
+    Buffer = 6,
+    WorkQueue = 7,
 
     // 8-13: DRM interface, rendering, compute, GPU globals
     Gpu = 8,
