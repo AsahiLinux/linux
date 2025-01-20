@@ -299,6 +299,7 @@ impl gpuvm::DriverGpuVm for VmInner {
         self.unmap_pages(va.addr(), UAT_PGSZ, (va.range() >> UAT_PGBIT) as usize)?;
 
         if let Some(asid) = self.slot() {
+            fence(Ordering::SeqCst);
             mem::tlbi_range(asid as u8, va.addr() as usize, va.range() as usize);
             mod_dev_dbg!(
                 self.dev,
@@ -352,6 +353,7 @@ impl gpuvm::DriverGpuVm for VmInner {
         self.unmap_pages(unmap_start, UAT_PGSZ, (unmap_range >> UAT_PGBIT) as usize)?;
 
         if let Some(asid) = self.slot() {
+            fence(Ordering::SeqCst);
             mem::tlbi_range(asid as u8, unmap_start as usize, unmap_range as usize);
             mod_dev_dbg!(
                 self.dev,
@@ -662,6 +664,7 @@ impl KernelMapping {
                 self.size()
             );
         }
+        fence(Ordering::SeqCst);
 
         // If we don't have (and have never had) a VM slot, just return
         let slot = match owner.slot() {
@@ -812,6 +815,7 @@ impl Drop for KernelMapping {
         }
 
         if let Some(asid) = owner.slot() {
+            fence(Ordering::SeqCst);
             mem::tlbi_range(asid as u8, self.iova() as usize, self.size());
             mod_dev_dbg!(
                 owner.dev,
