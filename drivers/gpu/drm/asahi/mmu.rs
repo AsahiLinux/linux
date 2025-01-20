@@ -8,7 +8,7 @@
 //! to currently active GPU VM contexts, as well as the individual `Vm` operations to map and
 //! unmap buffer objects into a single user or kernel address space.
 //!
-//! The actual page table management is delegated to the common kernel `io_pgtable` code.
+//! The actual page table management is in the `pt` module.
 
 use core::fmt::Debug;
 use core::mem::size_of;
@@ -50,23 +50,6 @@ const UAT_USER_CTX_START: usize = 1;
 /// Number of available user contexts
 const UAT_USER_CTX: usize = UAT_NUM_CTX - UAT_USER_CTX_START;
 
-/// Number of bits in a page offset.
-pub(crate) const UAT_PGBIT: usize = 14;
-/// UAT page size.
-pub(crate) const UAT_PGSZ: usize = 1 << UAT_PGBIT;
-/// UAT page offset mask.
-pub(crate) const UAT_PGMSK: usize = UAT_PGSZ - 1;
-
-type Pte = AtomicU64;
-
-/// Number of PTEs per page.
-const UAT_NPTE: usize = UAT_PGSZ / size_of::<Pte>();
-
-/// UAT input address space (user)
-pub(crate) const UAT_IAS: usize = 39;
-/// "Fake" kernel UAT input address space (one page level lower)
-pub(crate) const UAT_IAS_KERN: usize = 36;
-
 /// Lower/user base VA
 pub(crate) const IOVA_USER_BASE: u64 = UAT_PGSZ as u64;
 /// Lower/user top VA
@@ -85,8 +68,6 @@ const IOVA_KERN_RANGE: Range<u64> = IOVA_KERN_BASE..IOVA_KERN_TOP;
 
 const TTBR_VALID: u64 = 0x1; // BIT(0)
 const TTBR_ASID_SHIFT: usize = 48;
-
-const PTE_TABLE: u64 = 0x3; // BIT(0) | BIT(1)
 
 /// Address of a special dummy page?
 //const IOVA_UNK_PAGE: u64 = 0x6f_ffff8000;
