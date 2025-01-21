@@ -569,6 +569,15 @@ EXPORT_SYMBOL(dcp_start);
 
 static int dcp_enable_dp2hdmi_hpd(struct apple_dcp *dcp)
 {
+	// check HPD state before enabling the edge triggered IRQ
+	if (dcp->hdmi_hpd) {
+		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
+		dev_info(dcp->dev, "%s: DP2HDMI HPD connected:%d\n", __func__, connected);
+
+		if (connected)
+			dcp_dptx_connect(dcp, 0);
+	}
+
 	if (dcp->hdmi_hpd_irq)
 		enable_irq(dcp->hdmi_hpd_irq);
 
