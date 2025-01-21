@@ -306,12 +306,25 @@ static int dptxport_call_set_active_lane_count(struct apple_epic_service *servic
 	case 0 ... 2:
 	case 4:
 		dptx->phy_ops.dp.lanes = lane_count;
+		// Use dptx phy index > 3 as indication for dptx-phy or
+		// lpdptx-phy and configure the number of lanes for those
+		dptx->phy_ops.dp.set_lanes = (dcp->dptx_phy > 3);
 		break;
 	default:
 		dev_err(dcp->dev, "set_active_lane_count: invalid lane count:%llu\n", lane_count);
 		retcode = 1;
 		lane_count = 0;
 		break;
+	}
+
+	if (dptx->phy_ops.dp.set_lanes) {
+		if (dptx->atcphy) {
+			ret = phy_configure(dptx->atcphy, &dptx->phy_ops);
+			if (ret)
+				return ret;
+		}
+		dptx->phy_ops.dp.set_lanes = 0;
+		dptx->lane_count = lane_count;
 	}
 
 	reply->retcode = cpu_to_le32(retcode);
