@@ -168,12 +168,14 @@ struct drm_gpuva *drm_gpuva_find_prev(struct drm_gpuvm *gpuvm, u64 start);
 struct drm_gpuva *drm_gpuva_find_next(struct drm_gpuvm *gpuvm, u64 end);
 
 static inline void drm_gpuva_init(struct drm_gpuva *va, u64 addr, u64 range,
-				  struct drm_gem_object *obj, u64 offset)
+				  struct drm_gem_object *obj, u64 offset,
+				  enum drm_gpuva_flags flags)
 {
 	va->va.addr = addr;
 	va->va.range = range;
 	va->gem.obj = obj;
 	va->gem.offset = offset;
+	va->flags = flags;
 }
 
 /**
@@ -1093,7 +1095,7 @@ static inline void drm_gpuva_init_from_op(struct drm_gpuva *va,
 					  struct drm_gpuva_op_map *op)
 {
 	drm_gpuva_init(va, op->va.addr, op->va.range,
-		       op->gem.obj, op->gem.offset);
+		       op->gem.obj, op->gem.offset, op->flags);
 }
 
 /**
