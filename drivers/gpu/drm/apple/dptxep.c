@@ -250,26 +250,31 @@ static int dptxport_call_get_max_lane_count(struct apple_epic_service *service,
 {
 	struct dptxport_apcall_lane_count *reply = reply_;
 	struct dptx_port *dptx = service->cookie;
+	struct apple_dcp *dcp = service->ep->dcp;
 	union phy_configure_opts phy_ops;
 	int ret;
 
 	if (reply_size < sizeof(*reply))
 		return -EINVAL;
 
-	reply->retcode = cpu_to_le32(0);
-	reply->lane_count = cpu_to_le64(2);
-
 	ret = phy_validate(dptx->atcphy, PHY_MODE_DP, 0, &phy_ops);
-	if (ret < 0 || phy_ops.dp.lanes < 2) {
-		// phy_validate might return 0 lines if atc-phy is not yet
-		// switched to  DP alt mode
-		dev_dbg(service->ep->dcp->dev, "get_max_lane_count: "
-			"phy_validate ret:%d lanes:%d\n", ret, phy_ops.dp.lanes);
-		dptx->lane_count = 0;
+	if (ret < 0) {
+		dev_err(dcp->dev, "phy_validate failed: %d\n", ret);
+		reply->retcode = cpu_to_le32(1);
+		reply->lane_count = cpu_to_le64(0);
 	} else {
+		if (phy_ops.dp.lanes < 2) {
+			// phy_validate might return 0 lanes if atc phy is not
+			// yet switched to DP mode
+			dev_dbg(dcp->dev, "get_max_lane_count: phy lanes: %d\n",
+				phy_ops.dp.lanes);
+			// default to 4 lanes
+			dptx->lane_count = 4;
+		} else {
+			dptx->lane_count = phy_ops.dp.lanes;
+		}
 		reply->retcode = cpu_to_le32(0);
-		reply->lane_count = cpu_to_le64(phy_ops.dp.lanes);
-		dptx->lane_count = phy_ops.dp.lanes;
+		reply->lane_count = cpu_to_le64(dptx->lane_count);
 	}
 
 	return 0;
