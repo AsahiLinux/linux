@@ -1061,7 +1061,8 @@ struct drm_gpuva_ops {
 struct drm_gpuva_ops *
 drm_gpuvm_sm_map_ops_create(struct drm_gpuvm *gpuvm,
 			    u64 addr, u64 range,
-			    struct drm_gem_object *obj, u64 offset);
+			    struct drm_gem_object *obj, u64 offset,
+			    enum drm_gpuva_flags flags);
 struct drm_gpuva_ops *
 drm_gpuvm_sm_unmap_ops_create(struct drm_gpuvm *gpuvm,
 			      u64 addr, u64 range);
@@ -1206,7 +1207,8 @@ struct drm_gpuvm_ops {
 
 int drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm, void *priv,
 		     u64 addr, u64 range,
-		     struct drm_gem_object *obj, u64 offset);
+		     struct drm_gem_object *obj, u64 offset,
+		     enum drm_gpuva_flags flags);
 
 int drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm, void *priv,
 		       u64 addr, u64 range);

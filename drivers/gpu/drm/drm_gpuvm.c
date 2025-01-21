@@ -2333,7 +2333,8 @@ __drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm,
 int
 drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm, void *priv,
 		 u64 req_addr, u64 req_range,
-		 struct drm_gem_object *req_obj, u64 req_offset)
+		 struct drm_gem_object *req_obj, u64 req_offset,
+		 enum drm_gpuva_flags req_flags)
 {
 	const struct drm_gpuvm_ops *ops = gpuvm->ops;
 
@@ -2516,7 +2517,8 @@ static const struct drm_gpuvm_ops gpuvm_list_ops = {
 struct drm_gpuva_ops *
 drm_gpuvm_sm_map_ops_create(struct drm_gpuvm *gpuvm,
 			    u64 req_addr, u64 req_range,
-			    struct drm_gem_object *req_obj, u64 req_offset)
+			    struct drm_gem_object *req_obj, u64 req_offset,
+			    enum drm_gpuva_flags req_flags)
 {
 	struct drm_gpuva_ops *ops;
 	struct {

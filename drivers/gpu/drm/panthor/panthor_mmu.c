@@ -2192,7 +2192,8 @@ panthor_vm_exec_op(struct panthor_vm *vm, struct panthor_vm_op_ctx *op,
 		}
 
 		ret = drm_gpuvm_sm_map(&vm->base, vm, op->va.addr, op->va.range,
-				       op->map.vm_bo->obj, op->map.bo_offset);
+				       op->map.vm_bo->obj, op->map.bo_offset,
+				       0);
 		break;
 
 	case DRM_PANTHOR_VM_BIND_OP_TYPE_UNMAP:
