@@ -26,6 +26,66 @@ use core::ops::{Deref, DerefMut, Range};
 use core::ptr::NonNull;
 use pin_init;
 
+/// GpuVaFlags to be used for a GpuVa.
+///
+/// They can be combined with the operators `|`, `&`, and `!`.
+#[derive(Clone, Copy, PartialEq, Default)]
+pub struct GpuVaFlags(u32);
+
+impl GpuVaFlags {
+    /// No GpuVaFlags (zero)
+    pub const NONE: GpuVaFlags = GpuVaFlags(0);
+
+    /// The backing GEM is invalidated.
+    pub const INVALIDATED: GpuVaFlags = GpuVaFlags(bindings::drm_gpuva_flags_DRM_GPUVA_INVALIDATED);
+
+    /// The GpuVa is a sparse mapping.
+    pub const SPARSE: GpuVaFlags = GpuVaFlags(bindings::drm_gpuva_flags_DRM_GPUVA_SPARSE);
+
+    /// The GpuVa is a sparse mapping.
+    pub const SINGLE_PAGE: GpuVaFlags = GpuVaFlags(bindings::drm_gpuva_flags_DRM_GPUVA_SPARSE);
+
+    /// Construct a driver-specific GpuVaFlag.
+    ///
+    /// The argument must be a flag index in the range [0..28].
+    pub const fn user_flag(index: u32) -> GpuVaFlags {
+        let flags = bindings::drm_gpuva_flags_DRM_GPUVA_USERBITS << index;
+        assert!(flags != 0);
+        GpuVaFlags(flags)
+    }
+
+    /// Get the raw representation of this flag.
+    pub(crate) fn as_raw(self) -> u32 {
+        self.0
+    }
+
+    /// Check whether `flags` is contained in `self`.
+    pub fn contains(self, flags: GpuVaFlags) -> bool {
+        (self & flags) == flags
+    }
+}
+
+impl core::ops::BitOr for GpuVaFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+impl core::ops::BitAnd for GpuVaFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self(self.0 & rhs.0)
+    }
+}
+
+impl core::ops::Not for GpuVaFlags {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        Self(!self.0)
+    }
+}
+
 /// Trait that must be implemented by DRM drivers to represent a DRM GpuVm (a GPU address space).
 pub trait DriverGpuVm: Sized {
     /// The parent `Driver` implementation for this `DriverGpuVm`.
@@ -90,6 +150,9 @@ impl<T: DriverGpuVm> OpMap<T> {
     }
     pub fn offset(&self) -> u64 {
         self.0.gem.offset
+    }
+    pub fn flags(&self) -> GpuVaFlags {
+        GpuVaFlags(self.0.flags)
     }
     pub fn object(&self) -> &<<T::Driver as drm::Driver>::Object as BaseDriverObject>::Object {
         let p = unsafe {
@@ -201,6 +264,9 @@ impl<T: DriverGpuVm> GpuVa<T> {
     }
     pub fn offset(&self) -> u64 {
         self.gpuva.gem.offset
+    }
+    pub fn flags(&self) -> GpuVaFlags {
+        GpuVaFlags(self.gpuva.flags)
     }
 }
 
@@ -563,6 +629,7 @@ impl<T: DriverGpuVm> LockedGpuVm<'_, '_, T> {
         req_addr: u64,
         req_range: u64,
         req_offset: u64,
+        flags: GpuVaFlags,
     ) -> Result {
         let obj = self.obj.ok_or(EINVAL)?;
         let mut ctx = StepContext {
@@ -578,6 +645,7 @@ impl<T: DriverGpuVm> LockedGpuVm<'_, '_, T> {
                 req_range,
                 obj.as_raw() as *const _ as *mut _,
                 req_offset,
+                flags.as_raw(),
             )
         })
     }
