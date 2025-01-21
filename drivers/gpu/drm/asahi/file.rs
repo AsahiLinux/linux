@@ -249,7 +249,8 @@ impl File {
 
             feat_compat: gpu.get_cfg().gpu_feat_compat
                 | hw::feat::compat::GETTIME
-                | hw::feat::compat::USER_TIMESTAMPS,
+                | hw::feat::compat::USER_TIMESTAMPS
+                | hw::feat::compat::SINGLE_PAGE_MAP,
             feat_incompat: gpu.get_cfg().gpu_feat_incompat,
 
             gpu_generation: gpu.get_dyncfg().id.gpu_gen as u32,
@@ -561,10 +562,15 @@ impl File {
             return Err(EINVAL); // Must be page aligned
         }
 
-        if (data.flags & !(uapi::ASAHI_BIND_READ | uapi::ASAHI_BIND_WRITE)) != 0 {
+        if (data.flags
+            & !(uapi::ASAHI_BIND_READ | uapi::ASAHI_BIND_WRITE | uapi::ASAHI_BIND_SINGLE_PAGE))
+            != 0
+        {
             cls_pr_debug!(Errors, "gem_bind: Invalid flags {:#x}\n", data.flags);
             return Err(EINVAL);
         }
+
+        let single_page = data.flags & uapi::ASAHI_BIND_SINGLE_PAGE != 0;
 
         let bo = gem::lookup_handle(file, data.handle)?;
 
@@ -625,7 +631,14 @@ impl File {
             return Err(EINVAL);
         }
 
-        vm.bind_object(&bo.gem, data.addr, data.range, data.offset, prot)?;
+        vm.bind_object(
+            &bo.gem,
+            data.addr,
+            data.range,
+            data.offset,
+            prot,
+            single_page,
+        )?;
 
         Ok(0)
     }

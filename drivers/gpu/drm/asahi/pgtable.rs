@@ -385,6 +385,7 @@ impl UatPageTable {
         iova_range: Range<u64>,
         mut phys: PhysicalAddr,
         prot: Prot,
+        one_page: bool,
     ) -> Result {
         mod_pr_debug!(
             "UATPageTable::map_pages: {:#x?} {:#x?} {:?}\n",
@@ -411,7 +412,9 @@ impl UatPageTable {
                     phys | prot.as_pte() | PTE_TYPE_LEAF_TABLE,
                     Ordering::Relaxed,
                 );
-                phys += UAT_PGSZ as PhysicalAddr;
+                if !one_page {
+                    phys += UAT_PGSZ as PhysicalAddr;
+                }
             }
         })
     }

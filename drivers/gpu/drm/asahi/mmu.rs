@@ -192,6 +192,8 @@ impl gpuvm::DriverGpuVm for VmInner {
 
         let bo = ctx.vm_bo.as_ref().expect("step_map with no BO");
 
+        let one_page = op.flags().contains(gpuvm::GpuVaFlags::SINGLE_PAGE);
+
         let guard = bo.inner().sgt.lock();
         for range in guard.as_ref().expect("step_map with no SGT").iter() {
             let mut addr = range.dma_address();
@@ -214,18 +216,27 @@ impl gpuvm::DriverGpuVm for VmInner {
 
             assert!(offset == 0);
 
-            len = len.min(left);
+            if one_page {
+                len = left;
+            } else {
+                len = len.min(left);
+            }
 
             mod_dev_dbg!(
                 self.dev,
-                "MMU: map: {:#x}:{:#x} -> {:#x}\n",
+                "MMU: map: {:#x}:{:#x} -> {:#x} [OP={}]\n",
                 addr,
                 len,
-                iova
+                iova,
+                one_page
             );
 
-            self.page_table
-                .map_pages(iova..(iova + len as u64), addr as PhysicalAddr, ctx.prot)?;
+            self.page_table.map_pages(
+                iova..(iova + len as u64),
+                addr as PhysicalAddr,
+                ctx.prot,
+                one_page,
+            )?;
 
             left -= len;
             iova += len as u64;
@@ -437,8 +448,12 @@ impl VmInner {
                 iova
             );
 
-            self.page_table
-                .map_pages(iova..(iova + len as u64), addr as PhysicalAddr, prot)?;
+            self.page_table.map_pages(
+                iova..(iova + len as u64),
+                addr as PhysicalAddr,
+                prot,
+                false,
+            )?;
 
             iova += len as u64;
             left -= len;
@@ -1084,6 +1099,7 @@ impl Vm {
         size: u64,
         offset: u64,
         prot: Prot,
+        single_page: bool,
     ) -> Result {
         // Mapping needs a complete context
         let mut ctx = StepContext {
@@ -1118,6 +1134,12 @@ impl Vm {
             return Err(EINVAL);
         }
 
+        let flags = if single_page {
+            gpuvm::GpuVaFlags::SINGLE_PAGE
+        } else {
+            gpuvm::GpuVaFlags::NONE
+        };
+
         mod_dev_dbg!(
             inner.dev,
             "MMU: sm_map: {:#x} [{:#x}] -> {:#x}\n",
@@ -1125,7 +1147,7 @@ impl Vm {
             size,
             addr
         );
-        inner.sm_map(&mut ctx, addr, size, offset)
+        inner.sm_map(&mut ctx, addr, size, offset, flags)
     }
 
     /// Add a direct MMIO mapping to this Vm at a free address.
@@ -1173,10 +1195,12 @@ impl Vm {
             0,
         )?;
 
-        let ret =
-            inner
-                .page_table
-                .map_pages(iova..(iova + size as u64), phys as PhysicalAddr, prot);
+        let ret = inner.page_table.map_pages(
+            iova..(iova + size as u64),
+            phys as PhysicalAddr,
+            prot,
+            false,
+        );
         // Drop the exec_lock first, so that if map_node failed the
         // KernelMappingInner destructur does not deadlock.
         core::mem::drop(inner);
