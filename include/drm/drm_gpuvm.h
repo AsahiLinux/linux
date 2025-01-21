@@ -57,9 +57,16 @@ enum drm_gpuva_flags {
 	DRM_GPUVA_SPARSE = (1 << 1),
 
 	/**
+	 * @DRM_GPUVA_SINGLE_PAGE:
+	 *
+	 * Flag indicating that the &drm_gpuva is a single-page mapping.
+	 */
+	DRM_GPUVA_SINGLE_PAGE = (1 << 2),
+
+	/**
 	 * @DRM_GPUVA_USERBITS: user defined bits
 	 */
-	DRM_GPUVA_USERBITS = (1 << 2),
+	DRM_GPUVA_USERBITS = (1 << 3),
 };
 
 /**

@@ -671,6 +671,12 @@
  */
 
 /**
+ * Mask of flags which must match to consider a drm_gpuva eligible for merging
+ * with a new overlaid mapping.
+ */
+#define DRM_GPUVA_UNMERGEABLE_FLAGS DRM_GPUVA_SINGLE_PAGE
+
+/**
  * get_next_vm_bo_from_list() - get the next vm_bo element
  * @__gpuvm: the &drm_gpuvm
  * @__list_name: the name of the list we're iterating on
@@ -2121,6 +2127,9 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 		u64 range = va->va.range;
 		u64 end = addr + range;
 		bool merge = !!va->gem.obj;
+		bool single_page = va->flags & DRM_GPUVA_SINGLE_PAGE;
+
+		merge &= !((va->flags ^ req_flags) & DRM_GPUVA_UNMERGEABLE_FLAGS);
 
 		if (addr == req_addr) {
 			merge &= obj == req_obj &&
@@ -2145,7 +2154,8 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 					.va.addr = req_end,
 					.va.range = range - req_range,
 					.gem.obj = obj,
-					.gem.offset = offset + req_range,
+					.gem.offset = offset +
+						(single_page ? 0 : req_range),
 					.flags = va->flags,
 				};
 				struct drm_gpuva_op_unmap u = {
@@ -2169,8 +2179,12 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 			};
 			struct drm_gpuva_op_unmap u = { .va = va };
 
-			merge &= obj == req_obj &&
-				 offset + ls_range == req_offset;
+			merge &= obj == req_obj;
+			if (single_page)
+				merge &= offset == req_offset;
+			else
+				merge &= offset + ls_range == req_offset;
+
 			u.keep = merge;
 
 			if (end == req_end) {
@@ -2192,8 +2206,9 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 					.va.addr = req_end,
 					.va.range = end - req_end,
 					.gem.obj = obj,
-					.gem.offset = offset + ls_range +
-						      req_range,
+					.gem.offset = offset +
+						(single_page ? 0 :
+						 ls_range + req_range),
 					.flags = va->flags,
 				};
 
@@ -2203,9 +2218,13 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 				break;
 			}
 		} else if (addr > req_addr) {
-			merge &= obj == req_obj &&
-				 offset == req_offset +
-					   (addr - req_addr);
+			merge &= obj == req_obj;
+
+			if (single_page)
+				merge &= offset == req_offset;
+			else
+				merge &= offset == req_offset +
+					 (addr - req_addr);
 
 			if (end == req_end) {
 				ret = op_unmap_cb(ops, priv, va, merge);
@@ -2226,7 +2245,9 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 					.va.addr = req_end,
 					.va.range = end - req_end,
 					.gem.obj = obj,
-					.gem.offset = offset + req_end - addr,
+					.gem.offset = offset +
+						(single_page ? 0 :
+						 req_end - addr),
 					.flags = va->flags,
 				};
 				struct drm_gpuva_op_unmap u = {
@@ -2268,6 +2289,7 @@ __drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm,
 		u64 addr = va->va.addr;
 		u64 range = va->va.range;
 		u64 end = addr + range;
+		bool single_page = va->flags & DRM_GPUVA_SINGLE_PAGE;
 
 		if (addr < req_addr) {
 			prev.va.addr = addr;
@@ -2283,7 +2305,9 @@ __drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm,
 			next.va.addr = req_end;
 			next.va.range = end - req_end;
 			next.gem.obj = obj;
-			next.gem.offset = offset + (req_end - addr);
+			next.gem.offset = offset;
+			if (!single_page)
+				next.gem.offset += req_end - addr;
 			next.flags = va->flags;
 
 			next_split = true;
