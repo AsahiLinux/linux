@@ -2054,7 +2054,8 @@ EXPORT_SYMBOL_GPL(drm_gpuva_unmap);
 static int
 op_map_cb(const struct drm_gpuvm_ops *fn, void *priv,
 	  u64 addr, u64 range,
-	  struct drm_gem_object *obj, u64 offset)
+	  struct drm_gem_object *obj, u64 offset,
+	  enum drm_gpuva_flags flags)
 {
 	struct drm_gpuva_op op = {};
 
@@ -2063,6 +2064,7 @@ op_map_cb(const struct drm_gpuvm_ops *fn, void *priv,
 	op.map.va.range = range;
 	op.map.gem.obj = obj;
 	op.map.gem.offset = offset;
+	op.map.flags = flags;
 
 	return fn->sm_step_map(&op, priv);
 }
@@ -2102,7 +2104,8 @@ static int
 __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 		   const struct drm_gpuvm_ops *ops, void *priv,
 		   u64 req_addr, u64 req_range,
-		   struct drm_gem_object *req_obj, u64 req_offset)
+		   struct drm_gem_object *req_obj, u64 req_offset,
+		   enum drm_gpuva_flags req_flags)
 {
 	struct drm_gpuva *va, *next;
 	u64 req_end = req_addr + req_range;
@@ -2143,6 +2146,7 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 					.va.range = range - req_range,
 					.gem.obj = obj,
 					.gem.offset = offset + req_range,
+					.flags = va->flags,
 				};
 				struct drm_gpuva_op_unmap u = {
 					.va = va,
@@ -2161,6 +2165,7 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 				.va.range = ls_range,
 				.gem.obj = obj,
 				.gem.offset = offset,
+				.flags = va->flags,
 			};
 			struct drm_gpuva_op_unmap u = { .va = va };
 
@@ -2189,6 +2194,7 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 					.gem.obj = obj,
 					.gem.offset = offset + ls_range +
 						      req_range,
+					.flags = va->flags,
 				};
 
 				ret = op_remap_cb(ops, priv, &p, &n, &u);
@@ -2221,6 +2227,7 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 					.va.range = end - req_end,
 					.gem.obj = obj,
 					.gem.offset = offset + req_end - addr,
+					.flags = va->flags,
 				};
 				struct drm_gpuva_op_unmap u = {
 					.va = va,
@@ -2237,7 +2244,8 @@ __drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm,
 
 	return op_map_cb(ops, priv,
 			 req_addr, req_range,
-			 req_obj, req_offset);
+			 req_obj, req_offset,
+			 req_flags);
 }
 
 static int
@@ -2266,6 +2274,7 @@ __drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm,
 			prev.va.range = req_addr - addr;
 			prev.gem.obj = obj;
 			prev.gem.offset = offset;
+			prev.flags = va->flags;
 
 			prev_split = true;
 		}
@@ -2275,6 +2284,7 @@ __drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm,
 			next.va.range = end - req_end;
 			next.gem.obj = obj;
 			next.gem.offset = offset + (req_end - addr);
+			next.flags = va->flags;
 
 			next_split = true;
 		}
@@ -2345,7 +2355,8 @@ drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm, void *priv,
 
 	return __drm_gpuvm_sm_map(gpuvm, ops, priv,
 				  req_addr, req_range,
-				  req_obj, req_offset);
+				  req_obj, req_offset,
+				  req_flags);
 }
 EXPORT_SYMBOL_GPL(drm_gpuvm_sm_map);
 
@@ -2538,7 +2549,8 @@ drm_gpuvm_sm_map_ops_create(struct drm_gpuvm *gpuvm,
 
 	ret = __drm_gpuvm_sm_map(gpuvm, &gpuvm_list_ops, &args,
 				 req_addr, req_range,
-				 req_obj, req_offset);
+				 req_obj, req_offset,
+				 req_flags);
 	if (ret)
 		goto err_free_ops;
 
