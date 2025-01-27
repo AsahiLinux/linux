@@ -199,7 +199,7 @@ enum dcpep_method {
 	dcpep_num_methods
 };
 
-#define IOMFB_METHOD(tag, name) [name] = { #name, tag }
+#define IOMFB_METHOD(tag, name) [name] = { #name, { tag[0], tag[1], tag[2], tag[3] } }
 
 struct dcp_method_entry {
 	const char *name;
