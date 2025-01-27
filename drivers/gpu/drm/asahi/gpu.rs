@@ -36,7 +36,8 @@ use crate::driver::{AsahiDevRef, AsahiDevice};
 use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::{U32, U64};
 use crate::{
-    alloc, buffer, channel, event, fw, gem, hw, initdata, mem, mmu, queue, regs, workqueue,
+    alloc, buffer, channel, crashdump, event, fw, gem, hw, initdata, mem, mmu, queue, regs,
+    workqueue,
 };
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Gpu;
@@ -330,10 +331,14 @@ impl rtkit::Operations for GpuManager::ver {
         ch.event.poll();
     }
 
-    fn crashed(data: <Self::Data as ForeignOwnable>::Borrowed<'_>, _crashlog: Option<&[u8]>) {
+    fn crashed(data: <Self::Data as ForeignOwnable>::Borrowed<'_>, crashlog: Option<&[u8]>) {
         let dev = &data.dev;
 
         data.crashed.store(true, Ordering::Relaxed);
+
+        if let Err(e) = data.generate_crashdump(crashlog) {
+            dev_err!(dev.as_ref(), "Could not dump kernel VM pages: {:?}\n", e);
+        }
 
         if debug_enabled(DebugFlags::OopsOnGpuCrash) {
             panic!("GPU firmware crashed");
@@ -1114,6 +1119,23 @@ impl GpuManager::ver {
         // The invalidation does a cache flush, so it is okay to collect garbage
         guard.private.collect_garbage(garbage_count);
         guard.gpu_ro.collect_garbage(garbage_count_gpuro);
+
+        Ok(())
+    }
+
+    fn generate_crashdump(&self, crashlog: Option<&[u8]>) -> Result {
+        // Lock the allocators, to block kernel/FW memory mutations (mostly)
+        let kalloc = self.alloc();
+        let pages = self.uat.dump_kernel_pages()?;
+        core::mem::drop(kalloc);
+
+        let mut crashdump = crashdump::CrashDumpBuilder::new(pages)?;
+        let initdata_addr = self.initdata.gpu_va().get();
+        crashdump.add_agx_info(self.cfg, &self.dyncfg, initdata_addr)?;
+        if let Some(crashlog) = crashlog {
+            crashdump.add_crashlog(crashlog)?;
+        }
+        let crashdump = crashdump.finalize();
 
         Ok(())
     }
