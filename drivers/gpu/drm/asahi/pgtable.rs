@@ -23,6 +23,11 @@ use kernel::{
 #[cfg(CONFIG_DEV_COREDUMP)]
 use kernel::{
     types::Owned,
+    uapi::{
+        PF_R,
+        PF_W,
+        PF_X, //
+    },
 };
 
 use crate::debug::*;
@@ -64,8 +69,8 @@ const PTE_TYPE_LEAF_TABLE: u64 = 3;
 const UAT_NON_GLOBAL: u64 = 1 << 11;
 const UAT_AP_SHIFT: u32 = 6;
 const UAT_AP_BITS: u64 = 3 << UAT_AP_SHIFT;
-const UAT_HIGH_BITS_SHIFT: u32 = 53;
-const UAT_HIGH_BITS: u64 = 7 << UAT_HIGH_BITS_SHIFT;
+const UAT_HIGH_BITS_SHIFT: u32 = 52;
+const UAT_HIGH_BITS: u64 = 0xfff << UAT_HIGH_BITS_SHIFT;
 const UAT_MEMATTR_SHIFT: u32 = 2;
 const UAT_MEMATTR_BITS: u64 = 7 << UAT_MEMATTR_SHIFT;
 
@@ -81,15 +86,18 @@ const AP_FW_GPU: u8 = 0;
 const AP_FW: u8 = 1;
 const AP_GPU: u8 = 2;
 
-const HIGH_BITS_PXN: u8 = 1 << 0;
-const HIGH_BITS_UXN: u8 = 1 << 1;
-const HIGH_BITS_GPU_ACCESS: u8 = 1 << 2;
+const HIGH_BITS_PXN: u16 = 1 << 1;
+const HIGH_BITS_UXN: u16 = 1 << 2;
+const HIGH_BITS_GPU_ACCESS: u16 = 1 << 3;
+
+#[cfg(CONFIG_DEV_COREDUMP)]
+pub(crate) const PTE_ADDR_BITS: u64 = (!UAT_PGMSK as u64) & (!UAT_HIGH_BITS);
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Prot {
     memattr: u8,
     ap: u8,
-    high_bits: u8,
+    high_bits: u16,
 }
 
 // Firmware + GPU access
@@ -109,6 +117,27 @@ const PROT_GPU_RO: Prot = Prot::from_bits(AP_GPU, 0, 0);
 const PROT_GPU_WO: Prot = Prot::from_bits(AP_GPU, 0, 1);
 const PROT_GPU_RW: Prot = Prot::from_bits(AP_GPU, 1, 0);
 const _PROT_GPU_NA: Prot = Prot::from_bits(AP_GPU, 1, 1);
+
+#[cfg(CONFIG_DEV_COREDUMP)]
+const PF_RW: u32 = PF_R | PF_W;
+#[cfg(CONFIG_DEV_COREDUMP)]
+const PF_RX: u32 = PF_R | PF_X;
+
+// For crash dumps
+#[cfg(CONFIG_DEV_COREDUMP)]
+const PROT_TO_PERMS_FW: [[u32; 4]; 4] = [
+    [0, 0, 0, PF_RW],
+    [0, PF_RW, 0, PF_RW],
+    [PF_RX, PF_RX, 0, PF_R],
+    [PF_RX, PF_RW, 0, PF_R],
+];
+#[cfg(CONFIG_DEV_COREDUMP)]
+const PROT_TO_PERMS_OS: [[u32; 4]; 4] = [
+    [0, PF_R, PF_W, PF_RW],
+    [PF_R, 0, PF_RW, PF_RW],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+];
 
 pub(crate) mod prot {
     pub(crate) use super::Prot;
@@ -139,7 +168,7 @@ pub(crate) mod prot {
 }
 
 impl Prot {
-    const fn from_bits(ap: u8, uxn: u8, pxn: u8) -> Self {
+    const fn from_bits(ap: u8, uxn: u16, pxn: u16) -> Self {
         assert!(uxn <= 1);
         assert!(pxn <= 1);
         assert!(ap <= 3);
@@ -149,6 +178,44 @@ impl Prot {
             memattr: 0,
             ap,
         }
+    }
+
+    #[cfg(CONFIG_DEV_COREDUMP)]
+    pub(crate) const fn from_pte(pte: u64) -> Self {
+        Prot {
+            high_bits: (pte >> UAT_HIGH_BITS_SHIFT) as u16,
+            ap: ((pte & UAT_AP_BITS) >> UAT_AP_SHIFT) as u8,
+            memattr: ((pte & UAT_MEMATTR_BITS) >> UAT_MEMATTR_SHIFT) as u8,
+        }
+    }
+
+    #[cfg(CONFIG_DEV_COREDUMP)]
+    pub(crate) const fn elf_flags(&self) -> u32 {
+        let ap = (self.ap & 3) as usize;
+        let uxn = if self.high_bits & HIGH_BITS_UXN != 0 {
+            1
+        } else {
+            0
+        };
+        let pxn = if self.high_bits & HIGH_BITS_PXN != 0 {
+            1
+        } else {
+            0
+        };
+        let gpu = self.high_bits & HIGH_BITS_GPU_ACCESS != 0;
+
+        // Format:
+        // [12 top bits of PTE] [12 bottom bits of PTE] [5 bits pad] [ELF RWX]
+        let mut perms = if gpu {
+            PROT_TO_PERMS_OS[ap][(uxn << 1) | pxn]
+        } else {
+            PROT_TO_PERMS_FW[ap][(uxn << 1) | pxn]
+        };
+
+        perms |= ((self.as_pte() >> 52) << 20) as u32;
+        perms |= ((self.as_pte() & 0xfff) << 8) as u32;
+
+        perms
     }
 
     const fn memattr(&self, memattr: u8) -> Self {
