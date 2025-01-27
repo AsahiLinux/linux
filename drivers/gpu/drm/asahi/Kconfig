@@ -19,6 +19,7 @@ config DRM_ASAHI
 	depends on (ARM64 && ARCH_APPLE) || (COMPILE_TEST && !GENERIC_ATOMIC64)
 	depends on MMU
 	depends on IOMMU_SUPPORT
+	depends on PAGE_SIZE_16KB
 	select RUST_DRM_SCHED
 	select IOMMU_IO_PGTABLE_LPAE
 	select RUST_DRM_GEM_SHMEM_HELPER
