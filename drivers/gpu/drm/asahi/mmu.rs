@@ -64,13 +64,15 @@ pub(crate) const IOVA_USER_TOP: u64 = 1 << (UAT_IAS as u64);
 pub(crate) const IOVA_USER_RANGE: Range<u64> = IOVA_USER_BASE..IOVA_USER_TOP;
 
 /// Upper/kernel base VA
-// const IOVA_TTBR1_BASE: usize = 0xffffff8000000000;
+const IOVA_TTBR1_BASE: u64 = 0xffffff8000000000;
 /// Driver-managed kernel base VA
 const IOVA_KERN_BASE: u64 = 0xffffffa000000000;
 /// Driver-managed kernel top VA
 const IOVA_KERN_TOP: u64 = 0xffffffb000000000;
-/// Lower/user VA range
+/// Driver-managed kernel VA range
 const IOVA_KERN_RANGE: Range<u64> = IOVA_KERN_BASE..IOVA_KERN_TOP;
+/// Full kernel VA range
+const IOVA_KERN_FULL_RANGE: Range<u64> = IOVA_TTBR1_BASE..(!UAT_PGMSK as u64);
 
 const TTBR_VALID: u64 = 0x1; // BIT(0)
 const TTBR_ASID_SHIFT: usize = 48;
@@ -1378,6 +1380,11 @@ impl Uat {
     /// Returns a reference to the local kernel (lower half) `Vm`
     pub(crate) fn kernel_lower_vm(&self) -> &Vm {
         &self.kernel_lower_vm
+    }
+
+    pub(crate) fn dump_kernel_pages(&self) -> Result<KVVec<pgtable::DumpedPage>> {
+        let mut inner = self.kernel_vm.inner.exec_lock(None, false)?;
+        inner.page_table.dump_pages(IOVA_KERN_FULL_RANGE)
     }
 
     /// Returns the base physical address of the TTBAT region.
