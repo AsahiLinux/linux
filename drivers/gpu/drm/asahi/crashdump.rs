@@ -7,12 +7,18 @@
 
 use core::mem::size_of;
 
-use kernel::{error::Result, page::Page, prelude::*, types::Owned};
+use kernel::{
+    devcoredump::DevCoreDump,
+    error::Result,
+    page::{Page, PAGE_MASK, PAGE_SHIFT, PAGE_SIZE},
+    prelude::*,
+    types::Owned,
+    uapi,
+};
 
 use crate::hw;
 use crate::pgtable::{self, DumpedPage, Prot, UAT_PGSZ};
 use crate::util::align;
-use kernel::uapi;
 
 pub(crate) struct CrashDump {
     headers: KVVec<u8>,
@@ -259,5 +265,41 @@ impl CrashDumpBuilder {
         headers[note_offset..note_offset + note_data.len()].copy_from_slice(&note_data);
 
         Ok(CrashDump { headers, pages })
+    }
+}
+
+impl DevCoreDump for CrashDump {
+    fn read(&self, buf: &mut [u8], mut offset: usize) -> Result<usize> {
+        let mut read = 0;
+        let mut left = buf.len();
+        if offset < self.headers.len() {
+            let block = left.min(self.headers.len() - offset);
+            buf[..block].copy_from_slice(&self.headers[offset..offset + block]);
+            read += block;
+            offset += block;
+            left -= block;
+        }
+        if left == 0 {
+            return Ok(read);
+        }
+        offset -= self.headers.len(); // Offset from the page area
+
+        while left > 0 {
+            let page_index = offset >> PAGE_SHIFT;
+            let page_offset = offset & !PAGE_MASK;
+            let block = left.min(PAGE_SIZE - page_offset);
+            let Some(page) = self.pages.get(page_index) else {
+                break;
+            };
+            let slice = &mut buf[read..read + block];
+            // SAFETY: We own the page, and the slice guarantees the
+            // dst length is sufficient.
+            unsafe { page.read_raw(slice.as_mut_ptr(), page_offset, slice.len())? };
+            read += block;
+            offset += block;
+            left -= block;
+        }
+
+        Ok(read)
     }
 }

@@ -25,6 +25,7 @@ config DRM_ASAHI
 	select RUST_DRM_GEM_SHMEM_HELPER
 	select RUST_DRM_GPUVM
 	select RUST_APPLE_RTKIT
+	select WANT_DEV_COREDUMP
 	help
 	  DRM driver for Apple AGX GPUs (G13x, found in the M1 SoC family)
 

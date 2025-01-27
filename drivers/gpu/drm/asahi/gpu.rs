@@ -17,7 +17,7 @@ use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use core::time::Duration;
 
 use kernel::{
-    c_str,
+    c_str, devcoredump,
     error::code::*,
     macros::versions,
     prelude::*,
@@ -26,7 +26,7 @@ use kernel::{
         lock::{mutex::MutexBackend, Guard},
         Arc, Mutex, UniqueArc,
     },
-    time::{clock, Now},
+    time::{clock, msecs_to_jiffies, Now},
     types::ForeignOwnable,
 };
 
@@ -36,8 +36,7 @@ use crate::driver::{AsahiDevRef, AsahiDevice, AsahiDriver};
 use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::{U32, U64};
 use crate::{
-    alloc, buffer, channel, crashdump, event, fw, gem, hw, initdata, mem, mmu, queue, regs,
-    workqueue,
+    alloc, buffer, channel, event, fw, gem, hw, initdata, mem, mmu, queue, regs, workqueue,
 };
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Gpu;
@@ -336,8 +335,9 @@ impl rtkit::Operations for GpuManager::ver {
 
         data.crashed.store(true, Ordering::Relaxed);
 
+        #[cfg(CONFIG_DEV_COREDUMP)]
         if let Err(e) = data.generate_crashdump(crashlog) {
-            dev_err!(dev.as_ref(), "Could not dump kernel VM pages: {:?}\n", e);
+            dev_err!(dev.as_ref(), "Could not generate crashdump: {:?}\n", e);
         }
 
         if debug_enabled(DebugFlags::OopsOnGpuCrash) {
@@ -1123,19 +1123,28 @@ impl GpuManager::ver {
         Ok(())
     }
 
+    #[cfg(CONFIG_DEV_COREDUMP)]
     fn generate_crashdump(&self, crashlog: Option<&[u8]>) -> Result {
         // Lock the allocators, to block kernel/FW memory mutations (mostly)
         let kalloc = self.alloc();
         let pages = self.uat.dump_kernel_pages()?;
         core::mem::drop(kalloc);
 
-        let mut crashdump = crashdump::CrashDumpBuilder::new(pages)?;
+        let mut crashdump = crate::crashdump::CrashDumpBuilder::new(pages)?;
         let initdata_addr = self.initdata.gpu_va().get();
         crashdump.add_agx_info(self.cfg, &self.dyncfg, initdata_addr)?;
         if let Some(crashlog) = crashlog {
             crashdump.add_crashlog(crashlog)?;
         }
-        let crashdump = crashdump.finalize();
+        let crashdump = KBox::new(crashdump.finalize()?, GFP_KERNEL)?;
+
+        devcoredump::dev_coredump(
+            self.dev.as_ref(),
+            &crate::THIS_MODULE,
+            crashdump,
+            GFP_KERNEL,
+            msecs_to_jiffies(60 * 60 * 1000),
+        );
 
         Ok(())
     }

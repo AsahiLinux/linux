@@ -6,6 +6,7 @@
 mod alloc;
 mod buffer;
 mod channel;
+#[cfg(CONFIG_DEV_COREDUMP)]
 mod crashdump;
 mod debug;
 mod driver;
