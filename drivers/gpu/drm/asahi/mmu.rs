@@ -1115,6 +1115,9 @@ impl Vm {
         let sgt = gem.sg_table()?;
         let mut inner = self.inner.exec_lock(Some(gem), true)?;
 
+        // Preallocate the page tables, to fail early if we ENOMEM
+        inner.page_table.alloc_pages(addr..(addr + size))?;
+
         let vm_bo = inner.obtain_bo()?;
 
         let mut vm_bo_guard = vm_bo.inner().sgt.lock();
