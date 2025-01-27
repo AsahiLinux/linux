@@ -10,6 +10,8 @@
 #include <uapi/drm/asahi_drm.h>
 #include <uapi/drm/drm.h>
 #include <uapi/drm/nova_drm.h>
+#include <uapi/linux/elf.h>
+#include <uapi/linux/elf-em.h>
 #include <uapi/linux/mdio.h>
 #include <uapi/linux/mii.h>
 #include <uapi/linux/ethtool.h>
