@@ -11,8 +11,7 @@ use core::mem::size_of;
 use core::ops::Range;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use kernel::addr::PhysicalAddr;
-use kernel::{error::Result, page::Page, prelude::*};
+use kernel::{addr::PhysicalAddr, error::Result, page::Page, prelude::*, types::Owned};
 
 use crate::debug::*;
 use crate::util::align;
@@ -165,6 +164,12 @@ impl Default for Prot {
     }
 }
 
+pub(crate) struct DumpedPage {
+    pub(crate) iova: u64,
+    pub(crate) pte: u64,
+    pub(crate) data: Option<Owned<Page>>,
+}
+
 pub(crate) struct UatPageTable {
     ttb: PhysicalAddr,
     ttb_owned: bool,
@@ -223,11 +228,22 @@ impl UatPageTable {
         self.ttb
     }
 
-    fn with_pages<F>(&mut self, iova_range: Range<u64>, free: bool, mut cb: F) -> Result
+    fn with_pages<F>(
+        &mut self,
+        iova_range: Range<u64>,
+        alloc: bool,
+        free: bool,
+        mut cb: F,
+    ) -> Result
     where
-        F: FnMut(u64, &[Pte]),
+        F: FnMut(u64, &[Pte]) -> Result,
     {
-        mod_pr_debug!("UATPageTable::with_pages: {:#x?} {}\n", iova_range, free);
+        mod_pr_debug!(
+            "UATPageTable::with_pages: {:#x?} alloc={} free={}\n",
+            iova_range,
+            alloc,
+            free
+        );
         if (iova_range.start | iova_range.end) & (UAT_PGMSK as u64) != 0 {
             pr_err!(
                 "UATPageTable::with_pages: iova range not aligned: {:#x?}\n",
@@ -287,10 +303,12 @@ impl UatPageTable {
                     pt_addr[level] =
                         upt.with_pointer_into_page(upidx * PTE_SIZE, PTE_SIZE, |p| {
                             let uptep = p as *const _ as *const Pte;
+                            // SAFETY: with_pointer_into_page() ensures the pointer is valid,
+                            // and our index is aligned so it is safe to deref as an AtomicU64.
                             let upte = unsafe { &*uptep };
                             let mut upte_val = upte.load(Ordering::Relaxed);
                             // Allocate if requested
-                            if upte_val == 0 && !free {
+                            if upte_val == 0 && alloc {
                                 let pt_page = Page::alloc_page(GFP_KERNEL | __GFP_ZERO)?;
                                 mod_pr_debug!("UATPageTable::with_pages: alloc PT at {:#x}\n", pt_page.phys());
                                 let pt_paddr = Page::into_phys(pt_page);
@@ -299,7 +317,7 @@ impl UatPageTable {
                             }
                             if upte_val & PTE_TYPE_BITS == PTE_TYPE_LEAF_TABLE {
                                 Ok(Some(upte_val & self.oas_mask & (!UAT_PGMSK as u64)))
-                            } else if upte_val == 0 {
+                            } else if upte_val == 0 || (!alloc && !free) {
                                 mod_pr_debug!("UATPageTable::with_pages: no level {}\n", level);
                                 Ok(None)
                             } else {
@@ -333,8 +351,6 @@ impl UatPageTable {
             let max_count = UAT_NPTE - idx;
             let count = (((end - iova) >> UAT_PGBIT) as usize).min(max_count);
             let phys = pt_addr[0].unwrap();
-            // SAFETY: Page table addresses are either allocated by us, or
-            // firmware-managed and safe to borrow a struct page from.
             mod_pr_debug!(
                 "UATPageTable::with_pages: leaf PT at {:#x} idx {:#x} count {:#x} iova {:#x}\n",
                 phys,
@@ -350,7 +366,7 @@ impl UatPageTable {
                 // SAFETY: We know this is a valid pointer to PTEs and the range is valid and
                 // checked by with_pointer_into_page().
                 let ptes = unsafe { core::slice::from_raw_parts(ptep, count) };
-                cb(iova, ptes);
+                cb(iova, ptes)?;
                 Ok(())
             })?;
 
@@ -361,12 +377,12 @@ impl UatPageTable {
         if free {
             for level in (0..UAT_LEVELS - 1).rev() {
                 if let Some(phys) = pt_addr[level] {
-                    // SAFETY: Page tables for our VA ranges always come from Page::into_phys().
                     mod_pr_debug!(
                         "UATPageTable::with_pages: free level {} {:#x?}\n",
                         level,
                         phys
                     );
+                    // SAFETY: Page tables for our VA ranges always come from Page::into_phys().
                     unsafe { Page::from_phys(phys) };
                 }
             }
@@ -377,7 +393,7 @@ impl UatPageTable {
 
     pub(crate) fn alloc_pages(&mut self, iova_range: Range<u64>) -> Result {
         mod_pr_debug!("UATPageTable::alloc_pages: {:#x?}\n", iova_range);
-        self.with_pages(iova_range, false, |_, _| {})
+        self.with_pages(iova_range, true, false, |_, _| Ok(()))
     }
 
     pub(crate) fn map_pages(
@@ -398,7 +414,7 @@ impl UatPageTable {
             return Err(EINVAL);
         }
 
-        self.with_pages(iova_range, false, |iova, ptes| {
+        self.with_pages(iova_range, true, false, |iova, ptes| {
             for (idx, pte) in ptes.iter().enumerate() {
                 let ptev = pte.load(Ordering::Relaxed);
                 if ptev != 0 {
@@ -416,6 +432,7 @@ impl UatPageTable {
                     phys += UAT_PGSZ as PhysicalAddr;
                 }
             }
+            Ok(())
         })
     }
 
@@ -425,7 +442,7 @@ impl UatPageTable {
             iova_range,
             prot
         );
-        self.with_pages(iova_range, false, |iova, ptes| {
+        self.with_pages(iova_range, true, false, |iova, ptes| {
             for (idx, pte) in ptes.iter().enumerate() {
                 let ptev = pte.load(Ordering::Relaxed);
                 if ptev & PTE_TYPE_BITS != PTE_TYPE_LEAF_TABLE {
@@ -438,12 +455,13 @@ impl UatPageTable {
                 }
                 pte.store((ptev & !UAT_PROT_BITS) | prot.as_pte(), Ordering::Relaxed);
             }
+            Ok(())
         })
     }
 
     pub(crate) fn unmap_pages(&mut self, iova_range: Range<u64>) -> Result {
         mod_pr_debug!("UATPageTable::unmap_pages: {:#x?}\n", iova_range);
-        self.with_pages(iova_range, false, |iova, ptes| {
+        self.with_pages(iova_range, false, false, |iova, ptes| {
             for (idx, pte) in ptes.iter().enumerate() {
                 if pte.load(Ordering::Relaxed) & PTE_TYPE_LEAF_TABLE == 0 {
                     pr_err!(
@@ -453,7 +471,106 @@ impl UatPageTable {
                 }
                 pte.store(0, Ordering::Relaxed);
             }
+            Ok(())
         })
+    }
+
+    pub(crate) fn dump_pages(&mut self, iova_range: Range<u64>) -> Result<KVVec<DumpedPage>> {
+        let mut pages = KVVec::new();
+        let oas_mask = self.oas_mask;
+        let iova_base = self.va_range.start & !UAT_IASMSK;
+        self.with_pages(iova_range, false, false, |iova, ptes| {
+            let iova = iova | iova_base;
+            for (idx, ppte) in ptes.iter().enumerate() {
+                let pte = ppte.load(Ordering::Relaxed);
+                if (pte & PTE_TYPE_LEAF_TABLE) != PTE_TYPE_LEAF_TABLE {
+                    continue;
+                }
+                let memattr = ((pte & UAT_MEMATTR_BITS) >> UAT_MEMATTR_SHIFT) as u8;
+
+                if !(memattr == MEMATTR_CACHED || memattr == MEMATTR_UNCACHED) {
+                    pages.push(
+                        DumpedPage {
+                            iova: iova + (idx * UAT_PGSZ) as u64,
+                            pte,
+                            data: None,
+                        },
+                        GFP_KERNEL,
+                    )?;
+                    continue;
+                }
+                let phys = pte & oas_mask & (!UAT_PGMSK as u64);
+                // SAFETY: GPU pages are either firmware/preallocated pages
+                // (which the kernel isn't concerned with and are either in
+                // the page map or not, and if they aren't, borrow_phys()
+                // will fail), or GPU page table pages (which we own),
+                // or GEM buffer pages (which are locked while they are
+                // mapped in the page table), so they should be safe to
+                // borrow.
+                //
+                // This does trust the firmware not to have any weird
+                // mappings in its own internal page tables, but since
+                // those are managed by the uPPL which is privileged anyway,
+                // this trust does not actually extend any trust boundary.
+                let src_page = match unsafe { Page::borrow_phys(&phys) } {
+                    Some(page) => page,
+                    None => {
+                        pages.push(
+                            DumpedPage {
+                                iova: iova + (idx * UAT_PGSZ) as u64,
+                                pte,
+                                data: None,
+                            },
+                            GFP_KERNEL,
+                        )?;
+                        continue;
+                    }
+                };
+                let dst_page = Page::alloc_page(GFP_KERNEL)?;
+                src_page.with_page_mapped(|psrc| -> Result {
+                    // SAFETY: This could technically still have a data
+                    // race with the firmware or other driver code (or
+                    // even userspace with timestamp buffers), but while
+                    // the Rust language technically says this is UB, in
+                    // the real world, using atomic reads for this is
+                    // guaranteed to never cause any harmful effects
+                    // other than possibly reading torn/unreliable data.
+                    // At least on ARM64 anyway.
+                    //
+                    // (Yes, I checked with Rust people about this. ~~ Lina)
+                    //
+                    let src_items = unsafe {
+                        core::slice::from_raw_parts(
+                            psrc as *const AtomicU64,
+                            UAT_PGSZ / core::mem::size_of::<AtomicU64>(),
+                        )
+                    };
+                    dst_page.with_page_mapped(|pdst| -> Result {
+                        let dst_items = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                pdst as *mut u64,
+                                UAT_PGSZ / core::mem::size_of::<u64>(),
+                            )
+                        };
+                        for (si, di) in src_items.iter().zip(dst_items.iter_mut()) {
+                            *di = si.load(Ordering::Relaxed);
+                        }
+                        Ok(())
+                    })?;
+                    Ok(())
+                })?;
+                pages.push(
+                    DumpedPage {
+                        iova: iova + (idx * UAT_PGSZ) as u64,
+                        pte,
+                        data: Some(dst_page),
+                    },
+                    GFP_KERNEL,
+                )?;
+            }
+            Ok(())
+        })?;
+        Ok(pages)
     }
 }
 
@@ -461,7 +578,7 @@ impl Drop for UatPageTable {
     fn drop(&mut self) {
         mod_pr_debug!("UATPageTable::drop range: {:#x?}\n", &self.va_range);
         if self
-            .with_pages(self.va_range.clone(), true, |iova, ptes| {
+            .with_pages(self.va_range.clone(), false, true, |iova, ptes| {
                 for (idx, pte) in ptes.iter().enumerate() {
                     if pte.load(Ordering::Relaxed) != 0 {
                         pr_err!(
@@ -470,6 +587,7 @@ impl Drop for UatPageTable {
                         );
                     }
                 }
+                Ok(())
             })
             .is_err()
         {
