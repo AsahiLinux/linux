@@ -330,7 +330,7 @@ impl rtkit::Operations for GpuManager::ver {
         ch.event.poll();
     }
 
-    fn crashed(data: <Self::Data as ForeignOwnable>::Borrowed<'_>) {
+    fn crashed(data: <Self::Data as ForeignOwnable>::Borrowed<'_>, _crashlog: Option<&[u8]>) {
         let dev = &data.dev;
 
         data.crashed.store(true, Ordering::Relaxed);
