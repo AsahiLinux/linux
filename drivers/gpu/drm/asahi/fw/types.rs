@@ -53,6 +53,7 @@ pub(crate) struct FwStamp(pub(crate) AtomicU32);
 #[repr(C, packed(1))]
 pub(crate) struct U64(pub(crate) u64);
 
+// SAFETY: U64 is zeroable just like u64
 unsafe impl Zeroable for U64 {}
 
 impl fmt::Debug for U64 {
@@ -70,6 +71,7 @@ impl fmt::Debug for U64 {
 #[repr(C, packed(1))]
 pub(crate) struct U32(pub(crate) u32);
 
+// SAFETY: U32 is zeroable just like u32
 unsafe impl Zeroable for U32 {}
 
 impl fmt::Debug for U32 {

@@ -52,6 +52,7 @@ pub(crate) mod raw {
     impl Default for NotifierState::ver {
         fn default() -> Self {
             #[allow(unused_mut)]
+            // SAFETY: All bit patterns are valid for this type.
             let mut s: Self = unsafe { core::mem::zeroed() };
             #[ver(V >= V13_0B4)]
             s.unk_buf = Array::new([0xff; 0x8]);
