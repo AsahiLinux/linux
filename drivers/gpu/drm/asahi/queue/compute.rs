@@ -58,6 +58,7 @@ impl super::QueueInner::ver {
 
         let cmdbuf_read_size =
             (cmd.cmd_buffer_size as usize).min(core::mem::size_of::<uapi::drm_asahi_cmd_compute>());
+        // SAFETY: This is the sole UserSlicePtr instance for this cmd_buffer.
         let mut cmdbuf_reader = unsafe {
             UserSlicePtr::new(
                 cmd.cmd_buffer as usize as *mut _,
@@ -67,6 +68,8 @@ impl super::QueueInner::ver {
         };
 
         let mut cmdbuf: uapi::drm_asahi_cmd_compute = Default::default();
+        // SAFETY: The output pointer is valid, and the size does not exceed the type size
+        // per the min() above, and all bit patterns are valid.
         unsafe {
             cmdbuf_reader.read_raw(&mut cmdbuf as *mut _ as *mut u8, cmdbuf_read_size)?;
         }
@@ -80,6 +83,9 @@ impl super::QueueInner::ver {
         let mut ext_ptr = cmdbuf.extensions;
         while ext_ptr != 0 {
             let ext_type = u32::from_ne_bytes(
+                // SAFETY: There is a double read from userspace here, but there is no TOCTOU
+                // issue since at worst the extension parse below will read garbage, and
+                // we do not trust any fields anyway.
                 unsafe { UserSlicePtr::new(ext_ptr as usize as *mut _, 4) }
                     .read_all()?
                     .try_into()
@@ -91,6 +97,7 @@ impl super::QueueInner::ver {
                     let mut ext_user_timestamps: uapi::drm_asahi_cmd_compute_user_timestamps =
                         Default::default();
 
+                    // SAFETY: See above
                     let mut ext_reader = unsafe {
                         UserSlicePtr::new(
                             ext_ptr as usize as *mut _,
@@ -98,6 +105,8 @@ impl super::QueueInner::ver {
                         )
                         .reader()
                     };
+                    // SAFETY: The output buffer is valid and of the correct size, and all bit
+                    // patterns are valid.
                     unsafe {
                         ext_reader.read_raw(
                             &mut ext_user_timestamps as *mut _ as *mut u8,
