@@ -90,8 +90,9 @@ struct UatRegion {
     map: io::mem::Mem,
 }
 
-/// It's safe to share UAT region records across threads.
+/// SAFETY: It's safe to share UAT region records across threads.
 unsafe impl Send for UatRegion {}
+/// SAFETY: It's safe to share UAT region records across threads.
 unsafe impl Sync for UatRegion {}
 
 /// Handoff region flush info structure
@@ -354,7 +355,7 @@ impl gpuvm::DriverGpuVm for VmInner {
                 .prev_va
                 .take()
                 .expect("Multiple step_remap calls with prev_op");
-            if prev_op.map_and_link_va(self, prev_gpuva, &vm_bo).is_err() {
+            if prev_op.map_and_link_va(self, prev_gpuva, vm_bo).is_err() {
                 dev_err!(self.dev.as_ref(), "step_remap: could not relink prev gpuva");
                 return Err(EINVAL);
             }
@@ -365,7 +366,7 @@ impl gpuvm::DriverGpuVm for VmInner {
                 .next_va
                 .take()
                 .expect("Multiple step_remap calls with next_op");
-            if next_op.map_and_link_va(self, next_gpuva, &vm_bo).is_err() {
+            if next_op.map_and_link_va(self, next_gpuva, vm_bo).is_err() {
                 dev_err!(self.dev.as_ref(), "step_remap: could not relink next gpuva");
                 return Err(EINVAL);
             }
@@ -400,7 +401,7 @@ impl VmInner {
 
     /// Returns the translation table base for this Vm
     fn ttb(&self) -> u64 {
-        self.page_table.ttb() as u64
+        self.page_table.ttb()
     }
 
     /// Map an `mm::Node` representing an mapping in VA space.
@@ -542,7 +543,6 @@ pub(crate) struct KernelMappingInner {
 }
 
 /// An object mapping into a [`Vm`], which reserves the address range from use by other mappings.
-
 pub(crate) struct KernelMapping(mm::Node<(), KernelMappingInner>);
 
 impl KernelMapping {
@@ -900,6 +900,7 @@ unsafe impl Send for HandoffFlush {}
 impl HandoffFlush {
     /// Set up a flush operation for the coprocessor
     fn begin_flush(&self, start: u64, size: u64) {
+        // SAFETY: Per the type invariant, this is safe
         let flush = unsafe { self.0.as_ref().unwrap() };
 
         let state = flush.state.load(Ordering::Relaxed);
@@ -913,6 +914,7 @@ impl HandoffFlush {
 
     /// Complete a flush operation for the coprocessor
     fn end_flush(&self) {
+        // SAFETY: Per the type invariant, this is safe
         let flush = unsafe { self.0.as_ref().unwrap() };
         let state = flush.state.load(Ordering::Relaxed);
         if state != 2 {
@@ -1462,6 +1464,8 @@ impl Uat {
         let handoff_rgn = Self::map_region(dev.as_ref(), c_str!("handoff"), HANDOFF_SIZE, true)?;
         let ttbs_rgn = Self::map_region(dev.as_ref(), c_str!("ttbs"), SLOTS_SIZE, true)?;
 
+        // SAFETY: The Handoff struct layout matches the firmware's view of memory at this address,
+        // and the region is at least large enough per the size specified above.
         let handoff = unsafe { &(handoff_rgn.map.ptr() as *mut Handoff).as_ref().unwrap() };
 
         dev_info!(dev.as_ref(), "MMU: Initializing kernel page table\n");
