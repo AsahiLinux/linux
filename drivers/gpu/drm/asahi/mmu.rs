@@ -14,15 +14,16 @@ use core::fmt::Debug;
 use core::mem::size_of;
 use core::num::NonZeroUsize;
 use core::ops::Range;
-use core::ptr::NonNull;
 use core::sync::atomic::{fence, AtomicU32, AtomicU64, AtomicU8, Ordering};
 use core::time::Duration;
 
 use kernel::{
     addr::PhysicalAddr,
-    bindings, c_str, delay, device, drm,
+    c_str, delay, device, drm,
     drm::{gem::BaseObject, gpuvm, mm},
-    error::{to_result, Result},
+    error::Result,
+    io,
+    io::resource::Resource,
     prelude::*,
     static_lock_class,
     sync::{
@@ -86,7 +87,7 @@ pub(crate) const IOVA_USER_USABLE_RANGE: Range<u64> = IOVA_USER_BASE..IOVA_UNK_P
 /// A pre-allocated memory region for UAT management
 struct UatRegion {
     base: PhysicalAddr,
-    map: NonNull<core::ffi::c_void>,
+    map: io::mem::Mem,
 }
 
 /// It's safe to share UAT region records across threads.
@@ -769,13 +770,13 @@ impl UatShared {
     /// Returns the handoff region area
     fn handoff(&self) -> &Handoff {
         // SAFETY: pointer is non-null per the type invariant
-        unsafe { (self.handoff_rgn.map.as_ptr() as *mut Handoff).as_ref() }.unwrap()
+        unsafe { (self.handoff_rgn.map.ptr() as *mut Handoff).as_ref() }.unwrap()
     }
 
     /// Returns the TTBAT area
     fn ttbs(&self) -> &[SlotTTBS; UAT_NUM_CTX] {
         // SAFETY: pointer is non-null per the type invariant
-        unsafe { (self.ttbs_rgn.map.as_ptr() as *mut [SlotTTBS; UAT_NUM_CTX]).as_ref() }.unwrap()
+        unsafe { (self.ttbs_rgn.map.ptr() as *mut [SlotTTBS; UAT_NUM_CTX]).as_ref() }.unwrap()
     }
 }
 
@@ -813,13 +814,6 @@ pub(crate) struct Uat {
 
     kernel_vm: Vm,
     kernel_lower_vm: Vm,
-}
-
-impl Drop for UatRegion {
-    fn drop(&mut self) {
-        // SAFETY: the pointer is valid by the type invariant
-        unsafe { bindings::memunmap(self.map.as_ptr()) };
-    }
 }
 
 impl Handoff {
@@ -1309,33 +1303,23 @@ impl Drop for VmInner {
 }
 
 impl Uat {
-    fn get_region(dev: &device::Device, name: &CStr) -> Result<(PhysicalAddr, usize)> {
-        let mut res = core::mem::MaybeUninit::<bindings::resource>::uninit();
+    fn get_region(dev: &device::Device, name: &CStr) -> Result<Resource> {
+        let dev_node = dev.of_node().ok_or(EINVAL)?;
 
-        let res = unsafe {
-            let dev_node = dev.of_node().ok_or(EINVAL)?;
-            let node = dev_node.parse_phandle_by_name(
-                c_str!("memory-region"),
-                c_str!("memory-region-names"),
-                name,
-            );
-            if node.is_none() {
-                dev_err!(dev, "Missing {} region\n", name);
-                return Err(EINVAL);
-            }
-            let ret = bindings::of_address_to_resource(node.unwrap().as_raw(), 0, res.as_mut_ptr());
-
-            if ret < 0 {
-                dev_err!(dev, "Failed to get {} region\n", name);
-                to_result(ret)?
-            }
-
-            res.assume_init()
+        let node = dev_node.parse_phandle_by_name(
+            c_str!("memory-region"),
+            c_str!("memory-region-names"),
+            name,
+        );
+        let Some(node) = node else {
+            dev_err!(dev, "Missing {} region\n", name);
+            return Err(EINVAL);
         };
+        let res = node.address_as_resource(0).inspect_err(|_| {
+            dev_err!(dev, "Failed to get {} region\n", name);
+        })?;
 
-        let rgn_size: usize = unsafe { bindings::resource_size(&res) } as usize;
-
-        Ok((res.start, rgn_size))
+        Ok(res)
     }
 
     /// Map a bootloader-preallocated memory region
@@ -1345,34 +1329,36 @@ impl Uat {
         size: usize,
         cached: bool,
     ) -> Result<UatRegion> {
-        let (start, rgn_size) = Self::get_region(dev, name)?;
+        let res = Self::get_region(dev, name)?;
+        let base = res.start();
+        let res_size = res.size().try_into()?;
 
-        if size > rgn_size {
+        if size > res_size {
             dev_err!(
                 dev,
                 "Region {} is too small (expected {}, got {})\n",
                 name,
                 size,
-                rgn_size
+                res_size
             );
             return Err(ENOMEM);
         }
 
         let flags = if cached {
-            bindings::MEMREMAP_WB
+            io::mem::MemFlags::WB
         } else {
-            bindings::MEMREMAP_WC
+            io::mem::MemFlags::WC
         };
-        let map = unsafe { bindings::memremap(start, rgn_size, flags.into()) };
-        let map = NonNull::new(map);
 
-        match map {
-            None => {
-                dev_err!(dev, "Failed to remap {} region\n", name);
-                Err(ENOMEM)
-            }
-            Some(map) => Ok(UatRegion { base: start, map }),
-        }
+        // SAFETY: The safety of this operation hinges on the correctness of
+        // much of this file and also the `pgtable` module, so it is difficult
+        // to prove in a single safety comment. Such is life with raw GPU
+        // page table management...
+        let map = unsafe { io::mem::Mem::try_new(res, flags) }.inspect_err(|_| {
+            dev_err!(dev, "Failed to remap {} mem resource\n", name);
+        })?;
+
+        Ok(UatRegion { base, map })
     }
 
     /// Returns a reference to the global kernel (upper half) `Vm`
@@ -1476,7 +1462,7 @@ impl Uat {
         let handoff_rgn = Self::map_region(dev.as_ref(), c_str!("handoff"), HANDOFF_SIZE, true)?;
         let ttbs_rgn = Self::map_region(dev.as_ref(), c_str!("ttbs"), SLOTS_SIZE, true)?;
 
-        let handoff = unsafe { &(handoff_rgn.map.as_ptr() as *mut Handoff).as_ref().unwrap() };
+        let handoff = unsafe { &(handoff_rgn.map.ptr() as *mut Handoff).as_ref().unwrap() };
 
         dev_info!(dev.as_ref(), "MMU: Initializing kernel page table\n");
 
@@ -1510,7 +1496,10 @@ impl Uat {
 
         let inner = Self::make_inner(dev)?;
 
-        let (ttb1, ttb1size) = Self::get_region(dev.as_ref(), c_str!("pagetables"))?;
+        let res = Self::get_region(dev.as_ref(), c_str!("pagetables"))?;
+        let ttb1 = res.start();
+        let ttb1size: usize = res.size().try_into()?;
+
         if ttb1size < PAGETABLES_SIZE {
             dev_err!(dev.as_ref(), "MMU: Pagetables region is too small\n");
             return Err(ENOMEM);
