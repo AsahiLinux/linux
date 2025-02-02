@@ -72,6 +72,9 @@ pub(crate) trait Allocation<T>: Debug {
 /// A generic typed allocation wrapping a RawAllocation.
 ///
 /// This is currently the only Allocation implementation, since it is shared by all allocators.
+///
+/// # Invariants
+/// The alloaction at `alloc` must have a size equal or greater than `alloc_size` plus `debug_offset` plus `padding`.
 pub(crate) struct GenericAlloc<T, U: RawAllocation> {
     alloc: U,
     alloc_size: usize,
@@ -83,14 +86,17 @@ pub(crate) struct GenericAlloc<T, U: RawAllocation> {
 }
 
 impl<T, U: RawAllocation> Allocation<T> for GenericAlloc<T, U> {
+    /// Returns a pointer to the inner (usable) part of the allocation.
     fn ptr(&self) -> Option<NonNull<T>> {
-        self.alloc
-            .ptr()
-            .map(|p| unsafe { NonNull::new_unchecked(p.as_ptr().add(self.debug_offset) as *mut T) })
+        // SAFETY: self.debug_offset is always within the allocation per the invariant, so is safe to add
+        // to the base pointer.
+        unsafe { self.alloc.ptr().map(|p| p.add(self.debug_offset).cast()) }
     }
+    /// Returns the GPU pointer to the inner (usable) part of the allocation.
     fn gpu_ptr(&self) -> u64 {
         self.alloc.gpu_ptr() + self.debug_offset as u64
     }
+    /// Returns the size of the inner (usable) part of the allocation.
     fn size(&self) -> usize {
         self.alloc_size
     }
@@ -133,6 +139,8 @@ impl<T, U: RawAllocation> Drop for GenericAlloc<T, U> {
         let debug_len = mem::size_of::<AllocDebugData>();
         if self.debug_offset >= debug_len {
             if let Some(p) = self.alloc.ptr() {
+                // SAFETY: self.debug_offset is always greater than the alloc size per
+                // the invariant, and greater than debug_len as checked above.
                 unsafe {
                     let p = p.as_ptr().add(self.debug_offset - debug_len);
                     (p as *mut u32).write(STATE_DEAD);
@@ -141,11 +149,14 @@ impl<T, U: RawAllocation> Drop for GenericAlloc<T, U> {
         }
         if debug_enabled(DebugFlags::FillAllocations) {
             if let Some(p) = self.ptr() {
+                // SAFETY: Writing to our inner base pointer with our known inner size is safe.
                 unsafe { (p.as_ptr() as *mut u8).write_bytes(0xde, self.size()) };
             }
         }
         if self.padding != 0 {
             if let Some(p) = self.ptr() {
+                // SAFETY: Per the invariant, we have at least `self.padding` bytes trailing
+                // the inner base pointer, after `size()` bytes.
                 let guard = unsafe {
                     core::slice::from_raw_parts(
                         (p.as_ptr() as *mut u8 as *const u8).add(self.size()),
@@ -278,6 +289,8 @@ pub(crate) trait Allocator {
                 debug.name[..len].copy_from_slice(&name[..len]);
 
                 if let Some(p) = alloc.ptr() {
+                    // SAFETY: Per the size calculations above, this pointer math and the
+                    // writes never exceed the allocation size.
                     unsafe {
                         let p = p.as_ptr();
                         p.write_bytes(0x42, debug_offset - 2 * debug_len);
@@ -311,12 +324,15 @@ pub(crate) trait Allocator {
 
         if debug_enabled(DebugFlags::FillAllocations) {
             if let Some(p) = ret.ptr() {
+                // SAFETY: Writing to our inner base pointer with our known inner size is safe.
                 unsafe { (p.as_ptr() as *mut u8).write_bytes(0xaa, ret.size()) };
             }
         }
 
         if padding != 0 {
             if let Some(p) = ret.ptr() {
+                // SAFETY: Per the invariant, we have at least `self.padding` bytes trailing
+                // the inner base pointer, after `size()` bytes.
                 let guard = unsafe {
                     core::slice::from_raw_parts_mut(
                         (p.as_ptr() as *mut u8).add(ret.size()),
@@ -397,6 +413,7 @@ pub(crate) struct SimpleAllocation {
 
 /// SAFETY: `SimpleAllocation` just points to raw memory and should be safe to send across threads.
 unsafe impl Send for SimpleAllocation {}
+/// SAFETY: `SimpleAllocation` just points to raw memory and should be safe to share across threads.
 unsafe impl Sync for SimpleAllocation {}
 
 impl Drop for SimpleAllocation {
@@ -511,6 +528,7 @@ impl Allocator for SimpleAllocator {
 
         let iova = mapping.iova();
 
+        // SAFETY: Per the math above to calculate `size_aligned`, this can never overflow.
         let ptr = unsafe { p.add(offset) };
         let gpu_ptr = iova + offset as u64;
 
@@ -542,8 +560,9 @@ pub(crate) struct HeapAllocationInner {
     real_size: usize,
 }
 
-/// SAFETY: `SimpleAllocation` just points to raw memory and should be safe to send across threads.
+/// SAFETY: `HeapAllocationInner` just points to raw memory and should be safe to send across threads.
 unsafe impl Send for HeapAllocationInner {}
+/// SAFETY: `HeapAllocationInner` just points to raw memory and should be safe to share between threads.
 unsafe impl Sync for HeapAllocationInner {}
 
 /// Outer view of a heap allocation.
@@ -751,7 +770,7 @@ impl HeapAllocator {
         let gpu_ptr = self.top;
         let mapping = obj
             .map_at(&self.vm, gpu_ptr, self.prot, self.cpu_maps)
-            .map_err(|err| {
+            .inspect_err(|err| {
                 dev_err!(
                     self.dev.as_ref(),
                     "HeapAllocator[{}]::add_block: Failed to map at {:#x} ({:?})\n",
@@ -759,7 +778,6 @@ impl HeapAllocator {
                     gpu_ptr,
                     err
                 );
-                err
             })?;
 
         self.mm
@@ -939,6 +957,7 @@ impl HeapAllocator {
             assert!(obj_start <= start);
             assert!(obj_start + obj_size as u64 >= end);
             node.as_mut().inner_mut().ptr =
+                // SAFETY: Per the asserts above, this offset is always within the allocation.
                 NonNull::new(unsafe { p.add((start - obj_start) as usize) });
             mod_dev_dbg!(
                 self.dev,
