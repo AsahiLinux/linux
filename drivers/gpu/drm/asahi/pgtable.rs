@@ -45,7 +45,7 @@ const UAT_LEVELS: usize = 3;
 
 /// UAT input address space
 pub(crate) const UAT_IAS: usize = 39;
-const UAT_IASMSK: u64 = ((1u64 << UAT_IAS) - 1) as u64;
+const UAT_IASMSK: u64 = (1u64 << UAT_IAS) - 1;
 
 const PTE_TYPE_BITS: u64 = 3;
 const PTE_TYPE_LEAF_TABLE: u64 = 3;
@@ -73,7 +73,7 @@ const HIGH_BITS_PXN: u16 = 1 << 1;
 const HIGH_BITS_UXN: u16 = 1 << 2;
 const HIGH_BITS_GPU_ACCESS: u16 = 1 << 3;
 
-pub(crate) const PTE_ADDR_BITS: u64 = (!0u64) & (!UAT_PGMSK as u64) & (!UAT_HIGH_BITS);
+pub(crate) const PTE_ADDR_BITS: u64 = (!UAT_PGMSK as u64) & (!UAT_HIGH_BITS);
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Prot {
@@ -584,14 +584,11 @@ impl UatPageTable {
                 };
                 let dst_page = Page::alloc_page(GFP_KERNEL)?;
                 src_page.with_page_mapped(|psrc| -> Result {
-                    // SAFETY: This could technically still have a data
-                    // race with the firmware or other driver code (or
-                    // even userspace with timestamp buffers), but while
-                    // the Rust language technically says this is UB, in
-                    // the real world, using atomic reads for this is
-                    // guaranteed to never cause any harmful effects
-                    // other than possibly reading torn/unreliable data.
-                    // At least on ARM64 anyway.
+                    // SAFETY: This could technically still have a data race with the firmware
+                    // or other driver code (or even userspace with timestamp buffers), but while
+                    // the Rust language technically says this is UB, in the real world, using
+                    // atomic reads for this is guaranteed to never cause any harmful effects
+                    // other than possibly reading torn/unreliable data. At least on ARM64 anyway.
                     //
                     // (Yes, I checked with Rust people about this. ~~ Lina)
                     //
@@ -602,6 +599,8 @@ impl UatPageTable {
                         )
                     };
                     dst_page.with_page_mapped(|pdst| -> Result {
+                        // SAFETY: We own the destination page, so it is safe to view its contents
+                        // as a u64 slice.
                         let dst_items = unsafe {
                             core::slice::from_raw_parts_mut(
                                 pdst as *mut u64,
@@ -650,8 +649,8 @@ impl Drop for UatPageTable {
             pr_err!("UATPageTable::drop failed to free page tables\n",);
         }
         if self.ttb_owned {
-            // SAFETY: If we own the ttb, it was allocated with Page::into_phys().
             mod_pr_debug!("UATPageTable::drop: Free TTB {:#x}\n", self.ttb);
+            // SAFETY: If we own the ttb, it was allocated with Page::into_phys().
             unsafe {
                 Page::from_phys(self.ttb);
             }
