@@ -27,8 +27,10 @@ use kernel::{init::Zeroable, of, prelude::*};
 
 /// An IEEE754-compatible floating point number implemented in software.
 #[derive(Default, Debug, Copy, Clone)]
+#[repr(transparent)]
 pub(crate) struct F32(u32);
 
+// SAFETY: F32 is a transparent repr of `u32` and therefore zeroable
 unsafe impl Zeroable for F32 {}
 
 #[derive(Default, Debug, Copy, Clone)]
@@ -49,7 +51,10 @@ impl F32 {
     // This must ONLY be used in const context. Use the `f32!{}` macro to do it safely.
     #[doc(hidden)]
     pub(crate) const fn from_f32(v: f32) -> F32 {
-        F32(unsafe { core::mem::transmute(v) })
+        // Replace with to_bits() after kernel Rust minreq is >= 1.83.0
+        #[allow(clippy::transmute_float_to_int)]
+        // SAFETY: Transmuting f32 to u32 is always safe
+        F32(unsafe { core::mem::transmute::<f32, u32>(v) })
     }
 
     // Convert an F32 into a `f32` value
