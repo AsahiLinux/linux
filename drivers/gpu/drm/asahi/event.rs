@@ -153,7 +153,7 @@ impl EventManager {
         for slot in 0..NUM_EVENTS {
             inner.stamps[slot as usize]
                 .0
-                .store((slot as u32) << 24, Ordering::Relaxed);
+                .store(slot << 24, Ordering::Relaxed);
         }
 
         Ok(EventManager {
@@ -229,7 +229,6 @@ impl EventManager {
     ) -> Option<Arc<dyn workqueue::WorkQueue + Send + Sync>> {
         self.alloc
             .with_inner(|inner| inner.owners[slot as usize].as_ref().cloned())
-            .map(|a| a.clone())
     }
 
     /// Fail all commands, used when the GPU crashes.
