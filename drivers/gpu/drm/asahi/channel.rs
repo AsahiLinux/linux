@@ -338,9 +338,12 @@ impl EventChannel::ver {
     /// Polls for new Event messages on this ring.
     pub(crate) fn poll(&mut self) {
         while let Some(msg) = self.ch.get(0) {
+            // SAFETY: The raw view is always valid for all bit patterns.
             let tag = unsafe { msg.raw.0 };
             match tag {
                 0..=EVENT_MAX => {
+                    // SAFETY: Since we have checked the tag to be in range,
+                    // accessing the enum view is valid.
                     let msg = unsafe { msg.msg };
 
                     cls_dev_dbg!(EventCh, self.dev, "Event: {:?}\n", msg);
@@ -426,6 +429,7 @@ impl EventChannel::ver {
                     }
                 }
                 _ => {
+                    // SAFETY: The raw view is always valid for all bit patterns.
                     dev_warn!(self.dev.as_ref(), "Unknown event message: {:?}\n", unsafe {
                         msg.raw
                     });
@@ -593,13 +597,17 @@ impl StatsChannel::ver {
     /// Polls for new statistics messages on this ring.
     pub(crate) fn poll(&mut self) {
         while let Some(msg) = self.ch.get(0) {
+            // SAFETY: The raw view is always valid for all bit patterns.
             let tag = unsafe { msg.raw.0 };
             match tag {
                 0..=STATS_MAX::ver => {
+                    // SAFETY: Since we have checked the tag to be in range,
+                    // accessing the enum view is valid.
                     let msg = unsafe { msg.msg };
                     cls_dev_dbg!(StatsCh, self.dev, "Stats: {:?}\n", msg);
                 }
                 _ => {
+                    // SAFETY: The raw view is always valid for all bit patterns.
                     pr_warn!("Unknown stats message: {:?}\n", unsafe { msg.raw });
                 }
             }
