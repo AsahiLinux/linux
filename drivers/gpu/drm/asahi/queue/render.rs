@@ -121,16 +121,16 @@ impl super::QueueInner::ver {
 
         let utiles_per_tile = utiles_per_tile_x * utiles_per_tile_y;
 
-        let tiles_x = (width + tile_width - 1) / tile_width;
-        let tiles_y = (height + tile_height - 1) / tile_height;
+        let tiles_x = width.div_ceil(tile_width);
+        let tiles_y = height.div_ceil(tile_height);
         let tiles = tiles_x * tiles_y;
 
         let mtiles_x = 4u32;
         let mtiles_y = 4u32;
         let mtiles = mtiles_x * mtiles_y;
 
-        let tiles_per_mtile_x = align(div_ceil(tiles_x, mtiles_x), 4);
-        let tiles_per_mtile_y = align(div_ceil(tiles_y, mtiles_y), 4);
+        let tiles_per_mtile_x = align(tiles_x.div_ceil(mtiles_x), 4);
+        let tiles_per_mtile_y = align(tiles_y.div_ceil(mtiles_y), 4);
         let tiles_per_mtile = tiles_per_mtile_x * tiles_per_mtile_y;
 
         let mtile_x1 = tiles_per_mtile_x;
@@ -156,15 +156,12 @@ impl super::QueueInner::ver {
         // GUESS: Number of 32K heap blocks to fit a 5-byte region header/pointer per tile?
         // That would make a ton of sense...
         let meta1_layer_stride = if num_clusters > 1 {
-            div_ceil(
-                align(tiles_x, 2) * align(tiles_y, 4) * utiles_per_tile,
-                0x1980,
-            )
+            (align(tiles_x, 2) * align(tiles_y, 4) * utiles_per_tile).div_ceil(0x1980)
         } else {
             0
         };
 
-        let mut min_tvb_blocks = align(div_ceil(tiles_x * tiles_y, 128), 8);
+        let mut min_tvb_blocks = align((tiles_x * tiles_y).div_ceil(128), 8);
 
         if num_clusters > 1 {
             min_tvb_blocks = min_tvb_blocks.max(7 + 2 * layers);

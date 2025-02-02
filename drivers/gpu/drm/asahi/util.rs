@@ -45,24 +45,6 @@ where
     a & !(b - one)
 }
 
-/// Integer division rounding up.
-pub(crate) fn div_ceil<T>(a: T, b: T) -> T
-where
-    T: Copy
-        + Default
-        + BitAnd<Output = T>
-        + Not<Output = T>
-        + Add<Output = T>
-        + Sub<Output = T>
-        + Div<Output = T>,
-{
-    let def: T = Default::default();
-    #[allow(clippy::eq_op)]
-    let one: T = !def / !def;
-
-    (a + b - one) / b
-}
-
 pub(crate) trait RangeExt<T> {
     fn overlaps(&self, other: Self) -> bool;
     fn is_superset(&self, other: Self) -> bool;

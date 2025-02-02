@@ -457,8 +457,12 @@ impl Buffer::ver {
             used as usize
         });
 
-        let need_blocks = div_ceil(used_pages * 2, PAGES_PER_BLOCK).min(inner.max_blocks_nomemless);
-        let want_blocks = div_ceil(used_pages * 3, PAGES_PER_BLOCK).min(inner.max_blocks_nomemless);
+        let need_blocks = (used_pages * 2)
+            .div_ceil(PAGES_PER_BLOCK)
+            .min(inner.max_blocks_nomemless);
+        let want_blocks = (used_pages * 3)
+            .div_ceil(PAGES_PER_BLOCK)
+            .min(inner.max_blocks_nomemless);
 
         let cur_count = inner.blocks.len();
 
