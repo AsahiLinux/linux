@@ -19,6 +19,7 @@ type Asid = u8;
 /// Invalidate the entire GPU TLB.
 #[inline(always)]
 pub(crate) fn tlbi_all() {
+    // SAFETY: tlbi is always safe by definition
     unsafe {
         asm!(".arch armv8.4-a", "tlbi vmalle1os",);
     }
@@ -33,6 +34,7 @@ pub(crate) fn tlbi_asid(asid: Asid) {
         return;
     }
 
+    // SAFETY: tlbi is always safe by definition
     unsafe {
         asm!(
             ".arch armv8.4-a",
@@ -52,6 +54,7 @@ pub(crate) fn tlbi_page(asid: Asid, va: usize) {
     }
 
     let val: u64 = ((asid as u64) << 48) | ((va as u64 >> 12) & 0xffffffffffc);
+    // SAFETY: tlbi is always safe by definition
     unsafe {
         asm!(
             ".arch armv8.4-a",
@@ -110,6 +113,7 @@ pub(crate) fn tlbi_range(asid: Asid, va: usize, len: usize) {
     val |= (exp as u64) << 44;
 
     while base > 32 {
+        // SAFETY: tlbi is always safe by definition
         unsafe {
             asm!(
                 ".arch armv8.4-a",
@@ -120,6 +124,7 @@ pub(crate) fn tlbi_range(asid: Asid, va: usize, len: usize) {
         base -= 32;
     }
 
+    // SAFETY: tlbi is always safe by definition
     unsafe {
         asm!(
             ".arch armv8.4-a",
@@ -132,6 +137,7 @@ pub(crate) fn tlbi_range(asid: Asid, va: usize, len: usize) {
 /// Issue a memory barrier (`dsb sy`).
 #[inline(always)]
 pub(crate) fn sync() {
+    // SAFETY: Barriers are always safe
     unsafe {
         asm!("dsb sy");
     }
