@@ -25,10 +25,10 @@ pub(crate) struct CrashDump {
     pages: KVVec<Owned<Page>>,
 }
 
-const NOTE_NAME_AGX: &str = &"AGX";
+const NOTE_NAME_AGX: &str = "AGX";
 const NOTE_AGX_DUMP_INFO: u32 = 1;
 
-const NOTE_NAME_RTKIT: &str = &"RTKIT";
+const NOTE_NAME_RTKIT: &str = "RTKIT";
 const NOTE_RTKIT_CRASHLOG: u32 = 1;
 
 #[repr(C)]
@@ -53,8 +53,12 @@ pub(crate) struct CrashDumpBuilder {
     notes: KVec<ELFNote>,
 }
 
-// Helper to convert ELF headers into byte slices
-// TODO: Hook this up into kernel::AsBytes somehow
+/// Helper to convert ELF headers into byte slices
+/// TODO: Hook this up into kernel::AsBytes somehow
+///
+/// # Safety
+///
+/// Types implementing this trait must have no padding bytes.
 unsafe trait AsBytes: Sized {
     fn as_bytes(&self) -> &[u8] {
         // SAFETY: This trait is only implemented for types with no padding bytes
@@ -63,10 +67,7 @@ unsafe trait AsBytes: Sized {
     fn slice_as_bytes(slice: &[Self]) -> &[u8] {
         // SAFETY: This trait is only implemented for types with no padding bytes
         unsafe {
-            core::slice::from_raw_parts(
-                slice.as_ptr() as *const u8,
-                slice.len() * size_of::<Self>(),
-            )
+            core::slice::from_raw_parts(slice.as_ptr() as *const u8, core::mem::size_of_val(slice))
         }
     }
 }
@@ -124,7 +125,7 @@ impl CrashDumpBuilder {
 
     pub(crate) fn add_crashlog(&mut self, crashlog: &[u8]) -> Result {
         let mut data = KVVec::new();
-        data.extend_from_slice(&crashlog, GFP_KERNEL)?;
+        data.extend_from_slice(crashlog, GFP_KERNEL)?;
 
         self.notes.push(
             ELFNote {
@@ -149,7 +150,7 @@ impl CrashDumpBuilder {
         ehdr.e_ident[uapi::EI_VERSION as usize] = uapi::EV_CURRENT as u8;
         ehdr.e_type = uapi::ET_CORE as u16;
         ehdr.e_machine = uapi::EM_AARCH64 as u16;
-        ehdr.e_version = uapi::EV_CURRENT as u32;
+        ehdr.e_version = uapi::EV_CURRENT;
         ehdr.e_entry = FIRMWARE_ENTRYPOINT;
         ehdr.e_ehsize = core::mem::size_of::<uapi::Elf64_Ehdr>() as u16;
         ehdr.e_phentsize = core::mem::size_of::<uapi::Elf64_Phdr>() as u16;
@@ -194,7 +195,6 @@ impl CrashDumpBuilder {
                         p_memsz: UAT_PGSZ as u64,
                         p_flags: flags,
                         p_align: UAT_PGSZ as u64,
-                        ..Default::default()
                     },
                     GFP_KERNEL,
                 )?;
