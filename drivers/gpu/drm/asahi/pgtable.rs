@@ -50,6 +50,7 @@ const UAT_IASMSK: u64 = (1u64 << UAT_IAS) - 1;
 const PTE_TYPE_BITS: u64 = 3;
 const PTE_TYPE_LEAF_TABLE: u64 = 3;
 
+const UAT_NON_GLOBAL: u64 = 1 << 11;
 const UAT_AP_SHIFT: u32 = 6;
 const UAT_AP_BITS: u64 = 3 << UAT_AP_SHIFT;
 const UAT_HIGH_BITS_SHIFT: u32 = 52;
@@ -452,6 +453,16 @@ impl UatPageTable {
         self.with_pages(iova_range, true, false, |_, _| Ok(()))
     }
 
+    fn pte_bits(&self) -> u64 {
+        if self.ttb_owned {
+            // Owned page tables are userspace, so non-global
+            PTE_TYPE_LEAF_TABLE | UAT_NON_GLOBAL
+        } else {
+            // The sole non-owned page table is kernelspace, so global
+            PTE_TYPE_LEAF_TABLE
+        }
+    }
+
     pub(crate) fn map_pages(
         &mut self,
         iova_range: Range<u64>,
@@ -470,6 +481,8 @@ impl UatPageTable {
             return Err(EINVAL);
         }
 
+        let pte_bits = self.pte_bits();
+
         self.with_pages(iova_range, true, false, |iova, ptes| {
             for (idx, pte) in ptes.iter().enumerate() {
                 let ptev = pte.load(Ordering::Relaxed);
@@ -480,10 +493,7 @@ impl UatPageTable {
                         ptev
                     );
                 }
-                pte.store(
-                    phys | prot.as_pte() | PTE_TYPE_LEAF_TABLE,
-                    Ordering::Relaxed,
-                );
+                pte.store(phys | prot.as_pte() | pte_bits, Ordering::Relaxed);
                 if !one_page {
                     phys += UAT_PGSZ as PhysicalAddr;
                 }
