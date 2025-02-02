@@ -151,7 +151,9 @@ impl Resources {
     /// Map the required resources given our platform device.
     pub(crate) fn new(pdev: &mut platform::Device) -> Result<Resources> {
         // TODO: add device abstraction to ioremap by name
+        // SAFETY: We do not trigger any DMA operations directly via ASC registers
         let asc_res = unsafe { pdev.ioremap_resource(0)? };
+        // SAFETY: We do not trigger any DMA operations directly via SGX registers
         let sgx_res = unsafe { pdev.ioremap_resource(1)? };
 
         Ok(Resources {
