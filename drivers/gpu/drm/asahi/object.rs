@@ -83,6 +83,9 @@ impl<'a, T: ?Sized> GpuPointer<'a, T> {
     /// Add an arbitrary offset to the pointer. This is not safe (from the GPU perspective), and
     /// should only be used via the `inner_ptr` macro to get pointers to inner fields, hence we mark
     /// it `unsafe` to discourage direct use.
+    ///
+    /// # Safety
+    /// Do not use directly, only via `inner_ptr`.
     // NOTE: The third argument is a type inference hack.
     pub(crate) unsafe fn offset<U>(&self, off: usize, _: *const U) -> GpuPointer<'a, U> {
         GpuPointer::<'a, U>(
@@ -157,6 +160,7 @@ pub(crate) struct GpuWeakPointer<T: ?Sized>(NonZeroU64, PhantomData<*const T>);
 
 /// SAFETY: GPU weak pointers are always safe to share between threads.
 unsafe impl<T: ?Sized> Send for GpuWeakPointer<T> {}
+/// SAFETY: GPU weak pointers are always safe to share between threads.
 unsafe impl<T: ?Sized> Sync for GpuWeakPointer<T> {}
 
 // Weak pointers can be copied/cloned regardless of their target type.
@@ -170,8 +174,11 @@ impl<T: ?Sized> Clone for GpuWeakPointer<T> {
 
 impl<T: ?Sized> GpuWeakPointer<T> {
     /// Add an arbitrary offset to the pointer. This is not safe (from the GPU perspective), and
-    /// should only be used via the `inner_ptr` macro to get pointers to inner fields, hence we mark
-    /// it `unsafe` to discourage direct use.
+    /// should only be used via the `inner_weak_ptr` macro to get pointers to inner fields, hence we
+    /// mark it `unsafe` to discourage direct use.
+    ///
+    /// # Safety
+    /// Do not use directly, only via `inner_weak_ptr`.
     // NOTE: The third argument is a type inference hack.
     pub(crate) unsafe fn offset<U>(&self, off: usize, _: *const U) -> GpuWeakPointer<U> {
         GpuWeakPointer::<U>(
@@ -182,6 +189,10 @@ impl<T: ?Sized> GpuWeakPointer<T> {
 
     /// Upgrade a weak pointer into a strong pointer. This is not considered safe from the GPU
     /// perspective.
+    ///
+    /// # Safety
+    /// The caller must ensure tht the data pointed to lives in the GPU at least as long as the
+    /// returned lifetime.
     pub(crate) unsafe fn upgrade<'a>(&self) -> GpuPointer<'a, T> {
         GpuPointer(self.0, PhantomData)
     }
@@ -633,23 +644,6 @@ pub(crate) struct GpuArray<T, U: Allocation<T>> {
     raw: *mut T,
     array: GpuOnlyArray<T, U>,
 }
-
-/* Not used yet
-impl<T: Copy, U: Allocation<T>> GpuArray<T, U> {
-    /// Allocate a new GPU array, copying the contents from a slice.
-    pub(crate) fn new(alloc: U, data: &[T]) -> Result<GpuArray<T, U>> {
-        let p = alloc.ptr().ok_or(EINVAL)?.as_ptr();
-        let inner = GpuOnlyArray::new(alloc, data.len())?;
-        // SAFETY: `p` is valid per the Allocation type invariant, and GpuOnlyArray guarantees
-        // that its size is at least as large as `data.len()`.
-        unsafe { ptr::copy(data.as_ptr(), p, data.len()) };
-        Ok(Self {
-            raw: p,
-            array: inner,
-        })
-    }
-}
-*/
 
 impl<T: Default, U: Allocation<T>> GpuArray<T, U> {
     /// Allocate a new GPU array, initializing each element to its default.
