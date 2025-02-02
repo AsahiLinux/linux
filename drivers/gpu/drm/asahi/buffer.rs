@@ -153,9 +153,9 @@ impl Scene::ver {
 
     /// Returns the GPU pointer to the `buffer::Info::ver` object associated with this Scene.
     pub(crate) fn buffer_pointer(&self) -> GpuPointer<'_, buffer::Info::ver> {
-        // We can't return the strong pointer directly since its lifetime crosses a lock, but we know
-        // its lifetime will be valid as long as &self since we hold a reference to the buffer,
-        // so just construct the strong pointer with the right lifetime here.
+        // SAFETY: We can't return the strong pointer directly since its lifetime crosses a lock,
+        // but we know its lifetime will be valid as long as &self since we hold a reference to the
+        // buffer, so just construct the strong pointer with the right lifetime here.
         unsafe { self.weak_buffer_pointer().upgrade() }
     }
 
