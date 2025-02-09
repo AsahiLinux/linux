@@ -424,6 +424,14 @@ out_unlock:
 	return ret;
 }
 
+static void disconnected_hpd_event(struct apple_connector *con)
+{
+	if (con) {
+		con->connected = 0;
+		drm_kms_helper_connector_hotplug_event(&con->base);
+	}
+}
+
 static int dcp_dptx_disconnect(struct apple_dcp *dcp, u32 port)
 {
 	dev_info(dcp->dev, "%s(port=%d)\n", __func__, port);
@@ -448,6 +456,8 @@ EXPORT_SYMBOL_GPL(dcp_dptx_connect_oob);
 int dcp_dptx_disconnect_oob(struct platform_device *pdev, u32 port)
 {
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	disconnected_hpd_event(dcp->connector);
 
 	if (dcp->avep)
 		av_service_disconnect(dcp);
@@ -675,8 +685,10 @@ void dcp_poweroff(struct platform_device *pdev)
 
 	if (dcp->hdmi_hpd) {
 		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
-		if (!connected)
+		if (!connected) {
+			disconnected_hpd_event(dcp->connector);
 			dcp_dptx_disconnect(dcp, 0);
+		}
 	}
 }
 EXPORT_SYMBOL(dcp_poweroff);
@@ -1257,6 +1269,7 @@ static int dcp_platform_suspend(struct device *dev)
 
 	if (dcp->hdmi_hpd_irq) {
 		disable_irq(dcp->hdmi_hpd_irq);
+		disconnected_hpd_event(dcp->connector);
 		dcp_dptx_disconnect(dcp, 0);
 	}
 	/*
