@@ -394,7 +394,7 @@ static void apple_rtkit_crashlog_rx(struct apple_rtkit *rtk, u64 msg)
 
 	rtk->crashed = true;
 	if (rtk->ops->crashed)
-		rtk->ops->crashed(rtk->cookie, bfr, rtk->crashlog_buffer.size);
+		rtk->ops->crashed(rtk->cookie, bfr, bfr ? rtk->crashlog_buffer.size : 0);
 }
 
 static void apple_rtkit_ioreport_rx(struct apple_rtkit *rtk, u64 msg)
