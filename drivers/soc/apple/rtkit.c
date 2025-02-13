@@ -361,7 +361,7 @@ static void apple_rtkit_memcpy(struct apple_rtkit *rtk, void *dst,
 static void apple_rtkit_crashlog_rx(struct apple_rtkit *rtk, u64 msg)
 {
 	u8 type = FIELD_GET(APPLE_RTKIT_SYSLOG_TYPE, msg);
-	u8 *bfr;
+	u8 *bfr __free(kfree) = NULL;
 
 	if (type != APPLE_RTKIT_CRASHLOG_CRASH) {
 		dev_warn(rtk->dev, "RTKit: Unknown crashlog message: %llx\n",
@@ -395,8 +395,6 @@ static void apple_rtkit_crashlog_rx(struct apple_rtkit *rtk, u64 msg)
 	rtk->crashed = true;
 	if (rtk->ops->crashed)
 		rtk->ops->crashed(rtk->cookie, bfr, rtk->crashlog_buffer.size);
-
-	kfree(bfr);
 }
 
 static void apple_rtkit_ioreport_rx(struct apple_rtkit *rtk, u64 msg)
