@@ -676,6 +676,11 @@ impl platform::Driver for SndSocAopDriver {
             .ok_or(EIO)?
             .get_child_by_name(c_str!("audio"))
             .ok_or(EIO)?;
+        let audio = *module_parameters::mic_check_123.get() != 0;
+        let fwnode = parent.fwnode().ok_or(ENOENT)?;
+        if !audio && fwnode.property_present(c_str!("apple,no-beamforming")) {
+            return Err(ENODEV);
+        }
         let data = SndSocAopData::new(dev, adata, svc, of)?;
         for dev in [AUDIO_DEV_PDM0, AUDIO_DEV_HPAI, AUDIO_DEV_LPAI] {
             data.audio_attach_device(dev)?;
@@ -693,4 +698,10 @@ module_platform_driver! {
     description: "AOP microphone capture driver",
     license: "Dual MIT/GPL",
     alias: ["platform:snd_soc_apple_aop"],
+    params: {
+        mic_check_123: u8 {
+            default: 0,
+            description: "Enable mics without user space handling",
+        },
+    },
 }
