@@ -12,27 +12,27 @@ pub(crate) mod raw {
 
     #[derive(Debug, Clone, Copy)]
     #[repr(C)]
-    pub(crate) struct ClearPipelineBinding {
-        pub(crate) pipeline_bind: U64,
+    pub(crate) struct BackgroundProgram {
+        pub(crate) rsrc_spec: U64,
         pub(crate) address: U64,
     }
 
     #[derive(Debug, Clone, Copy, Default)]
     #[repr(C)]
-    pub(crate) struct StorePipelineBinding {
+    pub(crate) struct EotProgram {
         pub(crate) unk_0: U64,
         pub(crate) unk_8: u32,
-        pub(crate) pipeline_bind: u32,
+        pub(crate) rsrc_spec: u32,
         pub(crate) unk_10: u32,
         pub(crate) address: u32,
         pub(crate) unk_18: u32,
         pub(crate) unk_1c_padding: u32,
     }
 
-    impl StorePipelineBinding {
-        pub(crate) fn new(pipeline_bind: u32, address: u32) -> StorePipelineBinding {
-            StorePipelineBinding {
-                pipeline_bind,
+    impl EotProgram {
+        pub(crate) fn new(rsrc_spec: u32, address: u32) -> EotProgram {
+            EotProgram {
+                rsrc_spec,
                 address,
                 ..Default::default()
             }
@@ -50,7 +50,7 @@ pub(crate) mod raw {
     #[derive(Debug, Clone, Copy)]
     #[repr(C)]
     pub(crate) struct AuxFBInfo {
-        pub(crate) iogpu_unk_214: u32,
+        pub(crate) isp_ctl: u32,
         pub(crate) unk2: u32,
         pub(crate) width: u32,
         pub(crate) height: u32,
@@ -65,13 +65,13 @@ pub(crate) mod raw {
     pub(crate) struct JobParameters1<'a> {
         pub(crate) utile_config: u32,
         pub(crate) unk_4: u32,
-        pub(crate) clear_pipeline: ClearPipelineBinding,
+        pub(crate) bg: BackgroundProgram,
         pub(crate) ppp_multisamplectl: U64,
-        pub(crate) scissor_array: U64,
-        pub(crate) depth_bias_array: U64,
+        pub(crate) isp_scissor_base: U64,
+        pub(crate) isp_dbias_base: U64,
         pub(crate) aux_fb_info: AuxFBInfo::ver,
-        pub(crate) depth_dimensions: U64,
-        pub(crate) visibility_result_buffer: U64,
+        pub(crate) isp_zls_pixels: U64,
+        pub(crate) isp_oclqry_base: U64,
         pub(crate) zls_ctrl: U64,
 
         #[ver(G >= G14)]
@@ -79,26 +79,26 @@ pub(crate) mod raw {
         #[ver(G >= G14)]
         pub(crate) unk_58_g14_8: U64,
 
-        pub(crate) depth_buffer_ptr1: U64,
-        pub(crate) depth_buffer_ptr2: U64,
-        pub(crate) stencil_buffer_ptr1: U64,
-        pub(crate) stencil_buffer_ptr2: U64,
+        pub(crate) z_load: U64,
+        pub(crate) z_store: U64,
+        pub(crate) s_load: U64,
+        pub(crate) s_store: U64,
 
         #[ver(G >= G14)]
         pub(crate) unk_68_g14_0: Array<0x20, u8>,
 
-        pub(crate) depth_buffer_stride1: U64,
-        pub(crate) depth_buffer_stride2: U64,
-        pub(crate) stencil_buffer_stride1: U64,
-        pub(crate) stencil_buffer_stride2: U64,
-        pub(crate) depth_meta_buffer_ptr1: U64,
-        pub(crate) depth_meta_buffer_stride1: U64,
-        pub(crate) depth_meta_buffer_ptr2: U64,
-        pub(crate) depth_meta_buffer_stride2: U64,
-        pub(crate) stencil_meta_buffer_ptr1: U64,
-        pub(crate) stencil_meta_buffer_stride1: U64,
-        pub(crate) stencil_meta_buffer_ptr2: U64,
-        pub(crate) stencil_meta_buffer_stride2: U64,
+        pub(crate) z_load_stride: U64,
+        pub(crate) z_store_stride: U64,
+        pub(crate) s_load_stride: U64,
+        pub(crate) s_store_stride: U64,
+        pub(crate) z_load_comp: U64,
+        pub(crate) z_load_comp_stride: U64,
+        pub(crate) z_store_comp: U64,
+        pub(crate) z_store_comp_stride: U64,
+        pub(crate) s_load_comp: U64,
+        pub(crate) s_load_comp_stride: U64,
+        pub(crate) s_store_comp: U64,
+        pub(crate) s_store_comp_stride: U64,
         pub(crate) tvb_tilemap: GpuPointer<'a, &'a [u8]>,
         pub(crate) tvb_layermeta: GpuPointer<'a, &'a [u8]>,
         pub(crate) mtile_stride_dwords: U64,
@@ -106,7 +106,7 @@ pub(crate) mod raw {
         pub(crate) tile_config: U64,
         pub(crate) aux_fb: GpuPointer<'a, &'a [u8]>,
         pub(crate) unk_108: Array<0x6, U64>,
-        pub(crate) pipeline_base: U64,
+        pub(crate) usc_exec_base_isp: U64,
         pub(crate) unk_140: U64,
         pub(crate) helper_program: u32,
         pub(crate) unk_14c: u32,
@@ -125,12 +125,12 @@ pub(crate) mod raw {
     #[derive(Debug)]
     #[repr(C)]
     pub(crate) struct JobParameters2 {
-        pub(crate) store_pipeline_bind: u32,
-        pub(crate) store_pipeline_addr: u32,
+        pub(crate) eot_rsrc_spec: u32,
+        pub(crate) eot_usc: u32,
         pub(crate) unk_8: u32,
         pub(crate) unk_c: u32,
-        pub(crate) merge_upper_x: F32,
-        pub(crate) merge_upper_y: F32,
+        pub(crate) isp_merge_upper_x: F32,
+        pub(crate) isp_merge_upper_y: F32,
         pub(crate) unk_18: U64,
         pub(crate) utiles_per_mtile_y: u16,
         pub(crate) utiles_per_mtile_x: u16,
@@ -149,39 +149,39 @@ pub(crate) mod raw {
     #[derive(Debug)]
     #[repr(C)]
     pub(crate) struct JobParameters3 {
-        pub(crate) depth_bias_array: ArrayAddr,
-        pub(crate) scissor_array: ArrayAddr,
-        pub(crate) visibility_result_buffer: U64,
+        pub(crate) isp_dbias_base: ArrayAddr,
+        pub(crate) isp_scissor_base: ArrayAddr,
+        pub(crate) isp_oclqry_base: U64,
         pub(crate) unk_118: U64,
         pub(crate) unk_120: Array<0x25, U64>,
-        pub(crate) unk_reload_pipeline: ClearPipelineBinding,
+        pub(crate) unk_partial_bg: BackgroundProgram,
         pub(crate) unk_258: U64,
         pub(crate) unk_260: U64,
         pub(crate) unk_268: U64,
         pub(crate) unk_270: U64,
-        pub(crate) reload_pipeline: ClearPipelineBinding,
+        pub(crate) partial_bg: BackgroundProgram,
         pub(crate) zls_ctrl: U64,
         pub(crate) unk_290: U64,
-        pub(crate) depth_buffer_ptr1: U64,
-        pub(crate) depth_buffer_stride3: U64,
-        pub(crate) depth_meta_buffer_stride3: U64,
-        pub(crate) depth_buffer_ptr2: U64,
-        pub(crate) depth_buffer_ptr3: U64,
-        pub(crate) depth_meta_buffer_ptr3: U64,
-        pub(crate) stencil_buffer_ptr1: U64,
-        pub(crate) stencil_buffer_stride3: U64,
-        pub(crate) stencil_meta_buffer_stride3: U64,
-        pub(crate) stencil_buffer_ptr2: U64,
-        pub(crate) stencil_buffer_ptr3: U64,
-        pub(crate) stencil_meta_buffer_ptr3: U64,
+        pub(crate) z_load: U64,
+        pub(crate) z_partial_stride: U64,
+        pub(crate) z_partial_comp_stride: U64,
+        pub(crate) z_store: U64,
+        pub(crate) z_partial: U64,
+        pub(crate) z_partial_comp: U64,
+        pub(crate) s_load: U64,
+        pub(crate) s_partial_stride: U64,
+        pub(crate) s_partial_comp_stride: U64,
+        pub(crate) s_store: U64,
+        pub(crate) s_partial: U64,
+        pub(crate) s_partial_comp: U64,
         pub(crate) unk_2f8: Array<2, U64>,
         pub(crate) tib_blocks: u32,
         pub(crate) unk_30c: u32,
         pub(crate) aux_fb_info: AuxFBInfo::ver,
         pub(crate) tile_config: U64,
         pub(crate) unk_328_padding: Array<0x8, u8>,
-        pub(crate) unk_partial_store_pipeline: StorePipelineBinding,
-        pub(crate) partial_store_pipeline: StorePipelineBinding,
+        pub(crate) unk_partial_eot: EotProgram,
+        pub(crate) partial_eot: EotProgram,
         pub(crate) isp_bgobjdepth: u32,
         pub(crate) isp_bgobjvals: u32,
         pub(crate) sample_size: u32,
@@ -192,7 +192,7 @@ pub(crate) mod raw {
         #[ver(V >= V13_0B4)]
         pub(crate) unk_390_0: U64,
 
-        pub(crate) depth_dimensions: U64,
+        pub(crate) isp_zls_pixels: U64,
     }
 
     #[versions(AGX)]
@@ -219,8 +219,8 @@ pub(crate) mod raw {
         pub(crate) tiles_per_mtile_x: u16,
         pub(crate) unk_50: U64,
         pub(crate) unk_58: U64,
-        pub(crate) merge_upper_x: F32,
-        pub(crate) merge_upper_y: F32,
+        pub(crate) isp_merge_upper_x: F32,
+        pub(crate) isp_merge_upper_y: F32,
         pub(crate) unk_68: U64,
         pub(crate) tile_count: U64,
 

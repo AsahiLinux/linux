@@ -10,8 +10,8 @@
 use crate::debug::*;
 use crate::driver::AsahiDevice;
 use crate::{
-    alloc, buffer, driver, gem, hw, mmu, module_parameters, queue,
-    util::{align, align_down, RangeExt},
+    alloc, buffer, driver, gem, mmu, module_parameters, queue,
+    util::{align, align_down, gcd, AnyBitPattern, RangeExt, Reader},
 };
 use core::mem::MaybeUninit;
 use core::ops::Range;
@@ -20,14 +20,14 @@ use kernel::drm::gem::BaseObject;
 use kernel::error::code::*;
 use kernel::prelude::*;
 use kernel::sync::{Arc, Mutex};
+use kernel::time::NSEC_PER_SEC;
 use kernel::types::ForeignOwnable;
 use kernel::uaccess::{UserPtr, UserSlice};
 use kernel::{dma_fence, drm, uapi, xarray};
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::File;
 
-const MAX_COMMANDS_PER_SUBMISSION: u32 = 64;
-pub(crate) const MAX_COMMANDS_IN_FLIGHT: u32 = 1024;
+pub(crate) const MAX_COMMANDS_PER_SUBMISSION: u32 = 64;
 
 /// A client instance of an `mmu::Vm` address space.
 struct Vm {
@@ -73,11 +73,6 @@ pub(crate) struct SyncItem {
 
 impl SyncItem {
     fn parse_one(file: &DrmFile, data: uapi::drm_asahi_sync, out: bool) -> Result<SyncItem> {
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "drm_asahi_sync extension unexpected\n");
-            return Err(EINVAL);
-        }
-
         match data.sync_type {
             uapi::drm_asahi_sync_type_DRM_ASAHI_SYNC_SYNCOBJ => {
                 if data.timeline_value != 0 {
@@ -135,7 +130,13 @@ impl SyncItem {
         }
     }
 
-    fn parse_array(file: &DrmFile, ptr: u64, count: u32, out: bool) -> Result<KVec<SyncItem>> {
+    fn parse_array(
+        file: &DrmFile,
+        ptr: u64,
+        in_count: u32,
+        out_count: u32,
+    ) -> Result<KVec<SyncItem>> {
+        let count = in_count + out_count;
         let mut vec = KVec::with_capacity(count as usize, GFP_KERNEL)?;
 
         const STRIDE: usize = core::mem::size_of::<uapi::drm_asahi_sync>();
@@ -144,7 +145,7 @@ impl SyncItem {
         // SAFETY: We only read this once, so there are no TOCTOU issues.
         let mut reader = UserSlice::new(ptr as UserPtr, size).reader();
 
-        for _i in 0..count {
+        for i in 0..count {
             let mut sync: MaybeUninit<uapi::drm_asahi_sync> = MaybeUninit::uninit();
 
             // SAFETY: The size of `sync` is STRIDE
@@ -155,7 +156,7 @@ impl SyncItem {
             // SAFETY: All bit patterns in the struct are valid
             let sync = unsafe { sync.assume_init() };
 
-            vec.push(SyncItem::parse_one(file, sync, out)?, GFP_KERNEL)?;
+            vec.push(SyncItem::parse_one(file, sync, i >= in_count)?, GFP_KERNEL)?;
         }
 
         Ok(vec)
@@ -209,6 +210,9 @@ impl drm::file::DriverFile for File {
     }
 }
 
+// SAFETY: All bit patterns are valid by construction.
+unsafe impl AnyBitPattern for uapi::drm_asahi_gem_bind_op {}
+
 impl File {
     fn vms(self: Pin<&Self>) -> Pin<&xarray::XArray<KBox<Vm>>> {
         // SAFETY: Structural pinned projection for vms.
@@ -233,14 +237,14 @@ impl File {
     pub(crate) fn get_params(
         device: &AsahiDevice,
         dev_data: <Self as drm::file::DriverFile>::BorrowedData<'_>,
-        data: &mut uapi::drm_asahi_get_params,
+        data: &uapi::drm_asahi_get_params,
         file: &DrmFile,
     ) -> Result<u32> {
         mod_dev_dbg!(device, "[File {}]: IOCTL: get_params\n", file.inner().id);
 
         let gpu = &dev_data.gpu;
 
-        if data.extensions != 0 || data.param_group != 0 || data.pad != 0 {
+        if data.param_group != 0 || data.pad != 0 {
             cls_pr_debug!(Errors, "get_params: Invalid arguments\n");
             return Err(EINVAL);
         }
@@ -250,14 +254,7 @@ impl File {
         }
 
         let mut params = uapi::drm_asahi_params_global {
-            unstable_uabi_version: uapi::DRM_ASAHI_UNSTABLE_UABI_VERSION,
-            pad0: 0,
-
-            feat_compat: gpu.get_cfg().gpu_feat_compat
-                | hw::feat::compat::GETTIME
-                | hw::feat::compat::USER_TIMESTAMPS
-                | hw::feat::compat::SINGLE_PAGE_MAP,
-            feat_incompat: gpu.get_cfg().gpu_feat_incompat,
+            features: 0,
 
             gpu_generation: gpu.get_dyncfg().id.gpu_gen as u32,
             gpu_variant: gpu.get_dyncfg().id.gpu_variant as u32,
@@ -267,47 +264,25 @@ impl File {
             num_dies: gpu.get_cfg().num_dies,
             num_clusters_total: gpu.get_dyncfg().id.num_clusters,
             num_cores_per_cluster: gpu.get_dyncfg().id.num_cores,
-            num_frags_per_cluster: gpu.get_dyncfg().id.num_frags,
-            num_gps_per_cluster: gpu.get_dyncfg().id.num_gps,
-            num_cores_total_active: gpu.get_dyncfg().id.total_active_cores,
             core_masks: [0; uapi::DRM_ASAHI_MAX_CLUSTERS as usize],
 
-            vm_page_size: mmu::UAT_PGSZ as u32,
-            pad1: 0,
-            vm_user_start: VM_USER_RANGE.start,
-            vm_user_end: VM_USER_RANGE.end,
-            vm_usc_start: 0, // Arbitrary
-            vm_usc_end: 0,
+            vm_start: VM_USER_RANGE.start,
+            vm_end: VM_USER_RANGE.end,
             vm_kernel_min_size: VM_KERNEL_MIN_SIZE,
 
-            max_syncs_per_submission: 0,
             max_commands_per_submission: MAX_COMMANDS_PER_SUBMISSION,
-            max_commands_in_flight: MAX_COMMANDS_IN_FLIGHT,
             max_attachments: crate::microseq::MAX_ATTACHMENTS as u32,
-
-            timer_frequency_hz: gpu.get_cfg().base_clock_hz,
-            min_frequency_khz: gpu.get_dyncfg().pwr.min_frequency_khz(),
             max_frequency_khz: gpu.get_dyncfg().pwr.max_frequency_khz(),
-            max_power_mw: gpu.get_dyncfg().pwr.max_power_mw,
 
-            result_render_size: core::mem::size_of::<uapi::drm_asahi_result_render>() as u32,
-            result_compute_size: core::mem::size_of::<uapi::drm_asahi_result_compute>() as u32,
-
-            firmware_version: [0; 4],
-
-            user_timestamp_frequency_hz: 1_000_000_000, // User timestamps always in nanoseconds
+            command_timestamp_frequency_hz: 1_000_000_000, // User timestamps always in nanoseconds
         };
 
         for (i, mask) in gpu.get_dyncfg().id.core_masks.iter().enumerate() {
             *(params.core_masks.get_mut(i).ok_or(EIO)?) = (*mask).into();
         }
 
-        for i in 0..3 {
-            params.firmware_version[i] = *gpu.get_dyncfg().firmware_version.get(i).unwrap_or(&0);
-        }
-
         if *module_parameters::fault_control.get() == 0xb {
-            params.feat_compat |= hw::feat::compat::SOFT_FAULTS;
+            params.features |= uapi::drm_asahi_feature_DRM_ASAHI_FEATURE_SOFT_FAULTS as u64;
         }
 
         let size = core::mem::size_of::<uapi::drm_asahi_params_global>().min(data.size.try_into()?);
@@ -330,11 +305,6 @@ impl File {
         data: &mut uapi::drm_asahi_vm_create,
         file: &DrmFile,
     ) -> Result<u32> {
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "vm_create: Unexpected extensions\n");
-            return Err(EINVAL);
-        }
-
         let kernel_range = data.kernel_start..data.kernel_end;
 
         // Validate requested kernel range
@@ -433,11 +403,6 @@ impl File {
         data: &mut uapi::drm_asahi_vm_destroy,
         file: &DrmFile,
     ) -> Result<u32> {
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "vm_destroy: Unexpected extensions\n");
-            return Err(EINVAL);
-        }
-
         if file.inner().vms().remove(data.vm_id as usize).is_none() {
             Err(ENOENT)
         } else {
@@ -459,15 +424,18 @@ impl File {
             data.size
         );
 
-        if data.extensions != 0
-            || (data.flags & !(uapi::ASAHI_GEM_WRITEBACK | uapi::ASAHI_GEM_VM_PRIVATE)) != 0
-            || (data.flags & uapi::ASAHI_GEM_VM_PRIVATE == 0 && data.vm_id != 0)
+        if (data.flags
+            & !(uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_WRITEBACK
+                | uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_VM_PRIVATE))
+            != 0
+            || (data.flags & uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_VM_PRIVATE == 0
+                && data.vm_id != 0)
         {
             cls_pr_debug!(Errors, "gem_create: Invalid arguments\n");
             return Err(EINVAL);
         }
 
-        let resv_obj = if data.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 {
+        let resv_obj = if data.flags & uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_VM_PRIVATE != 0 {
             Some(
                 file.inner()
                     .vms()
@@ -511,8 +479,8 @@ impl File {
             data.handle
         );
 
-        if data.extensions != 0 || data.flags != 0 {
-            cls_pr_debug!(Errors, "gem_mmap_offset: Unexpected extensions or flags\n");
+        if data.flags != 0 {
+            cls_pr_debug!(Errors, "gem_mmap_offset: Unexpected flags\n");
             return Err(EINVAL);
         }
 
@@ -521,47 +489,56 @@ impl File {
         Ok(0)
     }
 
-    /// IOCTL: gem_bind: Map or unmap a GEM object into a Vm.
-    pub(crate) fn gem_bind(
+    /// IOCTL: vm_bind: Map or unmap memory into a Vm.
+    pub(crate) fn vm_bind(
         device: &AsahiDevice,
         _dev_data: <Self as drm::file::DriverFile>::BorrowedData<'_>,
-        data: &mut uapi::drm_asahi_gem_bind,
+        data: &uapi::drm_asahi_vm_bind,
         file: &DrmFile,
     ) -> Result<u32> {
         mod_dev_dbg!(
             device,
-            "[File {} VM {}]: IOCTL: gem_bind op={:?} handle={:#x?} flags={:#x?} {:#x?}:{:#x?} -> {:#x?}\n",
+            "[File {} VM {}]: IOCTL: vm_bind\n",
             file.inner().id,
             data.vm_id,
-            data.op,
-            data.handle,
-            data.flags,
-            data.offset,
-            data.range,
-            data.addr
         );
 
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "gem_bind: Unexpected extensions\n");
+        if data.stride == 0 || data.pad != 0 {
+            cls_pr_debug!(Errors, "vm_bind: Unexpected headers\n");
             return Err(EINVAL);
         }
 
-        match data.op {
-            uapi::drm_asahi_bind_op_ASAHI_BIND_OP_BIND => Self::do_gem_bind(device, data, file),
-            uapi::drm_asahi_bind_op_ASAHI_BIND_OP_UNBIND => Self::do_gem_unbind(device, data, file),
-            uapi::drm_asahi_bind_op_ASAHI_BIND_OP_UNBIND_ALL => {
-                Self::do_gem_unbind_all(device, data, file)
-            }
-            _ => {
-                cls_pr_debug!(Errors, "gem_bind: Invalid op {}\n", data.op);
-                Err(EINVAL)
-            }
+        let vm_id = data.vm_id.try_into()?;
+
+        let mut vec = KVec::new();
+        let size = (data.stride * data.num_binds) as usize;
+        let reader = UserSlice::new(data.userptr as UserPtr, size).reader();
+        reader.read_all(&mut vec, GFP_KERNEL)?;
+        let mut reader = Reader::new(&vec);
+
+        for _i in 0..data.num_binds {
+            let bind: uapi::drm_asahi_gem_bind_op = reader.read_up_to(data.stride as usize)?;
+            Self::do_gem_bind_unbind(vm_id, &bind, file)?;
+        }
+
+        Ok(0)
+    }
+
+    pub(crate) fn do_gem_bind_unbind(
+        vm_id: usize,
+        data: &uapi::drm_asahi_gem_bind_op,
+        file: &DrmFile,
+    ) -> Result<u32> {
+        if (data.flags & uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_UNBIND) != 0 {
+            Self::do_gem_unbind(vm_id, data, file)
+        } else {
+            Self::do_gem_bind(vm_id, data, file)
         }
     }
 
     pub(crate) fn do_gem_bind(
-        _device: &AsahiDevice,
-        data: &mut uapi::drm_asahi_gem_bind,
+        vm_id: usize,
+        data: &uapi::drm_asahi_gem_bind_op,
         file: &DrmFile,
     ) -> Result<u32> {
         if (data.addr | data.range | data.offset) as usize & mmu::UAT_PGMSK != 0 {
@@ -575,14 +552,16 @@ impl File {
         }
 
         if (data.flags
-            & !(uapi::ASAHI_BIND_READ | uapi::ASAHI_BIND_WRITE | uapi::ASAHI_BIND_SINGLE_PAGE))
+            & !(uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_READ
+                | uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_WRITE
+                | uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_SINGLE_PAGE))
             != 0
         {
             cls_pr_debug!(Errors, "gem_bind: Invalid flags {:#x}\n", data.flags);
             return Err(EINVAL);
         }
 
-        let single_page = data.flags & uapi::ASAHI_BIND_SINGLE_PAGE != 0;
+        let single_page = data.flags & uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_SINGLE_PAGE != 0;
 
         let bo = gem::lookup_handle(file, data.handle)?;
 
@@ -590,7 +569,12 @@ impl File {
         let end = data.addr.checked_add(data.range).ok_or(EINVAL)?;
         let range = start..end;
 
-        let end_off = data.offset.checked_add(data.range).ok_or(EINVAL)?;
+        let bo_accessed_size = if single_page {
+            mmu::UAT_PGMSK as u64
+        } else {
+            data.range
+        };
+        let end_off = data.offset.checked_add(bo_accessed_size).ok_or(EINVAL)?;
         if end_off as usize > bo.size() {
             return Err(EINVAL);
         }
@@ -605,13 +589,13 @@ impl File {
             return Err(EINVAL); // Invalid map range
         }
 
-        let prot = if data.flags & uapi::ASAHI_BIND_READ != 0 {
-            if data.flags & uapi::ASAHI_BIND_WRITE != 0 {
+        let prot = if data.flags & uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_READ != 0 {
+            if data.flags & uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_WRITE != 0 {
                 mmu::PROT_GPU_SHARED_RW
             } else {
                 mmu::PROT_GPU_SHARED_RO
             }
-        } else if data.flags & uapi::ASAHI_BIND_WRITE != 0 {
+        } else if data.flags & uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_WRITE != 0 {
             mmu::PROT_GPU_SHARED_WO
         } else {
             cls_pr_debug!(
@@ -619,14 +603,10 @@ impl File {
                 "gem_bind: Must specify read or write (flags: {:#x})\n",
                 data.flags
             );
-            return Err(EINVAL); // Must specify one of ASAHI_BIND_{READ,WRITE}
+            return Err(EINVAL); // Must specify one of DRM_ASAHI_BIND_{READ,WRITE}
         };
 
-        let guard = file
-            .inner()
-            .vms()
-            .get(data.vm_id.try_into()?)
-            .ok_or(ENOENT)?;
+        let guard = file.inner().vms().get(vm_id).ok_or(ENOENT)?;
 
         // Clone it immediately so we aren't holding the XArray lock
         let vm = guard.borrow().vm.clone();
@@ -656,11 +636,14 @@ impl File {
     }
 
     pub(crate) fn do_gem_unbind(
-        _device: &AsahiDevice,
-        data: &mut uapi::drm_asahi_gem_bind,
+        vm_id: usize,
+        data: &uapi::drm_asahi_gem_bind_op,
         file: &DrmFile,
     ) -> Result<u32> {
-        if data.offset != 0 || data.flags != 0 || data.handle != 0 {
+        if data.offset != 0
+            || data.flags != uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_UNBIND
+            || data.handle != 0
+        {
             cls_pr_debug!(Errors, "gem_unbind: offset/flags/handle not zero\n");
             return Err(EINVAL);
         }
@@ -689,11 +672,7 @@ impl File {
             return Err(EINVAL); // Invalid map range
         }
 
-        let guard = file
-            .inner()
-            .vms()
-            .get(data.vm_id.try_into()?)
-            .ok_or(ENOENT)?;
+        let guard = file.inner().vms().get(vm_id).ok_or(ENOENT)?;
 
         // Clone it immediately so we aren't holding the XArray lock
         let vm = guard.borrow().vm.clone();
@@ -740,33 +719,6 @@ impl File {
         Ok(())
     }
 
-    pub(crate) fn do_gem_unbind_all(
-        _device: &AsahiDevice,
-        data: &mut uapi::drm_asahi_gem_bind,
-        file: &DrmFile,
-    ) -> Result<u32> {
-        if data.flags != 0 || data.offset != 0 || data.range != 0 || data.addr != 0 {
-            cls_pr_debug!(Errors, "gem_unbind_all: Invalid arguments\n");
-            return Err(EINVAL);
-        }
-
-        let bo = gem::lookup_handle(file, data.handle)?;
-
-        if data.vm_id == 0 {
-            Self::unbind_gem_object(file, &bo.gem)?;
-        } else {
-            file.inner()
-                .vms()
-                .get(data.vm_id.try_into()?)
-                .ok_or(ENOENT)?
-                .borrow()
-                .vm
-                .drop_mappings(&bo.gem)?;
-        }
-
-        Ok(0)
-    }
-
     /// IOCTL: gem_bind_object: Map or unmap a GEM object as a special object.
     pub(crate) fn gem_bind_object(
         device: &AsahiDevice,
@@ -787,11 +739,6 @@ impl File {
             data.object_handle
         );
 
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "gem_bind_object: Unexpected extensions\n");
-            return Err(EINVAL);
-        }
-
         if data.pad != 0 {
             cls_pr_debug!(Errors, "gem_bind_object: Unexpected pad\n");
             return Err(EINVAL);
@@ -803,10 +750,10 @@ impl File {
         }
 
         match data.op {
-            uapi::drm_asahi_bind_object_op_ASAHI_BIND_OBJECT_OP_BIND => {
+            uapi::drm_asahi_bind_object_op_DRM_ASAHI_BIND_OBJECT_OP_BIND => {
                 Self::do_gem_bind_object(device, dev_data, data, file)
             }
-            uapi::drm_asahi_bind_object_op_ASAHI_BIND_OBJECT_OP_UNBIND => {
+            uapi::drm_asahi_bind_object_op_DRM_ASAHI_BIND_OBJECT_OP_UNBIND => {
                 Self::do_gem_unbind_object(device, dev_data, data, file)
             }
             _ => {
@@ -832,7 +779,7 @@ impl File {
             return Err(EINVAL); // Must be page aligned
         }
 
-        if data.flags != uapi::ASAHI_BIND_OBJECT_USAGE_TIMESTAMPS {
+        if data.flags != uapi::drm_asahi_bind_object_flags_DRM_ASAHI_BIND_OBJECT_USAGE_TIMESTAMPS {
             cls_pr_debug!(Errors, "gem_bind_object: Invalid flags {:#x}\n", data.flags);
             return Err(EINVAL);
         }
@@ -913,25 +860,21 @@ impl File {
 
         mod_dev_dbg!(
             device,
-            "[File {} VM {}]: Creating queue caps={:?} prio={:?} flags={:#x?}\n",
+            "[File {} VM {}]: Creating queue prio={:?} flags={:#x?}\n",
             file_id,
             data.vm_id,
-            data.queue_caps,
             data.priority,
             data.flags,
         );
 
-        if data.extensions != 0
-            || data.flags != 0
-            || data.priority > 3
-            || data.queue_caps == 0
-            || (data.queue_caps
-                & !(uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_RENDER
-                    | uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_BLIT
-                    | uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_COMPUTE))
-                != 0
-        {
+        if data.flags != 0 || data.priority > uapi::drm_asahi_priority_DRM_ASAHI_PRIORITY_REALTIME {
             cls_pr_debug!(Errors, "queue_create: Invalid arguments\n");
+            return Err(EINVAL);
+        }
+
+        // TODO: Allow with CAP_SYS_NICE
+        if data.priority >= uapi::drm_asahi_priority_DRM_ASAHI_PRIORITY_HIGH {
+            cls_pr_debug!(Errors, "queue_create: Invalid priority\n");
             return Err(EINVAL);
         }
 
@@ -947,10 +890,14 @@ impl File {
         // Drop the vms lock eagerly
         core::mem::drop(file_vm);
 
-        let queue =
-            dev_data
-                .gpu
-                .new_queue(vm, ualloc, ualloc_priv, data.priority, data.queue_caps)?;
+        let queue = dev_data.gpu.new_queue(
+            vm,
+            ualloc,
+            ualloc_priv,
+            // TODO: Plumb deeper the enum
+            uapi::drm_asahi_priority_DRM_ASAHI_PRIORITY_REALTIME - data.priority,
+            data.usc_exec_base,
+        )?;
 
         data.queue_id = resv.index().try_into()?;
         resv.store(Arc::pin_init(Mutex::new(queue), GFP_KERNEL)?)?;
@@ -965,11 +912,6 @@ impl File {
         data: &mut uapi::drm_asahi_queue_destroy,
         file: &DrmFile,
     ) -> Result<u32> {
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "queue_destroy: Unexpected extensions\n");
-            return Err(EINVAL);
-        }
-
         if file
             .inner()
             .queues()
@@ -991,22 +933,8 @@ impl File {
     ) -> Result<u32> {
         debug::update_debug_flags();
 
-        if data.extensions != 0 {
-            cls_pr_debug!(Errors, "submit: Unexpected extensions\n");
-            return Err(EINVAL);
-        }
-
-        if data.flags != 0 {
-            cls_pr_debug!(Errors, "submit: Unexpected flags {:#x}\n", data.flags);
-            return Err(EINVAL);
-        }
-        if data.command_count > MAX_COMMANDS_PER_SUBMISSION {
-            cls_pr_debug!(
-                Errors,
-                "submit: Too many commands: {} > {}\n",
-                data.command_count,
-                MAX_COMMANDS_PER_SUBMISSION
-            );
+        if data.flags != 0 || data.pad != 0 {
+            cls_pr_debug!(Errors, "submit: Invalid arguments\n");
             return Err(EINVAL);
         }
 
@@ -1033,34 +961,13 @@ impl File {
 
         mod_dev_dbg!(
             device,
-            "[File {} Queue {}]: IOCTL: submit({}): Parsing in_syncs\n",
+            "[File {} Queue {}]: IOCTL: submit({}): Parsing syncs\n",
             file.inner().id,
             data.queue_id,
             id
         );
-        let in_syncs = SyncItem::parse_array(file, data.in_syncs, data.in_sync_count, false)?;
-        mod_dev_dbg!(
-            device,
-            "[File {} Queue {}]: IOCTL: submit({}): Parsing out_syncs\n",
-            file.inner().id,
-            data.queue_id,
-            id
-        );
-        let out_syncs = SyncItem::parse_array(file, data.out_syncs, data.out_sync_count, true)?;
-
-        let result_buf = if data.result_handle != 0 {
-            mod_dev_dbg!(
-                device,
-                "[File {} Queue {}]: IOCTL: submit({}): Looking up result_handle {}\n",
-                file.inner().id,
-                data.queue_id,
-                id,
-                data.result_handle
-            );
-            Some(gem::lookup_handle(file, data.result_handle)?)
-        } else {
-            None
-        };
+        let syncs =
+            SyncItem::parse_array(file, data.syncs, data.in_sync_count, data.out_sync_count)?;
 
         mod_dev_dbg!(
             device,
@@ -1069,31 +976,19 @@ impl File {
             data.queue_id,
             id
         );
-        let mut commands = KVec::with_capacity(data.command_count as usize, GFP_KERNEL)?;
 
-        const STRIDE: usize = core::mem::size_of::<uapi::drm_asahi_command>();
-        let size = STRIDE * data.command_count as usize;
+        let mut vec = KVec::new();
 
-        // SAFETY: We only read this once, so there are no TOCTOU issues.
-        let mut reader = UserSlice::new(data.commands as UserPtr, size).reader();
-
-        for _i in 0..data.command_count {
-            let mut cmd: MaybeUninit<uapi::drm_asahi_command> = MaybeUninit::uninit();
-
-            // SAFETY: The size of `cmd` is STRIDE
-            reader.read_raw(unsafe {
-                core::slice::from_raw_parts_mut(cmd.as_mut_ptr() as *mut MaybeUninit<u8>, STRIDE)
-            })?;
-
-            // SAFETY: All bit patterns in the struct are valid
-            commands.push(unsafe { cmd.assume_init() }, GFP_KERNEL)?;
-        }
+        // Copy the command buffer into the kernel. Because we need to iterate
+        // the command buffer twice, we do this in one big copy_from_user to
+        // avoid TOCTOU issues.
+        let reader = UserSlice::new(data.cmdbuf as UserPtr, data.cmdbuf_size as usize).reader();
+        reader.read_all(&mut vec, GFP_KERNEL)?;
 
         let objects = file.inner().objects();
-
         let ret = queue
             .lock()
-            .submit(id, in_syncs, out_syncs, result_buf, commands, objects);
+            .submit(id, syncs, data.in_sync_count as usize, &vec, objects);
 
         match ret {
             Err(ERESTARTSYS) => Err(ERESTARTSYS),
@@ -1115,26 +1010,34 @@ impl File {
     /// IOCTL: get_time: Get the current GPU timer value.
     pub(crate) fn get_time(
         _device: &AsahiDevice,
-        _dev_data: <Self as drm::file::DriverFile>::BorrowedData<'_>,
+        dev_data: <Self as drm::file::DriverFile>::BorrowedData<'_>,
         data: &mut uapi::drm_asahi_get_time,
         _file: &DrmFile,
     ) -> Result<u32> {
-        if data.extensions != 0 || data.flags != 0 {
-            cls_pr_debug!(Errors, "get_time: Unexpected extensions or flags\n");
+        if data.flags != 0 {
+            cls_pr_debug!(Errors, "get_time: Unexpected flags\n");
             return Err(EINVAL);
         }
 
-        let gputime: u64;
+        // TODO: Do this on device-init for perf.
+        let gpu = &dev_data.gpu;
+        let frequency_hz = gpu.get_cfg().base_clock_hz as u64;
+        let ts_gcd = gcd(frequency_hz, NSEC_PER_SEC as u64);
+
+        let num = (NSEC_PER_SEC as u64) / ts_gcd;
+        let den = frequency_hz / ts_gcd;
+
+        let raw: u64;
 
         // SAFETY: Assembly only loads the timer
         unsafe {
             core::arch::asm!(
                 "mrs {x}, CNTPCT_EL0",
-                x = out(reg) gputime
+                x = out(reg) raw
             );
         }
 
-        data.gpu_timestamp = gputime;
+        data.gpu_timestamp = (raw * num) / den;
 
         Ok(0)
     }

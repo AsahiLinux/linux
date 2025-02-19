@@ -162,7 +162,7 @@ trivial_gpustruct!(RingState);
 impl Command for Barrier {}
 
 pub(crate) struct GpuContextData {
-    pub(crate) _buffer: Option<Arc<dyn core::any::Any + Send + Sync>>,
+    pub(crate) _buffer: Arc<dyn core::any::Any + Send + Sync>,
 }
 impl GpuStruct for GpuContextData {
     type Raw<'a> = raw::GpuContextData;

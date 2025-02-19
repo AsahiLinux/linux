@@ -20,7 +20,6 @@ use crate::fw::types::*;
 use crate::fw::workqueue::*;
 use crate::no_debug;
 use crate::object::OpaqueGpuObject;
-use crate::regs::FaultReason;
 use crate::{channel, driver, event, fw, gpu, regs};
 use core::any::Any;
 use core::num::NonZeroU64;
@@ -34,7 +33,6 @@ use kernel::{
         Arc, Mutex,
     },
     types::ForeignOwnable,
-    uapi,
     workqueue::{self, impl_has_work, new_work, Work, WorkItem},
 };
 
@@ -63,43 +61,6 @@ pub(crate) enum WorkError {
     Unknown,
 }
 
-impl From<WorkError> for uapi::drm_asahi_result_info {
-    fn from(err: WorkError) -> Self {
-        match err {
-            WorkError::Fault(info) => Self {
-                status: uapi::drm_asahi_status_DRM_ASAHI_STATUS_FAULT,
-                fault_type: match info.reason {
-                    FaultReason::Unmapped => uapi::drm_asahi_fault_DRM_ASAHI_FAULT_UNMAPPED,
-                    FaultReason::AfFault => uapi::drm_asahi_fault_DRM_ASAHI_FAULT_AF_FAULT,
-                    FaultReason::WriteOnly => uapi::drm_asahi_fault_DRM_ASAHI_FAULT_WRITE_ONLY,
-                    FaultReason::ReadOnly => uapi::drm_asahi_fault_DRM_ASAHI_FAULT_READ_ONLY,
-                    FaultReason::NoAccess => uapi::drm_asahi_fault_DRM_ASAHI_FAULT_NO_ACCESS,
-                    FaultReason::Unknown(_) => uapi::drm_asahi_fault_DRM_ASAHI_FAULT_UNKNOWN,
-                },
-                unit: info.unit_code.into(),
-                sideband: info.sideband.into(),
-                level: info.level,
-                extra: info.unk_5.into(),
-                is_read: info.read as u8,
-                pad: 0,
-                address: info.address,
-            },
-            a => Self {
-                status: match a {
-                    WorkError::Timeout => uapi::drm_asahi_status_DRM_ASAHI_STATUS_TIMEOUT,
-                    WorkError::Killed => uapi::drm_asahi_status_DRM_ASAHI_STATUS_KILLED,
-                    WorkError::ChannelError(_) => {
-                        uapi::drm_asahi_status_DRM_ASAHI_STATUS_CHANNEL_ERROR
-                    }
-                    WorkError::NoDevice => uapi::drm_asahi_status_DRM_ASAHI_STATUS_NO_DEVICE,
-                    _ => uapi::drm_asahi_status_DRM_ASAHI_STATUS_UNKNOWN_ERROR,
-                },
-                ..Default::default()
-            },
-        }
-    }
-}
-
 impl From<WorkError> for kernel::error::Error {
     fn from(err: WorkError) -> Self {
         match err {
@@ -126,7 +87,7 @@ impl GpuContext {
     pub(crate) fn new(
         dev: &driver::AsahiDevice,
         alloc: &mut gpu::KernelAllocators,
-        buffer: Option<Arc<dyn core::any::Any + Send + Sync>>,
+        buffer: Arc<dyn core::any::Any + Send + Sync>,
     ) -> Result<GpuContext> {
         Ok(GpuContext {
             dev: dev.into(),
@@ -159,7 +120,7 @@ impl Drop for GpuContext {
 struct SubmittedWork<O, C>
 where
     O: OpaqueCommandObject,
-    C: FnOnce(&mut O, Option<WorkError>) + Send + Sync + 'static,
+    C: FnOnce(Option<WorkError>) + Send + Sync + 'static,
 {
     object: O,
     value: EventValue,
@@ -206,7 +167,7 @@ impl SubmittedWorkContainer {
     }
 }
 
-impl<O: OpaqueCommandObject, C: FnOnce(&mut O, Option<WorkError>) + Send + Sync> GenSubmittedWork
+impl<O: OpaqueCommandObject, C: FnOnce(Option<WorkError>) + Send + Sync> GenSubmittedWork
     for SubmittedWork<O, C>
 {
     fn gpu_va(&self) -> NonZeroU64 {
@@ -227,7 +188,7 @@ impl<O: OpaqueCommandObject, C: FnOnce(&mut O, Option<WorkError>) + Send + Sync>
 
     fn complete(&mut self) {
         if let Some(cb) = self.callback.take() {
-            cb(&mut self.object, self.error);
+            cb(self.error);
         }
     }
 
@@ -339,14 +300,14 @@ impl Job::ver {
         command: O,
         vm_slot: u32,
     ) -> Result {
-        self.add_cb(command, vm_slot, |_, _| {})
+        self.add_cb(command, vm_slot, |_| {})
     }
 
     pub(crate) fn add_cb<O: OpaqueCommandObject + 'static>(
         &mut self,
         command: O,
         vm_slot: u32,
-        callback: impl FnOnce(&mut O, Option<WorkError>) + Sync + Send + 'static,
+        callback: impl FnOnce(Option<WorkError>) + Sync + Send + 'static,
     ) -> Result {
         if self.committed {
             pr_err!("WorkQueue: Tried to mutate committed Job\n");

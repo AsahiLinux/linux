@@ -11,8 +11,6 @@ pub(crate) const HWCONFIG: super::HwConfig = HwConfig {
     gpu_gen: GpuGen::G13,
     gpu_variant: GpuVariant::G,
     gpu_core: GpuCore::G13G,
-    gpu_feat_compat: 0,
-    gpu_feat_incompat: 0,
 
     base_clock_hz: 24_000_000,
     uat_oas: 40,

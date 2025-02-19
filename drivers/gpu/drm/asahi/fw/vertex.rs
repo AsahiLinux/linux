@@ -57,7 +57,7 @@ pub(crate) mod raw {
         pub(crate) preempt_buf2: GpuPointer<'a, &'a [u8]>,
         pub(crate) unk_80: U64,
         pub(crate) preempt_buf3: GpuPointer<'a, &'a [u8]>,
-        pub(crate) encoder_addr: U64,
+        pub(crate) vdm_ctrl_stream_base: U64,
         #[ver(G < G14)]
         pub(crate) tvb_cluster_meta2: Option<GpuPointer<'a, &'a [u8]>>,
         #[ver(G < G14)]
@@ -67,7 +67,7 @@ pub(crate) mod raw {
         #[ver(G < G14)]
         pub(crate) unk_ac: u32,
         pub(crate) unk_b0: Array<6, U64>,
-        pub(crate) pipeline_base: U64,
+        pub(crate) usc_exec_base_ta: U64,
         #[ver(G < G14)]
         pub(crate) tvb_cluster_meta4: Option<GpuPointer<'a, &'a [u8]>>,
         #[ver(G < G14)]
@@ -142,7 +142,7 @@ pub(crate) mod raw {
         pub(crate) unk_560: u32,
         pub(crate) sync_grow: u32,
         pub(crate) unk_568: u32,
-        pub(crate) spills: u32,
+        pub(crate) uses_scratch: u32,
         pub(crate) meta: job::raw::JobMeta,
         pub(crate) unk_after_meta: u32,
         pub(crate) unk_buf_0: U64,

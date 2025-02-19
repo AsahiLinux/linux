@@ -100,7 +100,9 @@ impl ObjectRef {
         if obj_range.end > self.gem.size() {
             return Err(EINVAL);
         }
-        if self.gem.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 && vm.is_extobj(&self.gem) {
+        if self.gem.flags & uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_VM_PRIVATE != 0
+            && vm.is_extobj(&self.gem)
+        {
             return Err(EINVAL);
         }
         vm.map_in_range(&self.gem, obj_range, alignment, range, prot, guard)
@@ -116,7 +118,9 @@ impl ObjectRef {
         prot: mmu::Prot,
         guard: bool,
     ) -> Result<crate::mmu::KernelMapping> {
-        if self.gem.flags & uapi::ASAHI_GEM_VM_PRIVATE != 0 && vm.is_extobj(&self.gem) {
+        if self.gem.flags & uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_VM_PRIVATE != 0
+            && vm.is_extobj(&self.gem)
+        {
             return Err(EINVAL);
         }
 
@@ -143,7 +147,8 @@ pub(crate) fn new_object(
     flags: u32,
     parent_object: Option<&gem::ObjectRef<Object>>,
 ) -> Result<ObjectRef> {
-    if (flags & uapi::ASAHI_GEM_VM_PRIVATE != 0) != parent_object.is_some() {
+    if (flags & uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_VM_PRIVATE != 0) != parent_object.is_some()
+    {
         return Err(EINVAL);
     }
 
@@ -152,7 +157,7 @@ pub(crate) fn new_object(
     gem.flags = flags;
 
     gem.set_exportable(parent_object.is_none());
-    gem.set_wc(flags & uapi::ASAHI_GEM_WRITEBACK == 0);
+    gem.set_wc(flags & uapi::drm_asahi_gem_flags_DRM_ASAHI_GEM_WRITEBACK == 0);
     if let Some(parent) = parent_object {
         gem.share_dma_resv(&**parent)?;
     }

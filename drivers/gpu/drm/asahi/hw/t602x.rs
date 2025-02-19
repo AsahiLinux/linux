@@ -51,8 +51,6 @@ pub(crate) const HWCONFIG_T6022: super::HwConfig = HwConfig {
     gpu_gen: GpuGen::G14,
     gpu_variant: GpuVariant::D,
     gpu_core: GpuCore::G14D,
-    gpu_feat_compat: 0,
-    gpu_feat_incompat: feat::incompat::MANDATORY_ZS_COMPRESSION,
 
     base_clock_hz: 24_000_000,
     uat_oas: 42,

@@ -9,7 +9,6 @@ use kernel::dma_fence::*;
 use kernel::prelude::*;
 use kernel::{
     c_str, dma_fence,
-    drm::gem::shmem::VMap,
     drm::sched,
     macros::versions,
     sync::{Arc, Mutex},
@@ -20,11 +19,14 @@ use kernel::{
 use crate::alloc::Allocator;
 use crate::debug::*;
 use crate::driver::{AsahiDevRef, AsahiDevice, AsahiDriver};
+use crate::file::MAX_COMMANDS_PER_SUBMISSION;
 use crate::fw::types::*;
 use crate::gpu::GpuManager;
 use crate::inner_weak_ptr;
+use crate::microseq;
 use crate::module_parameters;
-use crate::{alloc, buffer, channel, event, file, fw, gem, gpu, mmu, workqueue};
+use crate::util::{AnyBitPattern, Reader};
+use crate::{alloc, buffer, channel, event, file, fw, gpu, mmu, workqueue};
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -41,10 +43,9 @@ pub(crate) trait Queue: Send + Sync {
     fn submit(
         &mut self,
         id: u64,
-        in_syncs: KVec<file::SyncItem>,
-        out_syncs: KVec<file::SyncItem>,
-        result_buf: Option<gem::ObjectRef>,
-        commands: KVec<uapi::drm_asahi_command>,
+        syncs: KVec<file::SyncItem>,
+        in_sync_count: usize,
+        cmdbuf_raw: &[u8],
         objects: Pin<&xarray::XArray<KBox<file::Object>>>,
     ) -> Result;
 }
@@ -112,10 +113,11 @@ pub(crate) struct Queue {
 pub(crate) struct QueueInner {
     dev: AsahiDevRef,
     ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
-    buffer: Option<buffer::Buffer::ver>,
+    buffer: buffer::Buffer::ver,
     gpu_context: Arc<workqueue::GpuContext>,
     notifier_list: Arc<GpuObject<fw::event::NotifierList>>,
     notifier: Arc<GpuObject<fw::event::Notifier::ver>>,
+    usc_exec_base: u64,
     id: u64,
     #[ver(V >= V13_0B4)]
     counter: AtomicU64,
@@ -172,6 +174,8 @@ pub(crate) struct QueueJob {
     sj_frag: Option<SubQueueJob::ver>,
     sj_comp: Option<SubQueueJob::ver>,
     fence: UserFence<JobFence::ver>,
+    notifier: Arc<GpuObject<fw::event::Notifier::ver>>,
+    notification_count: u32,
     did_run: bool,
     id: u64,
 }
@@ -259,6 +263,54 @@ impl sched::JobImpl for QueueJob::ver {
     #[allow(unused_assignments)]
     fn run(job: &mut sched::Job<Self>) -> Result<Option<dma_fence::Fence>> {
         mod_dev_dbg!(job.dev, "QueueJob {}: Running Job\n", job.id);
+
+        // We can only increase the notifier threshold here, now that we are
+        // actually running the job. We cannot increase it while queueing the
+        // job without introducing subtle race conditions. Suppose we did, as
+        // early versions of drm/asahi did:
+        //
+        // 1. When processing the ioctl submit, a job is queued to drm_sched.
+        //    Incorrectly, the notifier threshold is increased, gating firmware
+        //    events.
+        // 2. When DRM schedules an event, the hardware is kicked.
+        // 3. When the number of processed jobs equals the threshold, the
+        //    firmware signals the complete event to the kernel
+        // 4. When the kernel gets a complete event, we signal the out-syncs.
+        //
+        // Does that work? There are a few scenarios.
+        //
+        // 1. There is nothing else ioctl submitted before the job completes.
+        //    The job is scheduled, completes, and signals immediately.
+        //    Everything works.
+        // 2. There is nontrivial sync across different queues. Since each queue
+        //    has a separate own notifier threshold, submitting one does not
+        //    block scheduling of the other. Everything works the way you'd
+        //    expect. drm/sched handles the wait/signal ordering.
+        // 3. Two ioctls are submitted back-to-back. The first signals a fence
+        //    that the second waits on. Due to the notifier threshold increment,
+        //    the first job's completion event is deferred. But in good
+        //    conditions, drm/sched will schedule the second submit anyway
+        //    because it kills the pointless intra-queue sync. Then both
+        //    commands execute and are signalled together.
+        // 4. Two ioctls are submitted back-to-back as above, but conditions are
+        //    bad. Reporting completion of the first job is still masked by the
+        //    notifier threshold, but the intra-queue fences are not optimized
+        //    out in drm/sched... drm/sched doesn't schedule the second job
+        //    until the first is signalled, but the first isn't signalled until
+        //    the second is completed, but the second can't complete until it's
+        //    scheduled. We hang!
+        //
+        // In good conditions, everything works properly and/or we win the race
+        // to mask the issue. So the issue here is challenging to hit.
+        // Nevertheless, we do need to get it right.
+        //
+        // The intention with drm/sched is that jobs that are not yet scheduled
+        // are "invisible" to the firmware. Incrementing the notifier threshold
+        // earlier than this violates that which leads to circles like the
+        // above. Deferring the increment to submit solves the race.
+        job.notifier.threshold.with(|raw, _inner| {
+            raw.increase(job.notification_count);
+        });
 
         let data = unsafe { &<KBox<AsahiDriver>>::borrow(job.dev.as_ref().get_drvdata()).data };
         let gpu = match data
@@ -350,23 +402,6 @@ impl Drop for QueueJob::ver {
     }
 }
 
-struct ResultWriter {
-    vmap: VMap<gem::DriverObject>,
-    offset: usize,
-    len: usize,
-}
-
-impl ResultWriter {
-    fn write<T>(&mut self, mut value: T) {
-        let p: *mut u8 = &mut value as *mut _ as *mut u8;
-        // SAFETY: We know `p` points to a type T of that size, and UAPI types must have
-        // no padding and all bit patterns valid.
-        let slice = unsafe { core::slice::from_raw_parts_mut(p, core::mem::size_of::<T>()) };
-        let len = slice.len().min(self.len);
-        self.vmap.as_mut_slice()[self.offset..self.offset + len].copy_from_slice(&slice[..len]);
-    }
-}
-
 static QUEUE_NAME: &CStr = c_str!("asahi_fence");
 static QUEUE_CLASS_KEY: kernel::sync::LockClassKey = kernel::static_lock_class!();
 
@@ -384,7 +419,7 @@ impl Queue::ver {
         mgr: &buffer::BufferManager::ver,
         id: u64,
         priority: u32,
-        caps: u32,
+        usc_exec_base: u64,
     ) -> Result<Queue::ver> {
         mod_dev_dbg!(dev, "[Queue {}] Creating queue\n", id);
 
@@ -422,17 +457,7 @@ impl Queue::ver {
             sched::Scheduler::new(dev.as_ref(), 1, WQ_SIZE, 0, 100000, c_str!("asahi_sched"))?;
         let entity = sched::Entity::new(&sched, sched::Priority::Kernel)?;
 
-        let buffer = if caps & uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_RENDER != 0 {
-            Some(buffer::Buffer::ver::new(
-                &*data.gpu,
-                alloc,
-                ualloc.clone(),
-                ualloc_priv,
-                mgr,
-            )?)
-        } else {
-            None
-        };
+        let buffer = buffer::Buffer::ver::new(&*data.gpu, alloc, ualloc.clone(), ualloc_priv, mgr)?;
 
         let mut ret = Queue::ver {
             dev: dev.into(),
@@ -447,13 +472,14 @@ impl Queue::ver {
                 dev: dev.into(),
                 ualloc,
                 gpu_context: Arc::new(
-                    workqueue::GpuContext::new(dev, alloc, buffer.as_ref().map(|b| b.any_ref()))?,
+                    workqueue::GpuContext::new(dev, alloc, buffer.any_ref())?,
                     GFP_KERNEL,
                 )?,
 
                 buffer,
                 notifier_list: Arc::new(notifier_list, GFP_KERNEL)?,
                 notifier,
+                usc_exec_base,
                 id,
                 #[ver(V >= V13_0B4)]
                 counter: AtomicU64::new(0),
@@ -461,86 +487,110 @@ impl Queue::ver {
         };
 
         // Rendering structures
-        if caps & uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_RENDER != 0 {
-            let tvb_blocks = *module_parameters::initial_tvb_size.get();
+        let tvb_blocks = *module_parameters::initial_tvb_size.get();
 
-            ret.inner
-                .buffer
-                .as_ref()
-                .unwrap()
-                .ensure_blocks(tvb_blocks)?;
+        ret.inner.buffer.ensure_blocks(tvb_blocks)?;
 
-            ret.q_vtx = Some(SubQueue::ver {
-                wq: workqueue::WorkQueue::ver::new(
-                    dev,
-                    alloc,
-                    event_manager.clone(),
-                    ret.inner.gpu_context.clone(),
-                    ret.inner.notifier_list.clone(),
-                    channel::PipeType::Vertex,
-                    id,
-                    priority,
-                    WQ_SIZE,
-                )?,
-            });
-        }
+        ret.q_vtx = Some(SubQueue::ver {
+            wq: workqueue::WorkQueue::ver::new(
+                dev,
+                alloc,
+                event_manager.clone(),
+                ret.inner.gpu_context.clone(),
+                ret.inner.notifier_list.clone(),
+                channel::PipeType::Vertex,
+                id,
+                priority,
+                WQ_SIZE,
+            )?,
+        });
 
-        // Rendering & blit structures
-        if caps
-            & (uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_RENDER
-                | uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_BLIT)
-            != 0
-        {
-            ret.q_frag = Some(SubQueue::ver {
-                wq: workqueue::WorkQueue::ver::new(
-                    dev,
-                    alloc,
-                    event_manager.clone(),
-                    ret.inner.gpu_context.clone(),
-                    ret.inner.notifier_list.clone(),
-                    channel::PipeType::Fragment,
-                    id,
-                    priority,
-                    WQ_SIZE,
-                )?,
-            });
-        }
+        ret.q_frag = Some(SubQueue::ver {
+            wq: workqueue::WorkQueue::ver::new(
+                dev,
+                alloc,
+                event_manager.clone(),
+                ret.inner.gpu_context.clone(),
+                ret.inner.notifier_list.clone(),
+                channel::PipeType::Fragment,
+                id,
+                priority,
+                WQ_SIZE,
+            )?,
+        });
 
         // Compute structures
-        if caps & uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_COMPUTE != 0 {
-            ret.q_comp = Some(SubQueue::ver {
-                wq: workqueue::WorkQueue::ver::new(
-                    dev,
-                    alloc,
-                    event_manager,
-                    ret.inner.gpu_context.clone(),
-                    ret.inner.notifier_list.clone(),
-                    channel::PipeType::Compute,
-                    id,
-                    priority,
-                    WQ_SIZE,
-                )?,
-            });
-        }
+        ret.q_comp = Some(SubQueue::ver {
+            wq: workqueue::WorkQueue::ver::new(
+                dev,
+                alloc,
+                event_manager,
+                ret.inner.gpu_context.clone(),
+                ret.inner.notifier_list.clone(),
+                channel::PipeType::Compute,
+                id,
+                priority,
+                WQ_SIZE,
+            )?,
+        });
 
         mod_dev_dbg!(dev, "[Queue {}] Queue created\n", id);
         Ok(ret)
     }
 }
 
-const SQ_RENDER: usize = uapi::drm_asahi_subqueue_DRM_ASAHI_SUBQUEUE_RENDER as usize;
-const SQ_COMPUTE: usize = uapi::drm_asahi_subqueue_DRM_ASAHI_SUBQUEUE_COMPUTE as usize;
-const SQ_COUNT: usize = uapi::drm_asahi_subqueue_DRM_ASAHI_SUBQUEUE_COUNT as usize;
+const SQ_RENDER: usize = 0;
+const SQ_COMPUTE: usize = 1;
+const SQ_COUNT: usize = 2;
+
+// SAFETY: All bit patterns are valid by construction.
+unsafe impl AnyBitPattern for uapi::drm_asahi_cmd_header {}
+unsafe impl AnyBitPattern for uapi::drm_asahi_cmd_render {}
+unsafe impl AnyBitPattern for uapi::drm_asahi_cmd_compute {}
+unsafe impl AnyBitPattern for uapi::drm_asahi_attachment {}
+
+fn build_attachments(reader: &mut Reader<'_>, size: usize) -> Result<microseq::Attachments> {
+    const STRIDE: usize = core::mem::size_of::<uapi::drm_asahi_attachment>();
+    let count = size / STRIDE;
+
+    if count > microseq::MAX_ATTACHMENTS {
+        return Err(EINVAL);
+    }
+
+    let mut attachments: microseq::Attachments = Default::default();
+    attachments.count = count as u32;
+
+    for i in 0..count {
+        let att: uapi::drm_asahi_attachment = reader.read()?;
+
+        if att.flags != 0 || att.pad != 0 {
+            return Err(EINVAL);
+        }
+
+        // Some kind of power-of-2 exponent related to attachment size, in
+        // bounds [1, 6]? We don't know what this is exactly yet.
+        let unk_e = 1;
+
+        let cache_lines = (att.size + 127) >> 7;
+        attachments.list[i as usize] = microseq::Attachment {
+            address: U64(att.pointer),
+            size: cache_lines.try_into()?,
+            unk_c: 0x17,
+            unk_e: unk_e as u16,
+        };
+    }
+
+    Ok(attachments)
+}
 
 #[versions(AGX)]
 impl Queue for Queue::ver {
     fn submit(
         &mut self,
         id: u64,
-        in_syncs: KVec<file::SyncItem>,
-        out_syncs: KVec<file::SyncItem>,
-        result_buf: Option<gem::ObjectRef>,
-        commands: KVec<uapi::drm_asahi_command>,
+        mut syncs: KVec<file::SyncItem>,
+        in_sync_count: usize,
+        cmdbuf_raw: &[u8],
         objects: Pin<&xarray::XArray<KBox<file::Object>>>,
     ) -> Result {
         let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
@@ -568,13 +618,7 @@ impl Queue for Queue::ver {
             return Err(ENODEV);
         }
 
-        // Empty submissions are not legal
-        if commands.is_empty() {
-            cls_pr_debug!(Errors, "Empty submission\n");
-            return Err(EINVAL);
-        }
-
-        let op_guard = if !in_syncs.is_empty() {
+        let op_guard = if in_sync_count > 0 {
             Some(gpu.start_op()?)
         } else {
             None
@@ -614,6 +658,39 @@ impl Queue for Queue::ver {
             )?
             .into();
 
+        let mut cmdbuf = Reader::new(cmdbuf_raw);
+
+        // First, parse the headers to determine the number of compute/render
+        // commands. This will be used to determine when to flush stamps.
+        //
+        // We also use it to determine how many notifications the job will
+        // generate. We could calculate that in the second pass since we don't
+        // need until much later, but it's convenient to gather everything at
+        // the same time.
+        let mut nr_commands = 0;
+        let mut last_compute = 0;
+        let mut last_render = 0;
+        let mut nr_render = 0;
+        let mut nr_compute = 0;
+
+        while !cmdbuf.is_empty() {
+            let header: uapi::drm_asahi_cmd_header = cmdbuf.read()?;
+            cmdbuf.skip(header.size as usize);
+            nr_commands += 1;
+
+            match header.cmd_type as u32 {
+                uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER => {
+                    last_compute = nr_commands;
+                    nr_render += 1;
+                }
+                uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_COMPUTE => {
+                    last_render = nr_commands;
+                    nr_compute += 1;
+                }
+                _ => {}
+            }
+        }
+
         let mut job = self.entity.new_job(
             1,
             QueueJob::ver {
@@ -633,6 +710,14 @@ impl Queue for Queue::ver {
                     .as_mut()
                     .map(|a| a.new_job(Fence::from_fence(&fence))),
                 fence,
+                notifier: self.inner.notifier.clone(),
+
+                // Each render command generates 2 notifications: 1 for the
+                // vertex part, 1 for the fragment part. Each compute command
+                // generates 1 notification. Sum up to calculate the total
+                // notification count for the job.
+                notification_count: (2 * nr_render) + nr_compute,
+
                 did_run: false,
                 id,
             },
@@ -642,37 +727,43 @@ impl Queue for Queue::ver {
             self.dev,
             "[Submission {}] Adding {} in_syncs\n",
             id,
-            in_syncs.len()
+            in_sync_count
         );
-        for sync in in_syncs {
+        for sync in syncs.drain(0..in_sync_count) {
             if let Some(fence) = sync.fence {
                 job.add_dependency(fence)?;
             }
         }
 
-        let mut last_render = None;
-        let mut last_compute = None;
-
-        for (i, cmd) in commands.iter().enumerate() {
-            match cmd.cmd_type {
-                uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER => last_render = Some(i),
-                uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_COMPUTE => last_compute = Some(i),
-                _ => {
-                    cls_pr_debug!(Errors, "Unknown command type {}\n", cmd.cmd_type);
-                    return Err(EINVAL);
-                }
-            }
+        // Validate the number of hardware commands, ignoring software commands
+        let nr_hw_commands = nr_render + nr_compute;
+        if nr_hw_commands == 0 || nr_hw_commands > MAX_COMMANDS_PER_SUBMISSION {
+            cls_pr_debug!(
+                Errors,
+                "submit: Command count {} out of valid range [1, {}]\n",
+                nr_hw_commands,
+                MAX_COMMANDS_PER_SUBMISSION - 1
+            );
+            return Err(EINVAL);
         }
 
-        mod_dev_dbg!(
-            self.dev,
-            "[Submission {}] Submitting {} commands\n",
-            id,
-            commands.len()
-        );
-        for (i, cmd) in commands.into_iter().enumerate() {
-            for (queue_idx, index) in cmd.barriers.iter().enumerate() {
-                if *index == uapi::DRM_ASAHI_BARRIER_NONE as u32 {
+        cmdbuf.rewind();
+
+        let mut command_index = 0;
+        let mut vertex_attachments: microseq::Attachments = Default::default();
+        let mut fragment_attachments: microseq::Attachments = Default::default();
+        let mut compute_attachments: microseq::Attachments = Default::default();
+
+        // Parse the full command buffer submitting as we go
+        while !cmdbuf.is_empty() {
+            let header: uapi::drm_asahi_cmd_header = cmdbuf.read()?;
+            let header_size = header.size as usize;
+
+            // Pre-increment command index to match last_compute/last_render
+            command_index += 1;
+
+            for (queue_idx, index) in [header.vdm_barrier, header.cdm_barrier].iter().enumerate() {
+                if *index == uapi::DRM_ASAHI_BARRIER_NONE as u16 {
                     continue;
                 }
                 if let Some(event) = events[queue_idx].get(*index as usize).ok_or_else(|| {
@@ -680,7 +771,7 @@ impl Queue for Queue::ver {
                     EINVAL
                 })? {
                     let mut alloc = gpu.alloc();
-                    let queue_job = match cmd.cmd_type {
+                    let queue_job = match header.cmd_type as u32 {
                         uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER => job.get_vtx()?,
                         uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_COMPUTE => job.get_comp()?,
                         _ => return Err(EINVAL),
@@ -710,54 +801,18 @@ impl Queue for Queue::ver {
                 }
             }
 
-            let result_writer = match result_buf.as_ref() {
-                None => {
-                    if cmd.result_offset != 0 || cmd.result_size != 0 {
-                        cls_pr_debug!(Errors, "No result buffer but result requested\n");
-                        return Err(EINVAL);
-                    }
-                    None
-                }
-                Some(buf) => {
-                    if cmd.result_size != 0 {
-                        let end_offset = cmd
-                            .result_offset
-                            .checked_add(cmd.result_size)
-                            .ok_or_else(|| {
-                                cls_pr_debug!(Errors, "result_offset + result_size overflow\n");
-                                EINVAL
-                            })?;
-                        if end_offset > buf.size() as u64 {
-                            cls_pr_debug!(
-                                Errors,
-                                "Result buffer overflow ({} + {} > {})\n",
-                                cmd.result_offset,
-                                cmd.result_size,
-                                buf.size()
-                            );
-
-                            return Err(EINVAL);
-                        }
-                        Some(ResultWriter {
-                            vmap: buf.gem.vmap()?,
-                            offset: cmd.result_offset.try_into()?,
-                            len: cmd.result_size.try_into()?,
-                        })
-                    } else {
-                        None
-                    }
-                }
-            };
-
-            match cmd.cmd_type {
+            match header.cmd_type as u32 {
                 uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER => {
+                    let render: uapi::drm_asahi_cmd_render = cmdbuf.read_up_to(header_size)?;
+
                     self.inner.submit_render(
                         &mut job,
-                        &cmd,
-                        result_writer,
+                        &render,
+                        &vertex_attachments,
+                        &fragment_attachments,
                         objects,
                         id,
-                        last_render.unwrap() == i,
+                        command_index == last_render,
                     )?;
                     events[SQ_RENDER].push(
                         Some(
@@ -773,13 +828,15 @@ impl Queue for Queue::ver {
                     )?;
                 }
                 uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_COMPUTE => {
+                    let compute: uapi::drm_asahi_cmd_compute = cmdbuf.read_up_to(header_size)?;
+
                     self.inner.submit_compute(
                         &mut job,
-                        &cmd,
-                        result_writer,
+                        &compute,
+                        &compute_attachments,
                         objects,
                         id,
-                        last_compute.unwrap() == i,
+                        command_index == last_compute,
                     )?;
                     events[SQ_COMPUTE].push(
                         Some(
@@ -794,7 +851,19 @@ impl Queue for Queue::ver {
                         GFP_KERNEL,
                     )?;
                 }
-                _ => return Err(EINVAL),
+                uapi::drm_asahi_cmd_type_DRM_ASAHI_SET_VERTEX_ATTACHMENTS => {
+                    vertex_attachments = build_attachments(&mut cmdbuf, header_size)?;
+                }
+                uapi::drm_asahi_cmd_type_DRM_ASAHI_SET_FRAGMENT_ATTACHMENTS => {
+                    fragment_attachments = build_attachments(&mut cmdbuf, header_size)?;
+                }
+                uapi::drm_asahi_cmd_type_DRM_ASAHI_SET_COMPUTE_ATTACHMENTS => {
+                    compute_attachments = build_attachments(&mut cmdbuf, header_size)?;
+                }
+                _ => {
+                    cls_pr_debug!(Errors, "Unknown command type {}\n", header.cmd_type);
+                    return Err(EINVAL);
+                }
             }
         }
 
@@ -821,9 +890,9 @@ impl Queue for Queue::ver {
             self.dev,
             "Queue {}: Adding {} out_syncs\n",
             self.inner.id,
-            out_syncs.len()
+            syncs.len()
         );
-        for mut sync in out_syncs {
+        for mut sync in syncs {
             if let Some(chain) = sync.chain_fence.take() {
                 sync.syncobj
                     .add_point(chain, &out_fence, sync.timeline_value);

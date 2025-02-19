@@ -66,11 +66,11 @@ pub(crate) mod raw {
     default_zeroed!(Threshold);
 
     impl Threshold {
-        pub(crate) fn increment(&self) {
+        pub(crate) fn increase(&self, amount: u32) {
             // We could use fetch_add, but the non-LSE atomic
             // sequence Rust produces confuses the hypervisor.
             let v = self.0.load(Ordering::Relaxed);
-            self.0.store(v + 1, Ordering::Relaxed);
+            self.0.store(v + (amount as u64), Ordering::Relaxed);
         }
     }
 

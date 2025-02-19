@@ -241,7 +241,7 @@ pub(crate) trait GpuManager: Send + Sync {
         ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
         ualloc_priv: Arc<Mutex<alloc::DefaultAllocator>>,
         priority: u32,
-        caps: u32,
+        usc_exec_base: u64,
     ) -> Result<KBox<dyn queue::Queue>>;
     /// Return a reference to the global `SequenceIDs` instance.
     fn ids(&self) -> &SequenceIDs;
@@ -1252,7 +1252,7 @@ impl GpuManager for GpuManager::ver {
         ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
         ualloc_priv: Arc<Mutex<alloc::DefaultAllocator>>,
         priority: u32,
-        caps: u32,
+        usc_exec_base: u64,
     ) -> Result<KBox<dyn queue::Queue>> {
         let mut kalloc = self.alloc();
         let id = self.ids.queue.next();
@@ -1267,7 +1267,7 @@ impl GpuManager for GpuManager::ver {
                 &self.buffer_mgr,
                 id,
                 priority,
-                caps,
+                usc_exec_base,
             )?,
             GFP_KERNEL,
         )?)

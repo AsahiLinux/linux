@@ -14,12 +14,12 @@ pub(crate) mod raw {
     #[repr(C)]
     pub(crate) struct JobParameters1<'a> {
         pub(crate) preempt_buf1: GpuPointer<'a, &'a [u8]>,
-        pub(crate) encoder: U64,
+        pub(crate) cdm_ctrl_stream_base: U64,
         pub(crate) preempt_buf2: GpuPointer<'a, &'a [u8]>,
         pub(crate) preempt_buf3: GpuPointer<'a, &'a [u8]>,
         pub(crate) preempt_buf4: GpuPointer<'a, &'a [u8]>,
         pub(crate) preempt_buf5: GpuPointer<'a, &'a [u8]>,
-        pub(crate) pipeline_base: U64,
+        pub(crate) usc_exec_base_cp: U64,
         pub(crate) unk_38: U64,
         pub(crate) helper_program: u32,
         pub(crate) unk_44: u32,
@@ -40,7 +40,7 @@ pub(crate) mod raw {
         pub(crate) unk_0_0: u32,
         pub(crate) unk_0: Array<0x24, u8>,
         pub(crate) preempt_buf1: GpuPointer<'a, &'a [u8]>,
-        pub(crate) encoder_end: U64,
+        pub(crate) cdm_ctrl_stream_end: U64,
         pub(crate) unk_34: Array<0x20, u8>,
         pub(crate) unk_g14x: u32,
         pub(crate) unk_58: u32,

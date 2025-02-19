@@ -85,35 +85,6 @@ pub(crate) enum GpuRevisionID {
     C1 = 6,
 }
 
-/// GPU driver/hardware features, from the UABI.
-pub(crate) mod feat {
-    /// Backwards-compatible features.
-    pub(crate) mod compat {
-        use kernel::uapi;
-
-        /// Soft MMU faults enabled.
-        pub(crate) const SOFT_FAULTS: u64 =
-            uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_SOFT_FAULTS as u64;
-        /// GETTIME API supported
-        pub(crate) const GETTIME: u64 = uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_GETTIME as u64;
-        /// User timestamps extension supported
-        pub(crate) const USER_TIMESTAMPS: u64 =
-            uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_USER_TIMESTAMPS as u64;
-        /// User timestamps extension supported
-        pub(crate) const SINGLE_PAGE_MAP: u64 =
-            uapi::drm_asahi_feat_compat_DRM_ASAHI_FEAT_SINGLE_PAGE_MAP as u64;
-    }
-
-    /// Backwards-incompatible features.
-    pub(crate) mod incompat {
-        use kernel::uapi;
-
-        /// Hardware requires Z/S compression to be mandatorily enabled.
-        pub(crate) const MANDATORY_ZS_COMPRESSION: u64 =
-            uapi::drm_asahi_feat_incompat_DRM_ASAHI_FEAT_MANDATORY_ZS_COMPRESSION as u64;
-    }
-}
-
 /// A single performance state of the GPU.
 #[derive(Debug)]
 pub(crate) struct PState {
@@ -235,10 +206,6 @@ pub(crate) struct HwConfig {
     pub(crate) gpu_variant: GpuVariant,
     /// GPU core type ID (as known by the firmware).
     pub(crate) gpu_core: GpuCore,
-    /// Compatible feature bitmask for this GPU.
-    pub(crate) gpu_feat_compat: u64,
-    /// Incompatible feature bitmask for this GPU.
-    pub(crate) gpu_feat_incompat: u64,
 
     /// Base clock used used for timekeeping.
     pub(crate) base_clock_hz: u32,
@@ -677,10 +644,6 @@ impl PwrConfig {
             power_zones,
             csafr,
         })
-    }
-
-    pub(crate) fn min_frequency_khz(&self) -> u32 {
-        self.perf_states[self.perf_base_pstate as usize].freq_hz / 1000
     }
 
     pub(crate) fn max_frequency_khz(&self) -> u32 {

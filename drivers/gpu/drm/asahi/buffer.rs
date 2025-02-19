@@ -256,20 +256,6 @@ impl Scene::ver {
             .as_ref()
             .map(|c| c.meta.gpu_offset_pointer(self.meta4_off))
     }
-
-    /// Returns the number of TVB bytes used for this scene.
-    pub(crate) fn used_bytes(&self) -> usize {
-        self.object
-            .with(|raw, _inner| raw.total_page_count.load(Ordering::Relaxed) as usize * PAGE_SIZE)
-    }
-
-    /// Returns whether the TVB overflowed while rendering this scene.
-    pub(crate) fn overflowed(&self) -> bool {
-        self.object.with(|raw, _inner| {
-            raw.total_page_count.load(Ordering::Relaxed)
-                > raw.pass_page_count.load(Ordering::Relaxed)
-        })
-    }
 }
 
 #[versions(AGX)]
@@ -440,11 +426,6 @@ impl Buffer::ver {
     /// Returns the total block count allocated to this Buffer.
     pub(crate) fn block_count(&self) -> u32 {
         self.inner.lock().blocks.len() as u32
-    }
-
-    /// Returns the total size in bytes allocated to this Buffer.
-    pub(crate) fn size(&self) -> usize {
-        self.block_count() as usize * BLOCK_SIZE
     }
 
     /// Automatically grow the Buffer based on feedback from the statistics.
