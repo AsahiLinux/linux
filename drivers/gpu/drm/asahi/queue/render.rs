@@ -16,15 +16,15 @@ use crate::util::*;
 use crate::workqueue::WorkError;
 use crate::{buffer, file, fw, gpu, microseq, workqueue};
 use crate::{inner_ptr, inner_weak_ptr};
+use core::mem::MaybeUninit;
 use core::sync::atomic::Ordering;
 use kernel::dma_fence::RawDmaFence;
 use kernel::drm::sched::Job;
-use kernel::io_buffer::IoBufferReader;
 use kernel::new_mutex;
 use kernel::prelude::*;
 use kernel::sync::Arc;
+use kernel::uaccess::{UserPtr, UserSlice};
 use kernel::uapi;
-use kernel::user_ptr::UserSlicePtr;
 use kernel::xarray;
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::Render;
@@ -232,21 +232,19 @@ impl super::QueueInner::ver {
 
         let cmdbuf_read_size =
             (cmd.cmd_buffer_size as usize).min(core::mem::size_of::<uapi::drm_asahi_cmd_render>());
-        // SAFETY: This is the sole UserSlicePtr instance for this cmd_buffer.
-        let mut cmdbuf_reader = unsafe {
-            UserSlicePtr::new(
-                cmd.cmd_buffer as usize as *mut _,
-                cmd.cmd_buffer_size as usize,
-            )
-            .reader()
-        };
+        // SAFETY: This is the sole UserSlice instance for this cmd_buffer.
+        let mut cmdbuf_reader =
+            UserSlice::new(cmd.cmd_buffer as UserPtr, cmd.cmd_buffer_size as usize).reader();
 
         let mut cmdbuf: uapi::drm_asahi_cmd_render = Default::default();
         // SAFETY: The output pointer is valid, and the size does not exceed the type size
         // per the min() above, and all bit patterns are valid.
-        unsafe {
-            cmdbuf_reader.read_raw(&mut cmdbuf as *mut _ as *mut u8, cmdbuf_read_size)?;
-        }
+        cmdbuf_reader.read_raw(unsafe {
+            core::slice::from_raw_parts_mut(
+                &mut cmdbuf as *mut _ as *mut MaybeUninit<u8>,
+                cmdbuf_read_size,
+            )
+        })?;
 
         if cmdbuf.flags
             & !(uapi::ASAHI_RENDER_NO_CLEAR_PIPELINE_TEXTURES
@@ -282,15 +280,12 @@ impl super::QueueInner::ver {
 
         let mut ext_ptr = cmdbuf.extensions;
         while ext_ptr != 0 {
-            let ext_type = u32::from_ne_bytes(
-                // SAFETY: There is a double read from userspace here, but there is no TOCTOU
-                // issue since at worst the extension parse below will read garbage, and
-                // we do not trust any fields anyway.
-                unsafe { UserSlicePtr::new(ext_ptr as usize as *mut _, 4) }
-                    .read_all()?
-                    .try_into()
-                    .or(Err(EINVAL))?,
-            );
+            // SAFETY: There is a double read from userspace here, but there is no TOCTOU
+            // issue since at worst the extension parse below will read garbage, and
+            // we do not trust any fields anyway.
+            let ext_type = UserSlice::new(ext_ptr as UserPtr, 4)
+                .reader()
+                .read::<u32>()?;
 
             match ext_type {
                 uapi::ASAHI_RENDER_EXT_UNKNOWNS => {
@@ -299,21 +294,19 @@ impl super::QueueInner::ver {
                         return Err(EINVAL);
                     }
                     // SAFETY: See above
-                    let mut ext_reader = unsafe {
-                        UserSlicePtr::new(
-                            ext_ptr as usize as *mut _,
-                            core::mem::size_of::<uapi::drm_asahi_cmd_render_unknowns>(),
-                        )
-                        .reader()
-                    };
+                    let mut ext_reader = UserSlice::new(
+                        ext_ptr as UserPtr,
+                        core::mem::size_of::<uapi::drm_asahi_cmd_render_unknowns>(),
+                    )
+                    .reader();
                     // SAFETY: The output buffer is valid and of the correct size, and all bit
                     // patterns are valid.
-                    unsafe {
-                        ext_reader.read_raw(
-                            &mut unks as *mut _ as *mut u8,
+                    ext_reader.read_raw(unsafe {
+                        core::slice::from_raw_parts_mut(
+                            &mut unks as *mut _ as *mut MaybeUninit<u8>,
                             core::mem::size_of::<uapi::drm_asahi_cmd_render_unknowns>(),
-                        )?;
-                    }
+                        )
+                    })?;
 
                     ext_ptr = unks.next;
                 }
@@ -322,21 +315,19 @@ impl super::QueueInner::ver {
                         Default::default();
 
                     // SAFETY: See above
-                    let mut ext_reader = unsafe {
-                        UserSlicePtr::new(
-                            ext_ptr as usize as *mut _,
-                            core::mem::size_of::<uapi::drm_asahi_cmd_render_user_timestamps>(),
-                        )
-                        .reader()
-                    };
+                    let mut ext_reader = UserSlice::new(
+                        ext_ptr as UserPtr,
+                        core::mem::size_of::<uapi::drm_asahi_cmd_render_user_timestamps>(),
+                    )
+                    .reader();
                     // SAFETY: The output buffer is valid and of the correct size, and all bit
                     // patterns are valid.
-                    unsafe {
-                        ext_reader.read_raw(
-                            &mut ext_user_timestamps as *mut _ as *mut u8,
+                    ext_reader.read_raw(unsafe {
+                        core::slice::from_raw_parts_mut(
+                            &mut ext_user_timestamps as *mut _ as *mut MaybeUninit<u8>,
                             core::mem::size_of::<uapi::drm_asahi_cmd_render_user_timestamps>(),
-                        )?;
-                    }
+                        )
+                    })?;
 
                     vtx_user_timestamps.start = common::get_timestamp_object(
                         objects,

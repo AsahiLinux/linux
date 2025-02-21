@@ -18,10 +18,9 @@ use core::ops::Range;
 use kernel::dma_fence::RawDmaFence;
 use kernel::drm::gem::BaseObject;
 use kernel::error::code::*;
-use kernel::io_buffer::{IoBufferReader, IoBufferWriter};
 use kernel::prelude::*;
 use kernel::sync::{Arc, Mutex};
-use kernel::user_ptr::UserSlicePtr;
+use kernel::uaccess::{UserPtr, UserSlice};
 use kernel::{dma_fence, drm, uapi, xarray};
 
 const DEBUG_CLASS: DebugFlags = DebugFlags::File;
@@ -142,13 +141,15 @@ impl SyncItem {
         let size = STRIDE * count as usize;
 
         // SAFETY: We only read this once, so there are no TOCTOU issues.
-        let mut reader = unsafe { UserSlicePtr::new(ptr as usize as *mut _, size).reader() };
+        let mut reader = UserSlice::new(ptr as UserPtr, size).reader();
 
         for _i in 0..count {
             let mut sync: MaybeUninit<uapi::drm_asahi_sync> = MaybeUninit::uninit();
 
             // SAFETY: The size of `sync` is STRIDE
-            unsafe { reader.read_raw(sync.as_mut_ptr() as *mut u8, STRIDE)? };
+            reader.read_raw(unsafe {
+                core::slice::from_raw_parts_mut(sync.as_mut_ptr() as *mut MaybeUninit<u8>, STRIDE)
+            })?;
 
             // SAFETY: All bit patterns in the struct are valid
             let sync = unsafe { sync.assume_init() };
@@ -307,11 +308,12 @@ impl File {
         let size = core::mem::size_of::<uapi::drm_asahi_params_global>().min(data.size.try_into()?);
 
         // SAFETY: We only write to this userptr once, so there are no TOCTOU issues.
-        let mut params_writer =
-            unsafe { UserSlicePtr::new(data.pointer as usize as *mut _, size).writer() };
+        let mut params_writer = UserSlice::new(data.pointer as UserPtr, size).writer();
 
         // SAFETY: `size` is at most the sizeof of `params`
-        unsafe { params_writer.write_raw(&params as *const _ as *const u8, size)? };
+        params_writer.write_slice(unsafe {
+            core::slice::from_raw_parts(&params as *const _ as *const u8, size)
+        })?;
 
         Ok(0)
     }
@@ -1061,14 +1063,15 @@ impl File {
         let size = STRIDE * data.command_count as usize;
 
         // SAFETY: We only read this once, so there are no TOCTOU issues.
-        let mut reader =
-            unsafe { UserSlicePtr::new(data.commands as usize as *mut _, size).reader() };
+        let mut reader = UserSlice::new(data.commands as UserPtr, size).reader();
 
         for _i in 0..data.command_count {
             let mut cmd: MaybeUninit<uapi::drm_asahi_command> = MaybeUninit::uninit();
 
-            // SAFETY: The size of `sync` is STRIDE
-            unsafe { reader.read_raw(cmd.as_mut_ptr() as *mut u8, STRIDE)? };
+            // SAFETY: The size of `cmd` is STRIDE
+            reader.read_raw(unsafe {
+                core::slice::from_raw_parts_mut(cmd.as_mut_ptr() as *mut MaybeUninit<u8>, STRIDE)
+            })?;
 
             // SAFETY: All bit patterns in the struct are valid
             commands.push(unsafe { cmd.assume_init() }, GFP_KERNEL)?;

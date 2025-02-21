@@ -9,10 +9,9 @@ use crate::fw::job::UserTimestamp;
 use crate::fw::microseq;
 use crate::fw::types::*;
 
-use kernel::io_buffer::IoBufferReader;
 use kernel::prelude::*;
+use kernel::uaccess::{UserPtr, UserSlice};
 use kernel::uapi;
-use kernel::user_ptr::UserSlicePtr;
 use kernel::xarray;
 
 use core::mem::MaybeUninit;
@@ -26,7 +25,7 @@ pub(super) fn build_attachments(pointer: u64, count: u32) -> Result<microseq::At
     let size = STRIDE * count as usize;
 
     // SAFETY: We only read this once, so there are no TOCTOU issues.
-    let mut reader = unsafe { UserSlicePtr::new(pointer as usize as *mut _, size).reader() };
+    let mut reader = UserSlice::new(pointer as UserPtr, size).reader();
 
     let mut attachments: microseq::Attachments = Default::default();
 
@@ -34,7 +33,9 @@ pub(super) fn build_attachments(pointer: u64, count: u32) -> Result<microseq::At
         let mut att: MaybeUninit<uapi::drm_asahi_attachment> = MaybeUninit::uninit();
 
         // SAFETY: The size of `att` is STRIDE
-        unsafe { reader.read_raw(att.as_mut_ptr() as *mut u8, STRIDE)? };
+        reader.read_raw(unsafe {
+            core::slice::from_raw_parts_mut(att.as_mut_ptr() as *mut MaybeUninit<u8>, STRIDE)
+        })?;
 
         // SAFETY: All bit patterns in the struct are valid
         let att = unsafe { att.assume_init() };
