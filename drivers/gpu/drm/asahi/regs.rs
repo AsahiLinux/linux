@@ -8,7 +8,7 @@
 //! information, and starting the GPU firmware coprocessor.
 
 use crate::hw;
-use kernel::{device, io_mem::IoMem, platform, prelude::*, types::ARef};
+use kernel::{c_str, devres::Devres, io::mem::IoMem, platform, prelude::*};
 
 /// Size of the ASC control MMIO region.
 pub(crate) const ASC_CTL_SIZE: usize = 0x4000;
@@ -142,45 +142,57 @@ pub(crate) struct FaultInfo {
 
 /// Device resources for this GPU instance.
 pub(crate) struct Resources {
-    dev: ARef<device::Device>,
-    asc: IoMem<ASC_CTL_SIZE>,
-    sgx: IoMem<SGX_SIZE>,
+    dev: platform::Device,
+    asc: Devres<IoMem<ASC_CTL_SIZE>>,
+    sgx: Devres<IoMem<SGX_SIZE>>,
 }
 
 impl Resources {
     /// Map the required resources given our platform device.
     pub(crate) fn new(pdev: &mut platform::Device) -> Result<Resources> {
-        // TODO: add device abstraction to ioremap by name
-        // SAFETY: We do not trigger any DMA operations directly via ASC registers
-        let asc_res = unsafe { pdev.ioremap_resource(0)? };
-        // SAFETY: We do not trigger any DMA operations directly via SGX registers
-        let sgx_res = unsafe { pdev.ioremap_resource(1)? };
+        let asc_res = pdev.resource_by_name(c_str!("asc")).ok_or(EINVAL)?;
+        let asc_iomem = pdev.ioremap_resource_sized::<ASC_CTL_SIZE>(asc_res)?;
+
+        let sgx_res = pdev.resource_by_name(c_str!("sgx")).ok_or(EINVAL)?;
+        let sgx_iomem = pdev.ioremap_resource_sized::<SGX_SIZE>(sgx_res)?;
 
         Ok(Resources {
             // SAFETY: This device does DMA via the UAT IOMMU.
-            dev: pdev.get_device(),
-            asc: asc_res,
-            sgx: sgx_res,
+            dev: pdev.clone(),
+            asc: asc_iomem,
+            sgx: sgx_iomem,
         })
     }
 
-    fn sgx_read32(&self, off: usize) -> u32 {
-        self.sgx.readl_relaxed(off)
+    fn sgx_read32<const OFF: usize>(&self) -> u32 {
+        if let Some(sgx) = self.sgx.try_access() {
+            sgx.readl_relaxed(OFF)
+        } else {
+            0
+        }
     }
 
     /* Not yet used
-    fn sgx_write32(&self, off: usize, val: u32) {
-        self.sgx.writel_relaxed(val, off)
+    fn sgx_write32<OFF: usize>(&self, val: u32) {
+        if let Some(sgx) = self.sgx.try_access() {
+            sgx.writel_relaxed(val, OFF)
+        }
     }
     */
 
-    fn sgx_read64(&self, off: usize) -> u64 {
-        self.sgx.readq_relaxed(off)
+    fn sgx_read64<const OFF: usize>(&self) -> u64 {
+        if let Some(sgx) = self.sgx.try_access() {
+            sgx.readq_relaxed(OFF)
+        } else {
+            0
+        }
     }
 
     /* Not yet used
-    fn sgx_write64(&self, off: usize, val: u64) {
-        self.sgx.writeq_relaxed(val, off)
+    fn sgx_write64<OFF: usize>(&self, val: u64) {
+        if let Some(sgx) = self.sgx.try_access() {
+            sgx.writeq_relaxed(val, OFF)
+        }
     }
     */
 
@@ -193,9 +205,10 @@ impl Resources {
 
     /// Start the ASC coprocessor CPU.
     pub(crate) fn start_cpu(&self) -> Result {
-        let val = self.asc.readl_relaxed(CPU_CONTROL);
+        let res = self.asc.try_access().ok_or(ENXIO)?;
+        let val = res.readl_relaxed(CPU_CONTROL);
 
-        self.asc.writel_relaxed(val | CPU_RUN, CPU_CONTROL);
+        res.writel_relaxed(val | CPU_RUN, CPU_CONTROL);
 
         Ok(())
     }
@@ -204,12 +217,12 @@ impl Resources {
     ///
     /// See [`hw::GpuIdConfig`] for the result.
     pub(crate) fn get_gpu_id(&self) -> Result<hw::GpuIdConfig> {
-        let id_version = self.sgx_read32(ID_VERSION);
-        let id_unk08 = self.sgx_read32(ID_UNK08);
-        let id_counts_1 = self.sgx_read32(ID_COUNTS_1);
-        let id_counts_2 = self.sgx_read32(ID_COUNTS_2);
-        let id_unk18 = self.sgx_read32(ID_UNK18);
-        let id_clusters = self.sgx_read32(ID_CLUSTERS);
+        let id_version = self.sgx_read32::<ID_VERSION>();
+        let id_unk08 = self.sgx_read32::<ID_UNK08>();
+        let id_counts_1 = self.sgx_read32::<ID_COUNTS_1>();
+        let id_counts_2 = self.sgx_read32::<ID_COUNTS_2>();
+        let id_unk18 = self.sgx_read32::<ID_UNK18>();
+        let id_clusters = self.sgx_read32::<ID_CLUSTERS>();
 
         dev_info!(
             self.dev.as_ref(),
@@ -229,15 +242,15 @@ impl Resources {
         let num_clusters = match gpu_gen {
             4 | 5 => {
                 // G13 | G14G
-                core_mask_regs.push(self.sgx_read32(CORE_MASK_0), GFP_KERNEL)?;
-                core_mask_regs.push(self.sgx_read32(CORE_MASK_1), GFP_KERNEL)?;
+                core_mask_regs.push(self.sgx_read32::<CORE_MASK_0>(), GFP_KERNEL)?;
+                core_mask_regs.push(self.sgx_read32::<CORE_MASK_1>(), GFP_KERNEL)?;
                 (id_clusters >> 12) & 0xff
             }
             6 => {
                 // G14X
-                core_mask_regs.push(self.sgx_read32(CORE_MASKS_G14X), GFP_KERNEL)?;
-                core_mask_regs.push(self.sgx_read32(CORE_MASKS_G14X + 4), GFP_KERNEL)?;
-                core_mask_regs.push(self.sgx_read32(CORE_MASKS_G14X + 8), GFP_KERNEL)?;
+                core_mask_regs.push(self.sgx_read32::<CORE_MASKS_G14X>(), GFP_KERNEL)?;
+                core_mask_regs.push(self.sgx_read32::<{ CORE_MASKS_G14X + 4 }>(), GFP_KERNEL)?;
+                core_mask_regs.push(self.sgx_read32::<{ CORE_MASKS_G14X + 8 }>(), GFP_KERNEL)?;
                 // Clusters per die * num dies
                 ((id_counts_1 >> 8) & 0xff) * ((id_counts_1 >> 16) & 0xf)
             }
@@ -355,9 +368,9 @@ impl Resources {
         let g14x = cfg.gpu_core as u32 >= hw::GpuCore::G14S as u32;
 
         let fault_info = if g14x {
-            self.sgx_read64(FAULT_INFO_G14X)
+            self.sgx_read64::<FAULT_INFO_G14X>()
         } else {
-            self.sgx_read64(FAULT_INFO)
+            self.sgx_read64::<FAULT_INFO>()
         };
 
         if fault_info & 1 == 0 {
@@ -365,7 +378,7 @@ impl Resources {
         }
 
         let fault_addr = if g14x {
-            self.sgx_read64(FAULT_ADDR_G14X)
+            self.sgx_read64::<FAULT_ADDR_G14X>()
         } else {
             fault_info >> 30
         };
