@@ -46,7 +46,7 @@ kernel::module_platform_driver! {
         },
         initial_tvb_size: usize {
             default: 0x8,
-            permissions: 0o644,
+            // permissions: 0o644,
             description: "Initial TVB size in blocks",
         },
         robust_isolation: bool {

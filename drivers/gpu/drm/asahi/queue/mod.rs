@@ -22,6 +22,7 @@ use crate::driver::{AsahiDevRef, AsahiDevice};
 use crate::fw::types::*;
 use crate::gpu::GpuManager;
 use crate::inner_weak_ptr;
+use crate::module_parameters;
 use crate::{alloc, buffer, channel, event, file, fw, gem, gpu, mmu, workqueue};
 
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -460,10 +461,7 @@ impl Queue::ver {
 
         // Rendering structures
         if caps & uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_RENDER != 0 {
-            let tvb_blocks = {
-                let lock = crate::THIS_MODULE.kernel_param_lock();
-                *crate::initial_tvb_size.read(&lock)
-            };
+            let tvb_blocks = *module_parameters::initial_tvb_size.get();
 
             ret.inner
                 .buffer
