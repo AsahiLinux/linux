@@ -14,6 +14,7 @@
 use crate::f32;
 use crate::fw::initdata::*;
 use crate::fw::types::*;
+use crate::module_parameters;
 use crate::{driver::AsahiDevice, gem, gpu, hw, mmu};
 use kernel::error::{Error, Result};
 use kernel::macros::versions;
@@ -700,7 +701,7 @@ impl<'a> InitDataBuilder::ver<'a> {
                 unk_903c: 1,
                 #[ver(V < V13_0B4)]
                 unk_903c: 0,
-                fault_control: *crate::fault_control.read(),
+                fault_control: *module_parameters::fault_control.get(),
                 do_init: 1,
                 progress_check_interval_3d: 40,
                 progress_check_interval_ta: 10,

@@ -10,7 +10,7 @@
 use crate::debug::*;
 use crate::driver::AsahiDevice;
 use crate::{
-    alloc, buffer, driver, gem, hw, mmu, queue,
+    alloc, buffer, driver, gem, hw, mmu, module_parameters, queue,
     util::{align, align_down, RangeExt},
 };
 use core::mem::MaybeUninit;
@@ -301,7 +301,7 @@ impl File {
             params.firmware_version[i] = *gpu.get_dyncfg().firmware_version.get(i).unwrap_or(&0);
         }
 
-        if *crate::fault_control.read() == 0xb {
+        if *module_parameters::fault_control.get() == 0xb {
             params.feat_compat |= hw::feat::compat::SOFT_FAULTS;
         }
 
