@@ -35,6 +35,7 @@ use kernel::{
 };
 
 use crate::debug::*;
+use crate::module_parameters;
 use crate::no_debug;
 use crate::{driver, fw, gem, hw, mem, pgtable, slotalloc, util::RangeExt};
 
@@ -1392,10 +1393,7 @@ impl Uat {
         if binding.binding.is_none() {
             assert_eq!(binding.active_users, 0);
 
-            let isolation = {
-                let lock = crate::THIS_MODULE.kernel_param_lock();
-                *crate::robust_isolation.read(&lock)
-            };
+            let isolation = *module_parameters::robust_isolation.get() != 0;
 
             self.slots.set_limit(if isolation {
                 NonZeroUsize::new(1)
