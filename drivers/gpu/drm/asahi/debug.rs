@@ -5,6 +5,7 @@
 
 #[allow(unused_imports)]
 pub(crate) use super::{cls_dev_dbg, cls_pr_debug, debug, mod_dev_dbg, mod_pr_debug};
+use crate::module_parameters;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 static DEBUG_FLAGS: AtomicU64 = AtomicU64::new(0);
@@ -74,10 +75,7 @@ pub(crate) enum DebugFlags {
 
 /// Update the cached global debug flags from the module parameter
 pub(crate) fn update_debug_flags() {
-    let flags = {
-        let lock = crate::THIS_MODULE.kernel_param_lock();
-        *crate::debug_flags.read(&lock)
-    };
+    let flags = *module_parameters::debug_flags.get();
 
     DEBUG_FLAGS.store(flags, Ordering::Relaxed);
 }

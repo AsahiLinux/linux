@@ -36,7 +36,7 @@ kernel::module_platform_driver! {
     params: {
         debug_flags: u64 {
             default: 0,
-            permissions: 0o644,
+            // permissions: 0o644,
             description: "Debug flags",
         },
         fault_control: u32 {
