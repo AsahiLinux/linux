@@ -32,7 +32,7 @@ use kernel::{
 
 use crate::alloc::Allocator;
 use crate::debug::*;
-use crate::driver::{AsahiDevRef, AsahiDevice};
+use crate::driver::{AsahiDevRef, AsahiDevice, AsahiDriver};
 use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::{U32, U64};
 use crate::{
@@ -955,7 +955,7 @@ impl GpuManager::ver {
 
     /// Fetch the GPU MMU fault information from the hardware registers.
     fn get_fault_info(&self) -> Option<regs::FaultInfo> {
-        let data = self.dev.data();
+        let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
 
         let res = &data.resources;
 
