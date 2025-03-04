@@ -31,6 +31,7 @@ pub(crate) struct AsahiData {
 
 pub(crate) struct AsahiDriver {
     _reg: drm::drv::Registration<Self>,
+    pub(crate) data: Arc<AsahiData>,
 }
 
 /// Convenience type alias for the DRM device type for this driver.
@@ -202,6 +203,6 @@ impl platform::Driver for AsahiDriver {
 
         let reg = drm::drv::Registration::new(drm, data.clone(), 0)?;
 
-        Ok(KBox::new(Self { _reg: reg }, GFP_KERNEL)?.into())
+        Ok(KBox::new(Self { _reg: reg, data }, GFP_KERNEL)?.into())
     }
 }
