@@ -14,6 +14,7 @@
 //! up its associated event.
 
 use crate::debug::*;
+use crate::driver::AsahiDriver;
 use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::*;
 use crate::fw::workqueue::*;
@@ -32,6 +33,7 @@ use kernel::{
         lock::{mutex::MutexBackend, Guard},
         Arc, Mutex,
     },
+    types::ForeignOwnable,
     uapi,
     workqueue::{self, impl_has_work, new_work, Work, WorkItem},
 };
@@ -147,9 +149,10 @@ impl GpuContext {
 impl Drop for GpuContext {
     fn drop(&mut self) {
         mod_dev_dbg!(self.dev, "GpuContext: Freeing GPU context\n");
-        let dev = self.dev.data();
+        let dev_data =
+            unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
         let data = self.data.take().unwrap();
-        dev.gpu.free_context(data);
+        dev_data.gpu.free_context(data);
     }
 }
 
