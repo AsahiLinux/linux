@@ -31,10 +31,11 @@ use kernel::{
         Arc, Mutex,
     },
     time::{clock, Now},
-    types::ARef,
+    types::{ARef, ForeignOwnable},
 };
 
 use crate::debug::*;
+use crate::driver::AsahiDriver;
 use crate::module_parameters;
 use crate::no_debug;
 use crate::{driver, fw, gem, hw, mem, pgtable, slotalloc, util::RangeExt};
@@ -672,9 +673,10 @@ impl KernelMapping {
             page_count: pages as u16,
             unk_12: 2, // ?
         };
+        let data = unsafe { &<KBox<AsahiDriver>>::borrow(owner.dev.as_ref().get_drvdata()).data };
 
         // Tell the firmware to do a cache flush
-        if let Err(e) = owner.dev.data().gpu.fwctl(cmd) {
+        if let Err(e) = data.gpu.fwctl(cmd) {
             dev_err!(
                 owner.dev.as_ref(),
                 "MMU: ASC cache flush {:#x}:{:#x} failed (err: {:?})\n",
