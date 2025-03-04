@@ -13,12 +13,13 @@ use kernel::{
     drm::sched,
     macros::versions,
     sync::{Arc, Mutex},
+    types::ForeignOwnable,
     uapi, xarray,
 };
 
 use crate::alloc::Allocator;
 use crate::debug::*;
-use crate::driver::{AsahiDevRef, AsahiDevice};
+use crate::driver::{AsahiDevRef, AsahiDevice, AsahiDriver};
 use crate::fw::types::*;
 use crate::gpu::GpuManager;
 use crate::inner_weak_ptr;
@@ -259,8 +260,8 @@ impl sched::JobImpl for QueueJob::ver {
     fn run(job: &mut sched::Job<Self>) -> Result<Option<dma_fence::Fence>> {
         mod_dev_dbg!(job.dev, "QueueJob {}: Running Job\n", job.id);
 
-        let dev = job.dev.data();
-        let gpu = match dev
+        let data = unsafe { &<KBox<AsahiDriver>>::borrow(job.dev.as_ref().get_drvdata()).data };
+        let gpu = match data
             .gpu
             .clone()
             .arc_as_any()
@@ -387,7 +388,7 @@ impl Queue::ver {
     ) -> Result<Queue::ver> {
         mod_dev_dbg!(dev, "[Queue {}] Creating queue\n", id);
 
-        let data = dev.data();
+        let data = unsafe { &<KBox<AsahiDriver>>::borrow(dev.as_ref().get_drvdata()).data };
 
         // Must be shared, no cache management on this one!
         let mut notifier_list = alloc.shared.new_default::<fw::event::NotifierList>()?;
@@ -542,8 +543,8 @@ impl Queue for Queue::ver {
         commands: KVec<uapi::drm_asahi_command>,
         objects: Pin<&xarray::XArray<KBox<file::Object>>>,
     ) -> Result {
-        let dev = self.dev.data();
-        let gpu = match dev
+        let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
+        let gpu = match data
             .gpu
             .clone()
             .arc_as_any()

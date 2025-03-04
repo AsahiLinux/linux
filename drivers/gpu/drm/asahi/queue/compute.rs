@@ -10,6 +10,7 @@
 use super::common;
 use crate::alloc::Allocator;
 use crate::debug::*;
+use crate::driver::AsahiDriver;
 use crate::fw::types::*;
 use crate::gpu::GpuManager;
 use crate::{file, fw, gpu, microseq};
@@ -20,6 +21,7 @@ use kernel::dma_fence::RawDmaFence;
 use kernel::drm::sched::Job;
 use kernel::prelude::*;
 use kernel::sync::Arc;
+use kernel::types::ForeignOwnable;
 use kernel::uaccess::{UserPtr, UserSlice};
 use kernel::uapi;
 use kernel::xarray;
@@ -42,8 +44,8 @@ impl super::QueueInner::ver {
             return Err(EINVAL);
         }
 
-        let dev = self.dev.data();
-        let gpu = match dev.gpu.as_any().downcast_ref::<gpu::GpuManager::ver>() {
+        let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
+        let gpu = match data.gpu.as_any().downcast_ref::<gpu::GpuManager::ver>() {
             Some(gpu) => gpu,
             None => {
                 dev_crit!(self.dev.as_ref(), "GpuManager mismatched with Queue!\n");
