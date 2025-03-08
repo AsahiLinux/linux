@@ -15,7 +15,7 @@ config RUST_DRM_GPUVM
 config DRM_ASAHI
 	tristate "Asahi (DRM support for Apple AGX GPUs)"
 	depends on RUST
-	depends on DRM
+	depends on DRM=y
 	depends on (ARM64 && ARCH_APPLE) || (COMPILE_TEST && !GENERIC_ATOMIC64)
 	depends on MMU
 	depends on IOMMU_SUPPORT
