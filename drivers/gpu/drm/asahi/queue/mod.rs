@@ -416,11 +416,11 @@ impl Queue::ver {
             GFP_KERNEL,
         )?;
 
-        let sched =
-            sched::Scheduler::new(dev.as_ref(), 3, WQ_SIZE, 0, 100000, c_str!("asahi_sched"))?;
         // Priorities are handled by the AGX scheduler, there is no meaning within a
-        // per-queue scheduler.
-        let entity = sched::Entity::new(&sched, sched::Priority::Normal)?;
+        // per-queue scheduler. Use a single run queue wth Kernel priority.
+        let sched =
+            sched::Scheduler::new(dev.as_ref(), 1, WQ_SIZE, 0, 100000, c_str!("asahi_sched"))?;
+        let entity = sched::Entity::new(&sched, sched::Priority::Kernel)?;
 
         let buffer = if caps & uapi::drm_asahi_queue_cap_DRM_ASAHI_QUEUE_CAP_RENDER != 0 {
             Some(buffer::Buffer::ver::new(
