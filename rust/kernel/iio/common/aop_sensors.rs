@@ -13,10 +13,13 @@ use kernel::{
     types::{ARef, ForeignOwnable}, ThisModule,
 };
 
+/// TODO: add documentation
 pub trait MessageProcessor {
+    /// TODO: add documentation
     fn process(&self, message: &[u8]) -> u32;
 }
 
+/// TODO: add documentation
 pub struct AopSensorData<T: MessageProcessor> {
     dev: ARef<device::Device>,
     ty: u32,
@@ -25,7 +28,8 @@ pub struct AopSensorData<T: MessageProcessor> {
 }
 
 impl<T: MessageProcessor> AopSensorData<T> {
-    pub fn new(dev: platform::Device, ty: u32, msg_proc: T) -> Result<Arc<AopSensorData<T>>> {
+    /// TODO: add documentation
+    pub fn new(dev: ARef<device::Device>, ty: u32, msg_proc: T) -> Result<Arc<AopSensorData<T>>> {
         Ok(Arc::new(
             AopSensorData {
                 dev,
@@ -76,6 +80,7 @@ struct IIOSpec {
     _p: PhantomPinned,
 }
 
+/// TODO: add documentation
 pub struct IIORegistration<T: MessageProcessor + 'static> {
     dev: *mut bindings::iio_dev,
     spec: Pin<KBox<IIOSpec>>,
@@ -84,6 +89,7 @@ pub struct IIORegistration<T: MessageProcessor + 'static> {
 }
 
 impl<T: MessageProcessor + 'static> IIORegistration<T> {
+    /// TODO: add documentation
     pub fn new(
         data: Arc<AopSensorData<T>>,
         name: &'static CStr,
