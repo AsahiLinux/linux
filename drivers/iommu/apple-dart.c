@@ -1212,13 +1212,10 @@ static int apple_dart_def_domain_type(struct device *dev)
 		return IOMMU_DOMAIN_IDENTITY;
 	if (!cfg->supports_bypass)
 		return IOMMU_DOMAIN_DMA;
+	if (cfg->locked)
+		return IOMMU_DOMAIN_DMA;
 
 	return 0;
-}
-
-static int apple_dart_def_domain_type_dma(struct device *dev)
-{
-	return IOMMU_DOMAIN_DMA;
 }
 
 #ifndef CONFIG_PCIE_APPLE_MSI_DOORBELL_ADDR
@@ -1246,41 +1243,27 @@ static void apple_dart_get_resv_regions(struct device *dev,
 	iommu_dma_get_resv_regions(dev, head);
 }
 
-#define APPLE_DART_IOMMU_COMMON_OPS() \
-	.domain_alloc_paging = apple_dart_domain_alloc_paging, \
-	.probe_device = apple_dart_probe_device, \
-	.release_device = apple_dart_release_device, \
-	.device_group = apple_dart_device_group, \
-	.of_xlate = apple_dart_of_xlate, \
-	.get_resv_regions = apple_dart_get_resv_regions, \
-	.owner = THIS_MODULE, \
-	.default_domain_ops = &(const struct iommu_domain_ops) { \
-		.attach_dev	= apple_dart_attach_dev_paging, \
-		.map_pages	= apple_dart_map_pages, \
-		.unmap_pages	= apple_dart_unmap_pages, \
-		.flush_iotlb_all = apple_dart_flush_iotlb_all, \
-		.iotlb_sync	= apple_dart_iotlb_sync, \
-		.iotlb_sync_map	= apple_dart_iotlb_sync_map, \
-		.iova_to_phys	= apple_dart_iova_to_phys, \
-		.free		= apple_dart_domain_free, \
-	}
-
 static const struct iommu_ops apple_dart_iommu_ops = {
 	.identity_domain = &apple_dart_identity_domain,
 	.blocked_domain = &apple_dart_blocked_domain,
 	.def_domain_type = apple_dart_def_domain_type,
-	APPLE_DART_IOMMU_COMMON_OPS()
-};
-
-static const struct iommu_ops apple_dart_iommu_no_bypass_ops = {
-	.blocked_domain = &apple_dart_blocked_domain,
-	.def_domain_type = apple_dart_def_domain_type_dma,
-	APPLE_DART_IOMMU_COMMON_OPS()
-};
-
-static const struct iommu_ops apple_dart_iommu_locked_ops = {
-	.def_domain_type = apple_dart_def_domain_type_dma,
-	APPLE_DART_IOMMU_COMMON_OPS()
+	.domain_alloc_paging = apple_dart_domain_alloc_paging,
+	.probe_device = apple_dart_probe_device,
+	.release_device = apple_dart_release_device,
+	.device_group = apple_dart_device_group,
+	.of_xlate = apple_dart_of_xlate,
+	.get_resv_regions = apple_dart_get_resv_regions,
+	.owner = THIS_MODULE,
+	.default_domain_ops = &(const struct iommu_domain_ops) {
+		.attach_dev	= apple_dart_attach_dev_paging,
+		.map_pages	= apple_dart_map_pages,
+		.unmap_pages	= apple_dart_unmap_pages,
+		.flush_iotlb_all = apple_dart_flush_iotlb_all,
+		.iotlb_sync	= apple_dart_iotlb_sync,
+		.iotlb_sync_map	= apple_dart_iotlb_sync_map,
+		.iova_to_phys	= apple_dart_iova_to_phys,
+		.free		= apple_dart_domain_free,
+	}
 };
 
 static irqreturn_t apple_dart_t8020_irq(int irq, void *dev)
@@ -1495,12 +1478,7 @@ static int apple_dart_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_irq;
 
-	if (dart->locked)
-		ret = iommu_device_register(&dart->iommu, &apple_dart_iommu_locked_ops, dev);
-	else if (!dart->supports_bypass)
-		ret = iommu_device_register(&dart->iommu, &apple_dart_iommu_no_bypass_ops, dev);
-	else
-		ret = iommu_device_register(&dart->iommu, &apple_dart_iommu_ops, dev);
+	ret = iommu_device_register(&dart->iommu, &apple_dart_iommu_ops, dev);
 	if (ret)
 		goto err_sysfs_remove;
 
