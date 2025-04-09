@@ -868,6 +868,9 @@ static int apple_dart_attach_dev_identity(struct iommu_domain *domain,
 	if (!cfg->supports_bypass)
 		return -EINVAL;
 
+	if (cfg->locked)
+		return -EINVAL;
+
 	for_each_stream_map(i, cfg, stream_map)
 		WARN_ON(pm_runtime_get_sync(stream_map->dart->dev) < 0);
 
@@ -895,6 +898,9 @@ static int apple_dart_attach_dev_blocked(struct iommu_domain *domain,
 	struct apple_dart_master_cfg *cfg = dev_iommu_priv_get(dev);
 	struct apple_dart_stream_map *stream_map;
 	int i;
+
+	if (cfg->locked)
+		return -EINVAL;
 
 	for_each_stream_map(i, cfg, stream_map)
 		WARN_ON(pm_runtime_get_sync(stream_map->dart->dev) < 0);
