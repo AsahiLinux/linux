@@ -28,6 +28,7 @@
 		atcphy6 = &atcphy2_die1;
 		atcphy7 = &atcphy3_die1;
 		bluetooth0 = &bluetooth0;
+		dcpext0 = &dcpext0;
 		ethernet0 = &ethernet0;
 		ethernet1 = &ethernet1;
 		serial0 = &serial0;
@@ -64,6 +65,47 @@
 };
 
 &serial0 {
+	status = "okay";
+};
+
+&lpdptxphy {
+	status = "okay";
+};
+
+&display {
+	iommus = <&dispext0_dart_die1 0 0x100 0x0 0x10 0x0>,
+		<&dispext0_dart 0 0x100 0x0 0x10 0x0>;
+};
+
+&dispext0_dart {
+	status = "okay";
+};
+
+&dcpext0_dart {
+	status = "okay";
+};
+
+&dcpext0_mbox {
+	status = "okay";
+};
+
+&dcpext0 {
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 25 GPIO_ACTIVE_HIGH>;
+
+	// shared between dp2hdmi-gpio0 / dp2hdmi-gpio1
+	// hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+
+	phys = <&lpdptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <4>;
+	apple,dptx-die = <0>;
+};
+
+&dpaudio1 {
 	status = "okay";
 };
 
