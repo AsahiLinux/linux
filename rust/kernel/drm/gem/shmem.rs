@@ -20,7 +20,7 @@ use crate::{
     prelude::*,
     types::{ARef, Opaque},
     container_of,
-    scatterlist,
+    scatterlist::SGTable,
 };
 use core::{
     mem::MaybeUninit,
@@ -172,23 +172,36 @@ impl<T: BaseDriverObject> Object<T> {
         let _ = unsafe { KBox::from_raw(this) };
     }
 
-    /// Creates (if necessary) and returns a scatter-gather table of DMA pages for this object.
+    /// Creates (if necessary) and returns an immutable reference to a scatter-gather table of DMA
+    /// pages for this object.
     ///
     /// This will pin the object in memory.
-    pub fn sg_table(&self) -> Result<SGTable<T>> {
+    #[inline]
+    pub fn sg_table(&self) -> Result<&SGTable> {
         // SAFETY:
         // - drm_gem_shmem_get_pages_sgt is thread-safe.
         // - drm_gem_shmem_get_pages_sgt returns either a valid pointer to a scatterlist, or an
         //   error pointer.
         let sgt = from_err_ptr(unsafe { bindings::drm_gem_shmem_get_pages_sgt(self.as_shmem()) })?;
 
-        Ok(SGTable {
-            // SAFETY: We checked that `sgt` is not an error pointer, so it must be a valid pointer
-            // to a scatterlist.
-            sgt: NonNull::from(unsafe { scatterlist::SGTable::as_ref(sgt) }),
+        // SAFETY: We checked above that `sgt` is not an error pointer, so it must be a valid
+        // pointer to a scatterlist
+        Ok(unsafe { SGTable::as_ref(sgt) })
+    }
+
+    /// Creates (if necessary) and returns an owned scatter-gather table of DMA pages for this
+    /// object.
+    ///
+    /// This is the same as [`sg_table`](Self::sg_table), except that it instead returns a
+    /// [`OwnedSGTable`] which holds a reference to the associated gem object.
+    ///
+    /// This will pin the object in memory.
+    pub fn owned_sg_table(&self) -> Result<OwnedSGTable<T>> {
+        Ok(OwnedSGTable {
+            sgt: self.sg_table()?.into(),
             // INVARIANT: We take an owned refcount to `self` here, ensuring that `sgt` remains
             // valid for as long as this `OwnedSGTable`.
-            _owner: self.into()
+            _owner: self.into(),
         })
     }
 
