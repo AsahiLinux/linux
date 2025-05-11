@@ -13,6 +13,7 @@
 
 use core::any::Any;
 use core::ops::Range;
+use core::slice;
 use core::sync::atomic::{
     AtomicBool,
     AtomicU64,
@@ -23,6 +24,8 @@ use kernel::{
     c_str,
     drm::gem::shmem,
     error::code::*,
+    io::mem::{Mem, MemFlags},
+    iosys_map::IoSysMapRef,
     macros::versions,
     new_mutex,
     prelude::*,
@@ -761,6 +764,28 @@ impl GpuManager::ver {
         Ok(x)
     }
 
+    fn load_hwdata_blob(dev: &AsahiDevice, name: &CStr, size_name: &CStr) -> Result<KVVec<u8>> {
+        let of_node = dev.as_ref().of_node().ok_or(EINVAL)?;
+        let size: usize = dev
+            .as_ref()
+            .fwnode()
+            .ok_or(ENOENT)?
+            .property_read::<u32>(size_name)
+            .or(0)
+            .try_into()?;
+        let res = of_node.reserved_mem_region_to_resource_byname(name)?;
+        // SAFETY: No dma here, just loading init data.
+        let mem = unsafe { Mem::try_new(res, MemFlag::WB)? };
+        if size > mem.size() {
+            return Err(ENOENT);
+        }
+        // SAFETY: trusting the bootloader to fill it out correctly
+        let blob_sl = unsafe { slice::from_raw_parts(mem.ptr(), size) };
+        let mut blob = KVVec::new();
+        blob.extend_from_slice(blob_sl, GFP_KERNEL)?;
+        Ok(blob)
+    }
+
     /// Fetch and validate the GPU dynamic configuration from the device tree and hardware.
     ///
     /// Force disable inlining to avoid blowing up the stack.
@@ -868,6 +893,25 @@ impl GpuManager::ver {
                 firmware_version: fwnode
                     .property_read_array_vec(c_str!("apple,firmware-version"), 3)?
                     .or(kernel::kvec![0; 3]?),
+
+                hw_data_a: Self::load_hwdata_blob(
+                    dev,
+                    c_str!("hw-cal-a"),
+                    c_str!("debug,hw-cal-a-size"),
+                )
+                .unwrap_or(KVVec::new()),
+                hw_data_b: Self::load_hwdata_blob(
+                    dev,
+                    c_str!("hw-cal-b"),
+                    c_str!("debug,hw-cal-b-size"),
+                )
+                .unwrap_or(KVVec::new()),
+                hw_globals: Self::load_hwdata_blob(
+                    dev,
+                    c_str!("globals"),
+                    c_str!("debug,globals-size"),
+                )
+                .unwrap_or(KVVec::new()),
             },
             GFP_KERNEL,
         )?)

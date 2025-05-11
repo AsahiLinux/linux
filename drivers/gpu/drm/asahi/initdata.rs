@@ -483,6 +483,35 @@ impl<'a> InitDataBuilder::ver<'a> {
                         raw.unk_hws2[i] = if *j == 0xffff { 0 } else { j / 2 };
                     }
 
+                    if !dyncfg.hw_data_b.is_empty() {
+                        unsafe {
+                            let mut matches: bool = true;
+                            let sla = core::slice::from_raw_parts(
+                                raw as *const raw::HwDataA::ver as *const u8,
+                                core::mem::size_of::<raw::HwDataA::ver>(),
+                            );
+                            if sla.len() != dyncfg.hw_data_a.len() {
+                                matches = false;
+                                dev_err!(
+                                    self.dev.as_ref(),
+                                    "!!! Hwdata A size mismatch: {} {}",
+                                    sla.len(),
+                                    dyncfg.hw_data_a.len(),
+                                );
+                            }
+                            for i in 0..core::cmp::min(sla.len(), dyncfg.hw_data_a.len()) {
+                                if sla[i] != dyncfg.hw_data_a[i] {
+                                    matches = false;
+                                    dev_err!(self.dev.as_ref(), "!!! Hwdata A first mismatch: {i}");
+                                    break;
+                                }
+                            }
+                            if matches {
+                                dev_info!(self.dev.as_ref(), "!!! Hwdata A match");
+                            }
+                        }
+                    }
+
                     Ok(())
                 })
             })
@@ -633,6 +662,35 @@ impl<'a> InitDataBuilder::ver<'a> {
                         raw.gpu_rev_id = hw::GpuRevisionID::B0 as u32;
                     }
 
+                    if !dyncfg.hw_data_b.is_empty() {
+                        unsafe {
+                            let mut matches: bool = true;
+                            let sla = core::slice::from_raw_parts(
+                                raw as *const raw::HwDataB::ver as *const u8,
+                                core::mem::size_of::<raw::HwDataB::ver>(),
+                            );
+                            if sla.len() != dyncfg.hw_data_b.len() {
+                                matches = false;
+                                dev_err!(
+                                    self.dev.as_ref(),
+                                    "!!! Hwdata B size mismatch: {} {}",
+                                    sla.len(),
+                                    dyncfg.hw_data_b.len(),
+                                );
+                            }
+                            for i in 0..core::cmp::min(sla.len(), dyncfg.hw_data_b.len()) {
+                                if sla[i] != dyncfg.hw_data_b[i] {
+                                    matches = false;
+                                    dev_err!(self.dev.as_ref(), "!!! Hwdata B first mismatch: {i}");
+                                    break;
+                                }
+                            }
+                            if matches {
+                                dev_info!(self.dev.as_ref(), "!!! Hwdata B match");
+                            }
+                        }
+                    }
+
                     Ok(())
                 })
             })
@@ -757,6 +815,36 @@ impl<'a> InitDataBuilder::ver<'a> {
                         }
                         raw.unk_118e8 = 1;
                     }
+
+                    if !dyncfg.hw_globals.is_empty() {
+                        unsafe {
+                            let mut matches: bool = true;
+                            let sla = core::slice::from_raw_parts(
+                                raw as *const raw::Globals::ver as *const u8,
+                                core::mem::size_of::<raw::Globals::ver>(),
+                            );
+                            if sla.len() != dyncfg.hw_globals.len() {
+                                matches = false;
+                                dev_err!(
+                                    self.dev.as_ref(),
+                                    "!!! Globals size mismatch: {} {}",
+                                    sla.len(),
+                                    dyncfg.hw_globals.len(),
+                                );
+                            }
+                            for i in 0..core::cmp::min(sla.len(), dyncfg.hw_globals.len()) {
+                                if sla[i] != dyncfg.hw_globals[i] {
+                                    matches = false;
+                                    dev_err!(self.dev.as_ref(), "!!! Globals first mismatch: {i}");
+                                    break;
+                                }
+                            }
+                            if matches {
+                                dev_info!(self.dev.as_ref(), "!!! Globals match");
+                            }
+                        }
+                    }
+
                     Ok(())
                 })
             })
