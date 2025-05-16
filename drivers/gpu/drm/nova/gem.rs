@@ -16,6 +16,7 @@ use crate::{
 #[pin_data]
 pub(crate) struct NovaObject {}
 
+#[vtable]
 impl gem::BaseDriverObject for NovaObject {
     type Driver = NovaDriver;
     type Object = gem::Object<Self>;
