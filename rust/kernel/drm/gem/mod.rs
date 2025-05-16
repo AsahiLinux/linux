@@ -17,7 +17,10 @@ use crate::{
             AllocOps, //
         },
     },
-    error::to_result,
+    error::{
+        from_err_ptr,
+        to_result, //
+    },
     prelude::*,
     sync::aref::{
         ARef,
@@ -244,6 +247,28 @@ pub trait BaseObject: IntoGEMObject {
         // - Our `NonNull` comes from an immutable reference, thus ensuring it is a valid pointer to
         //   `Self`.
         Ok(unsafe { ARef::from_raw(obj.into()) })
+    }
+
+    /// Export a [`DmaBuf`] for this GEM object using the DRM prime helper library.
+    ///
+    /// `flags` should be a set of flags from [`fs::file::flags`](kernel::fs::file::flags).
+    fn prime_export(&self, flags: u32) -> Result<DmaBuf<Self>> {
+        // SAFETY:
+        // - `as_raw()` always returns a valid pointer to a `drm_gem_object`.
+        // - `drm_gem_prime_export()` returns either an error pointer, or a valid pointer to an
+        //   initialized `dma_buf` on success.
+        let dma_ptr =
+            from_err_ptr(unsafe { bindings::drm_gem_prime_export(self.as_raw(), flags as _) })?;
+
+        // SAFETY:
+        // - We checked that dma_ptr is not an error, so it must point to an initialized dma_buf
+        // - We used drm_gem_prime_export(), so `dma_ptr` will remain valid until a call to
+        //   `drm_gem_prime_release()` which we don't call here.
+        let dma_buf = unsafe { dma_buf::DmaBuf::as_ref(dma_ptr) };
+
+        // INVARIANT: We used drm_gem_prime_export() to create this dma_buf, fulfilling the
+        // invariant that this dma_buf came from a GEM object of type `Self`.
+        Ok(DmaBuf(dma_buf.into(), PhantomData))
     }
 
     /// Creates an mmap offset to map the object from userspace.
