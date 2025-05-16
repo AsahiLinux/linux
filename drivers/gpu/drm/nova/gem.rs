@@ -20,6 +20,7 @@ use crate::{
 #[pin_data]
 pub(crate) struct NovaObject {}
 
+#[vtable]
 impl gem::DriverObject for NovaObject {
     type Driver = NovaDriver;
     type Args = ();
