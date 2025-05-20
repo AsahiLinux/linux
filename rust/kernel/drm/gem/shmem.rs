@@ -41,9 +41,14 @@ use gem::{
 /// This is used with [`Object::new()`] to control various properties that can only be set when
 /// initially creating a shmem-backed GEM object.
 #[derive(Default)]
-pub struct ObjectConfig {
+pub struct ObjectConfig<'a, T: BaseDriverObject> {
     /// Whether to set the write-combine map flag.
     pub map_wc: bool,
+
+    /// Reuse the DMA reservation from another GEM object.
+    ///
+    /// The newly created [`Object`] will hold an owned refcount to `parent_resv_obj` if specified.
+    pub parent_resv_obj: Option<&'a OpaqueObject<T::Driver>>,
 }
 
 /// A shmem-backed GEM object.
@@ -57,6 +62,8 @@ pub struct Object<T: BaseDriverObject> {
     #[pin]
     obj: Opaque<bindings::drm_gem_shmem_object>,
     dev: NonNull<device::Device<T::Driver>>,
+    // Parent object that owns this object's DMA reservation object
+    parent_resv_obj: Option<ARef<OpaqueObject<T::Driver>>>,
     #[pin]
     inner: T,
 }
@@ -96,13 +103,14 @@ impl<T: BaseDriverObject> Object<T> {
     pub fn new(
         dev: &device::Device<T::Driver>,
         size: usize,
-        config: ObjectConfig,
+        config: ObjectConfig<'_, T>,
         args: T::Args,
     ) -> Result<ARef<Self>> {
         let new: Pin<KBox<Self>> = KBox::try_pin_init(
             try_pin_init!(Self {
                 obj <- pin_init::zeroed(),
                 dev: NonNull::from(dev),
+                parent_resv_obj: config.parent_resv_obj.map(|p| p.into()),
                 inner <- T::new(dev, size, args),
             }),
             GFP_KERNEL
@@ -118,7 +126,14 @@ impl<T: BaseDriverObject> Object<T> {
         let new = KBox::into_raw(unsafe { Pin::into_inner_unchecked(new) });
 
         // SAFETY: We're taking over the owned refcount from `drm_gem_shmem_init`.
-        let mut obj = unsafe { ARef::from_raw(NonNull::new_unchecked(new)) };
+        let obj = unsafe { ARef::from_raw(NonNull::new_unchecked(new)) };
+
+        // Start filling out values from `config`
+        if let Some(parent_resv) = config.parent_resv_obj {
+            // SAFETY: We have yet to expose the new gem object outside of this function, so it is
+            // safe to modify this field.
+            unsafe { (*obj.obj.get()).base.resv = parent_resv.raw_dma_resv() };
+        }
 
         // SAFETY: We have yet to expose this object outside of this function, so we're guaranteed
         // to have exclusive access - thus making this safe to hold a mutable reference to.
