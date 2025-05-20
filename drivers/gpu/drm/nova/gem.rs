@@ -18,6 +18,7 @@ pub(crate) struct NovaObject {}
 
 impl gem::BaseDriverObject for NovaObject {
     type Driver = NovaDriver;
+    type Object = gem::Object<Self>;
 
     fn new(_dev: &NovaDevice, _size: usize) -> impl PinInit<Self, Error> {
         try_pin_init!(NovaObject {})
