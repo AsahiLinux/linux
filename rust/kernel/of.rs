@@ -354,6 +354,23 @@ impl<'a, T: PropertyUnit> TryFrom<Property<'a>> for KVec<T> {
     }
 }
 
+impl<'a, T: PropertyUnit> TryFrom<Property<'a>> for KVVec<T> {
+    type Error = Error;
+
+    fn try_from(p: Property<'_>) -> core::result::Result<KVVec<T>, Self::Error> {
+        if p.len() % T::UNIT_SIZE != 0 {
+            return Err(EINVAL);
+        }
+
+        let mut v = Vec::new();
+        let val = p.value();
+        for off in (0..p.len()).step_by(T::UNIT_SIZE) {
+            v.push(T::from_bytes(&val[off..off + T::UNIT_SIZE])?, GFP_KERNEL)?;
+        }
+        Ok(v)
+    }
+}
+
 macro_rules! prop_int_type (
     ($type:ty) => {
         impl<'a> TryFrom<Property<'a>> for $type {
