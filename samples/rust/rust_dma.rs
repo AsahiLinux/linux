@@ -6,7 +6,7 @@
 
 use kernel::{
     bindings, device::Core, dma::CoherentAllocation, page::*, pci, prelude::*, scatterlist::*,
-    types::ARef,
+    types::{ARef, Owned},
 };
 
 struct DmaSampleDriver {
@@ -76,7 +76,7 @@ impl pci::Driver for DmaSampleDriver {
 
         let mut pages = KVec::new();
         for _ in TEST_VALUES.into_iter() {
-            let _ = pages.push(Page::alloc_page(GFP_KERNEL)?, GFP_KERNEL);
+            let _ = pages.push(unsafe { Owned::into_raw(Page::alloc_page(GFP_KERNEL)?).read() }, GFP_KERNEL);
         }
 
         let sgt = SGTable::alloc_table(PagesArray(pages), GFP_KERNEL)?;
