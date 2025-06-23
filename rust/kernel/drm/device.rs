@@ -158,6 +158,12 @@ impl<T: drm::Driver> UnregisteredDevice<T> {
         if T::FEAT_RENDER {
             features |= drm::driver::FEAT_RENDER;
         }
+        if T::FEAT_SYNCOBJ {
+            features |= drm::driver::FEAT_SYNCOBJ;
+        }
+        if T::FEAT_SYNCOBJ_TIMELINE {
+            features |= drm::driver::FEAT_SYNCOBJ_TIMELINE;
+        }
 
         features
     }
