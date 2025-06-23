@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 or MIT
 
 use kernel::{
+    bindings,
     drm::{
         self,
         Registered, //
@@ -27,6 +28,10 @@ impl drm::file::DriverFile for TyrDrmFileData {
 
     fn open(_dev: &drm::Device<Self::Driver>) -> Result<Pin<KBox<Self>>> {
         KBox::try_pin_init(try_pin_init!(Self {}), GFP_KERNEL)
+    }
+
+    fn as_raw(&self) -> *mut bindings::drm_file {
+        todo!()
     }
 }
 
