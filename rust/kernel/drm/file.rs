@@ -15,6 +15,9 @@ pub trait DriverFile {
 
     /// Open a new file (called when a client opens the DRM device).
     fn open(device: &drm::Device<Self::Driver>) -> Result<Pin<KBox<Self>>>;
+
+    /// Get raw drm_file pointer
+    fn as_raw(&self) -> *mut bindings::drm_file;
 }
 
 /// An open DRM File.
