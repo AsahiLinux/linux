@@ -105,6 +105,7 @@ pub mod prelude;
 pub mod print;
 pub mod rbtree;
 pub mod revocable;
+pub mod scatterlist;
 pub mod security;
 pub mod seq_file;
 pub mod siphash;
