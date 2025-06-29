@@ -61,6 +61,8 @@ impl drm::Driver for NovaDriver {
 
     const INFO: drm::DriverInfo = INFO;
 
+    const FEATURES: u32 = drm::driver::FEAT_GEM;
+
     kernel::declare_drm_ioctls! {
         (NOVA_GETPARAM, drm_nova_getparam, ioctl::RENDER_ALLOW, File::get_param),
         (NOVA_GEM_CREATE, drm_nova_gem_create, ioctl::AUTH | ioctl::RENDER_ALLOW, File::gem_create),

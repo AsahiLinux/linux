@@ -86,7 +86,7 @@ impl<T: drm::Driver> Device<T> {
         name: T::INFO.name.as_char_ptr() as *mut _,
         desc: T::INFO.desc.as_char_ptr() as *mut _,
 
-        driver_features: drm::driver::FEAT_GEM,
+        driver_features: T::FEATURES,
         ioctls: T::IOCTLS.as_ptr(),
         num_ioctls: T::IOCTLS.len() as i32,
         fops: &Self::GEM_FOPS as _,
