@@ -19,6 +19,8 @@
 #include <linux/usb/role.h>
 #include <linux/workqueue.h>
 #include <linux/firmware.h>
+#include <linux/sysfs.h>
+#include <linux/string.h>
 
 #include "tps6598x.h"
 #include "trace.h"
@@ -45,6 +47,7 @@
 #define TPS_REG_RX_IDENTITY_SOP		0x48
 #define TPS_REG_DATA_STATUS		0x5f
 #define TPS_REG_SLEEP_CONF		0x70
+#define TPS_REG_VDM_DATA		0x4d
 
 /* TPS_REG_SYSTEM_CONF bits */
 #define TPS_SYSCONF_PORTINFO(c)		((c) & 7)
@@ -95,6 +98,7 @@ enum {
 	TPS_MODE_BIST,
 	TPS_MODE_DISC,
 	TPS_MODE_PTCH,
+	CD_MODE_DBMA,
 };
 
 static const char *const modes[] = {
@@ -103,6 +107,7 @@ static const char *const modes[] = {
 	[TPS_MODE_BIST]	= "BIST",
 	[TPS_MODE_DISC]	= "DISC",
 	[TPS_MODE_PTCH] = "PTCH",
+	[CD_MODE_DBMA] = "DBMa",
 };
 
 /* Unrecognized commands will be replaced with "!CMD" */
@@ -730,6 +735,8 @@ static int tps6598x_check_mode(struct tps6598x *tps)
 		return ret;
 	case TPS_MODE_BIST:
 	case TPS_MODE_DISC:
+	case CD_MODE_DBMA:
+		return ret;
 	default:
 		dev_err(tps->dev, "controller in unsupported mode \"%s\"\n",
 			mode);
@@ -1197,6 +1204,170 @@ release_fw:
 	return ret;
 }
 
+static u32 cd321x_get_key(struct tps6598x *tps) 
+{
+	int ret;
+	const char *dt_entry;
+	struct device_node *dt_root;
+
+	dt_root = of_find_node_opts_by_path("/", NULL);
+	ret = of_property_read_string_index(dt_root, "compatible", 0, &dt_entry);
+	if (ret) {
+		dev_err(tps->dev, "Failed reading device tree");
+		return -EINVAL;
+	}
+	else {
+		dev_info(tps->dev, "Key derived using model string: %s\n", dt_entry);
+	}
+
+	if (strlen(dt_entry) < 10) {
+		dev_err(tps->dev, "Device tree returned string of unexpected length");
+		return -EINVAL;
+	}
+
+	u32 key = ('J' << 24) | (dt_entry[7] << 16) | (dt_entry[8] << 8) | dt_entry[9];
+	return key;
+}
+
+static int cd321x_unlock(struct tps6598x *tps)
+{
+	int ret;
+	u32 key;
+
+	key = cd321x_get_key(tps);
+
+	if (key < 0) {
+		dev_err(tps->dev, "Could not fetch device unlock key");
+		return -EINVAL;
+	}
+
+	ret = tps6598x_exec_cmd(tps, "LOCK", sizeof(key), (u8 *)&key, 0, NULL);
+
+	if (ret) {
+	    dev_err(tps->dev, "Unlock command failed or device is already unlocked");
+	    dev_err(tps->dev, "%d", ret);
+	    return -EIO;
+	}
+	return 0;
+}
+
+
+static int cd321x_set_dbma(struct tps6598x *tps) 
+{
+        int ret;
+	int mode;
+
+        ret = tps6598x_exec_cmd(tps, "DBMa", 1, "\x01", 0, NULL);
+	mode = tps6598x_check_mode(tps);
+	
+	if (mode == CD_MODE_DBMA) {
+		return 0;
+	}
+	else {	
+		dev_err(tps->dev, "CD321x failed to enter DBMa mode, device is likely in locked state");
+		return -EINVAL;
+	     }
+	
+}
+
+static int cd321x_vdm(struct tps6598x *tps, u32 *msg, size_t vdm_len)
+{
+        int ret;
+		
+        u8 vdm[13];
+        u8 header = 0x33;
+	
+        memcpy(&vdm[0], &header, 1);
+        memcpy(&vdm[1], msg, vdm_len);	
+
+        ret = tps6598x_exec_cmd_tmo(tps, "VDMs", vdm_len + 1, &vdm[0], 0, NULL, 200, 200);
+	
+	if (ret) {
+	    dev_err(tps->dev, "Sending VDM failed: %d", ret);
+	    return -EIO;
+	}
+	return 0;
+}
+
+static int cd321x_serial(struct tps6598x *tps) 
+{
+	int ret;
+	u32 key = 0x1840306;
+	size_t key_len = sizeof(key);
+
+	ret = tps6598x_exec_cmd(tps, "DVEn", key_len, (u8 *)&key, 0, NULL);
+
+	if (ret) {
+		dev_err(tps->dev, "Could not enter local serial mode: %d", ret);
+		return -EIO;
+	}
+	return 0;
+
+}
+static ssize_t serial_show(struct device *dev, struct device_attribute *attr,
+			 char *buf)
+{
+	
+	return sysfs_emit(buf,"0\n");
+}
+
+static ssize_t serial_store(struct device *dev, struct device_attribute *attr,
+			  const char *buf, size_t count)
+{
+	
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tps6598x *tps = i2c_get_clientdata(client);
+
+	u32 vdm[] = {0x5ac8012, 0x1840306};
+
+	cd321x_unlock(tps);
+	cd321x_set_dbma(tps);
+	cd321x_vdm(tps, vdm, sizeof(vdm));
+
+	dev_info(tps->dev, "Attempting to enter local serial");
+        cd321x_serial(tps); 		
+	return count;
+}
+
+static DEVICE_ATTR_RW(serial);
+
+static ssize_t reboot_show(struct device *dev, struct device_attribute *attr,
+			 char *buf)
+{
+	return sysfs_emit(buf,"0\n");
+}
+
+static ssize_t reboot_store(struct device *dev, struct device_attribute *attr,
+			  const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tps6598x *tps = i2c_get_clientdata(client);
+ 
+	u32 vdm[] = {0x5ac8012, 0x105, 0x80000000};
+	cd321x_unlock(tps);
+	cd321x_set_dbma(tps);
+	cd321x_vdm(tps, vdm, sizeof(vdm));
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(reboot);
+
+
+static struct attribute *vdm_attrs[] = {
+	&dev_attr_serial.attr,
+	&dev_attr_reboot.attr,
+	NULL,
+};
+
+static const struct attribute_group vdm_group = {
+        .name = "cd321x_vdm",
+	.attrs = vdm_attrs,
+
+};
+
+
+
 static int cd321x_init(struct tps6598x *tps)
 {
 	return 0;
@@ -1437,6 +1608,14 @@ static int tps6598x_probe(struct i2c_client *client)
 		enable_irq_wake(client->irq);
 	}
 
+	if (device_is_compatible(tps->dev, "apple,cd321x")) {
+		int err;
+		err = sysfs_create_group(&client->dev.kobj, &vdm_group);
+		if (err < 0) {
+			dev_err(tps->dev, "Couldn't register sysfs group for CD321x VDMs\n");
+		}
+	}
+
 	return 0;
 
 err_disconnect:
@@ -1471,6 +1650,9 @@ static void tps6598x_remove(struct i2c_client *client)
 
 	/* Reset PD controller to remove any applied patch */
 	tps->data->reset(tps);
+	if (device_is_compatible(tps->dev, "apple,cd321x"))  {
+		sysfs_remove_group(&client->dev.kobj, &vdm_group);
+	}
 
 	if (tps->reset)
 		gpiod_set_value_cansleep(tps->reset, 1);
