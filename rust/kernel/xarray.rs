@@ -10,18 +10,18 @@ use crate::{
     build_assert::build_assert,
     error::{Error, Result},
     ffi::c_void,
+    prelude::*,
     types::{
         ForeignOwnable,
         NotThreadSafe,
         Opaque, //
     }, //
 };
-use core::{iter, marker::PhantomData, pin::Pin, ptr::NonNull};
-use pin_init::{pin_data, pin_init, pinned_drop, PinInit};
+use core::{iter, marker::PhantomData, mem, ptr::NonNull};
 
 /// An array which efficiently maps sparse integer indices to owned objects.
 ///
-/// This is similar to a [`crate::alloc::kvec::Vec<Option<T>>`], but more efficient when there are
+/// This is similar to a [`Vec<Option<T>>`], but more efficient when there are
 /// holes in the index space, and can be efficiently grown.
 ///
 /// # Invariants
@@ -111,16 +111,23 @@ impl<T: ForeignOwnable> XArray<T> {
     fn iter(&self) -> impl Iterator<Item = NonNull<c_void>> + '_ {
         let mut index = 0;
 
-        // SAFETY: `self.xa` is always valid by the type invariant.
-        iter::once(unsafe {
-            bindings::xa_find(self.xa.get(), &mut index, usize::MAX, bindings::XA_PRESENT)
-        })
-        .chain(iter::from_fn(move || {
+        core::iter::Iterator::chain(
             // SAFETY: `self.xa` is always valid by the type invariant.
-            Some(unsafe {
-                bindings::xa_find_after(self.xa.get(), &mut index, usize::MAX, bindings::XA_PRESENT)
-            })
-        }))
+            iter::once(unsafe {
+                bindings::xa_find(self.xa.get(), &mut index, usize::MAX, bindings::XA_PRESENT)
+            }),
+            iter::from_fn(move || {
+                // SAFETY: `self.xa` is always valid by the type invariant.
+                Some(unsafe {
+                    bindings::xa_find_after(
+                        self.xa.get(),
+                        &mut index,
+                        usize::MAX,
+                        bindings::XA_PRESENT,
+                    )
+                })
+            }),
+        )
         .map_while(|ptr| NonNull::new(ptr.cast()))
     }
 
