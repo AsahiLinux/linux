@@ -2,6 +2,11 @@
 
 #include <linux/xarray.h>
 
+void *rust_helper_xa_zero_entry(void)
+{
+	return XA_ZERO_ENTRY;
+}
+
 int rust_helper_xa_err(void *entry)
 {
 	return xa_err(entry);
