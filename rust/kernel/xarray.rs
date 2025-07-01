@@ -24,10 +24,11 @@ use core::{iter, marker::PhantomData, mem, ptr::NonNull};
 /// # Examples
 ///
 /// ```rust
-/// use kernel::alloc::KBox;
-/// use kernel::xarray::{AllocKind, XArray};
+/// # use kernel::alloc::KBox;
+/// # use kernel::xarray::XArray;
+/// # use pin_init::stack_pin_init;
 ///
-/// let xa = KBox::pin_init(XArray::new(AllocKind::Alloc1), GFP_KERNEL)?;
+/// stack_pin_init!(let xa = XArray::new(Default::default()));
 ///
 /// let dead = KBox::new(0xdead, GFP_KERNEL)?;
 /// let beef = KBox::new(0xbeef, GFP_KERNEL)?;
@@ -75,8 +76,10 @@ impl<T: ForeignOwnable> PinnedDrop for XArray<T> {
 }
 
 /// Flags passed to [`XArray::new`] to configure the array's allocation tracking behavior.
+#[derive(Default)]
 pub enum AllocKind {
     /// Consider the first element to be at index 0.
+    #[default]
     Alloc,
     /// Consider the first element to be at index 1.
     Alloc1,
