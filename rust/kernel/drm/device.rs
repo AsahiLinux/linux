@@ -127,6 +127,47 @@ impl<T: drm::Driver> Device<T> {
         Ok(unsafe { ARef::from_raw(raw_drm) })
     }
 
+    /// Create a new `drm::Device` for a `drm::Driver`.
+    pub unsafe fn new_uninit(dev: &device::Device) -> Result<NonNull<Self>> {
+        // SAFETY:
+        // - `VTABLE`, as a `const` is pinned to the read-only section of the compilation,
+        // - `dev` is valid by its type invarants,
+        let raw_drm: *mut Self = unsafe {
+            bindings::__drm_dev_alloc(
+                dev.as_raw(),
+                &Self::VTABLE,
+                mem::size_of::<Self>(),
+                mem::offset_of!(Self, dev),
+            )
+        }
+        .cast();
+        let raw_drm = NonNull::new(from_err_ptr(raw_drm)?).ok_or(ENOMEM)?;
+
+        Ok(raw_drm)
+    }
+
+    /// Create a new `drm::Device` for a `drm::Driver`.
+    pub unsafe fn init_data(
+        raw_drm: NonNull<Self>,
+        data: impl PinInit<T::Data, Error>,
+    ) -> Result<ARef<Self>> {
+        // SAFETY: `raw_drm` is a valid pointer to `Self`.
+        let raw_data = unsafe { ptr::addr_of_mut!((*raw_drm.as_ptr()).data) };
+
+        // SAFETY:
+        // - `raw_data` is a valid pointer to uninitialized memory.
+        // - `raw_data` will not move until it is dropped.
+        unsafe { data.__pinned_init(raw_data) }.inspect_err(|_| {
+            // SAFETY: `__drm_dev_alloc()` was successful, hence `raw_drm` must be valid and the
+            // refcount must be non-zero.
+            unsafe { bindings::drm_dev_put(ptr::addr_of_mut!((*raw_drm.as_ptr()).dev).cast()) };
+        })?;
+
+        // SAFETY: The reference count is one, and now we take ownership of that reference as a
+        // `drm::Device`.
+        Ok(unsafe { ARef::from_raw(raw_drm) })
+    }
+
     pub(crate) fn as_raw(&self) -> *mut bindings::drm_device {
         self.dev.get()
     }
