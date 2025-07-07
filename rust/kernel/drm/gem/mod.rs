@@ -30,7 +30,7 @@ macro_rules! impl_as_opaque {
         impl<D, $tparam> core::convert::AsRef<kernel::drm::gem::OpaqueObject<D>> for $type
         where
             D: kernel::drm::driver::Driver,
-            Self: kernel::drm::gem::BaseDriverObject<Driver = D>,
+            // Self: kernel::drm::gem::BaseDriverObject<Driver = D>,
             Self: kernel::drm::gem::IntoGEMObject,
             $tparam: $tparam_trait
         {
