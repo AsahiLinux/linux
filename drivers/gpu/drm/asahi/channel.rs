@@ -14,13 +14,11 @@ use crate::fw::channels::*;
 use crate::fw::initdata::{raw, ChannelRing};
 use crate::fw::types::*;
 use crate::{buffer, event, gpu, mem};
-use core::time::Duration;
 use kernel::{
     c_str,
-    delay::coarse_sleep,
     prelude::*,
     sync::Arc,
-    time::{clock, Now},
+    time::{Delta, Instant, delay::fsleep},
 };
 
 pub(crate) use crate::fw::channels::PipeType;
@@ -146,7 +144,7 @@ where
                 );
                 // TODO: block properly on incoming messages?
                 while next_wptr == rptr {
-                    coarse_sleep(Duration::from_millis(8));
+                    fsleep(Delta::from_millis(8));
                     rptr = T::rptr(raw);
                 }
             }
@@ -164,11 +162,12 @@ where
     /// completion of a cache management or invalidation operation synchronously (which
     /// the firmware normally completes fast enough not to be worth sleeping for).
     /// If the poll takes longer than 10ms, this switches to sleeping between polls.
-    pub(crate) fn wait_for(&mut self, wptr: u32, timeout_ms: u64) -> Result {
-        const MAX_FAST_POLL: u64 = 10;
-        let start = clock::KernelTime::now();
-        let timeout_fast = Duration::from_millis(timeout_ms.min(MAX_FAST_POLL));
-        let timeout_slow = Duration::from_millis(timeout_ms);
+    pub(crate) fn wait_for(&mut self, wptr: u32, timeout_ms: i64) -> Result {
+        const MAX_FAST_POLL: i64 = 10;
+        let start = Instant::now();
+        let timeout_ms = timeout_ms.max(1);
+        let timeout_fast = Delta::from_millis(timeout_ms.min(MAX_FAST_POLL));
+        let timeout_slow = Delta::from_millis(timeout_ms);
         self.ring.state.with(|raw, _inner| {
             while start.elapsed() < timeout_fast {
                 if T::rptr(raw) == wptr {
@@ -180,7 +179,7 @@ where
                 if T::rptr(raw) == wptr {
                     return Ok(());
                 }
-                coarse_sleep(Duration::from_millis(5));
+                fsleep(Delta::from_millis(5));
                 mem::sync();
             }
             Err(ETIMEDOUT)
@@ -197,7 +196,7 @@ pub(crate) struct DeviceControlChannel {
 
 #[versions(AGX)]
 impl DeviceControlChannel::ver {
-    const COMMAND_TIMEOUT_MS: u64 = 1000;
+    const COMMAND_TIMEOUT_MS: i64 = 1000;
 
     /// Allocate a new Device Control channel.
     pub(crate) fn new(
@@ -266,7 +265,7 @@ pub(crate) struct FwCtlChannel {
 }
 
 impl FwCtlChannel {
-    const COMMAND_TIMEOUT_MS: u64 = 1000;
+    const COMMAND_TIMEOUT_MS: i64 = 1000;
 
     /// Allocate a new Firmware Control channel.
     pub(crate) fn new(

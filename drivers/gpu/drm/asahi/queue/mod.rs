@@ -11,14 +11,13 @@ use kernel::{
     c_str, dma_fence,
     drm::sched,
     macros::versions,
-    sync::{Arc, Mutex},
-    types::ForeignOwnable,
+    sync::{Arc, LockClassKey, Mutex},
     uapi, xarray,
 };
 
 use crate::alloc::Allocator;
 use crate::debug::*;
-use crate::driver::{AsahiDevRef, AsahiDevice, AsahiDriver};
+use crate::driver::{AsahiDevRef, AsahiDevice};
 use crate::file::MAX_COMMANDS_PER_SUBMISSION;
 use crate::fw::types::*;
 use crate::gpu::GpuManager;
@@ -312,8 +311,7 @@ impl sched::JobImpl for QueueJob::ver {
             raw.increase(job.notification_count);
         });
 
-        let data = unsafe { &<KBox<AsahiDriver>>::borrow(job.dev.as_ref().get_drvdata()).data };
-        let gpu = match data
+        let gpu = match (*job.dev)
             .gpu
             .clone()
             .arc_as_any()
@@ -403,7 +401,7 @@ impl Drop for QueueJob::ver {
 }
 
 static QUEUE_NAME: &CStr = c_str!("asahi_fence");
-static QUEUE_CLASS_KEY: kernel::sync::LockClassKey = kernel::static_lock_class!();
+static QUEUE_CLASS_KEY: Pin<&LockClassKey> = kernel::static_lock_class!();
 
 #[versions(AGX)]
 impl Queue::ver {
@@ -422,8 +420,6 @@ impl Queue::ver {
         usc_exec_base: u64,
     ) -> Result<Queue::ver> {
         mod_dev_dbg!(dev, "[Queue {}] Creating queue\n", id);
-
-        let data = unsafe { &<KBox<AsahiDriver>>::borrow(dev.as_ref().get_drvdata()).data };
 
         // Must be shared, no cache management on this one!
         let mut notifier_list = alloc.shared.new_default::<fw::event::NotifierList>()?;
@@ -457,7 +453,8 @@ impl Queue::ver {
             sched::Scheduler::new(dev.as_ref(), 1, WQ_SIZE, 0, 100000, c_str!("asahi_sched"))?;
         let entity = sched::Entity::new(&sched, sched::Priority::Kernel)?;
 
-        let buffer = buffer::Buffer::ver::new(&*data.gpu, alloc, ualloc.clone(), ualloc_priv, mgr)?;
+        let buffer =
+            buffer::Buffer::ver::new(&*(*dev).gpu, alloc, ualloc.clone(), ualloc_priv, mgr)?;
 
         let mut ret = Queue::ver {
             dev: dev.into(),
@@ -593,8 +590,7 @@ impl Queue for Queue::ver {
         cmdbuf_raw: &[u8],
         objects: Pin<&xarray::XArray<KBox<file::Object>>>,
     ) -> Result {
-        let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
-        let gpu = match data
+        let gpu = match (*self.dev)
             .gpu
             .clone()
             .arc_as_any()
@@ -778,7 +774,7 @@ impl Queue for Queue::ver {
                     };
                     mod_dev_dbg!(self.dev, "[Submission {}] Create Explicit Barrier\n", id);
                     let barrier = alloc.private.new_init(
-                        kernel::init::zeroed::<fw::workqueue::Barrier>(),
+                        pin_init::zeroed::<fw::workqueue::Barrier>(),
                         |_inner, _p| {
                             let queue_job = &queue_job;
                             try_init!(fw::workqueue::raw::Barrier {

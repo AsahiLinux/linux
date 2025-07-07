@@ -134,8 +134,8 @@ impl<T: SlotItem> SlotAllocator<T> {
         mut data: T::Data,
         mut constructor: impl FnMut(&mut T::Data, u32) -> Option<T>,
         name: &'static CStr,
-        lock_key1: LockClassKey,
-        lock_key2: LockClassKey,
+        lock_key1: Pin<&'static LockClassKey>,
+        lock_key2: Pin<&'static LockClassKey>,
     ) -> Result<SlotAllocator<T>> {
         let mut slots = KVec::with_capacity(num_slots as usize, GFP_KERNEL)?;
 
@@ -163,7 +163,7 @@ impl<T: SlotItem> SlotAllocator<T> {
         let alloc = Arc::pin_init(
             pin_init!(SlotAllocatorOuter {
                 // SAFETY: `mutex_init!` is called below.
-                inner <- Mutex::new_with_key(inner, name, lock_key1),
+                inner <- Mutex::new(inner, name, lock_key1),
                 // SAFETY: `condvar_init!` is called below.
                 cond <- CondVar::new(name, lock_key2),
             }),

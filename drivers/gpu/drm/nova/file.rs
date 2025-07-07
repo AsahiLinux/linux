@@ -20,7 +20,9 @@ impl drm::file::DriverFile for File {
         Ok(KBox::new(Self, GFP_KERNEL)?.into())
     }
 
-    fn as_raw(&self) -> *mut bindings::drm_file { todo!() }
+    fn as_raw(&self) -> *mut bindings::drm_file {
+        todo!()
+    }
 }
 
 impl File {

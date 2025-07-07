@@ -3,17 +3,13 @@
 //! Top-level GPU driver implementation.
 
 use kernel::{
-    c_str, drm, drm::drv, drm::ioctl, error::Result, of, platform, prelude::*, sync::Arc,
+    c_str, device::Core, drm, drm::ioctl, error::Result, of, platform, prelude::*, sync::Arc,
 };
 
 use crate::{debug, file, gem, gpu, hw, regs};
 
-use kernel::dma::Device;
 use kernel::macros::vtable;
 use kernel::types::ARef;
-
-/// Convenience type alias for the `device::Data` type for this driver.
-// type DeviceData = device::Data<drv::Registration<AsahiDriver>, regs::Resources, AsahiData>;
 
 /// Holds a reference to the top-level `GpuManager` object.
 // pub(crate) struct AsahiData {
@@ -25,45 +21,50 @@ use kernel::types::ARef;
 pub(crate) struct AsahiData {
     #[pin]
     pub(crate) gpu: Arc<dyn gpu::GpuManager>,
-    pub(crate) pdev: platform::Device,
+    pub(crate) pdev: ARef<platform::Device>,
     pub(crate) resources: regs::Resources,
 }
 
+unsafe impl Send for AsahiData {}
+unsafe impl Sync for AsahiData {}
+
 pub(crate) struct AsahiDriver {
-    _reg: drm::drv::Registration<Self>,
-    pub(crate) data: Arc<AsahiData>,
+    #[allow(dead_code)]
+    drm: ARef<drm::Device<Self>>,
 }
 
+unsafe impl Send for AsahiDriver {}
+unsafe impl Sync for AsahiDriver {}
+
 /// Convenience type alias for the DRM device type for this driver.
-pub(crate) type AsahiDevice = kernel::drm::device::Device<AsahiDriver>;
+pub(crate) type AsahiDevice = drm::device::Device<AsahiDriver>;
 pub(crate) type AsahiDevRef = ARef<AsahiDevice>;
 
 /// DRM Driver metadata
-const INFO: drv::DriverInfo = drv::DriverInfo {
+const INFO: drm::driver::DriverInfo = drm::driver::DriverInfo {
     major: 0,
     minor: 0,
     patchlevel: 0,
     name: c_str!("asahi"),
     desc: c_str!("Apple AGX Graphics"),
-    date: c_str!("20220831"),
 };
 
 /// DRM Driver implementation for `AsahiDriver`.
 #[vtable]
-impl drv::Driver for AsahiDriver {
+impl drm::driver::Driver for AsahiDriver {
     /// Our `DeviceData` type, reference-counted
-    type Data = Arc<AsahiData>;
+    type Data = AsahiData;
     /// Our `File` type.
     type File = file::File;
     /// Our `Object` type.
-    type Object = gem::Object;
+    type Object = gem::AsahiObject;
 
-    const INFO: drv::DriverInfo = INFO;
-    const FEATURES: u32 = drv::FEAT_GEM
-        | drv::FEAT_RENDER
-        | drv::FEAT_SYNCOBJ
-        | drv::FEAT_SYNCOBJ_TIMELINE
-        | drv::FEAT_GEM_GPUVA;
+    const INFO: drm::driver::DriverInfo = INFO;
+    const FEATURES: u32 = drm::driver::FEAT_GEM
+        | drm::driver::FEAT_RENDER
+        | drm::driver::FEAT_SYNCOBJ
+        | drm::driver::FEAT_SYNCOBJ_TIMELINE
+        | drm::driver::FEAT_GEM_GPUVA;
 
     kernel::declare_drm_ioctls! {
         (ASAHI_GET_PARAMS,      drm_asahi_get_params,
@@ -138,16 +139,18 @@ impl platform::Driver for AsahiDriver {
     const OF_ID_TABLE: Option<of::IdTable<Self::IdInfo>> = Some(&OF_TABLE);
 
     /// Device probe function.
-    fn probe(pdev: &mut platform::Device, info: Option<&Self::IdInfo>) -> Result<Pin<KBox<Self>>> {
+    fn probe(
+        pdev: &platform::Device<Core>,
+        info: Option<&Self::IdInfo>,
+    ) -> Result<Pin<KBox<Self>>> {
         debug::update_debug_flags();
-
-        let dev = pdev.clone();
 
         dev_info!(pdev.as_ref(), "Probing...\n");
 
         let cfg = info.ok_or(ENODEV)?;
 
-        pdev.dma_set_mask_and_coherent((1 << cfg.uat_oas) - 1)?;
+        pdev.as_ref()
+            .dma_set_mask_and_coherent((1 << cfg.uat_oas) - 1)?;
 
         let res = regs::Resources::new(pdev)?;
 
@@ -160,7 +163,9 @@ impl platform::Driver for AsahiDriver {
         let node = pdev.as_ref().of_node().ok_or(EIO)?;
         let compat: KVec<u32> = node.get_property(c_str!("apple,firmware-compat"))?;
 
-        let drm = drm::device::Device::<AsahiDriver>::new(dev.as_ref())?;
+        let raw_drm = unsafe { drm::device::Device::<AsahiDriver>::new_uninit(pdev.as_ref())? };
+
+        let drm: AsahiDevRef = unsafe { ARef::from_raw(raw_drm) };
 
         let gpu = match (cfg.gpu_gen, cfg.gpu_variant, compat.as_slice()) {
             (hw::GpuGen::G13, _, &[12, 3, 0]) => {
@@ -190,19 +195,18 @@ impl platform::Driver for AsahiDriver {
             }
         };
 
-        let data = Arc::pin_init(
-            try_pin_init!(AsahiData {
-                gpu,
-                pdev: pdev.clone(),
-                resources: res,
-            }),
-            GFP_KERNEL,
-        )?;
+        let data = try_pin_init!(AsahiData {
+            gpu,
+            pdev: pdev.into(),
+            resources: res,
+        });
 
-        data.gpu.init()?;
+        let drm = unsafe { AsahiDevice::init_data(raw_drm, data)? };
 
-        let reg = drm::drv::Registration::new(drm, data.clone(), 0)?;
+        (*drm).gpu.init()?;
 
-        Ok(KBox::new(Self { _reg: reg, data }, GFP_KERNEL)?.into())
+        drm::driver::Registration::new_foreign_owned(&drm, pdev.as_ref(), 0)?;
+
+        Ok(KBox::new(Self { drm }, GFP_KERNEL)?.into())
     }
 }

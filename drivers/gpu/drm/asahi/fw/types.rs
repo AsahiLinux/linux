@@ -13,8 +13,8 @@ pub(crate) use crate::{f32, float::F32};
 pub(crate) use core::fmt::Debug;
 pub(crate) use core::marker::PhantomData;
 pub(crate) use core::sync::atomic::{AtomicI32, AtomicU32, AtomicU64};
-pub(crate) use kernel::init::Zeroable;
 pub(crate) use kernel::macros::versions;
+pub(crate) use kernel::prelude::Zeroable;
 
 // Make the trait visible
 pub(crate) use crate::alloc::Allocator as _Allocator;
@@ -106,20 +106,20 @@ macro_rules! default_zeroed {
     (<$($lt:lifetime),*>, $type:ty) => {
         impl<$($lt),*> Default for $type {
             fn default() -> $type {
-                ::kernel::init::Zeroable::zeroed()
+                unsafe { core::mem::zeroed() }
             }
         }
         // SAFETY: The user is responsible for ensuring this is safe.
-        unsafe impl<$($lt),*> ::kernel::init::Zeroable for $type {}
+        unsafe impl<$($lt),*> ::pin_init::Zeroable for $type {}
     };
     ($type:ty) => {
         impl Default for $type {
             fn default() -> $type {
-                ::kernel::init::Zeroable::zeroed()
+                unsafe { core::mem::zeroed() }
             }
         }
         // SAFETY: The user is responsible for ensuring this is safe.
-        unsafe impl ::kernel::init::Zeroable for $type {}
+        unsafe impl ::pin_init::Zeroable for $type {}
     };
 }
 
@@ -133,7 +133,7 @@ unsafe impl<const N: usize> Zeroable for Pad<N> {}
 
 impl<const N: usize> Default for Pad<N> {
     fn default() -> Self {
-        Zeroable::zeroed()
+        unsafe { core::mem::zeroed() }
     }
 }
 
@@ -159,7 +159,7 @@ unsafe impl<const N: usize, T: Zeroable> Zeroable for Array<N, T> {}
 
 impl<const N: usize, T: Zeroable> Default for Array<N, T> {
     fn default() -> Self {
-        Zeroable::zeroed()
+        unsafe { core::mem::zeroed() }
     }
 }
 

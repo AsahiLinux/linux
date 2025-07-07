@@ -14,25 +14,25 @@
 use core::any::Any;
 use core::ops::Range;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use core::time::Duration;
 
 use kernel::{
     c_str, devcoredump,
     error::code::*,
     macros::versions,
+    new_mutex,
     prelude::*,
     soc::apple::rtkit,
     sync::{
         lock::{mutex::MutexBackend, Guard},
         Arc, Mutex, UniqueArc,
     },
-    time::{clock, msecs_to_jiffies, Now},
+    time::{msecs_to_jiffies, Delta, Instant},
     types::ForeignOwnable,
 };
 
 use crate::alloc::Allocator;
 use crate::debug::*;
-use crate::driver::{AsahiDevRef, AsahiDevice, AsahiDriver};
+use crate::driver::{AsahiDevRef, AsahiDevice};
 use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::{U32, U64};
 use crate::{
@@ -90,7 +90,7 @@ pub(crate) const IOVA_KERN_GPU_BUFMGR_LOW: u64 = 0x20_0000_0000;
 pub(crate) const IOVA_KERN_GPU_BUFMGR_HIGH: u64 = 0xffffffaeffff0000;
 
 /// Timeout for entering the halt state after a fault or request.
-const HALT_ENTER_TIMEOUT: Duration = Duration::from_millis(100);
+const HALT_ENTER_TIMEOUT: Delta = Delta::from_millis(100);
 
 /// Maximum amount of firmware-private memory garbage allowed before collection.
 /// Collection flushes the FW cache and is expensive, so this needs to be
@@ -649,19 +649,16 @@ impl GpuManager::ver {
         for _i in 0..=NUM_PIPES - 1 {
             pipes.vtx.push(
                 KBox::pin_init(
-                    Mutex::new_named(
-                        channel::PipeChannel::ver::new(dev, &mut alloc)?,
-                        c_str!("pipe_vtx"),
-                    ),
+                    new_mutex!(channel::PipeChannel::ver::new(dev, &mut alloc)?, "pipe_vtx",),
                     GFP_KERNEL,
                 )?,
                 GFP_KERNEL,
             )?;
             pipes.frag.push(
                 KBox::pin_init(
-                    Mutex::new_named(
+                    new_mutex!(
                         channel::PipeChannel::ver::new(dev, &mut alloc)?,
-                        c_str!("pipe_frag"),
+                        "pipe_frag",
                     ),
                     GFP_KERNEL,
                 )?,
@@ -669,9 +666,9 @@ impl GpuManager::ver {
             )?;
             pipes.comp.push(
                 KBox::pin_init(
-                    Mutex::new_named(
+                    new_mutex!(
                         channel::PipeChannel::ver::new(dev, &mut alloc)?,
-                        c_str!("pipe_comp"),
+                        "pipe_comp",
                     ),
                     GFP_KERNEL,
                 )?,
@@ -717,17 +714,17 @@ impl GpuManager::ver {
                 uat: KBox::<mmu::Uat>::into_inner(uat),
                 io_mappings: KVec::new(),
                 next_mmio_iova: IOVA_KERN_MMIO_RANGE.start,
-                rtkit <- Mutex::new_named(None, c_str!("rtkit")),
+                rtkit <- new_mutex!(None, "rtkit"),
                 crashed: AtomicBool::new(false),
                 event_manager,
-                alloc <- Mutex::new_named(alloc, c_str!("alloc")),
-                fwctl_channel <- Mutex::new_named(fwctl_channel, c_str!("fwctl_channel")),
-                rx_channels <- Mutex::new_named(KBox::<RxChannels::ver>::into_inner(rx_channels), c_str!("rx_channels")),
-                tx_channels <- Mutex::new_named(KBox::<TxChannels::ver>::into_inner(tx_channels), c_str!("tx_channels")),
+                alloc <- new_mutex!(alloc, "alloc"),
+                fwctl_channel <- new_mutex!(fwctl_channel, "fwctl_channel"),
+                rx_channels <- new_mutex!(KBox::<RxChannels::ver>::into_inner(rx_channels), "rx_channels"),
+                tx_channels <- new_mutex!(KBox::<TxChannels::ver>::into_inner(tx_channels), "tx_channels"),
                 pipes,
                 buffer_mgr,
                 ids: Default::default(),
-                garbage_contexts <- Mutex::new_named(KVec::new(), c_str!("garbage_contexts")),
+                garbage_contexts <- new_mutex!(KVec::new(), "garbage_contexts"),
             }),
             GFP_KERNEL,
         )?;
@@ -955,9 +952,7 @@ impl GpuManager::ver {
 
     /// Fetch the GPU MMU fault information from the hardware registers.
     fn get_fault_info(&self) -> Option<regs::FaultInfo> {
-        let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
-
-        let res = &data.resources;
+        let res = &(*self.dev).resources;
 
         let info = res.get_fault_info(self.cfg);
         if info.is_some() {
@@ -979,7 +974,7 @@ impl GpuManager::ver {
             dev_err!(self.dev.as_ref(), "  Halted: {}\n", halted);
 
             if halted == 0 {
-                let start = clock::KernelTime::now();
+                let start = Instant::now();
                 while start.elapsed() < HALT_ENTER_TIMEOUT {
                     halted = raw.flags.halted.load(Ordering::Relaxed);
                     if halted != 0 {

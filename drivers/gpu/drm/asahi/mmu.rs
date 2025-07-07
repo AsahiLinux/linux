@@ -15,30 +15,32 @@ use core::mem::size_of;
 use core::num::NonZeroUsize;
 use core::ops::Range;
 use core::sync::atomic::{fence, AtomicU32, AtomicU64, AtomicU8, Ordering};
-use core::time::Duration;
 
 use kernel::{
     addr::PhysicalAddr,
-    c_str, delay, device, drm,
-    drm::{gem::BaseObject, gpuvm, mm},
+    c_str,
+    device,
+    drm::{self, gem::shmem, gpuvm, mm},
     error::Result,
     io,
     io::resource::Resource,
+    new_mutex,
     prelude::*,
     static_lock_class,
     sync::{
         lock::{mutex::MutexBackend, Guard},
         Arc, Mutex,
     },
-    time::{clock, Now},
-    types::{ARef, ForeignOwnable},
+    time::{Delta, Instant, delay::fsleep},
+    types::ARef,
 };
 
 use crate::debug::*;
-use crate::driver::AsahiDriver;
 use crate::module_parameters;
 use crate::no_debug;
 use crate::{driver, fw, gem, hw, mem, pgtable, slotalloc, util::RangeExt};
+
+use pin_init;
 
 // KernelMapping protection types
 pub(crate) use crate::pgtable::Prot;
@@ -162,13 +164,13 @@ struct VmBinding {
 #[pin_data]
 struct VmBo {
     #[pin]
-    sgt: Mutex<Option<gem::SGTable>>,
+    sgt: Mutex<Option<shmem::OwnedSGTable<gem::AsahiObject>>>,
 }
 
 impl gpuvm::DriverGpuVmBo for VmBo {
     fn new() -> impl PinInit<Self> {
         pin_init!(VmBo {
-            sgt <- Mutex::new_named(None, c_str!("VmBinding")),
+            sgt <- new_mutex!(None, "VmBinding"),
         })
     }
 }
@@ -201,9 +203,10 @@ impl gpuvm::DriverGpuVm for VmInner {
         let one_page = op.flags().contains(gpuvm::GpuVaFlags::SINGLE_PAGE);
 
         let guard = bo.inner().sgt.lock();
-        for range in guard.as_ref().expect("step_map with no SGT").iter() {
-            let mut addr = range.dma_address();
-            let mut len = range.dma_len();
+        for range in guard.as_ref().expect("step_map with no SGT").iter_raw() {
+            // TODO: proper DMA address/length handling
+            let mut addr = range.dma_address() as usize;
+            let mut len: usize = range.dma_len() as usize;
 
             if left == 0 {
                 break;
@@ -414,13 +417,14 @@ impl VmInner {
         let mut offset = node.offset;
         let mut left = node.mapped_size;
 
-        for range in sgt.iter() {
+        for range in sgt.iter_raw() {
             if left == 0 {
                 break;
             }
 
-            let mut addr = range.dma_address();
-            let mut len = range.dma_len();
+            // TODO: proper DMA address/length handling
+            let mut addr = range.dma_address() as usize;
+            let mut len: usize = range.dma_len() as usize;
 
             if (offset | addr | len | iova as usize) & UAT_PGMSK != 0 {
                 dev_err!(
@@ -473,7 +477,7 @@ impl VmInner {
 pub(crate) struct Vm {
     id: u64,
     inner: ARef<gpuvm::GpuVm<VmInner>>,
-    dummy_obj: drm::gem::ObjectRef<gem::Object>,
+    dummy_obj: ARef<gem::Object>,
     binding: Arc<Mutex<VmBinding>>,
 }
 no_debug!(Vm);
@@ -536,7 +540,7 @@ pub(crate) struct KernelMappingInner {
     // - Drop the GEM BO next, since BO free can take the resv lock itself
     // - Drop the owner GpuVm last, since that again can take resv locks when the refcount drops to 0
     bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
-    _gem: Option<drm::gem::ObjectRef<gem::Object>>,
+    _gem: Option<ARef<gem::Object>>,
     owner: ARef<gpuvm::GpuVm<VmInner>>,
     uat_inner: Arc<UatInner>,
     prot: Prot,
@@ -673,10 +677,9 @@ impl KernelMapping {
             page_count: pages as u16,
             unk_12: 2, // ?
         };
-        let data = unsafe { &<KBox<AsahiDriver>>::borrow(owner.dev.as_ref().get_drvdata()).data };
 
         // Tell the firmware to do a cache flush
-        if let Err(e) = data.gpu.fwctl(cmd) {
+        if let Err(e) = (*owner.dev).gpu.fwctl(cmd) {
             dev_err!(
                 owner.dev.as_ref(),
                 "MMU: ASC cache flush {:#x}:{:#x} failed (err: {:?})\n",
@@ -859,8 +862,8 @@ impl Handoff {
         self.unk3.store(0, Ordering::Relaxed);
         fence(Ordering::SeqCst);
 
-        let start = clock::KernelTime::now();
-        const TIMEOUT: Duration = Duration::from_millis(1000);
+        let start = Instant::now();
+        const TIMEOUT: Delta = Delta::from_millis(1000);
 
         self.lock();
         while start.elapsed() < TIMEOUT {
@@ -868,7 +871,7 @@ impl Handoff {
                 break;
             } else {
                 self.unlock();
-                delay::coarse_sleep(Duration::from_millis(10));
+                fsleep(Delta::from_millis(10));
                 self.lock();
             }
         }
@@ -955,14 +958,14 @@ impl Vm {
         let mm = mm::Allocator::new(va_range.start, va_range.range(), ())?;
 
         let binding = Arc::pin_init(
-            Mutex::new_named(
+            new_mutex!(
                 VmBinding {
                     binding: None,
                     bind_token: None,
                     active_users: 0,
                     ttb: page_table.ttb(),
                 },
-                c_str!("VmBinding"),
+                "VmBinding",
             ),
             GFP_KERNEL,
         )?;
@@ -974,7 +977,7 @@ impl Vm {
             inner: gpuvm::GpuVm::new(
                 c_str!("Asahi::GpuVm"),
                 dev,
-                &*(dummy_obj.gem),
+                dummy_obj.gem.clone(),
                 gpuvm_range,
                 kernel_range,
                 init!(VmInner {
@@ -1009,7 +1012,7 @@ impl Vm {
         guard: bool,
     ) -> Result<KernelMapping> {
         let size = object_range.range();
-        let sgt = gem.sg_table()?;
+        let sgt = gem.owned_sg_table()?;
         let mut inner = self.inner.exec_lock(Some(gem), false)?;
         let vm_bo = inner.obtain_bo()?;
 
@@ -1026,7 +1029,7 @@ impl Vm {
                 uat_inner,
                 prot,
                 bo: Some(vm_bo),
-                _gem: Some(gem.reference()),
+                _gem: Some(gem.into()),
                 offset: object_range.start,
                 mapped_size: size,
             },
@@ -1052,12 +1055,12 @@ impl Vm {
         &self,
         addr: u64,
         size: usize,
-        gem: &gem::Object,
+        gem:  ARef<gem::Object>,
         prot: Prot,
         guard: bool,
     ) -> Result<KernelMapping> {
-        let sgt = gem.sg_table()?;
-        let mut inner = self.inner.exec_lock(Some(gem), false)?;
+        let sgt = gem.owned_sg_table()?;
+        let mut inner = self.inner.exec_lock(Some(&gem), false)?;
 
         let vm_bo = inner.obtain_bo()?;
 
@@ -1074,7 +1077,7 @@ impl Vm {
                 uat_inner,
                 prot,
                 bo: Some(vm_bo),
-                _gem: Some(gem.reference()),
+                _gem: Some(gem.clone()),
                 offset: 0,
                 mapped_size: size,
             },
@@ -1104,14 +1107,14 @@ impl Vm {
     ) -> Result {
         // Mapping needs a complete context
         let mut ctx = StepContext {
-            new_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
-            prev_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
-            next_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            new_va: Some(gpuvm::GpuVa::<VmInner>::new(pin_init::default())?),
+            prev_va: Some(gpuvm::GpuVa::<VmInner>::new(pin_init::default())?),
+            next_va: Some(gpuvm::GpuVa::<VmInner>::new(pin_init::default())?),
             prot,
             ..Default::default()
         };
 
-        let sgt = gem.sg_table()?;
+        let sgt = gem.owned_sg_table()?;
         let mut inner = self.inner.exec_lock(Some(gem), true)?;
 
         // Preallocate the page tables, to fail early if we ENOMEM
@@ -1217,8 +1220,8 @@ impl Vm {
         // Unmapping a range can only do a single split, so just preallocate
         // the prev and next GpuVas
         let mut ctx = StepContext {
-            prev_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
-            next_va: Some(gpuvm::GpuVa::<VmInner>::new(init::default())?),
+            prev_va: Some(gpuvm::GpuVa::<VmInner>::new(pin_init::default())?),
+            next_va: Some(gpuvm::GpuVa::<VmInner>::new(pin_init::default())?),
             ..Default::default()
         };
 
@@ -1248,12 +1251,12 @@ impl Vm {
     }
 
     /// Returns the dummy GEM object used to hold the shared DMA reservation locks
-    pub(crate) fn get_resv_obj(&self) -> drm::gem::ObjectRef<gem::Object> {
+    pub(crate) fn get_resv_obj(&self) -> ARef<gem::Object> {
         self.dummy_obj.clone()
     }
 
     /// Check whether an object is external to this GpuVm
-    pub(crate) fn is_extobj(&self, gem: &gem::Object) -> bool {
+    pub(crate) fn is_extobj(&self, gem: &drm::gem::OpaqueObject<driver::AsahiDriver>) -> bool {
         self.inner.is_extobj(gem)
     }
 }
@@ -1472,17 +1475,17 @@ impl Uat {
 
         Arc::pin_init(
             try_pin_init!(UatInner {
-                handoff_flush <- init::pin_init_array_from_fn(|i| {
-                    Mutex::new_named(HandoffFlush(&handoff.flush[i]), c_str!("handoff_flush"))
+                handoff_flush <- pin_init::pin_init_array_from_fn(|i| {
+                    new_mutex!(HandoffFlush(&handoff.flush[i]), "handoff_flush")
                 }),
-                shared <- Mutex::new_named(
+                shared <- new_mutex!(
                     UatShared {
                         kernel_ttb1: 0,
                         map_kernel_to_user: false,
                         handoff_rgn,
                         ttbs_rgn,
                     },
-                    c_str!("uat_shared")
+                    "uat_shared"
                 ),
             }),
             GFP_KERNEL,

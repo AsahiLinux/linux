@@ -10,7 +10,6 @@
 use super::common;
 use crate::alloc::Allocator;
 use crate::debug::*;
-use crate::driver::AsahiDriver;
 use crate::fw::types::*;
 use crate::gpu::GpuManager;
 use crate::util::*;
@@ -21,7 +20,6 @@ use kernel::dma_fence::RawDmaFence;
 use kernel::drm::sched::Job;
 use kernel::prelude::*;
 use kernel::sync::Arc;
-use kernel::types::ForeignOwnable;
 use kernel::uapi;
 use kernel::xarray;
 
@@ -220,8 +218,11 @@ impl super::QueueInner::ver {
         frg_user_timestamps.start = common::get_timestamp_object(objects, cmdbuf.ts_frag.start)?;
         frg_user_timestamps.end = common::get_timestamp_object(objects, cmdbuf.ts_frag.end)?;
 
-        let data = unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
-        let gpu = match data.gpu.as_any().downcast_ref::<gpu::GpuManager::ver>() {
+        let gpu = match (*self.dev)
+            .gpu
+            .as_any()
+            .downcast_ref::<gpu::GpuManager::ver>()
+        {
             Some(gpu) => gpu,
             None => {
                 dev_crit!(self.dev.as_ref(), "GpuManager mismatched with Queue!\n");
@@ -343,7 +344,7 @@ impl super::QueueInner::ver {
 
         mod_dev_dbg!(self.dev, "[Submission {}] Create Barrier\n", id);
         let barrier = kalloc.private.new_init(
-            kernel::init::zeroed::<fw::workqueue::Barrier>(),
+            pin_init::zeroed::<fw::workqueue::Barrier>(),
             |_inner, _p| {
                 try_init!(fw::workqueue::raw::Barrier {
                     tag: fw::workqueue::CommandType::Barrier,

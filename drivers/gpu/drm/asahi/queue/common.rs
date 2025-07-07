@@ -19,10 +19,12 @@ pub(super) fn get_timestamp_object(
         return Ok(None);
     }
 
-    let object = objects.get(timestamp.handle.try_into()?).ok_or(ENOENT)?;
+    let guard = objects.lock();
+    let object = guard.get(timestamp.handle.try_into()?).ok_or(ENOENT)?.clone();
+    core::mem::drop(guard);
 
     #[allow(irrefutable_let_patterns)]
-    if let file::Object::TimestampBuffer(mapping) = object.borrow() {
+    if let file::Object::TimestampBuffer(mapping) = object {
         let offset = timestamp.offset;
         if (offset.checked_add(8).ok_or(EINVAL)?) as usize > mapping.size() {
             return Err(ERANGE);

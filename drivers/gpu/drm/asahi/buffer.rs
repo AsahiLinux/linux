@@ -38,6 +38,7 @@ use crate::fw::types::*;
 use crate::util::*;
 use crate::{alloc, fw, gpu, hw, mmu, slotalloc};
 use core::sync::atomic::Ordering;
+use kernel::new_mutex;
 use kernel::prelude::*;
 use kernel::sync::{Arc, Mutex};
 use kernel::{c_str, static_lock_class};
@@ -398,7 +399,7 @@ impl Buffer::ver {
 
         Ok(Buffer::ver {
             inner: Arc::pin_init(
-                Mutex::new(BufferInner::ver {
+                new_mutex!(BufferInner::ver {
                     info,
                     ualloc,
                     ualloc_priv,

@@ -8,7 +8,9 @@
 //! information, and starting the GPU firmware coprocessor.
 
 use crate::hw;
-use kernel::{c_str, devres::Devres, io::mem::IoMem, platform, prelude::*};
+use kernel::{
+    c_str, device::Core, devres::Devres, io::mem::IoMem, platform, prelude::*, types::ARef,
+};
 
 /// Size of the ASC control MMIO region.
 pub(crate) const ASC_CTL_SIZE: usize = 0x4000;
@@ -142,23 +144,23 @@ pub(crate) struct FaultInfo {
 
 /// Device resources for this GPU instance.
 pub(crate) struct Resources {
-    dev: platform::Device,
+    dev: ARef<platform::Device>,
     asc: Devres<IoMem<ASC_CTL_SIZE>>,
     sgx: Devres<IoMem<SGX_SIZE>>,
 }
 
 impl Resources {
     /// Map the required resources given our platform device.
-    pub(crate) fn new(pdev: &mut platform::Device) -> Result<Resources> {
+    pub(crate) fn new(pdev: &platform::Device<Core>) -> Result<Resources> {
         let asc_res = pdev.resource_by_name(c_str!("asc")).ok_or(EINVAL)?;
-        let asc_iomem = pdev.ioremap_resource_sized::<ASC_CTL_SIZE>(asc_res)?;
+        let asc_iomem = pdev.iomap_resource_sized::<ASC_CTL_SIZE>(asc_res)?;
 
         let sgx_res = pdev.resource_by_name(c_str!("sgx")).ok_or(EINVAL)?;
-        let sgx_iomem = pdev.ioremap_resource_sized::<SGX_SIZE>(sgx_res)?;
+        let sgx_iomem = pdev.iomap_resource_sized::<SGX_SIZE>(sgx_res)?;
 
         Ok(Resources {
             // SAFETY: This device does DMA via the UAT IOMMU.
-            dev: pdev.clone(),
+            dev: pdev.into(),
             asc: asc_iomem,
             sgx: sgx_iomem,
         })
@@ -166,7 +168,7 @@ impl Resources {
 
     fn sgx_read32<const OFF: usize>(&self) -> u32 {
         if let Some(sgx) = self.sgx.try_access() {
-            sgx.readl_relaxed(OFF)
+            sgx.read32_relaxed(OFF)
         } else {
             0
         }
@@ -175,14 +177,14 @@ impl Resources {
     /* Not yet used
     fn sgx_write32<OFF: usize>(&self, val: u32) {
         if let Some(sgx) = self.sgx.try_access() {
-            sgx.writel_relaxed(val, OFF)
+            sgx.write32_relaxed(val, OFF)
         }
     }
     */
 
     fn sgx_read64<const OFF: usize>(&self) -> u64 {
         if let Some(sgx) = self.sgx.try_access() {
-            sgx.readq_relaxed(OFF)
+            sgx.read64_relaxed(OFF)
         } else {
             0
         }
@@ -191,7 +193,7 @@ impl Resources {
     /* Not yet used
     fn sgx_write64<OFF: usize>(&self, val: u64) {
         if let Some(sgx) = self.sgx.try_access() {
-            sgx.writeq_relaxed(val, OFF)
+            sgx.write64_relaxed(val, OFF)
         }
     }
     */
@@ -206,9 +208,9 @@ impl Resources {
     /// Start the ASC coprocessor CPU.
     pub(crate) fn start_cpu(&self) -> Result {
         let res = self.asc.try_access().ok_or(ENXIO)?;
-        let val = res.readl_relaxed(CPU_CONTROL);
+        let val = res.read32_relaxed(CPU_CONTROL);
 
-        res.writel_relaxed(val | CPU_RUN, CPU_CONTROL);
+        res.write32_relaxed(val | CPU_RUN, CPU_CONTROL);
 
         Ok(())
     }

@@ -14,7 +14,6 @@
 //! up its associated event.
 
 use crate::debug::*;
-use crate::driver::AsahiDriver;
 use crate::fw::channels::{ChannelErrorType, PipeType};
 use crate::fw::types::*;
 use crate::fw::workqueue::*;
@@ -25,14 +24,14 @@ use core::any::Any;
 use core::num::NonZeroU64;
 use core::sync::atomic::Ordering;
 use kernel::{
-    c_str, dma_fence,
+    dma_fence,
     error::code::*,
+    new_mutex,
     prelude::*,
     sync::{
         lock::{mutex::MutexBackend, Guard},
         Arc, Mutex,
     },
-    types::ForeignOwnable,
     workqueue::{self, impl_has_work, new_work, Work, WorkItem},
 };
 
@@ -110,10 +109,8 @@ impl GpuContext {
 impl Drop for GpuContext {
     fn drop(&mut self) {
         mod_dev_dbg!(self.dev, "GpuContext: Freeing GPU context\n");
-        let dev_data =
-            unsafe { &<KBox<AsahiDriver>>::borrow(self.dev.as_ref().get_drvdata()).data };
         let data = self.data.take().unwrap();
-        dev_data.gpu.free_context(data);
+        (*self.dev).gpu.free_context(data);
     }
 }
 
@@ -716,9 +713,9 @@ impl WorkQueue::ver {
             pin_init!(Self {
                 info_pointer,
                 inner <- match pipe_type {
-                    PipeType::Vertex => Mutex::new_named(inner, c_str!("WorkQueue::inner (Vertex)")),
-                    PipeType::Fragment => Mutex::new_named(inner, c_str!("WorkQueue::inner (Fragment)")),
-                    PipeType::Compute => Mutex::new_named(inner, c_str!("WorkQueue::inner (Compute)")),
+                    PipeType::Vertex => new_mutex!(inner, "WorkQueue::inner (Vertex)"),
+                    PipeType::Fragment => new_mutex!(inner, "WorkQueue::inner (Fragment)"),
+                    PipeType::Compute => new_mutex!(inner, "WorkQueue::inner (Compute)"),
                 },
             }),
             GFP_KERNEL,
