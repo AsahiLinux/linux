@@ -58,7 +58,7 @@ pub struct ObjectConfig<'a, T: BaseDriverObject> {
 /// The DRM core ensures that `dev` will remain valid for as long as the object.
 #[repr(C)]
 #[pin_data]
-pub struct Object<T: BaseDriverObject> {
+pub struct Object<T: BaseDriverObject + Send + Sync> {
     #[pin]
     obj: Opaque<bindings::drm_gem_shmem_object>,
     dev: NonNull<device::Device<T::Driver>>,
@@ -67,6 +67,9 @@ pub struct Object<T: BaseDriverObject> {
     #[pin]
     inner: T,
 }
+
+unsafe impl<T: BaseDriverObject> Sync for Object<T> {}
+unsafe impl<T: BaseDriverObject> Send for Object<T> {}
 
 super::impl_as_opaque!(Object<T> where T: BaseDriverObject);
 
