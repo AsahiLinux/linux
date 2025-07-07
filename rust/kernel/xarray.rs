@@ -7,7 +7,7 @@
 use crate::{
     alloc,
     prelude::*,
-    types::{ForeignOwnable, NotThreadSafe, Opaque},
+    types::{ForeignOwnable, NotThreadSafe, Opaque, ScopeGuard},
 };
 use core::{
     fmt, iter,
@@ -131,6 +131,36 @@ impl<T: ForeignOwnable> XArray<T> {
         .map_while(|ptr| NonNull::new(ptr.cast()))
     }
 
+    /// Looks up and returns a reference to the lowest entry in the array between index and max,
+    /// returning a tuple of its index and a `Guard` if one exists.
+    ///
+    /// This guard blocks all other actions on the `XArray`. Callers are expected to drop the
+    /// `Guard` eagerly to avoid blocking other users, such as by taking a clone of the value.
+    pub fn find(&self, index: usize, max: usize) -> Option<(usize, ValueGuard<'_, T>)> {
+        let mut index: usize = index;
+
+        // SAFETY: `self.xa` is always valid by the type invariant.
+        unsafe { bindings::xa_lock(self.xa.get()) };
+
+        // SAFETY: `self.xa` is always valid by the type invariant.
+        let guard = ScopeGuard::new(|| unsafe { bindings::xa_unlock(self.xa.get()) });
+
+        // SAFETY: `self.xa` is always valid by the type invariant.
+        let p = unsafe { bindings::xa_find(self.xa.get(), &mut index, max, bindings::XA_PRESENT) };
+
+        NonNull::new(p as *mut T).map(|ptr| {
+            guard.dismiss();
+            (
+                index,
+                ValueGuard {
+                    xa: self,
+                    ptr,
+                    _not_send: NotThreadSafe,
+                },
+            )
+        })
+    }
+
     fn with_guard<F, U>(&self, guard: Option<&mut Guard<'_, T>>, f: F) -> U
     where
         F: FnOnce(&mut Guard<'_, T>) -> U,
@@ -179,6 +209,37 @@ pub struct Guard<'a, T: ForeignOwnable> {
 }
 
 impl<T: ForeignOwnable> Drop for Guard<'_, T> {
+    fn drop(&mut self) {
+        // SAFETY:
+        // - `self.xa.xa` is always valid by the type invariant.
+        // - The caller holds the lock, so it is safe to unlock it.
+        unsafe { bindings::xa_unlock(self.xa.xa.get()) };
+    }
+}
+
+/// A lock guard.
+///
+/// The lock is unlocked when the guard goes out of scope.
+#[must_use = "the lock unlocks immediately when the guard is unused"]
+pub struct ValueGuard<'a, T: ForeignOwnable> {
+    xa: &'a XArray<T>,
+    ptr: NonNull<T>,
+    _not_send: NotThreadSafe,
+}
+
+impl<'a, T: ForeignOwnable> ValueGuard<'a, T> {
+    /// Borrow the underlying value wrapped by the `Guard`.
+    ///
+    /// Returns a `T::Borrowed` type for the owned `ForeignOwnable` type.
+    pub fn borrow(&self) -> T::Borrowed<'_> {
+        // SAFETY: The value is owned by the `XArray`, the lifetime it is borrowed for must not
+        // outlive the `XArray` itself, nor the Guard that holds the lock ensuring the value
+        // remains in the `XArray`.
+        unsafe { T::borrow(self.ptr.as_ptr() as _) }
+    }
+}
+
+impl<T: ForeignOwnable> Drop for ValueGuard<'_, T> {
     fn drop(&mut self) {
         // SAFETY:
         // - `self.xa.xa` is always valid by the type invariant.
