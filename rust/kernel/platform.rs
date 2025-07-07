@@ -231,6 +231,20 @@ impl<Ctx: device::DeviceContext> Device<Ctx> {
         // returned by `platform_get_resource`.
         Some(unsafe { Resource::as_ref(resource) })
     }
+
+    /// excute closure while the device is bound
+    pub fn while_bound_with<F, U>(&self, f: F) -> Result<U>
+    where
+        F: FnOnce(&Device<device::Bound>) -> Result<U>,
+    {
+        let _guard = self.as_ref().lock();
+        if unsafe { !bindings::device_is_bound(self.as_ref().as_raw()) } {
+            return Err(ENODEV);
+        }
+        let ptr: *const Self = self;
+        let ptr = ptr.cast::<Device<device::Bound>>();
+        f(unsafe { &*ptr })
+    }
 }
 
 impl Device<device::Bound> {
