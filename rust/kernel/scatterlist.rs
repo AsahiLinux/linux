@@ -218,7 +218,7 @@ impl SGTable {
     /// # Safety
     ///
     /// Callers take responsibility that `self` is already mapped for DMA by a device.
-    pub(crate) unsafe fn iter_raw(&self) -> SGTableIter<'_> {
+    pub fn iter_raw(&self) -> SGTableIter<'_> {
         SGTableIter {
             // SAFETY: dereferenced pointer is valid due to the type invariants on `SGTable`.
             pos: Some(unsafe { SGEntry::as_ref((*self.0.get()).sgl) }),
