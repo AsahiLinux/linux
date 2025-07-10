@@ -197,6 +197,12 @@ impl<T: ForeignOwnable> XArray<T> {
             _not_send: NotThreadSafe,
         }
     }
+
+    /// Removes and returns the element at the given index.
+    pub fn remove(&self, index: usize) -> Option<T> {
+        let mut guard = self.lock();
+        guard.remove(index)
+    }
 }
 
 /// A lock guard.
