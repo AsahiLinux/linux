@@ -16,6 +16,9 @@ use crate::{
 use core::marker::PhantomData;
 use core::num::NonZeroU32;
 
+use crate::error::to_result;
+use crate::io::resource::Resource;
+
 /// IdTable type for OF drivers.
 pub type IdTable<T> = &'static dyn kernel::device_id::IdTable<DeviceId, T>;
 
@@ -210,6 +213,30 @@ impl Node {
                 name.as_char_ptr(),
                 index.try_into().ok()?,
             ))
+        }
+    }
+
+    #[allow(unused_variables)]
+    /// Get a reserved memory region as a resource
+    pub fn reserved_mem_region_to_resource_byname(&self, name: &CStr) -> Result<Resource> {
+        #[cfg(not(CONFIG_OF))]
+        {
+            Err(ENOENT)
+        }
+        #[cfg(CONFIG_OF)]
+        {
+            let res = Resource::zeroed();
+            // SAFETY: This function is safe to call as long as the arguments are valid pointers.
+            let ret = unsafe {
+                bindings::of_reserved_mem_region_to_resource_byname(
+                    self.raw_node,
+                    name.as_char_ptr(),
+                    res.as_raw(),
+                )
+            };
+            to_result(ret)?;
+
+            Ok(res)
         }
     }
 
