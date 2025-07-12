@@ -52,10 +52,16 @@
 #define APPLE_MAGIC_REPORT_ID_POWER		3
 #define APPLE_MAGIC_REPORT_ID_BRIGHTNESS	1
 
+// DO NOT UPSTREAM:
+// temporary Fn key mode until xkeyboard-config has keyboard layouts with media
+// key mappings. At that point auto mode can drop function key mappings and this
+// mode can be dropped.
+#define FKEYS_IGNORE	4
+
 static unsigned int fnmode = 3;
 module_param(fnmode, uint, 0644);
 MODULE_PARM_DESC(fnmode, "Mode of fn key on Apple keyboards (0 = disabled, "
-		"1 = fkeyslast, 2 = fkeysfirst, [3] = auto)");
+		"1 = fkeyslast, 2 = fkeysfirst, [3] = auto, [4] = fkeysignore)");
 
 static int iso_layout = -1;
 module_param(iso_layout, int, 0644);
@@ -276,6 +282,16 @@ static const struct apple_key_translation apple_fn_keys[] = {
 	{ }
 };
 
+static const struct apple_key_translation apple_fn_keys_minimal[] = {
+	{ KEY_BACKSPACE, KEY_DELETE },
+	{ KEY_ENTER,	KEY_INSERT },
+	{ KEY_UP,	KEY_PAGEUP },
+	{ KEY_DOWN,	KEY_PAGEDOWN },
+	{ KEY_LEFT,	KEY_HOME },
+	{ KEY_RIGHT,	KEY_END },
+	{ }
+};
+
 static const struct apple_key_translation powerbook_fn_keys[] = {
 	{ KEY_BACKSPACE, KEY_DELETE },
 	{ KEY_F1,	KEY_BRIGHTNESSDOWN,     APPLE_FLAG_FKEY },
@@ -426,6 +442,8 @@ static int hidinput_apple_event(struct hid_device *hid, struct input_dev *input,
 
 	if (fnmode == 3) {
 		real_fnmode = (asc->quirks & APPLE_IS_NON_APPLE) ? 2 : 1;
+	} else if (fnmode == FKEYS_IGNORE) {
+		real_fnmode = 2;
 	} else {
 		real_fnmode = fnmode;
 	}
@@ -498,6 +516,18 @@ static int hidinput_apple_event(struct hid_device *hid, struct input_dev *input,
 		else if (hid->product >= USB_DEVICE_ID_APPLE_WELLSPRING4_ANSI &&
 				hid->product <= USB_DEVICE_ID_APPLE_WELLSPRING4A_JIS)
 			table = macbookair_fn_keys;
+		else if (hid->bus == BUS_HOST || hid->bus == BUS_SPI)
+			switch (hid->product) {
+			case SPI_DEVICE_ID_APPLE_MACBOOK_PRO13_2020:
+			case HOST_DEVICE_ID_APPLE_MACBOOK_PRO13_2022:
+				table = macbookpro_dedicated_esc_fn_keys;
+				break;
+			default:
+				table = (fnmode == FKEYS_IGNORE) ?
+					apple_fn_keys_minimal :
+					apple2021_fn_keys;
+				break;
+			}
 		else if (hid->product < 0x21d || hid->product >= 0x300)
 			table = powerbook_fn_keys;
 		else
@@ -677,6 +707,7 @@ static void apple_setup_input(struct input_dev *input)
 
 	/* Enable all needed keys */
 	apple_setup_key_translation(input, apple_fn_keys);
+	apple_setup_key_translation(input, apple_fn_keys_minimal);
 	apple_setup_key_translation(input, powerbook_fn_keys);
 	apple_setup_key_translation(input, powerbook_numlock_keys);
 	apple_setup_key_translation(input, apple_iso_keyboard);
@@ -909,6 +940,15 @@ static int apple_probe(struct hid_device *hdev,
 	unsigned long quirks = id->driver_data;
 	struct apple_sc *asc;
 	int ret;
+
+	if ((id->bus == BUS_SPI || id->bus == BUS_HOST) && id->vendor == SPI_VENDOR_ID_APPLE &&
+	    hdev->type != HID_TYPE_SPI_KEYBOARD)
+		return -ENODEV;
+
+	// key remapping will happen in xkeyboard-config so ignore
+	// APPLE_ISO_TILDE_QUIRK
+	if ((id->bus == BUS_SPI || id->bus == BUS_HOST) && fnmode == FKEYS_IGNORE)
+		quirks &= ~APPLE_ISO_TILDE_QUIRK;
 
 	asc = devm_kzalloc(&hdev->dev, sizeof(*asc), GFP_KERNEL);
 	if (asc == NULL) {
@@ -1169,6 +1209,10 @@ static const struct hid_device_id apple_devices[] = {
 		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK | APPLE_RDESC_BATTERY },
 	{ HID_BLUETOOTH_DEVICE(BT_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGIC_KEYBOARD_NUMPAD_2021),
 		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK },
+	{ HID_SPI_DEVICE(SPI_VENDOR_ID_APPLE, HID_ANY_ID),
+		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK }, // TODO: remove APPLE_ISO_TILDE_QUIRK
+	{ HID_DEVICE(BUS_HOST, HID_GROUP_ANY, HOST_VENDOR_ID_APPLE, HID_ANY_ID),
+		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK }, // TODO: remove APPLE_ISO_TILDE_QUIRK
 	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_TOUCHBAR_BACKLIGHT),
 		.driver_data = APPLE_MAGIC_BACKLIGHT },
 
