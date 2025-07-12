@@ -17,4 +17,6 @@ source "drivers/platform/surface/Kconfig"
 
 source "drivers/platform/x86/Kconfig"
 
+source "drivers/platform/apple/Kconfig"
+
 source "drivers/platform/arm64/Kconfig"
