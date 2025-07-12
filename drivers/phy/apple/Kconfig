@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
+config PHY_APPLE_ATC
+	tristate "Apple Type-C PHY"
+	depends on ARCH_APPLE || COMPILE_TEST
+	default ARCH_APPLE
+	select GENERIC_PHY
+	depends on USB_SUPPORT
+	depends on TYPEC
+	help
+	  Enable this to add support for the Apple Type-C PHY, switch
+	  and mux found in Apple SoCs such as the M1.
+	  This driver currently provides support for USB2 and USB3.
+
+config PHY_APPLE_DPTX
+	tristate "Apple DPTX PHY"
+	depends on ARCH_APPLE || COMPILE_TEST
+	default ARCH_APPLE
+	select GENERIC_PHY
+	help
+	  Enable this to add support for the Apple DPTX PHY found on Apple SoCs
+	  such as the M2.
+	  This driver provides support for DisplayPort and is used on the
+	  Mac mini (M2, 2023).
