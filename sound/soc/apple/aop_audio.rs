@@ -10,13 +10,13 @@ use core::{mem, ptr, slice};
 
 use kernel::{
     bindings, c_str, device,
+    device::property::FwNode,
     device::Core,
     error::from_err_ptr,
-    module_platform_driver,
-    of::{self, Node},
-    platform,
+    module_platform_driver, of, platform,
     prelude::*,
     soc::apple::aop::{from_fourcc, EPICService, AOP},
+    str::CString,
     sync::Arc,
     types::{ARef, ForeignOwnable},
 };
@@ -235,7 +235,7 @@ struct SndSocAopData {
     adata: Arc<dyn AOP>,
     service: EPICService,
     pstate_cookie: AtomicU32,
-    of: Node,
+    fwnode: ARef<FwNode>,
 }
 
 impl SndSocAopData {
@@ -243,14 +243,14 @@ impl SndSocAopData {
         dev: ARef<device::Device>,
         adata: Arc<dyn AOP>,
         service: EPICService,
-        of: Node,
+        fwnode: ARef<FwNode>,
     ) -> Result<Arc<SndSocAopData>> {
         Ok(Arc::new(
             SndSocAopData {
                 dev,
                 adata,
                 service,
-                of,
+                fwnode,
                 pstate_cookie: AtomicU32::new(1),
             },
             GFP_KERNEL,
@@ -380,8 +380,8 @@ impl SndSocAopData {
     }
     fn request_dma_channel(&self) -> Result<*mut bindings::dma_chan> {
         let res = unsafe {
-            from_err_ptr(bindings::of_dma_request_slave_channel(
-                self.of.as_raw(),
+            from_err_ptr(bindings::dma_request_chan(
+                self.dev.as_raw(),
                 c_str!("dma").as_ptr() as _,
             ))
         };
@@ -542,13 +542,13 @@ impl SndSocAopDriver {
             return Err(Error::from_errno(ret));
         }
         let chassis = data
-            .of
-            .find_property(c_str!("apple,chassis-name"))
-            .ok_or(EIO)?;
+            .fwnode
+            .property_read::<CString>(c_str!("apple,chassis-name"))
+            .required_by(&data.dev)?;
         let machine_kind = data
-            .of
-            .find_property(c_str!("apple,machine-kind"))
-            .ok_or(EIO)?;
+            .fwnode
+            .property_read::<CString>(c_str!("apple,machine-kind"))
+            .required_by(&data.dev)?;
         unsafe {
             let name = b"aop_audio\0";
             let target = (*this.0).driver.as_mut();
@@ -559,20 +559,20 @@ impl SndSocAopDriver {
             let target = (*this.0).id.as_mut();
             copy_str(target, prefix.as_ref());
             let mut ptr = prefix.len();
-            copy_str(&mut target[ptr..], chassis.value());
-            ptr += chassis.len() - 1;
+            copy_str(&mut target[ptr..], chassis.as_bytes_with_nul());
+            ptr += chassis.len();
             let suffix = b"HPAI\0";
             copy_str(&mut target[ptr..], suffix);
         }
         let longname_suffix = b"High-Power Audio Interface\0";
         let mut machine_name = KVec::with_capacity(
-            chassis.len() + 1 + machine_kind.len() + longname_suffix.len(),
+            chassis.len() + 2 + machine_kind.len() + longname_suffix.len(),
             GFP_KERNEL,
         )?;
-        machine_name.extend_from_slice(machine_kind.value(), GFP_KERNEL)?;
+        machine_name.extend_from_slice(machine_kind.as_bytes_with_nul(), GFP_KERNEL)?;
         let last_item = machine_name.len() - 1;
         machine_name[last_item] = b' ';
-        machine_name.extend_from_slice(chassis.value(), GFP_KERNEL)?;
+        machine_name.extend_from_slice(chassis.as_bytes_with_nul(), GFP_KERNEL)?;
         let last_item = machine_name.len() - 1;
         machine_name[last_item] = b' ';
         unsafe {
@@ -671,17 +671,15 @@ impl platform::Driver for SndSocAopDriver {
         let adata = (&*adata_ptr).clone();
         // SAFETY: AOP sets the platform data correctly
         let svc = unsafe { *((*dev.as_raw()).platform_data as *const EPICService) };
-        let of = parent
-            .of_node()
-            .ok_or(EIO)?
-            .get_child_by_name(c_str!("audio"))
-            .ok_or(EIO)?;
         let audio = *module_parameters::mic_check_123.get() != 0;
-        let fwnode = parent.fwnode().ok_or(ENOENT)?;
-        if !audio && fwnode.property_present(c_str!("apple,no-beamforming")) {
+        let parent_fwnode = parent.fwnode().ok_or(ENOENT)?;
+        if !audio && parent_fwnode.property_present(c_str!("apple,no-beamforming")) {
             return Err(ENODEV);
         }
-        let data = SndSocAopData::new(dev, adata, svc, of)?;
+        let fwnode = parent_fwnode
+            .get_child_by_name(c_str!("audio"))
+            .ok_or(EIO)?;
+        let data = SndSocAopData::new(dev, adata, svc, fwnode)?;
         for dev in [AUDIO_DEV_PDM0, AUDIO_DEV_HPAI, AUDIO_DEV_LPAI] {
             data.audio_attach_device(dev)?;
         }
