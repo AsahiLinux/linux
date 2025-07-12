@@ -51,6 +51,15 @@ config USB_XHCI_PCI_RENESAS
 	  installed on your system for this device to work.
 	  If unsure, say 'N'.
 
+config USB_XHCI_PCI_ASMEDIA
+	tristate "Support for ASMedia xHCI controller with firmware"
+	default USB_XHCI_PCI if ARCH_APPLE
+	depends on USB_XHCI_PCI
+	help
+	  Say 'Y' to enable support for ASMedia xHCI controllers with
+	  host-supplied firmware. These are usually present on Apple devices.
+	  If unsure, say 'N'.
+
 config USB_XHCI_PLATFORM
 	tristate "Generic xHCI driver for a platform device"
 	help
