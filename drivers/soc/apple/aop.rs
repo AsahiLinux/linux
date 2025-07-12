@@ -9,6 +9,7 @@ use core::{arch::asm, mem, ptr, slice};
 
 use kernel::{
     bindings, c_str, device,
+    device::property::FwNode,
     device::Core,
     devres::Devres,
     dma::{dma_bit_mask, CoherentAllocation},
@@ -582,19 +583,27 @@ struct AopServiceRegisterWork {
     name: &'static CStr,
     data: Arc<AopData>,
     service: EPICService,
+    fwnode: Option<ARef<FwNode>>,
     #[pin]
     work: Work<AopServiceRegisterWork>,
 }
+
+unsafe impl Send for AopServiceRegisterWork {}
 
 impl_has_work! {
     impl HasWork<Self, 0> for AopServiceRegisterWork { self.work }
 }
 
 impl AopServiceRegisterWork {
-    fn new(name: &'static CStr, data: Arc<AopData>, service: EPICService) -> Result<Arc<Self>> {
-        Arc::pin_init(
+    fn new(
+        name: &'static CStr,
+        data: Arc<AopData>,
+        service: EPICService,
+        fwnode: Option<ARef<FwNode>>,
+    ) -> Result<Pin<KBox<Self>>> {
+        KBox::pin_init(
             pin_init!(AopServiceRegisterWork {
-                name, data, service,
+                name, data, service, fwnode,
                 work <- new_work!("AopServiceRegisterWork::work"),
             }),
             GFP_KERNEL,
@@ -603,9 +612,9 @@ impl AopServiceRegisterWork {
 }
 
 impl WorkItem for AopServiceRegisterWork {
-    type Pointer = Arc<AopServiceRegisterWork>;
+    type Pointer = Pin<KBox<AopServiceRegisterWork>>;
 
-    fn run(this: Arc<AopServiceRegisterWork>) {
+    fn run(this: Pin<KBox<AopServiceRegisterWork>>) {
         let info = bindings::platform_device_info {
             parent: this.data.dev.as_raw(),
             name: this.name.as_ptr() as *const _,
@@ -615,7 +624,7 @@ impl WorkItem for AopServiceRegisterWork {
             data: &this.service as *const EPICService as *const _,
             size_data: mem::size_of::<EPICService>(),
             dma_mask: 0,
-            fwnode: ptr::null_mut(),
+            fwnode: this.fwnode.as_ref().map(|x| x.as_raw()).unwrap_or_default(),
             properties: ptr::null_mut(),
             of_node_reused: false,
         };
@@ -692,17 +701,19 @@ impl AopData {
             channel,
             endpoint: ep.index,
         };
-        let dev_name = match name {
-            b"aop-audio" => c_str!("snd_soc_apple_aop"),
-            b"las" => c_str!("iio_aop_las"),
-            b"als" => c_str!("iio_aop_als"),
+        let (dev_name, of_child) = match name {
+            b"aop-audio" => (c_str!("snd_soc_apple_aop"), Some(c_str!("audio"))),
+            b"las" => (c_str!("iio_aop_las"), None),
+            b"als" => (c_str!("iio_aop_als"), Some(c_str!("als"))),
             _ => {
                 return Ok(());
             }
         };
+        let fwnode = of_child.and_then(|x| self.dev.fwnode()?.get_child_by_name(x));
         // probe can call back into us, run it with locks dropped.
-        let work = AopServiceRegisterWork::new(dev_name, self, svc)?;
-        workqueue::system().enqueue(work).map_err(|_| ENOMEM)
+        let work = AopServiceRegisterWork::new(dev_name, self, svc, fwnode)?;
+        workqueue::system().enqueue(work);
+        Ok(())
     }
 
     fn process_fakehid_report(&self, ep: &AFKEndpoint, ch: u32, data: &[u8]) -> Result<()> {
