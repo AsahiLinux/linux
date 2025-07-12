@@ -16,8 +16,23 @@
 #include "fwvid.h"
 #include "feature.h"
 #include "common.h"
+#include "pno.h"
+#include "scan_param.h"
+#include "join_param.h"
 
 #define BRCMF_FW_UNSUPPORTED	23
+
+/* MIN branch version supporting join iovar versioning */
+#define MIN_JOINEXT_V1_FW_MAJOR 17u
+/* Branch/es supporting join iovar versioning prior to
+ * MIN_JOINEXT_V1_FW_MAJOR
+ */
+#define MIN_JOINEXT_V1_BR2_FW_MAJOR      16
+#define MIN_JOINEXT_V1_BR2_FW_MINOR      1
+
+#define MIN_JOINEXT_V1_BR1_FW_MAJOR      14
+#define MIN_JOINEXT_V1_BR1_FW_MINOR_2    2
+#define MIN_JOINEXT_V1_BR1_FW_MINOR_4    4
 
 /*
  * expand feature list to array of feature strings.
@@ -44,6 +59,7 @@ static const struct brcmf_feat_fwcap brcmf_fwcap_map[] = {
 	{ BRCMF_FEAT_DOT11H, "802.11h" },
 	{ BRCMF_FEAT_SAE, "sae" },
 	{ BRCMF_FEAT_FWAUTH, "idauth" },
+	{ BRCMF_FEAT_GCMP, "gcmp" }
 };
 
 #ifdef DEBUG
@@ -135,7 +151,7 @@ struct brcmf_feat_wlcfeat {
 
 static const struct brcmf_feat_wlcfeat brcmf_feat_wlcfeat_map[] = {
 	{ 12, 0, BIT(BRCMF_FEAT_PMKID_V2) },
-	{ 13, 0, BIT(BRCMF_FEAT_PMKID_V3) },
+	{ 13, 0, BIT(BRCMF_FEAT_PMKID_V3) }
 };
 
 static void brcmf_feat_wlc_version_overrides(struct brcmf_pub *drv)
@@ -285,9 +301,12 @@ static int brcmf_feat_fwcap_debugfs_read(struct seq_file *seq, void *data)
 	return 0;
 }
 
-void brcmf_feat_attach(struct brcmf_pub *drvr)
+int brcmf_feat_attach(struct brcmf_pub *drvr)
 {
 	struct brcmf_if *ifp = brcmf_get_ifp(drvr, 0);
+	struct brcmf_join_version_le join_ver;
+	struct brcmf_scan_version_le scan_ver;
+	struct brcmf_pno_param_v3_le pno_params;
 	struct brcmf_pno_macaddr_le pfn_mac;
 	struct brcmf_gscan_config gscan_cfg;
 	u32 wowl_cap;
@@ -330,6 +349,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_TDLS, "tdls_enable");
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_MFP, "mfp");
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_DUMP_OBSS, "dump_obss");
+	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_EVENT_MSGS_EXT, "event_msgs_ext");
 
 	pfn_mac.version = BRCMF_PFN_MACADDR_CFG_VER;
 	err = brcmf_fil_iovar_data_get(ifp, "pfn_macaddr", &pfn_mac,
@@ -338,13 +358,71 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 		ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_RANDOM_MAC);
 
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_FWSUP, "sup_wpa");
-	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_SCAN_V2, "scan_ver");
+
+	err = brcmf_fil_iovar_data_get(ifp, "join_ver", &join_ver, sizeof(join_ver));
+	if (!err) {
+		u16 ver = le16_to_cpu(join_ver.join_ver_major);
+		err = brcmf_join_param_setup_for_version(drvr, ver);
+	} else {
+		/* Default to version 0, unless it is one of the firmware branches
+		 * that doesn't have a join_ver iovar but are still version 1 */
+		u8 version = 0;
+		struct brcmf_wlc_version_le ver;
+		err = brcmf_fil_iovar_data_get(ifp, "wlc_ver", &ver,
+					       sizeof(ver));
+		if (!err) {
+			u16 major = le16_to_cpu(ver.wlc_ver_major);
+			u16 minor = le16_to_cpu(ver.wlc_ver_minor);
+			if (((major == MIN_JOINEXT_V1_BR1_FW_MAJOR) &&
+			     ((minor == MIN_JOINEXT_V1_BR1_FW_MINOR_2) ||
+			      (minor == MIN_JOINEXT_V1_BR1_FW_MINOR_4))) ||
+			    ((major == MIN_JOINEXT_V1_BR2_FW_MAJOR) &&
+			     (minor >= MIN_JOINEXT_V1_BR2_FW_MINOR)) ||
+			    (major >= MIN_JOINEXT_V1_FW_MAJOR)) {
+				version = 1;
+			}
+		}
+		err = brcmf_join_param_setup_for_version(drvr, version);
+	}
+	if (err) {
+		bphy_err(drvr, "Error setting up join structure handler: %d\n",
+			 err);
+		return err;
+	}
+	err = brcmf_fil_iovar_data_get(ifp, "scan_ver", &scan_ver,
+				       sizeof(scan_ver));
+	if (!err) {
+		u16 ver = le16_to_cpu(scan_ver.scan_ver_major);
+		err = brcmf_scan_param_setup_for_version(drvr, ver);
+	} else {
+		/* Default to version 1. */
+		err = brcmf_scan_param_setup_for_version(drvr, 1);
+	}
+	if (err) {
+		bphy_err(drvr, "Error setting up scan structure handler: %d\n",
+			 err);
+		return err;
+	}
+	/* See what version of PFN scan is supported*/
+	err = brcmf_fil_iovar_data_get(ifp, "pno_set", &pno_params,
+				       sizeof(pno_params));
+	if (!err) {
+		err = brcmf_pno_setup_for_version(
+			drvr, le16_to_cpu(pno_params.version));
+	} else {
+		/* Default to version 2, supported by all chips we support. */
+		err = brcmf_pno_setup_for_version(drvr, 2);
+	}
+	if (err) {
+		bphy_err(drvr, "Error setting up escan structure handler: %d\n",
+			 err);
+		return err;
+	}
 
 	brcmf_feat_wlc_version_overrides(drvr);
 	brcmf_feat_firmware_overrides(drvr);
 
 	brcmf_fwvid_feat_attach(ifp);
-
 	if (drvr->settings->feature_disable) {
 		brcmf_dbg(INFO, "Features: 0x%02x, disable: 0x%02x\n",
 			  ifp->drvr->feat_flags,
@@ -364,6 +442,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 		/* no quirks */
 		break;
 	}
+	return 0;
 }
 
 void brcmf_feat_debugfs_create(struct brcmf_pub *drvr)

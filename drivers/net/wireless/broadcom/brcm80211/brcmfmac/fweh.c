@@ -11,8 +11,10 @@
 #include "core.h"
 #include "debug.h"
 #include "tracepoint.h"
+#include "feature.h"
 #include "fweh.h"
 #include "fwil.h"
+#include "fwil_types.h"
 #include "proto.h"
 #include "bus.h"
 #include "fwvid.h"
@@ -424,35 +426,110 @@ void brcmf_fweh_unregister(struct brcmf_pub *drvr,
 }
 
 /**
+ * brcmf_fweh_init_events() - initialize event handling.
+ *
+ * @ifp: primary interface object.
+ */
+int brcmf_fweh_init_events(struct brcmf_if *ifp)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_eventmsgs_ext_le *eventmsgs;
+	size_t size = sizeof(*eventmsgs) + drvr->fweh->event_mask_len;
+	int err;
+
+	eventmsgs = kzalloc(size, GFP_KERNEL);
+	if(!eventmsgs)
+		return -ENOMEM;
+
+	eventmsgs->version = EVENTMSGS_VER;
+	eventmsgs->command = EVENTMSGS_NONE;
+	eventmsgs->len = drvr->fweh->event_mask_len;
+	eventmsgs->maxgetsize = drvr->fweh->event_mask_len;
+
+	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_EVENT_MSGS_EXT))
+		err = brcmf_fil_iovar_data_get(ifp, "event_msgs_ext",
+					       eventmsgs, size);
+	else
+		err = brcmf_fil_iovar_data_get(ifp, "event_msgs",
+					       drvr->fweh->event_mask,
+					       drvr->fweh->event_mask_len);
+
+	if (err) {
+		bphy_err(drvr, "Get event_msgs error (%d)\n", err);
+		kfree(eventmsgs);
+		return err;
+	}
+
+	brcmf_dbg(EVENT, "Event mask len: driver=%d fw=%d\n",
+		  drvr->fweh->event_mask_len, eventmsgs->len);
+
+	/* want to handle IF event as well */
+	brcmf_dbg(EVENT, "enable event IF\n");
+	setbit(eventmsgs->mask, BRCMF_E_IF);
+
+	eventmsgs->version = EVENTMSGS_VER;
+	eventmsgs->command = EVENTMSGS_SET_MASK;
+	eventmsgs->len = drvr->fweh->event_mask_len;
+
+	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_EVENT_MSGS_EXT))
+		err = brcmf_fil_iovar_data_set(ifp, "event_msgs_ext",
+					       eventmsgs, size);
+	else
+		err = brcmf_fil_iovar_data_set(ifp, "event_msgs",
+					       drvr->fweh->event_mask,
+					       drvr->fweh->event_mask_len);
+
+	if (err)
+		bphy_err(drvr, "Set event_msgs error (%d)\n", err);
+
+	kfree(eventmsgs);
+	return err;
+}
+
+/**
  * brcmf_fweh_activate_events() - enables firmware events registered.
  *
  * @ifp: primary interface object.
  */
 int brcmf_fweh_activate_events(struct brcmf_if *ifp)
 {
-	struct brcmf_fweh_info *fweh = ifp->drvr->fweh;
-	enum brcmf_fweh_event_code code;
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_eventmsgs_ext_le *eventmsgs;
+	size_t size = sizeof(*eventmsgs) + drvr->fweh->event_mask_len;
 	int i, err;
 
-	memset(fweh->event_mask, 0, fweh->event_mask_len);
-	for (i = 0; i < fweh->num_event_codes; i++) {
-		if (fweh->evt_handler[i]) {
-			brcmf_fweh_map_fwevt_code(fweh, i, &code);
+	eventmsgs = kzalloc(size, GFP_KERNEL);
+	if(!eventmsgs)
+		return -ENOMEM;
+
+	for (i = 0; i < drvr->fweh->num_event_codes; i++) {
+		if (drvr->fweh->evt_handler[i]) {
 			brcmf_dbg(EVENT, "enable event %s\n",
-				  brcmf_fweh_event_name(code));
-			setbit(fweh->event_mask, i);
+				  brcmf_fweh_event_name(i));
+			setbit(eventmsgs->mask, i);
 		}
 	}
 
 	/* want to handle IF event as well */
 	brcmf_dbg(EVENT, "enable event IF\n");
-	setbit(fweh->event_mask, BRCMF_E_IF);
+	setbit(eventmsgs->mask, BRCMF_E_IF);
 
-	err = brcmf_fil_iovar_data_set(ifp, "event_msgs", fweh->event_mask,
-				       fweh->event_mask_len);
+	eventmsgs->version = EVENTMSGS_VER;
+	eventmsgs->command = EVENTMSGS_SET_MASK;
+	eventmsgs->len = drvr->fweh->event_mask_len;
+
+	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_EVENT_MSGS_EXT))
+		err = brcmf_fil_iovar_data_set(ifp, "event_msgs_ext",
+					       eventmsgs, size);
+	else
+		err = brcmf_fil_iovar_data_set(ifp, "event_msgs",
+					       drvr->fweh->event_mask,
+					       drvr->fweh->event_mask_len);
+
 	if (err)
-		bphy_err(fweh->drvr, "Set event_msgs error (%d)\n", err);
+		bphy_err(drvr, "Set event_msgs error (%d)\n", err);
 
+	kfree(eventmsgs);
 	return err;
 }
 

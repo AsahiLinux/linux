@@ -302,6 +302,14 @@ struct chipcregs {
 #define PMU_RCTL_LOGIC_DISABLE_MASK         (1 << 27)
 
 
+/* watchdog */
+#define CC_WD_SSRESET_PCIE_F0_EN	0x10000000
+#define CC_WD_SSRESET_PCIE_F1_EN	0x20000000
+#define CC_WD_SSRESET_PCIE_F2_EN	0x40000000
+#define CC_WD_SSRESET_PCIE_ALL_FN_EN	0x80000000
+#define CC_WD_COUNTER_MASK		0x0fffffff
+#define CC_WD_ENABLE_MASK		0xf0000000
+
 /*
 * Maximum delay for the PMU state transition in us.
 * This is an upper bound intended for spinwaits etc.
