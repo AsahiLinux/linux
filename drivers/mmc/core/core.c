@@ -2277,10 +2277,11 @@ void mmc_rescan(struct work_struct *work)
 	 * while initializing the legacy SD interface. Therefore, let's start
 	 * with UHS-II for now.
 	 */
-	if (!mmc_attach_sd_uhs2(host)) {
-		mmc_release_host(host);
-		goto out;
-	}
+	if (host->caps2 & MMC_CAP2_SD_UHS2)
+		if (!mmc_attach_sd_uhs2(host)) {
+			mmc_release_host(host);
+			goto out;
+		}
 
 	for (i = 0; i < ARRAY_SIZE(freqs); i++) {
 		unsigned int freq = freqs[i];

@@ -1030,6 +1030,12 @@ static int simpledrm_probe(struct platform_device *pdev)
 	struct drm_device *dev;
 	int ret;
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret)
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret, "Failed to set dma mask\n");
+
 	sdev = simpledrm_device_create(&simpledrm_driver, pdev);
 	if (IS_ERR(sdev))
 		return PTR_ERR(sdev);

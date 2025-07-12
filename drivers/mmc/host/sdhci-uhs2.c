@@ -1162,7 +1162,8 @@ static void __sdhci_uhs2_add_host_v4(struct sdhci_host *host, u32 caps1)
 	mmc = host->mmc;
 
 	/* Support UHS2 */
-	if (caps1 & SDHCI_SUPPORT_UHS2)
+	if ((caps1 & SDHCI_SUPPORT_UHS2) &&
+		!(host->quirks2 & SDHCI_QUIRK2_BROKEN_UHS2))
 		mmc->caps2 |= MMC_CAP2_SD_UHS2;
 
 	max_current_caps2 = sdhci_readl(host, SDHCI_MAX_CURRENT_1);

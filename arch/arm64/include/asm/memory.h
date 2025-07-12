@@ -112,7 +112,7 @@
 
 #define DIRECT_MAP_PHYSMEM_END	__pa(PAGE_END - 1)
 
-#define MIN_THREAD_SHIFT	(14 + KASAN_THREAD_SHIFT)
+#define MIN_THREAD_SHIFT	(15 + KASAN_THREAD_SHIFT)
 
 /*
  * VMAP'd stacks are allocated at page granularity, so we must ensure that such

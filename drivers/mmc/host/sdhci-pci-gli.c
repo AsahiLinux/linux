@@ -1966,7 +1966,8 @@ static const struct sdhci_ops sdhci_gl9755_ops = {
 
 const struct sdhci_pci_fixes sdhci_gl9755 = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
-	.quirks2	= SDHCI_QUIRK2_BROKEN_DDR50,
+	// disable non-working UHS-II mode on apple silicon devices
+	.quirks2	= SDHCI_QUIRK2_BROKEN_DDR50 | SDHCI_QUIRK2_BROKEN_UHS2,
 	.probe_slot	= gli_probe_slot_gl9755,
 	.add_host	= sdhci_pci_uhs2_add_host,
 	.remove_host	= sdhci_pci_uhs2_remove_host,

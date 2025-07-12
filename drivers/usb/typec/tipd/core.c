@@ -171,11 +171,15 @@ tps6598x_block_read(struct tps6598x *tps, u8 reg, void *val, size_t len)
 		return regmap_raw_read(tps->regmap, reg, val, len);
 
 	ret = regmap_raw_read(tps->regmap, reg, data, len + 1);
-	if (ret)
+	if (ret) {
+		dev_err(tps->dev, "regmap_raw_read returned %d\n", ret);
 		return ret;
+	}
 
-	if (data[0] < len)
+	if (data[0] < len) {
+		dev_err(tps->dev, "expected %zu bytes, got %d\n", len, data[0]);
 		return -EIO;
+	}
 
 	memcpy(val, &data[1], len);
 	return 0;
@@ -470,7 +474,7 @@ static bool tps6598x_read_status(struct tps6598x *tps, u32 *status)
 
 	ret = tps6598x_read32(tps, TPS_REG_STATUS, status);
 	if (ret) {
-		dev_err(tps->dev, "%s: failed to read status\n", __func__);
+		dev_err(tps->dev, "%s: failed to read status: %d\n", __func__, ret);
 		return false;
 	}
 

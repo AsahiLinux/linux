@@ -89,6 +89,8 @@ static bool __of_node_is_type(const struct device_node *np, const char *type)
 
 #define EXCLUDED_DEFAULT_CELLS_PLATFORMS ( \
 	IS_ENABLED(CONFIG_SPARC) || \
+	of_find_compatible_node(NULL, NULL, "apple,dcp") || \
+	of_find_compatible_node(NULL, NULL, "apple,dcpext") || \
 	of_find_compatible_node(NULL, NULL, "coreboot") \
 )
 
