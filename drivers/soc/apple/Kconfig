@@ -74,6 +74,11 @@ config APPLE_SART
 
 	  Say 'y' here if you have an Apple SoC.
 
+config RUST_APPLE_RTKIT
+	bool
+	depends on RUST
+	depends on APPLE_RTKIT
+
 endmenu
 
 endif

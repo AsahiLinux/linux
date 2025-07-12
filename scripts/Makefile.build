@@ -222,6 +222,15 @@ $(obj)/%.lst: $(obj)/%.c FORCE
 # Compile Rust sources (.rs)
 # ---------------------------------------------------------------------------
 
+# The features in this list are the ones allowed for non-`rust/` code.
+#
+#   - Stable since Rust 1.81.0: `feature(lint_reasons)`.
+#   - Stable since Rust 1.82.0: `feature(asm_const)`, `feature(raw_ref_op)`.
+#   - Stable since Rust 1.87.0: `feature(asm_goto)`.
+#   - Expected to become stable: `feature(arbitrary_self_types)`.
+#
+# Please see https://github.com/Rust-for-Linux/linux/issues/2 for details on
+# the unstable features in use.
 rust_allowed_features := asm_const,asm_goto,arbitrary_self_types,lint_reasons,raw_ref_op
 
 # `--out-dir` is required to avoid temporaries being created by `rustc` in the
@@ -248,7 +257,7 @@ rust_common_cmd = \
 # would not match each other.
 
 quiet_cmd_rustc_o_rs = $(RUSTC_OR_CLIPPY_QUIET) $(quiet_modtag) $@
-      cmd_rustc_o_rs = $(rust_common_cmd) --emit=obj=$@ $< $(cmd_objtool)
+      cmd_rustc_o_rs = $(rust_common_cmd) --emit=obj=$@ $(abspath $<) $(cmd_objtool)
 
 define rule_rustc_o_rs
 	$(call cmd_and_fixdep,rustc_o_rs)
@@ -260,20 +269,20 @@ $(obj)/%.o: $(obj)/%.rs FORCE
 
 quiet_cmd_rustc_rsi_rs = $(RUSTC_OR_CLIPPY_QUIET) $(quiet_modtag) $@
       cmd_rustc_rsi_rs = \
-	$(rust_common_cmd) -Zunpretty=expanded $< >$@; \
+	$(rust_common_cmd) -Zunpretty=expanded $(abspath $<) >$@; \
 	command -v $(RUSTFMT) >/dev/null && $(RUSTFMT) $@
 
 $(obj)/%.rsi: $(obj)/%.rs FORCE
 	+$(call if_changed_dep,rustc_rsi_rs)
 
 quiet_cmd_rustc_s_rs = $(RUSTC_OR_CLIPPY_QUIET) $(quiet_modtag) $@
-      cmd_rustc_s_rs = $(rust_common_cmd) --emit=asm=$@ $<
+      cmd_rustc_s_rs = $(rust_common_cmd) --emit=asm=$@ $(abspath $<)
 
 $(obj)/%.s: $(obj)/%.rs FORCE
 	+$(call if_changed_dep,rustc_s_rs)
 
 quiet_cmd_rustc_ll_rs = $(RUSTC_OR_CLIPPY_QUIET) $(quiet_modtag) $@
-      cmd_rustc_ll_rs = $(rust_common_cmd) --emit=llvm-ir=$@ $<
+      cmd_rustc_ll_rs = $(rust_common_cmd) --emit=llvm-ir=$@ $(abspath $<)
 
 $(obj)/%.ll: $(obj)/%.rs FORCE
 	+$(call if_changed_dep,rustc_ll_rs)

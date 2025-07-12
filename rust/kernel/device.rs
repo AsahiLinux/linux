@@ -6,13 +6,17 @@
 
 use crate::{
     bindings,
+    error::{code::*, Error, Result},
+    of,
     str::CStr,
-    types::{ARef, Opaque},
+    types::{ARef, NotThreadSafe, Opaque},
 };
-use core::{fmt, ptr};
+use core::{fmt, marker::PhantomData, ptr};
 
 #[cfg(CONFIG_PRINTK)]
 use crate::c_str;
+
+pub mod property;
 
 /// A reference-counted device.
 ///
@@ -42,7 +46,7 @@ use crate::c_str;
 /// `bindings::device::release` is valid to be called from any thread, hence `ARef<Device>` can be
 /// dropped from any thread.
 #[repr(transparent)]
-pub struct Device(Opaque<bindings::device>);
+pub struct Device<Ctx: DeviceContext = Normal>(Opaque<bindings::device>, PhantomData<Ctx>);
 
 impl Device {
     /// Creates a new reference-counted abstraction instance of an existing `struct device` pointer.
@@ -59,10 +63,31 @@ impl Device {
         // SAFETY: By the safety requirements ptr is valid
         unsafe { Self::as_ref(ptr) }.into()
     }
+}
 
+impl<Ctx: DeviceContext> Device<Ctx> {
     /// Obtain the raw `struct device *`.
     pub(crate) fn as_raw(&self) -> *mut bindings::device {
         self.0.get()
+    }
+
+    /// Returns a reference to the parent device, if any.
+    #[cfg_attr(not(CONFIG_AUXILIARY_BUS), expect(dead_code))]
+    pub(crate) fn parent(&self) -> Option<&Self> {
+        // SAFETY:
+        // - By the type invariant `self.as_raw()` is always valid.
+        // - The parent device is only ever set at device creation.
+        let parent = unsafe { (*self.as_raw()).parent };
+
+        if parent.is_null() {
+            None
+        } else {
+            // SAFETY:
+            // - Since `parent` is not NULL, it must be a valid pointer to a `struct device`.
+            // - `parent` is valid for the lifetime of `self`, since a `struct device` holds a
+            //   reference count of its parent.
+            Some(unsafe { Self::as_ref(parent) })
+        }
     }
 
     /// Convert a raw C `struct device` pointer to a `&'a Device`.
@@ -76,6 +101,13 @@ impl Device {
     pub unsafe fn as_ref<'a>(ptr: *mut bindings::device) -> &'a Self {
         // SAFETY: Guaranteed by the safety requirements of the function.
         unsafe { &*ptr.cast() }
+    }
+
+    /// Gets the OpenFirmware node attached to this device
+    pub fn of_node(&self) -> Option<of::Node> {
+        let ptr = self.0.get();
+        // SAFETY: This is safe as long as of_node is NULL or valid.
+        unsafe { of::Node::get_from_raw((*ptr).of_node) }
     }
 
     /// Prints an emergency-level message (level 0) prefixed with device information.
@@ -182,12 +214,114 @@ impl Device {
         };
     }
 
+    /// Inform the kernel about the device's DMA addressing capabilities.
+    ///
+    /// Set both the DMA mask and the coherent DMA mask to the same value.
+    ///
+    /// Note that we don't check the return value from the C `dma_set_coherent_mask` as the DMA API
+    /// guarantees that the coherent DMA mask can be set to the same or smaller than the streaming
+    /// DMA mask.
+    #[allow(dead_code)]
+    pub fn dma_set_mask_and_coherent(&self, mask: u64) -> Result {
+        // SAFETY: By the type invariant of `device::Device`, `self.as_raw()` is valid.
+        let ret = unsafe { bindings::dma_set_mask_and_coherent(self.as_raw(), mask) };
+        if ret != 0 {
+            Err(Error::from_errno(ret))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Same as [`Self::dma_set_mask_and_coherent`], but set the mask only for streaming mappings.
+    #[allow(dead_code)]
+    pub fn dma_set_mask(&self, mask: u64) -> Result {
+        // SAFETY: By the type invariant of `device::Device`, `self.as_raw()` is valid.
+        let ret = unsafe { bindings::dma_set_mask(self.as_raw(), mask) };
+        if ret != 0 {
+            Err(Error::from_errno(ret))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Obtain the [`FwNode`](property::FwNode) corresponding to the device.
+    pub fn fwnode(&self) -> Option<&property::FwNode> {
+        // SAFETY: `self` is valid.
+        let fwnode_handle = unsafe { bindings::__dev_fwnode(self.as_raw()) };
+        if fwnode_handle.is_null() {
+            return None;
+        }
+        // SAFETY: `fwnode_handle` is valid. Its lifetime is tied to `&self`. We
+        // return a reference instead of an `ARef<FwNode>` because `dev_fwnode()`
+        // doesn't increment the refcount. It is safe to cast from a
+        // `struct fwnode_handle*` to a `*const FwNode` because `FwNode` is
+        // defined as a `#[repr(transparent)]` wrapper around `fwnode_handle`.
+        Some(unsafe { &*fwnode_handle.cast() })
+    }
+
     /// Checks if property is present or not.
     pub fn property_present(&self, name: &CStr) -> bool {
         // SAFETY: By the invariant of `CStr`, `name` is null-terminated.
         unsafe { bindings::device_property_present(self.as_raw().cast_const(), name.as_char_ptr()) }
     }
+
+    /// Locks the [`Device`] for exclusive access.
+    pub fn lock(&self) -> Guard<'_, Ctx> {
+        // SAFETY: `self` is always valid by the type invariant.
+        unsafe { bindings::device_lock(self.as_raw()) };
+
+        Guard {
+            dev: self,
+            _not_send: NotThreadSafe,
+        }
+    }
+
+    /// ensure Device is bound
+    pub fn is_bound(&self) -> Option<Guard<'_, Ctx>> {
+        let guard = self.lock();
+        if !unsafe { bindings::device_is_bound(self.as_raw()) } {
+            return None;
+        }
+        Some(guard)
+    }
+
+    /// excute closure while the device is bound
+    pub fn while_bound_with<F, U>(&self, f: F) -> Result<U>
+    where
+        F: FnOnce(&Device<Bound>) -> Result<U>,
+    {
+        let _guard = self.lock();
+        if unsafe { !bindings::device_is_bound(self.as_raw()) } {
+            return Err(ENODEV);
+        }
+        let ptr: *const Self = self;
+        let ptr = ptr.cast::<Device<Bound>>();
+        f(unsafe {&*ptr})
+    }
 }
+
+/// A lock guard.
+///
+/// The lock is unlocked when the guard goes out of scope.
+#[must_use = "the lock unlocks immediately when the guard is unused"]
+pub struct Guard<'a, Ctx: DeviceContext = Normal> {
+    dev: &'a Device<Ctx>,
+    _not_send: NotThreadSafe,
+}
+
+impl<Ctx: DeviceContext> Drop for Guard<'_, Ctx> {
+    fn drop(&mut self) {
+        // SAFETY:
+        // - `self.xa.xa` is always valid by the type invariant.
+        // - The caller holds the lock, so it is safe to unlock it.
+        unsafe { bindings::device_unlock(self.dev.as_raw()) };
+    }
+}
+
+// SAFETY: `Device` is a transparent wrapper of a type that doesn't depend on `Device`'s generic
+// argument.
+kernel::impl_device_context_deref!(unsafe { Device });
+kernel::impl_device_context_into_aref!(Device);
 
 // SAFETY: Instances of `Device` are always reference-counted.
 unsafe impl crate::types::AlwaysRefCounted for Device {
@@ -225,22 +359,101 @@ pub struct Normal;
 /// any of the bus callbacks, such as `probe()`.
 pub struct Core;
 
+/// The [`Bound`] context is the context of a bus specific device reference when it is guaranteed to
+/// be bound for the duration of its lifetime.
+pub struct Bound;
+
 mod private {
     pub trait Sealed {}
 
+    impl Sealed for super::Bound {}
     impl Sealed for super::Core {}
     impl Sealed for super::Normal {}
 }
 
+impl DeviceContext for Bound {}
 impl DeviceContext for Core {}
 impl DeviceContext for Normal {}
+
+/// # Safety
+///
+/// The type given as `$device` must be a transparent wrapper of a type that doesn't depend on the
+/// generic argument of `$device`.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __impl_device_context_deref {
+    (unsafe { $device:ident, $src:ty => $dst:ty }) => {
+        impl ::core::ops::Deref for $device<$src> {
+            type Target = $device<$dst>;
+
+            fn deref(&self) -> &Self::Target {
+                let ptr: *const Self = self;
+
+                // CAST: `$device<$src>` and `$device<$dst>` transparently wrap the same type by the
+                // safety requirement of the macro.
+                let ptr = ptr.cast::<Self::Target>();
+
+                // SAFETY: `ptr` was derived from `&self`.
+                unsafe { &*ptr }
+            }
+        }
+    };
+}
+
+/// Implement [`core::ops::Deref`] traits for allowed [`DeviceContext`] conversions of a (bus
+/// specific) device.
+///
+/// # Safety
+///
+/// The type given as `$device` must be a transparent wrapper of a type that doesn't depend on the
+/// generic argument of `$device`.
+#[macro_export]
+macro_rules! impl_device_context_deref {
+    (unsafe { $device:ident }) => {
+        // SAFETY: This macro has the exact same safety requirement as
+        // `__impl_device_context_deref!`.
+        ::kernel::__impl_device_context_deref!(unsafe {
+            $device,
+            $crate::device::Core => $crate::device::Bound
+        });
+
+        // SAFETY: This macro has the exact same safety requirement as
+        // `__impl_device_context_deref!`.
+        ::kernel::__impl_device_context_deref!(unsafe {
+            $device,
+            $crate::device::Bound => $crate::device::Normal
+        });
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __impl_device_context_into_aref {
+    ($src:ty, $device:tt) => {
+        impl ::core::convert::From<&$device<$src>> for $crate::types::ARef<$device> {
+            fn from(dev: &$device<$src>) -> Self {
+                (&**dev).into()
+            }
+        }
+    };
+}
+
+/// Implement [`core::convert::From`], such that all `&Device<Ctx>` can be converted to an
+/// `ARef<Device>`.
+#[macro_export]
+macro_rules! impl_device_context_into_aref {
+    ($device:tt) => {
+        ::kernel::__impl_device_context_into_aref!($crate::device::Core, $device);
+        ::kernel::__impl_device_context_into_aref!($crate::device::Bound, $device);
+    };
+}
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! dev_printk {
     ($method:ident, $dev:expr, $($f:tt)*) => {
         {
-            ($dev).$method(core::format_args!($($f)*));
+            ($dev).$method(::core::format_args!($($f)*));
         }
     }
 }
@@ -252,9 +465,10 @@ macro_rules! dev_printk {
 /// Equivalent to the kernel's `dev_emerg` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -277,9 +491,10 @@ macro_rules! dev_emerg {
 /// Equivalent to the kernel's `dev_alert` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -302,9 +517,10 @@ macro_rules! dev_alert {
 /// Equivalent to the kernel's `dev_crit` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -327,9 +543,10 @@ macro_rules! dev_crit {
 /// Equivalent to the kernel's `dev_err` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -352,9 +569,10 @@ macro_rules! dev_err {
 /// Equivalent to the kernel's `dev_warn` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -377,9 +595,10 @@ macro_rules! dev_warn {
 /// Equivalent to the kernel's `dev_notice` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -402,9 +621,10 @@ macro_rules! dev_notice {
 /// Equivalent to the kernel's `dev_info` macro.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///
@@ -427,9 +647,10 @@ macro_rules! dev_info {
 /// Equivalent to the kernel's `dev_dbg` macro, except that it doesn't support dynamic debug yet.
 ///
 /// Mimics the interface of [`std::print!`]. More information about the syntax is available from
-/// [`core::fmt`] and `alloc::format!`.
+/// [`core::fmt`] and [`std::format!`].
 ///
 /// [`std::print!`]: https://doc.rust-lang.org/std/macro.print.html
+/// [`std::format!`]: https://doc.rust-lang.org/std/macro.format.html
 ///
 /// # Examples
 ///

@@ -3,12 +3,15 @@
 //! Kernel page allocation and management.
 
 use crate::{
+    addr::*,
     alloc::{AllocError, Flags},
     bindings,
     error::code::*,
     error::Result,
+    types::{Opaque, Ownable, Owned},
     uaccess::UserSliceReader,
 };
+use core::mem::ManuallyDrop;
 use core::ptr::{self, NonNull};
 
 /// A bitwise shift for the page size.
@@ -30,13 +33,10 @@ pub const fn page_align(addr: usize) -> usize {
     (addr + (PAGE_SIZE - 1)) & PAGE_MASK
 }
 
-/// A pointer to a page that owns the page allocation.
-///
-/// # Invariants
-///
-/// The pointer is valid, and has ownership over the page.
+/// A struct page.
+#[repr(transparent)]
 pub struct Page {
-    page: NonNull<bindings::page>,
+    page: Opaque<bindings::page>,
 }
 
 // SAFETY: Pages have no logic that relies on them staying on a given thread, so moving them across
@@ -69,19 +69,21 @@ impl Page {
     /// let page = Page::alloc_page(GFP_KERNEL | __GFP_ZERO)?;
     /// # Ok::<(), kernel::alloc::AllocError>(())
     /// ```
-    pub fn alloc_page(flags: Flags) -> Result<Self, AllocError> {
+    #[inline]
+    pub fn alloc_page(flags: Flags) -> Result<Owned<Self>, AllocError> {
         // SAFETY: Depending on the value of `gfp_flags`, this call may sleep. Other than that, it
         // is always safe to call this method.
         let page = unsafe { bindings::alloc_pages(flags.as_raw(), 0) };
         let page = NonNull::new(page).ok_or(AllocError)?;
-        // INVARIANT: We just successfully allocated a page, so we now have ownership of the newly
-        // allocated page. We transfer that ownership to the new `Page` object.
-        Ok(Self { page })
+        // SAFETY: We just successfully allocated a page, so we now have ownership of the newly
+        // allocated page. We transfer that ownership to the new `Owned<Page>` object.
+        // Since `Page` is transparent, we can cast the pointer directly.
+        Ok(unsafe { Owned::from_raw(page.cast()) })
     }
 
     /// Returns a raw pointer to the page.
     pub fn as_ptr(&self) -> *mut bindings::page {
-        self.page.as_ptr()
+        Opaque::raw_get(&self.page)
     }
 
     /// Runs a piece of code with this page mapped to an address.
@@ -100,7 +102,7 @@ impl Page {
     /// different addresses. However, even if the addresses are different, the underlying memory is
     /// still the same for these purposes (e.g., it's still a data race if they both write to the
     /// same underlying byte at the same time).
-    fn with_page_mapped<T>(&self, f: impl FnOnce(*mut u8) -> T) -> T {
+    pub fn with_page_mapped<T>(&self, f: impl FnOnce(*mut u8) -> T) -> T {
         // SAFETY: `page` is valid due to the type invariants on `Page`.
         let mapped_addr = unsafe { bindings::kmap_local_page(self.as_ptr()) };
 
@@ -141,7 +143,7 @@ impl Page {
     /// different addresses. However, even if the addresses are different, the underlying memory is
     /// still the same for these purposes (e.g., it's still a data race if they both write to the
     /// same underlying byte at the same time).
-    fn with_pointer_into_page<T>(
+    pub fn with_pointer_into_page<T>(
         &self,
         off: usize,
         len: usize,
@@ -248,11 +250,77 @@ impl Page {
             reader.read_raw(unsafe { core::slice::from_raw_parts_mut(dst.cast(), len) })
         })
     }
+
+    /// Returns the physical address of this page.
+    pub fn phys(&self) -> PhysicalAddr {
+        // SAFETY: `page` is valid due to the type invariants on `Page`.
+        unsafe { bindings::page_to_phys(self.as_ptr()) }
+    }
+
+    /// Converts a Rust-owned Page into its physical address.
+    /// The caller is responsible for calling `from_phys()` to avoid
+    /// leaking memory.
+    pub fn into_phys(this: Owned<Self>) -> PhysicalAddr {
+        ManuallyDrop::new(this).phys()
+    }
+
+    /// Converts a physical address to a Rust-owned Page.
+    ///
+    /// SAFETY:
+    /// The caller must ensure that the physical address was previously returned
+    /// by a call to `Page::into_phys()`, and that the physical address is no
+    /// longer used after this call, nor is `from_phys()` called again on it.
+    pub unsafe fn from_phys(phys: PhysicalAddr) -> Owned<Self> {
+        // SAFETY: By the safety requirements, the physical address must be valid and
+        // have come from `into_phys()`, so phys_to_page() cannot fail and
+        // must return the original struct page pointer.
+        unsafe { Owned::from_raw(NonNull::new_unchecked(bindings::phys_to_page(phys)).cast()) }
+    }
+
+    /// Borrows a Page from a physical address, without taking over ownership.
+    ///
+    /// If the physical address does not have a `struct page` entry or is not
+    /// part of the System RAM region, returns None.
+    ///
+    /// SAFETY:
+    /// The caller must ensure that the physical address, if it is backed by a
+    /// `struct page`, remains available for the duration of the borrowed
+    /// lifetime.
+    pub unsafe fn borrow_phys(phys: &PhysicalAddr) -> Option<&Self> {
+        // SAFETY: This is always safe, as it is just arithmetic
+        let pfn = unsafe { bindings::phys_to_pfn(*phys) };
+        // SAFETY: This function is safe to call with any pfn
+        if !unsafe { bindings::pfn_valid(pfn) && bindings::page_is_ram(pfn) != 0 } {
+            None
+        } else {
+            // SAFETY: We have just checked that the pfn is valid above, so it must
+            // have a corresponding struct page. By the safety requirements, we can
+            // return a borrowed reference to it.
+            Some(unsafe { &*(bindings::pfn_to_page(pfn) as *mut Self as *const Self) })
+        }
+    }
+
+    /// Borrows a Page from a physical address, without taking over ownership
+    /// nor checking for validity.
+    ///
+    /// SAFETY:
+    /// The caller must ensure that the physical address is backed by a
+    /// `struct page` and corresponds to System RAM.
+    pub unsafe fn borrow_phys_unchecked(phys: &PhysicalAddr) -> &Self {
+        // SAFETY: This is always safe, as it is just arithmetic
+        let pfn = unsafe { bindings::phys_to_pfn(*phys) };
+        // SAFETY: The caller guarantees that the pfn is valid. By the safety
+        // requirements, we can return a borrowed reference to it.
+        unsafe { &*(bindings::pfn_to_page(pfn) as *mut Self as *const Self) }
+    }
 }
 
-impl Drop for Page {
-    fn drop(&mut self) {
+// SAFETY: See below.
+unsafe impl Ownable for Page {
+    #[inline]
+    unsafe fn release(this: NonNull<Self>) {
         // SAFETY: By the type invariants, we have ownership of the page and can free it.
-        unsafe { bindings::__free_pages(self.page.as_ptr(), 0) };
+        // Since Page is transparent, we can cast the raw pointer directly.
+        unsafe { bindings::__free_pages(this.cast().as_ptr(), 0) };
     }
 }

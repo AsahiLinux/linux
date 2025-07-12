@@ -6,7 +6,35 @@
  * Sorted alphabetically.
  */
 
+/*
+ * First, avoid forward references to `enum` types.
+ *
+ * This workarounds a `bindgen` issue with them:
+ * <https://github.com/rust-lang/rust-bindgen/issues/3179>.
+ *
+ * Without this, the generated Rust type may be the wrong one (`i32`) or
+ * the proper one (typically `c_uint`) depending on how the headers are
+ * included, which in turn may depend on the particular kernel configuration
+ * or the architecture.
+ *
+ * The alternative would be to use casts and likely an
+ * `#[allow(clippy::unnecessary_cast)]` in the Rust source files. Instead,
+ * this approach allows us to keep the correct code in the source files and
+ * simply remove this section when the issue is fixed upstream and we bump
+ * the minimum `bindgen` version.
+ *
+ * This workaround may not be possible in some cases, depending on how the C
+ * headers are set up.
+ */
+#include <linux/hrtimer_types.h>
+
+#include <drm/drm_device.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_file.h>
+#include <drm/drm_gem.h>
+#include <drm/drm_ioctl.h>
 #include <kunit/test.h>
+#include <linux/auxiliary_bus.h>
 #include <linux/blk-mq.h>
 #include <linux/blk_types.h>
 #include <linux/blkdev.h>
@@ -20,11 +48,15 @@
 #include <linux/file.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
+#include <linux/ioport.h>
 #include <linux/jiffies.h>
 #include <linux/jump_label.h>
 #include <linux/mdio.h>
 #include <linux/miscdevice.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/pci.h>
 #include <linux/phy.h>
 #include <linux/pid_namespace.h>
@@ -32,12 +64,15 @@
 #include <linux/poll.h>
 #include <linux/property.h>
 #include <linux/refcount.h>
+#include <linux/siphash.h>
 #include <linux/sched.h>
 #include <linux/security.h>
 #include <linux/slab.h>
+#include <linux/soc/apple/rtkit.h>
 #include <linux/tracepoint.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/xarray.h>
 #include <trace/events/rust_sample.h>
 
 #if defined(CONFIG_DRM_PANIC_SCREEN_QR_CODE)
@@ -56,3 +91,9 @@ const gfp_t RUST_CONST_HELPER___GFP_ZERO = __GFP_ZERO;
 const gfp_t RUST_CONST_HELPER___GFP_HIGHMEM = ___GFP_HIGHMEM;
 const gfp_t RUST_CONST_HELPER___GFP_NOWARN = ___GFP_NOWARN;
 const blk_features_t RUST_CONST_HELPER_BLK_FEAT_ROTATIONAL = BLK_FEAT_ROTATIONAL;
+const fop_flags_t RUST_CONST_HELPER_FOP_UNSIGNED_OFFSET = FOP_UNSIGNED_OFFSET;
+
+const xa_mark_t RUST_CONST_HELPER_XA_PRESENT = XA_PRESENT;
+
+const gfp_t RUST_CONST_HELPER_XA_FLAGS_ALLOC = XA_FLAGS_ALLOC;
+const gfp_t RUST_CONST_HELPER_XA_FLAGS_ALLOC1 = XA_FLAGS_ALLOC1;

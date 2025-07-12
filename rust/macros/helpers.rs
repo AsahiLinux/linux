@@ -10,6 +10,17 @@ pub(crate) fn try_ident(it: &mut token_stream::IntoIter) -> Option<String> {
     }
 }
 
+pub(crate) fn try_sign(it: &mut token_stream::IntoIter) -> Option<char> {
+    let peek = it.clone().next();
+    match peek {
+        Some(TokenTree::Punct(punct)) if punct.as_char() == '-' => {
+            let _ = it.next();
+            Some(punct.as_char())
+        }
+        _ => None,
+    }
+}
+
 pub(crate) fn try_literal(it: &mut token_stream::IntoIter) -> Option<String> {
     if let Some(TokenTree::Literal(literal)) = it.next() {
         Some(literal.to_string())
@@ -85,4 +96,35 @@ pub(crate) fn function_name(input: TokenStream) -> Option<Ident> {
         }
     }
     None
+}
+
+pub(crate) fn file() -> String {
+    #[cfg(not(CONFIG_RUSTC_HAS_SPAN_FILE))]
+    {
+        proc_macro::Span::call_site()
+            .source_file()
+            .path()
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    #[cfg(CONFIG_RUSTC_HAS_SPAN_FILE)]
+    #[allow(clippy::incompatible_msrv)]
+    {
+        proc_macro::Span::call_site().file()
+    }
+}
+
+/// Parse a token stream of the form `expected_name: "value",` and return the
+/// string in the position of "value".
+///
+/// # Panics
+///
+/// - On parse error.
+pub(crate) fn expect_string_field(it: &mut token_stream::IntoIter, expected_name: &str) -> String {
+    assert_eq!(expect_ident(it), expected_name);
+    assert_eq!(expect_punct(it), ':');
+    let string = expect_string(it);
+    assert_eq!(expect_punct(it), ',');
+    string
 }

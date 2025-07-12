@@ -563,6 +563,8 @@ void *__xa_erase(struct xarray *, unsigned long index);
 void *__xa_store(struct xarray *, unsigned long index, void *entry, gfp_t);
 void *__xa_cmpxchg(struct xarray *, unsigned long index, void *old,
 		void *entry, gfp_t);
+void *__xa_cmpxchg_raw(struct xarray *, unsigned long index, void *old,
+		void *entry, gfp_t);
 int __must_check __xa_insert(struct xarray *, unsigned long index,
 		void *entry, gfp_t);
 int __must_check __xa_alloc(struct xarray *, u32 *id, void *entry,

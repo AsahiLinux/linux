@@ -5,18 +5,23 @@
 //! C header: [`include/linux/platform_device.h`](srctree/include/linux/platform_device.h)
 
 use crate::{
-    bindings, device, driver,
+    bindings, container_of, device,
+    devres::Devres,
+    driver,
     error::{to_result, Result},
+    io::{
+        mem::{ExclusiveIoMem, IoMem},
+        resource::Resource,
+    },
     of,
     prelude::*,
     str::CStr,
-    types::{ARef, ForeignOwnable, Opaque},
+    types::{ForeignOwnable, Opaque},
     ThisModule,
 };
 
 use core::{
     marker::PhantomData,
-    ops::Deref,
     ptr::{addr_of_mut, NonNull},
 };
 
@@ -80,7 +85,7 @@ impl<T: Driver + 'static> Adapter<T> {
 
     extern "C" fn remove_callback(pdev: *mut bindings::platform_device) {
         // SAFETY: `pdev` is a valid pointer to a `struct platform_device`.
-        let ptr = unsafe { bindings::platform_get_drvdata(pdev) };
+        let ptr = unsafe { bindings::platform_get_drvdata(pdev) }.cast();
 
         // SAFETY: `remove_callback` is only ever called after a successful call to
         // `probe_callback`, hence it's guaranteed that `ptr` points to a valid and initialized
@@ -151,10 +156,11 @@ macro_rules! module_platform_driver {
 ///```
 pub trait Driver: Send {
     /// The type holding driver private data about each device id supported by the driver.
-    ///
-    /// TODO: Use associated_type_defaults once stabilized:
-    ///
-    /// type IdInfo: 'static = ();
+    // TODO: Use associated_type_defaults once stabilized:
+    //
+    // ```
+    // type IdInfo: 'static = ();
+    // ```
     type IdInfo: 'static;
 
     /// The table of OF device ids supported by the driver.
@@ -184,31 +190,181 @@ pub struct Device<Ctx: device::DeviceContext = device::Normal>(
     PhantomData<Ctx>,
 );
 
-impl Device {
+impl<Ctx: device::DeviceContext> Device<Ctx> {
     fn as_raw(&self) -> *mut bindings::platform_device {
         self.0.get()
     }
-}
 
-impl Deref for Device<device::Core> {
-    type Target = Device;
+    /// Returns the resource at `index`, if any.
+    pub fn resource_by_index(&self, index: u32) -> Option<&Resource> {
+        // SAFETY: `self.as_raw()` returns a valid pointer to a `struct platform_device`.
+        let resource = unsafe {
+            bindings::platform_get_resource(self.as_raw(), bindings::IORESOURCE_MEM, index)
+        };
 
-    fn deref(&self) -> &Self::Target {
+        if resource.is_null() {
+            return None;
+        }
+
+        // SAFETY: `resource` is a valid pointer to a `struct resource` as
+        // returned by `platform_get_resource`.
+        Some(unsafe { Resource::as_ref(resource) })
+    }
+
+    /// Returns the resource with a given `name`, if any.
+    pub fn resource_by_name(&self, name: &CStr) -> Option<&Resource> {
+        // SAFETY: `self.as_raw()` returns a valid pointer to a `struct
+        // platform_device` and `name` points to a valid C string.
+        let resource = unsafe {
+            bindings::platform_get_resource_byname(
+                self.as_raw(),
+                bindings::IORESOURCE_MEM,
+                name.as_char_ptr(),
+            )
+        };
+
+        if resource.is_null() {
+            return None;
+        }
+
+        // SAFETY: `resource` is a valid pointer to a `struct resource` as
+        // returned by `platform_get_resource`.
+        Some(unsafe { Resource::as_ref(resource) })
+    }
+
+    /// excute closure while the device is bound
+    pub fn while_bound_with<F, U>(&self, f: F) -> Result<U>
+    where
+        F: FnOnce(&Device<device::Bound>) -> Result<U>,
+    {
+        let _guard = self.as_ref().lock();
+        if unsafe { !bindings::device_is_bound(self.as_ref().as_raw()) } {
+            return Err(ENODEV);
+        }
         let ptr: *const Self = self;
-
-        // CAST: `Device<Ctx>` is a transparent wrapper of `Opaque<bindings::platform_device>`.
-        let ptr = ptr.cast::<Device>();
-
-        // SAFETY: `ptr` was derived from `&self`.
-        unsafe { &*ptr }
+        let ptr = ptr.cast::<Device<device::Bound>>();
+        f(unsafe { &*ptr })
     }
 }
 
-impl From<&Device<device::Core>> for ARef<Device> {
-    fn from(dev: &Device<device::Core>) -> Self {
-        (&**dev).into()
+impl Device<device::Bound> {
+    /// Maps a platform resource where the size is known at compile time.
+    ///
+    /// This uses the
+    /// [`ioremap()`](https://docs.kernel.org/driver-api/device-io.html#getting-access-to-the-device)
+    /// C API.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use kernel::{bindings, c_str, platform, of, device::Core};
+    /// # struct SampleDriver;
+    ///
+    /// impl platform::Driver for SampleDriver {
+    ///    # type IdInfo = ();
+    ///    # const OF_ID_TABLE: Option<of::IdTable<Self::IdInfo>> = None;
+    ///
+    ///    fn probe(
+    ///       pdev: &platform::Device<Core>,
+    ///       info: Option<&Self::IdInfo>,
+    ///    ) -> Result<Pin<KBox<Self>>> {
+    ///       let offset = 0; // Some offset.
+    ///
+    ///       // If the size is known at compile time, use [`Self::iomap_resource_sized`].
+    ///       //
+    ///       // No runtime checks will apply when reading and writing.
+    ///       let resource = pdev.resource_by_index(0).ok_or(ENODEV)?;
+    ///       let iomem = pdev.iomap_resource_sized::<42>(&resource)?;
+    ///       let io = iomem.access(pdev.as_ref())?;
+    ///
+    ///       // Read and write a 32-bit value at `offset`. Calling `try_access()` on
+    ///       // the `Devres` makes sure that the resource is still valid.
+    ///       let data = io.read32_relaxed(offset);
+    ///
+    ///       iomem.try_access().ok_or(ENODEV)?.write32_relaxed(data, offset);
+    ///
+    ///       # let sample_driver = KBox::new(SampleDriver, GFP_KERNEL).map_err(|_| ENOMEM)?;
+    ///       # Ok(sample_driver.into())
+    ///     }
+    /// }
+    /// ```
+    pub fn iomap_resource_sized<const SIZE: usize>(
+        &self,
+        resource: &Resource,
+    ) -> Result<Devres<IoMem<SIZE>>> {
+        IoMem::new(resource, self.as_ref())
+    }
+
+    /// Same as [`Self::iomap_resource_sized`] but with exclusive access to the
+    /// underlying region.
+    ///
+    /// This uses the
+    /// [`ioremap()`](https://docs.kernel.org/driver-api/device-io.html#getting-access-to-the-device)
+    /// C API.
+    pub fn iomap_resource_exclusive_sized<const SIZE: usize>(
+        &self,
+        resource: &Resource,
+    ) -> Result<Devres<ExclusiveIoMem<SIZE>>> {
+        ExclusiveIoMem::new(resource, self.as_ref())
+    }
+
+    /// Maps a platform resource through iomap().
+    ///
+    /// This uses the
+    /// [`ioremap()`](https://docs.kernel.org/driver-api/device-io.html#getting-access-to-the-device)
+    /// C API.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use kernel::{bindings, c_str, platform, of, device::Core};
+    /// # struct SampleDriver;
+    ///
+    /// impl platform::Driver for SampleDriver {
+    ///    # type IdInfo = ();
+    ///    # const OF_ID_TABLE: Option<of::IdTable<Self::IdInfo>> = None;
+    ///
+    ///    fn probe(
+    ///       pdev: &platform::Device<Core>,
+    ///       info: Option<&Self::IdInfo>,
+    ///    ) -> Result<Pin<KBox<Self>>> {
+    ///       let offset = 0; // Some offset.
+    ///
+    ///       // Unlike [`Self::iomap_resource_sized`], here the size of the memory region
+    ///       // is not known at compile time, so only the `try_read*` and `try_write*`
+    ///       // family of functions should be used, leading to runtime checks on every
+    ///       // access.
+    ///       let resource = pdev.resource_by_index(0).ok_or(ENODEV)?;
+    ///       let iomem = pdev.iomap_resource(&resource)?;
+    ///       let io = iomem.access(pdev.as_ref())?;
+    ///
+    ///       let data = io.try_read32_relaxed(offset)?;
+    ///
+    ///       io.try_write32_relaxed(data, offset)?;
+    ///
+    ///       # let sample_driver = KBox::new(SampleDriver, GFP_KERNEL).map_err(|_| ENOMEM)?;
+    ///       # Ok(sample_driver.into())
+    ///     }
+    /// }
+    /// ```
+    pub fn iomap_resource(&self, resource: &Resource) -> Result<Devres<IoMem<0>>> {
+        self.iomap_resource_sized::<0>(resource)
+    }
+
+    /// Same as [`Self::iomap_resource`] but with exclusive access to the underlying
+    /// region.
+    pub fn iomap_resource_exclusive(
+        &self,
+        resource: &Resource,
+    ) -> Result<Devres<ExclusiveIoMem<0>>> {
+        self.iomap_resource_exclusive_sized::<0>(resource)
     }
 }
+
+// SAFETY: `Device` is a transparent wrapper of a type that doesn't depend on `Device`'s generic
+// argument.
+kernel::impl_device_context_deref!(unsafe { Device });
+kernel::impl_device_context_into_aref!(Device);
 
 // SAFETY: Instances of `Device` are always reference-counted.
 unsafe impl crate::types::AlwaysRefCounted for Device {
@@ -223,14 +379,34 @@ unsafe impl crate::types::AlwaysRefCounted for Device {
     }
 }
 
-impl AsRef<device::Device> for Device {
-    fn as_ref(&self) -> &device::Device {
+impl<Ctx: device::DeviceContext> AsRef<device::Device<Ctx>> for Device<Ctx> {
+    fn as_ref(&self) -> &device::Device<Ctx> {
         // SAFETY: By the type invariant of `Self`, `self.as_raw()` is a pointer to a valid
         // `struct platform_device`.
         let dev = unsafe { addr_of_mut!((*self.as_raw()).dev) };
 
         // SAFETY: `dev` points to a valid `struct device`.
         unsafe { device::Device::as_ref(dev) }
+    }
+}
+
+impl<Ctx: device::DeviceContext> TryFrom<&device::Device<Ctx>> for &Device<Ctx> {
+    type Error = kernel::error::Error;
+
+    fn try_from(dev: &device::Device<Ctx>) -> Result<Self, Self::Error> {
+        // SAFETY: By the type invariant of `Device`, `dev.as_raw()` is a valid pointer to a
+        // `struct device`.
+        if !unsafe { bindings::dev_is_platform(dev.as_raw()) } {
+            return Err(EINVAL);
+        }
+
+        // SAFETY: We've just verified that the bus type of `dev` equals
+        // `bindings::platform_bus_type`, hence `dev` must be embedded in a valid
+        // `struct platform_device` as guaranteed by the corresponding C code.
+        let pdev = unsafe { container_of!(dev.as_raw(), bindings::platform_device, dev) };
+
+        // SAFETY: `pdev` is a valid pointer to a `struct platform_device`.
+        Ok(unsafe { &*pdev.cast() })
     }
 }
 
