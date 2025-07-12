@@ -57,7 +57,7 @@ impl FwNode {
     }
 
     /// Obtain the raw `struct fwnode_handle *`.
-    pub(crate) fn as_raw(&self) -> *mut bindings::fwnode_handle {
+    pub fn as_raw(&self) -> *mut bindings::fwnode_handle {
         self.0.get()
     }
 
