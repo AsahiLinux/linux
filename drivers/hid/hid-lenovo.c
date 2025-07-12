@@ -732,8 +732,11 @@ static int lenovo_raw_event_TP_X12_tab(struct hid_device *hdev, u32 raw_data)
 				report_key_event(input, KEY_RFKILL);
 				return 1;
 			}
-			platform_profile_cycle();
-			return 1;
+			if (IS_ENABLED(CONFIG_ACPI_PLATFORM_PROFILE)) {
+				platform_profile_cycle();
+				return 1;
+			}
+			return 0;
 		case TP_X12_RAW_HOTKEY_FN_F10:
 			/* TAB1 has PICKUP Phone and TAB2 use Snipping tool*/
 			(hdev->product == USB_DEVICE_ID_LENOVO_X12_TAB) ?

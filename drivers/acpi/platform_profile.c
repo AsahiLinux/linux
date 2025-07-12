@@ -191,6 +191,20 @@ static ssize_t profile_show(struct device *dev,
 }
 
 /**
+ * profile_notify_legacy - Notify the legacy sysfs interface
+ *
+ * This wrapper takes care of only notifying the legacy sysfs interface
+ * if it was registered during module initialization.
+ */
+static void profile_notify_legacy(void)
+{
+	if (!acpi_kobj)
+		return;
+
+	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+}
+
+/**
  * profile_store - Set the profile for a class device
  * @dev: The device
  * @attr: The attribute
@@ -215,7 +229,7 @@ static ssize_t profile_store(struct device *dev,
 			return ret;
 	}
 
-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+	profile_notify_legacy();
 
 	return count;
 }
@@ -435,7 +449,7 @@ static ssize_t platform_profile_store(struct kobject *kobj,
 			return ret;
 	}
 
-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+	profile_notify_legacy();
 
 	return count;
 }
@@ -473,6 +487,22 @@ static const struct attribute_group platform_profile_group = {
 };
 
 /**
+ * profile_update_legacy - Update the legacy sysfs interface
+ *
+ * This wrapper takes care of only updating the legacy sysfs interface
+ * if it was registered during module initialization.
+ *
+ * Return: 0 on success or error code on failure.
+ */
+static int profile_update_legacy(void)
+{
+	if (!acpi_kobj)
+		return 0;
+
+	return sysfs_update_group(acpi_kobj, &platform_profile_group);
+}
+
+/**
  * platform_profile_notify - Notify class device and legacy sysfs interface
  * @dev: The class device
  */
@@ -481,7 +511,7 @@ void platform_profile_notify(struct device *dev)
 	scoped_cond_guard(mutex_intr, return, &profile_lock) {
 		_notify_class_profile(dev, NULL);
 	}
-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+	profile_notify_legacy();
 }
 EXPORT_SYMBOL_GPL(platform_profile_notify);
 
@@ -529,7 +559,7 @@ int platform_profile_cycle(void)
 			return err;
 	}
 
-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+	profile_notify_legacy();
 
 	return 0;
 }
@@ -603,9 +633,9 @@ struct device *platform_profile_register(struct device *dev, const char *name,
 		goto cleanup_ida;
 	}
 
-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+	profile_notify_legacy();
 
-	err = sysfs_update_group(acpi_kobj, &platform_profile_group);
+	err = profile_update_legacy();
 	if (err)
 		goto cleanup_cur;
 
@@ -639,8 +669,8 @@ void platform_profile_remove(struct device *dev)
 	ida_free(&platform_profile_ida, pprof->minor);
 	device_unregister(&pprof->dev);
 
-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
-	sysfs_update_group(acpi_kobj, &platform_profile_group);
+	profile_notify_legacy();
+	profile_update_legacy();
 }
 EXPORT_SYMBOL_GPL(platform_profile_remove);
 
@@ -695,16 +725,28 @@ static int __init platform_profile_init(void)
 	if (err)
 		return err;
 
-	err = sysfs_create_group(acpi_kobj, &platform_profile_group);
-	if (err)
-		class_unregister(&platform_profile_class);
+	/*
+	 * The ACPI kobject can be missing if ACPI was disabled during booting.
+	 * We thus skip the initialization of the legacy sysfs interface in such
+	 * cases to allow the platform profile class to work on ARM64 notebooks
+	 * without ACPI support.
+	 */
+	if (acpi_kobj) {
+		err = sysfs_create_group(acpi_kobj, &platform_profile_group);
+		if (err < 0) {
+			class_unregister(&platform_profile_class);
+			return err;
+		}
+	}
 
-	return err;
+	return 0;
 }
 
 static void __exit platform_profile_exit(void)
 {
-	sysfs_remove_group(acpi_kobj, &platform_profile_group);
+	if (acpi_kobj)
+		sysfs_remove_group(acpi_kobj, &platform_profile_group);
+
 	class_unregister(&platform_profile_class);
 }
 module_init(platform_profile_init);
