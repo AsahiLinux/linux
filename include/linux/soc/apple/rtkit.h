@@ -179,4 +179,12 @@ int apple_rtkit_send_message(struct apple_rtkit *rtk, u8 ep, u64 message,
  */
 int apple_rtkit_poll(struct apple_rtkit *rtk);
 
+/*
+ * Checks if an endpoint with a given index exists
+ *
+ * @rtk:            RTKit reference
+ * @ep:             endpoint to check for
+ */
+bool apple_rtkit_has_endpoint(struct apple_rtkit *rtk, u8 ep);
+
 #endif /* _LINUX_APPLE_RTKIT_H_ */
