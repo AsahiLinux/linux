@@ -190,7 +190,8 @@ static int pvr_vm_bind_op_exec(struct pvr_vm_bind_op *bind_op)
 					bind_op, bind_op->device_addr,
 					bind_op->size,
 					gem_from_pvr_gem(bind_op->pvr_obj),
-					bind_op->offset);
+					bind_op->offset,
+					0);
 
 	case PVR_VM_BIND_TYPE_UNMAP:
 		return drm_gpuvm_sm_unmap(&bind_op->vm_ctx->gpuvm_mgr,

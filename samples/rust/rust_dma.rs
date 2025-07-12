@@ -4,11 +4,15 @@
 //!
 //! To make this driver probe, QEMU must be run with `-device pci-testdev`.
 
-use kernel::{bindings, device::Core, dma::CoherentAllocation, pci, prelude::*, types::ARef};
+use kernel::{
+    bindings, device::Core, dma::CoherentAllocation, page::*, pci, prelude::*, scatterlist::*,
+    types::{ARef, Owned},
+};
 
 struct DmaSampleDriver {
     pdev: ARef<pci::Device>,
     ca: CoherentAllocation<MyStruct>,
+    sgt: DeviceSGTable<PagesArray>,
 }
 
 const TEST_VALUES: [(u32, u32); 5] = [
@@ -34,6 +38,18 @@ unsafe impl kernel::transmute::AsBytes for MyStruct {}
 // SAFETY: Instances of `MyStruct` have no uninitialized portions.
 unsafe impl kernel::transmute::FromBytes for MyStruct {}
 
+struct PagesArray(KVec<Page>);
+
+impl SGTablePages for PagesArray {
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a Page, usize, usize)> {
+        self.0.iter().map(|page| (page, kernel::page::PAGE_SIZE, 0))
+    }
+
+    fn entries(&self) -> usize {
+        self.0.len()
+    }
+}
+
 kernel::pci_device_table!(
     PCI_TABLE,
     MODULE_PCI_TABLE,
@@ -58,10 +74,20 @@ impl pci::Driver for DmaSampleDriver {
             kernel::dma_write!(ca[i] = MyStruct::new(value.0, value.1))?;
         }
 
+        let mut pages = KVec::new();
+        for _ in TEST_VALUES.into_iter() {
+            let _ = pages.push(unsafe { Owned::into_raw(Page::alloc_page(GFP_KERNEL)?).read() }, GFP_KERNEL);
+        }
+
+        let sgt = SGTable::alloc_table(PagesArray(pages), GFP_KERNEL)?;
+        let sgt = sgt.dma_map(pdev.as_ref(), kernel::dma::DmaDataDirection::DmaToDevice)?;
+
         let drvdata = KBox::new(
             Self {
                 pdev: pdev.into(),
                 ca,
+                // Save object to excercise the destructor.
+                sgt,
             },
             GFP_KERNEL,
         )?;
@@ -73,6 +99,7 @@ impl pci::Driver for DmaSampleDriver {
 impl Drop for DmaSampleDriver {
     fn drop(&mut self) {
         dev_info!(self.pdev.as_ref(), "Unload DMA test driver.\n");
+        assert_eq!(self.sgt.iter().count(), TEST_VALUES.len());
 
         for (i, value) in TEST_VALUES.into_iter().enumerate() {
             let val0 = kernel::dma_read!(self.ca[i].h);

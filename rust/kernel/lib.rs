@@ -70,10 +70,14 @@ pub mod block;
 #[doc(hidden)]
 pub mod build_assert;
 pub mod cred;
+pub mod devcoredump;
 pub mod device;
 pub mod device_id;
 pub mod devres;
 pub mod dma;
+pub mod dma_buf;
+#[cfg(CONFIG_DMA_SHARED_BUFFER)]
+pub mod dma_fence;
 pub mod driver;
 #[cfg(CONFIG_DRM = "y")]
 pub mod drm;
@@ -103,6 +107,7 @@ pub mod prelude;
 pub mod print;
 pub mod rbtree;
 pub mod revocable;
+pub mod scatterlist;
 pub mod security;
 pub mod seq_file;
 pub mod siphash;

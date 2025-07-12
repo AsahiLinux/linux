@@ -1304,7 +1304,8 @@ nouveau_uvmm_bind_job_submit(struct nouveau_job *job,
 							      op->va.addr,
 							      op->va.range,
 							      op->gem.obj,
-							      op->gem.offset);
+							      op->gem.offset,
+							      0);
 			if (IS_ERR(op->ops)) {
 				ret = PTR_ERR(op->ops);
 				goto unwind_continue;

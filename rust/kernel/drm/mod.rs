@@ -6,7 +6,12 @@ pub mod device;
 pub mod driver;
 pub mod file;
 pub mod gem;
+#[cfg(CONFIG_DRM_GPUVM = "y")]
+pub mod gpuvm;
 pub mod ioctl;
+pub mod mm;
+pub mod sched;
+pub mod syncobj;
 
 pub use self::device::Device;
 pub use self::driver::Driver;

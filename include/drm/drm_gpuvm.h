@@ -57,9 +57,16 @@ enum drm_gpuva_flags {
 	DRM_GPUVA_SPARSE = (1 << 1),
 
 	/**
+	 * @DRM_GPUVA_SINGLE_PAGE:
+	 *
+	 * Flag indicating that the &drm_gpuva is a single-page mapping.
+	 */
+	DRM_GPUVA_SINGLE_PAGE = (1 << 2),
+
+	/**
 	 * @DRM_GPUVA_USERBITS: user defined bits
 	 */
-	DRM_GPUVA_USERBITS = (1 << 2),
+	DRM_GPUVA_USERBITS = (1 << 3),
 };
 
 /**
@@ -161,12 +168,14 @@ struct drm_gpuva *drm_gpuva_find_prev(struct drm_gpuvm *gpuvm, u64 start);
 struct drm_gpuva *drm_gpuva_find_next(struct drm_gpuvm *gpuvm, u64 end);
 
 static inline void drm_gpuva_init(struct drm_gpuva *va, u64 addr, u64 range,
-				  struct drm_gem_object *obj, u64 offset)
+				  struct drm_gem_object *obj, u64 offset,
+				  enum drm_gpuva_flags flags)
 {
 	va->va.addr = addr;
 	va->va.range = range;
 	va->gem.obj = obj;
 	va->gem.offset = offset;
+	va->flags = flags;
 }
 
 /**
@@ -856,6 +865,11 @@ struct drm_gpuva_op_map {
 		 */
 		struct drm_gem_object *obj;
 	} gem;
+
+	/**
+	 * @flags: requested flags for the &drm_gpuva for this mapping
+	 */
+	enum drm_gpuva_flags flags;
 };
 
 /**
@@ -1061,7 +1075,8 @@ struct drm_gpuva_ops {
 struct drm_gpuva_ops *
 drm_gpuvm_sm_map_ops_create(struct drm_gpuvm *gpuvm,
 			    u64 addr, u64 range,
-			    struct drm_gem_object *obj, u64 offset);
+			    struct drm_gem_object *obj, u64 offset,
+			    enum drm_gpuva_flags flags);
 struct drm_gpuva_ops *
 drm_gpuvm_sm_unmap_ops_create(struct drm_gpuvm *gpuvm,
 			      u64 addr, u64 range);
@@ -1080,7 +1095,7 @@ static inline void drm_gpuva_init_from_op(struct drm_gpuva *va,
 					  struct drm_gpuva_op_map *op)
 {
 	drm_gpuva_init(va, op->va.addr, op->va.range,
-		       op->gem.obj, op->gem.offset);
+		       op->gem.obj, op->gem.offset, op->flags);
 }
 
 /**
@@ -1206,10 +1221,12 @@ struct drm_gpuvm_ops {
 
 int drm_gpuvm_sm_map(struct drm_gpuvm *gpuvm, void *priv,
 		     u64 addr, u64 range,
-		     struct drm_gem_object *obj, u64 offset);
+		     struct drm_gem_object *obj, u64 offset,
+		     enum drm_gpuva_flags flags);
 
 int drm_gpuvm_sm_unmap(struct drm_gpuvm *gpuvm, void *priv,
 		       u64 addr, u64 range);
+int drm_gpuvm_bo_unmap(struct drm_gpuvm_bo *bo, void *priv);
 
 void drm_gpuva_map(struct drm_gpuvm *gpuvm,
 		   struct drm_gpuva *va,
