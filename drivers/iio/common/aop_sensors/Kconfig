@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-only OR MIT
+
+config IIO_AOP_SENSOR_LAS
+	tristate "AOP Lid angle sensor"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on RUST
+	depends on SYSFS
+	select APPLE_AOP
+	default m if ARCH_APPLE
+	help
+	  Module to handle the lid angle sensor attached to the AOP
+	  coprocessor on Apple laptops.
+
+config IIO_AOP_SENSOR_ALS
+	tristate "AOP Ambient light sensor"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on RUST
+	depends on SYSFS
+	select APPLE_AOP
+	default m if ARCH_APPLE
+	help
+	  Module to handle the ambient light sensor attached to the AOP
+	  coprocessor on Apple laptops.

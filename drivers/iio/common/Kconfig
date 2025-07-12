@@ -3,6 +3,7 @@
 # IIO common modules
 #
 
+source "drivers/iio/common/aop_sensors/Kconfig"
 source "drivers/iio/common/cros_ec_sensors/Kconfig"
 source "drivers/iio/common/hid-sensors/Kconfig"
 source "drivers/iio/common/inv_sensors/Kconfig"

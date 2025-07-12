@@ -258,6 +258,11 @@ impl<T: Operations> RtKit<T> {
             bindings::apple_rtkit_send_message(self.rtk, endpoint, message, ptr::null_mut(), false)
         })
     }
+
+    /// Checks if an endpoint is present
+    pub fn has_endpoint(&self, endpoint: u8) -> bool {
+        unsafe { bindings::apple_rtkit_has_endpoint(self.rtk, endpoint) }
+    }
 }
 
 // SAFETY: `RtKit` operations require a mutable reference
