@@ -134,8 +134,11 @@ int dwc3_host_init(struct dwc3 *dwc)
 	/*
 	 * Some platforms need to power off all Root hub ports immediately after DWC3 set to host
 	 * mode to avoid VBUS glitch happen when xhci get reset later.
+	 * On Apple platforms we must not touch any MMIO yet because dwc3
+	 * will not work correctly before its PHY has been initialized.
 	 */
-	dwc3_power_off_all_roothub_ports(dwc);
+	if (!dwc->no_early_roothub_poweroff)
+		dwc3_power_off_all_roothub_ports(dwc);
 
 	irq = dwc3_host_get_irq(dwc);
 	if (irq < 0)
@@ -220,7 +223,8 @@ void dwc3_host_exit(struct dwc3 *dwc)
 	if (dwc->sys_wakeup)
 		device_init_wakeup(&dwc->xhci->dev, false);
 
-	dwc3_enable_susphy(dwc, false);
+	if (!dwc->role_switch_reset_quirk)
+		dwc3_enable_susphy(dwc, false);
 	platform_device_unregister(dwc->xhci);
 	dwc->xhci = NULL;
 }
