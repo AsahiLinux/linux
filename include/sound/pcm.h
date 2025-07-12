@@ -1073,6 +1073,7 @@ int snd_interval_ranges(struct snd_interval *i, unsigned int count,
 int snd_interval_ratnum(struct snd_interval *i,
 			unsigned int rats_count, const struct snd_ratnum *rats,
 			unsigned int *nump, unsigned int *denp);
+int snd_interval_rate_bits(struct snd_interval *i, unsigned int rate_bits);
 
 void _snd_pcm_hw_params_any(struct snd_pcm_hw_params *params);
 void _snd_pcm_hw_param_setempty(struct snd_pcm_hw_params *params, snd_pcm_hw_param_t var);
