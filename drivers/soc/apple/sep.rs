@@ -58,34 +58,33 @@ fn memcpy_to_iomem(iomem: &ShMem, off: usize, src: &[u8]) -> Result<()> {
 }
 
 fn build_shmem(dev: &platform::Device<device::Core>) -> Result<ShMem> {
-    let of = dev.as_ref().of_node().ok_or(EIO)?;
-    let iomem = dma::CoherentAllocation::<u8>::alloc_coherent(dev.as_ref(), SHMEM_SIZE, GFP_KERNEL)?;
+    let fwnode = dev.as_ref().fwnode().ok_or(EIO)?;
+    let iomem =
+        dma::CoherentAllocation::<u8>::alloc_coherent(dev.as_ref(), SHMEM_SIZE, GFP_KERNEL)?;
 
     let panic_offset = 0x4000;
     let panic_size = 0x8000;
     memcpy_to_iomem(&iomem, panic_offset, &1u32.to_le_bytes())?;
 
     let lpol_offset = panic_offset + panic_size;
-    let lpol = of
-        .find_property(c_str!("local-policy-manifest"))
-        .ok_or(EIO)?;
-    memcpy_to_iomem(
-        &iomem,
-        lpol_offset,
-        &(lpol.value().len() as u32).to_le_bytes(),
-    )?;
-    memcpy_to_iomem(&iomem, lpol_offset + 4, lpol.value())?;
-    let lpol_size = align_up(lpol.value().len() + 4, 0x4000);
+    let lpol_prop_name = c_str!("local-policy-manifest");
+    let lpol_prop_size = fwnode.property_count_elem::<u8>(lpol_prop_name)?;
+    let lpol = fwnode
+        .property_read_array_vec(lpol_prop_name, lpol_prop_size)?
+        .required_by(dev.as_ref())?;
+    memcpy_to_iomem(&iomem, lpol_offset, &(lpol_prop_size as u32).to_le_bytes())?;
+    memcpy_to_iomem(&iomem, lpol_offset + 4, &lpol)?;
+    let lpol_size = align_up(lpol_prop_size + 4, 0x4000);
 
     let ibot_offset = lpol_offset + lpol_size;
-    let ibot = of.find_property(c_str!("iboot-manifest")).ok_or(EIO)?;
-    memcpy_to_iomem(
-        &iomem,
-        ibot_offset,
-        &(ibot.value().len() as u32).to_le_bytes(),
-    )?;
-    memcpy_to_iomem(&iomem, ibot_offset + 4, ibot.value())?;
-    let ibot_size = align_up(ibot.value().len() + 4, 0x4000);
+    let ibot_prop_name = c_str!("iboot-manifest");
+    let ibot_prop_size = fwnode.property_count_elem::<u8>(ibot_prop_name)?;
+    let ibot = fwnode
+        .property_read_array_vec(ibot_prop_name, ibot_prop_size)?
+        .required_by(dev.as_ref())?;
+    memcpy_to_iomem(&iomem, ibot_offset, &(ibot_prop_size as u32).to_le_bytes())?;
+    memcpy_to_iomem(&iomem, ibot_offset + 4, &ibot)?;
+    let ibot_size = align_up(ibot_prop_size + 4, 0x4000);
 
     memcpy_to_iomem(&iomem, 0, b"CNIP")?;
     memcpy_to_iomem(&iomem, 4, &(panic_size as u32).to_le_bytes())?;
@@ -152,7 +151,10 @@ struct SepData {
 }
 
 impl SepData {
-    fn new(dev: &platform::Device<device::Core>, region_params: FwRegionParams) -> Result<Arc<SepData>> {
+    fn new(
+        dev: &platform::Device<device::Core>,
+        region_params: FwRegionParams,
+    ) -> Result<Arc<SepData>> {
         Arc::pin_init(
             try_pin_init!(SepData {
                 shmem: build_shmem(dev)?,
