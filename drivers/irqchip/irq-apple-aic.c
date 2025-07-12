@@ -54,6 +54,7 @@
 #include <linux/irqdomain.h>
 #include <linux/jump_label.h>
 #include <linux/limits.h>
+#include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <asm/apple_m1_pmu.h>
@@ -251,6 +252,9 @@ struct aic_info {
 	u32 mask_set;
 	u32 mask_clr;
 
+	u32 cap0_off;
+	u32 maxnumirq_off;
+
 	u32 die_stride;
 
 	/* Features */
@@ -288,6 +292,14 @@ static const struct aic_info aic2_info __initconst = {
 	.version	= 2,
 
 	.irq_cfg	= AIC2_IRQ_CFG,
+	.cap0_off	= AIC2_INFO1,
+	.maxnumirq_off	= AIC2_INFO3,
+
+	.fast_ipi	= true,
+};
+
+static const struct aic_info aic3_info __initconst = {
+	.version	= 3,
 
 	.fast_ipi	= true,
 	.local_fast_ipi = true,
@@ -309,6 +321,10 @@ static const struct of_device_id aic_info_match[] = {
 	{
 		.compatible = "apple,aic2",
 		.data = &aic2_info,
+	},
+	{
+		.compatible = "apple,aic3",
+		.data = &aic3_info,
 	},
 	{}
 };
@@ -624,7 +640,7 @@ static int aic_irq_domain_map(struct irq_domain *id, unsigned int irq,
 	u32 type = FIELD_GET(AIC_EVENT_TYPE, hw);
 	struct irq_chip *chip = &aic_chip;
 
-	if (ic->info.version == 2)
+	if (ic->info.version == 2 || ic->info.version == 3)
 		chip = &aic2_chip;
 
 	if (type == AIC_EVENT_TYPE_IRQ) {
@@ -931,6 +947,7 @@ static void build_fiq_affinity(struct aic_irq_chip *ic, struct device_node *aff)
 
 static int __init aic_of_ic_init(struct device_node *node, struct device_node *parent)
 {
+	int ret;
 	int i, die;
 	u32 off, start_off;
 	void __iomem *regs;
@@ -974,11 +991,24 @@ static int __init aic_of_ic_init(struct device_node *node, struct device_node *p
 
 		break;
 	}
+	case 3:
+		/* read offsets from device tree for aic version 3 */
+		/* extint-baseaddress? */
+		ret = of_property_read_u32(node, "config-offset", &irqc->info.irq_cfg);
+		if (ret < 0)
+			return ret;
+		ret = of_property_read_u32(node, "cap0-offset", &irqc->info.cap0_off);
+		if (ret < 0)
+			return ret;
+		ret = of_property_read_u32(node, "maxnumirq-offset", &irqc->info.maxnumirq_off);
+		if (ret < 0)
+			return ret;
+		fallthrough;
 	case 2: {
 		u32 info1, info3;
 
-		info1 = aic_ic_read(irqc, AIC2_INFO1);
-		info3 = aic_ic_read(irqc, AIC2_INFO3);
+		info1 = aic_ic_read(irqc, irqc->info.cap0_off);
+		info3 = aic_ic_read(irqc, irqc->info.maxnumirq_off);
 
 		irqc->nr_irq = FIELD_GET(AIC2_INFO1_NR_IRQ, info1);
 		irqc->max_irq = FIELD_GET(AIC2_INFO3_MAX_IRQ, info3);
@@ -1048,7 +1078,7 @@ static int __init aic_of_ic_init(struct device_node *node, struct device_node *p
 		off += irqc->info.die_stride;
 	}
 
-	if (irqc->info.version == 2) {
+	if (irqc->info.version == 2 || irqc->info.version == 3) {
 		u32 config = aic_ic_read(irqc, AIC2_CONFIG);
 
 		config |= AIC2_CONFIG_ENABLE;
@@ -1099,3 +1129,4 @@ err_unmap:
 
 IRQCHIP_DECLARE(apple_aic, "apple,aic", aic_of_ic_init);
 IRQCHIP_DECLARE(apple_aic2, "apple,aic2", aic_of_ic_init);
+IRQCHIP_DECLARE(apple_aic3, "apple,aic3", aic_of_ic_init);
