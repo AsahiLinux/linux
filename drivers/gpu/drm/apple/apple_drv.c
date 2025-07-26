@@ -73,7 +73,7 @@ static const struct drm_driver apple_drm_driver = {
 	.desc			= DRIVER_DESC,
 	.major			= 1,
 	.minor			= 0,
-	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
+	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC | DRIVER_SYNCOBJ | DRIVER_SYNCOBJ_TIMELINE,
 	.fops			= &apple_fops,
 };
 
