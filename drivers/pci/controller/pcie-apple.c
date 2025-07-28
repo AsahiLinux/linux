@@ -558,6 +558,9 @@ static int apple_pcie_setup_link(struct apple_pcie *pcie,
 				 struct apple_pcie_port *port,
 				 struct device_node *np)
 {
+#define MAX_AUX_PERST 3
+	struct gpio_desc *aux_reset[MAX_AUX_PERST] = { NULL };
+	u32 num_aux_resets = 0;
 	struct gpio_desc *reset, *pwren = NULL;
 	u32 stat;
 	int ret;
@@ -572,6 +575,22 @@ static int apple_pcie_setup_link(struct apple_pcie *pcie,
 				      GPIOD_OUT_HIGH, "PERST#");
 	if (IS_ERR(reset))
 		return PTR_ERR(reset);
+	// HACK: use additional "reset-gpios" until pci-pwrctrl gains PERST# support.
+	for (u32 idx = 0; idx < MAX_AUX_PERST; idx++) {
+		aux_reset[idx] = devm_fwnode_gpiod_get_index(pcie->dev,
+							     of_fwnode_handle(np),
+							     "reset", idx + 1,
+							     GPIOD_OUT_HIGH,
+							     "PERST#");
+		if (IS_ERR(aux_reset[idx])) {
+			if (PTR_ERR(aux_reset[idx]) == -ENOENT)
+				break;
+			else
+				return PTR_ERR(aux_reset[idx]);
+		}
+		num_aux_resets++;
+	}
+	dev_info(pcie->dev, "Using %u auxiliary PERST#\n", num_aux_resets);
 
 	pwren = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "pwren",
 					    GPIOD_ASIS, "PWREN");
@@ -586,6 +605,8 @@ static int apple_pcie_setup_link(struct apple_pcie *pcie,
 
 	/* Assert PERST# before setting up the clock */
 	gpiod_set_value_cansleep(reset, 1);
+	for (u32 idx = 0; idx < num_aux_resets; idx++)
+		gpiod_set_value_cansleep(aux_reset[idx], 1);
 
 	/* Power on the device if required */
 	gpiod_set_value_cansleep(pwren, 1);
@@ -606,6 +627,8 @@ static int apple_pcie_setup_link(struct apple_pcie *pcie,
 	/* Deassert PERST# */
 	rmw_set(PORT_PERST_OFF, port->base + pcie->hw->port_perst);
 	gpiod_set_value_cansleep(reset, 0);
+	for (u32 idx = 0; idx < num_aux_resets; idx++)
+		gpiod_set_value_cansleep(aux_reset[idx], 0);
 
 	/* Wait for 100ms after PERST# deassertion (PCIe r5.0, 6.6.1) */
 	msleep(100);
