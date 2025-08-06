@@ -159,7 +159,9 @@
 #ifndef PPC_SET_DEXCR_ASPECT
 # define PPC_SET_DEXCR_ASPECT(a, b, c)	(-EINVAL)
 #endif
-
+#ifndef ARM64_SET_UNALIGN_ATOMIC_CTL
+# define ARM64_SET_UNALIGN_ATOMIC_CTL(a)		(-EINVAL)
+#endif
 /*
  * this is where the system-wide overflow UID and GID are defined, for
  * architectures that now have 32-bit UID/GID but didn't in the past
@@ -2927,6 +2929,9 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			break;
 		if (arg3 & PR_CFI_LOCK && !(arg3 & PR_CFI_DISABLE))
 			error = arch_prctl_lock_branch_landing_pad_state(me);
+		break;
+	case PR_ARM64_SET_UNALIGN_ATOMIC:
+		error = ARM64_SET_UNALIGN_ATOMIC_CTL(arg2);
 		break;
 	default:
 		trace_task_prctl_unknown(option, arg2, arg3, arg4, arg5);

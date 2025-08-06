@@ -88,6 +88,9 @@ void arch_setup_new_exec(void);
 #define TIF_KERNEL_FPSTATE	29	/* Task is in a kernel mode FPSIMD section */
 #define TIF_TSC_SIGSEGV		30	/* SIGSEGV on counter-timer access */
 #define TIF_LAZY_MMU_PENDING	31	/* Ops pending for lazy mmu mode exit */
+#define TIF_UNALIGN_ATOMIC_EMULATE	32
+#define TIF_UNALIGN_ATOMIC_BACKPATCH	33
+#define TIF_UNALIGN_ATOMIC_STRICT_SPLIT_LOCKS	34
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
 #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)

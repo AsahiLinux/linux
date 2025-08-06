@@ -448,5 +448,8 @@ int set_tsc_mode(unsigned int val);
 #define GET_TSC_CTL(adr)        get_tsc_mode((adr))
 #define SET_TSC_CTL(val)        set_tsc_mode((val))
 
+int set_unalign_atomic_ctl(unsigned int val);
+#define ARM64_SET_UNALIGN_ATOMIC_CTL(val)	set_unalign_atomic_ctl((val))
+
 #endif /* __ASSEMBLER__ */
 #endif /* __ASM_PROCESSOR_H */

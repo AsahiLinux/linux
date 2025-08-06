@@ -1074,3 +1074,15 @@ int set_tsc_mode(unsigned int val)
 
 	return do_set_tsc_mode(val);
 }
+
+int set_unalign_atomic_ctl(unsigned int val)
+{
+	unsigned long valid_mask = PR_ARM64_UNALIGN_ATOMIC_EMULATE | PR_ARM64_UNALIGN_ATOMIC_BACKPATCH | PR_ARM64_UNALIGN_ATOMIC_STRICT_SPLIT_LOCKS;
+	if (val & ~valid_mask)
+		return -EINVAL;
+
+	update_thread_flag(TIF_UNALIGN_ATOMIC_EMULATE, val & PR_ARM64_UNALIGN_ATOMIC_EMULATE);
+	update_thread_flag(TIF_UNALIGN_ATOMIC_BACKPATCH, val & PR_ARM64_UNALIGN_ATOMIC_BACKPATCH);
+	update_thread_flag(TIF_UNALIGN_ATOMIC_STRICT_SPLIT_LOCKS, val & PR_ARM64_UNALIGN_ATOMIC_STRICT_SPLIT_LOCKS);
+	return 0;
+}
