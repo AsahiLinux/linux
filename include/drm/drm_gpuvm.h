@@ -58,9 +58,18 @@ enum drm_gpuva_flags {
 	DRM_GPUVA_SPARSE = (1 << 1),
 
 	/**
+	 * @DRM_GPUVA_REPEAT:
+	 *
+	 * Flag indicating that the &drm_gpuva is a mapping of a GEM
+	 * object with a certain range that is repeated multiple times to
+	 * fill the virtual address range.
+	 */
+	DRM_GPUVA_REPEAT = (1 << 2),
+
+	/**
 	 * @DRM_GPUVA_USERBITS: user defined bits
 	 */
-	DRM_GPUVA_USERBITS = (1 << 2),
+	DRM_GPUVA_USERBITS = (1 << 3),
 };
 
 /**
@@ -111,6 +120,18 @@ struct drm_gpuva {
 		 * @gem.offset: the offset within the &drm_gem_object
 		 */
 		u64 offset;
+
+		/*
+		 * @gem.range: the range of the GEM that is mapped
+		 *
+		 * When dealing with normal mappings, this must be zero.
+		 * When flags has DRM_GPUVA_REPEAT set, this field must be
+		 * smaller than va.range and va.range must be a multiple of
+		 * gem.range.
+		 * This is a u32 not a u64 because we expect repeated mappings
+		 * to be pointing to relatively small portions of a GEM object.
+		 */
+		u32 range;
 
 		/**
 		 * @gem.obj: the mapped &drm_gem_object
@@ -879,6 +900,17 @@ struct drm_gpuva_op_map {
 		 * @gem.offset: the offset within the &drm_gem_object
 		 */
 		u64 offset;
+
+		/*
+		 * @gem.range: the range of the GEM that is mapped
+		 *
+		 * When dealing with normal mappings, this must be zero.
+		 * When flags has DRM_GPUVA_REPEAT set, it must be a multiple
+		 * of va.range. This is a u32 not a u64 because we expect
+		 * repeated mappings to be pointing to a relatively small
+		 * portion of a GEM object.
+		 */
+		u32 range;
 
 		/**
 		 * @gem.obj: the &drm_gem_object to map
