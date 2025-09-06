@@ -1263,9 +1263,9 @@
 			smc_reboot: reboot {
 				compatible = "apple,smc-reboot";
 				nvmem-cells = <&shutdown_flag>, <&boot_stage>,
-					<&boot_error_count>, <&panic_count>;
+					<&boot_error_count>, <&panic_count>, <&pm_setting>;
 				nvmem-cell-names = "shutdown_flag", "boot_stage",
-					"boot_error_count", "panic_count";
+					"boot_error_count", "panic_count", "pm_setting";
 			};
 
 			smc_hwmon: hwmon {
