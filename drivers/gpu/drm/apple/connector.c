@@ -120,7 +120,6 @@ void apple_connector_debugfs_init(struct drm_connector *connector, struct dentry
 		break;
 	}
 }
-EXPORT_SYMBOL(apple_connector_debugfs_init);
 
 static void dcp_connector_set_dict(struct apple_connector *connector,
 				   struct dcp_chunks *dict,
