@@ -201,7 +201,6 @@ int dcp_set_crc(struct drm_crtc *crtc, bool enabled)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(dcp_set_crc);
 
 /*
  * Helper to send a DRM vblank event. We do not know how call swap_submit_dcp
@@ -361,7 +360,6 @@ int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(dcp_crtc_atomic_check);
 
 int dcp_get_connector_type(struct platform_device *pdev)
 {
@@ -369,7 +367,6 @@ int dcp_get_connector_type(struct platform_device *pdev)
 
 	return (dcp->connector_type);
 }
-EXPORT_SYMBOL_GPL(dcp_get_connector_type);
 
 #define DPTX_CONNECT_TIMEOUT msecs_to_jiffies(2000)
 
@@ -451,7 +448,6 @@ int dcp_dptx_connect_oob(struct platform_device *pdev, u32 port)
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
 	return dcp_dptx_connect(dcp, port);
 }
-EXPORT_SYMBOL_GPL(dcp_dptx_connect_oob);
 
 int dcp_dptx_disconnect_oob(struct platform_device *pdev, u32 port)
 {
@@ -467,7 +463,6 @@ int dcp_dptx_disconnect_oob(struct platform_device *pdev, u32 port)
 
 	return dcp_dptx_disconnect(dcp, port);
 }
-EXPORT_SYMBOL_GPL(dcp_dptx_disconnect_oob);
 
 static irqreturn_t dcp_dp2hdmi_hpd(int irq, void *data)
 {
@@ -502,7 +497,6 @@ void dcp_link(struct platform_device *pdev, struct apple_crtc *crtc,
 	dcp->crtc = crtc;
 	dcp->connector = connector;
 }
-EXPORT_SYMBOL_GPL(dcp_link);
 
 int dcp_start(struct platform_device *pdev)
 {
@@ -575,7 +569,6 @@ int dcp_start(struct platform_device *pdev)
 
 	return ret;
 }
-EXPORT_SYMBOL(dcp_start);
 
 static int dcp_enable_dp2hdmi_hpd(struct apple_dcp *dcp)
 {
@@ -618,7 +611,6 @@ int dcp_wait_ready(struct platform_device *pdev, u64 timeout)
 
 	return dcp->active ? 0 : -ETIMEDOUT;
 }
-EXPORT_SYMBOL(dcp_wait_ready);
 
 static void __maybe_unused dcp_sleep(struct apple_dcp *dcp)
 {
@@ -662,7 +654,6 @@ void dcp_poweron(struct platform_device *pdev)
 	if (dcp->avep)
 		av_service_connect(dcp);
 }
-EXPORT_SYMBOL(dcp_poweron);
 
 void dcp_poweroff(struct platform_device *pdev)
 {
@@ -691,7 +682,6 @@ void dcp_poweroff(struct platform_device *pdev)
 		}
 	}
 }
-EXPORT_SYMBOL(dcp_poweroff);
 
 static void dcp_work_register_backlight(struct work_struct *work)
 {
@@ -1335,28 +1325,12 @@ static struct platform_driver apple_platform_driver = {
 	},
 };
 
-static int __init apple_dcp_register(void)
+void __init dcp_register(void)
 {
-	if (drm_firmware_drivers_only())
-		return -ENODEV;
-
-#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
-	dcp_audio_register();
-#endif
-	return platform_driver_register(&apple_platform_driver);
+	platform_driver_register(&apple_platform_driver);
 }
 
-static void __exit apple_dcp_unregister(void)
+void __exit dcp_unregister(void)
 {
 	platform_driver_unregister(&apple_platform_driver);
-#if IS_ENABLED(CONFIG_DRM_APPLE_AUDIO)
-	dcp_audio_unregister();
-#endif
 }
-
-module_init(apple_dcp_register);
-module_exit(apple_dcp_unregister);
-
-MODULE_AUTHOR("Asahi Linux contributors");
-MODULE_DESCRIPTION("Apple Display Controller DRM driver");
-MODULE_LICENSE("Dual MIT/GPL");

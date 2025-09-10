@@ -959,7 +959,6 @@ int parse_sound_constraints(struct dcp_parse_ctx *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(parse_sound_constraints);
 
 int parse_sound_mode(struct dcp_parse_ctx *handle,
 		     struct dcp_sound_format_mask *sieve,
@@ -989,7 +988,6 @@ int parse_sound_mode(struct dcp_parse_ctx *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(parse_sound_mode);
 #endif
 
 int parse_system_log_mnits(struct dcp_parse_ctx *handle, struct dcp_system_ev_mnits *entry)

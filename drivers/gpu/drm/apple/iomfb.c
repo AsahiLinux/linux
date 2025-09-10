@@ -258,7 +258,6 @@ void dcp_hotplug(struct work_struct *work)
 
 	drm_kms_helper_connector_hotplug_event(&connector->base);
 }
-EXPORT_SYMBOL_GPL(dcp_hotplug);
 
 static void dcpep_handle_cb(struct apple_dcp *dcp, enum dcp_context_id context,
 			    void *data, u32 length, u16 offset)
@@ -413,7 +412,6 @@ int dcp_get_modes(struct drm_connector *connector)
 
 	return dcp->nr_modes;
 }
-EXPORT_SYMBOL_GPL(dcp_get_modes);
 
 /* The user may own drm_display_mode, so we need to search for our copy */
 struct dcp_display_mode *lookup_mode(struct apple_dcp *dcp,
@@ -440,7 +438,6 @@ enum drm_mode_status dcp_mode_valid(struct drm_connector *connector,
 
 	return lookup_mode(dcp, mode) ? MODE_OK : MODE_BAD;
 }
-EXPORT_SYMBOL_GPL(dcp_mode_valid);
 
 int dcp_crtc_atomic_modeset(struct drm_crtc *crtc,
 			    struct drm_atomic_state *state)
@@ -479,7 +476,6 @@ int dcp_crtc_atomic_modeset(struct drm_crtc *crtc,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dcp_crtc_atomic_modeset);
 
 bool dcp_crtc_mode_fixup(struct drm_crtc *crtc,
 			 const struct drm_display_mode *mode,
@@ -492,7 +488,6 @@ bool dcp_crtc_mode_fixup(struct drm_crtc *crtc,
 	/* TODO: support synthesized modes through scaling */
 	return lookup_mode(dcp, mode) != NULL;
 }
-EXPORT_SYMBOL(dcp_crtc_mode_fixup);
 
 
 void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
@@ -527,7 +522,6 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		break;
 	}
 }
-EXPORT_SYMBOL_GPL(dcp_flush);
 
 static void iomfb_start(struct apple_dcp *dcp)
 {
@@ -550,7 +544,6 @@ bool dcp_is_initialized(struct platform_device *pdev)
 
 	return dcp->active;
 }
-EXPORT_SYMBOL_GPL(dcp_is_initialized);
 
 void iomfb_recv_msg(struct apple_dcp *dcp, u64 message)
 {
