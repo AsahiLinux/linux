@@ -643,6 +643,7 @@ static void cd321x_update_work(struct work_struct *work)
 
 	st = cd321x->update_status;
 	cd321x->update_status.status_changed = 0;
+	cd321x->update_status.data_status_changed = 0;
 
 	bool old_connected = !!tps->partner;
 	bool new_connected = st.status & TPS_STATUS_PLUG_PRESENT;
@@ -741,6 +742,7 @@ static void cd321x_update_work(struct work_struct *work)
 static void cd321x_queue_status(struct cd321x *cd321x)
 {
 	cd321x->update_status.status_changed |= cd321x->update_status.status ^ cd321x->tps.status;
+	cd321x->update_status.data_status_changed |= cd321x->update_status.data_status ^ cd321x->tps.data_status;
 
 	cd321x->update_status.status = cd321x->tps.status;
 	cd321x->update_status.pwr_status = cd321x->tps.pwr_status;
