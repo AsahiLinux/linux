@@ -1283,6 +1283,8 @@
 			pinctrl-0 = <&pcie_pins>;
 			pinctrl-names = "default";
 
+			dma-coherent;
+
 			port00: pci@0,0 {
 				device_type = "pci";
 				reg = <0x0 0x0 0x0 0x0 0x0>;
