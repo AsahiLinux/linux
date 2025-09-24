@@ -25,6 +25,8 @@ mod queue;
 mod regs;
 mod slotalloc;
 mod util;
+#[cfg(CONFIG_DRM_ASAHI_MAPLE_TREE)]
+mod vm;
 mod workqueue;
 
 kernel::module_platform_driver! {
