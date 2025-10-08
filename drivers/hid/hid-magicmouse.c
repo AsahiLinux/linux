@@ -1339,7 +1339,7 @@ static int magicmouse_probe(struct hid_device *hdev,
 				TRACKPAD2_USB_REPORT_ID, 0);
 		}
 		break;
-	case HID_ANY_ID:
+	default:
 		switch (id->bus) {
 		case BUS_HOST:
 			report = hid_register_report(hdev, HID_INPUT_REPORT, MTP_REPORT_ID, 0);
@@ -1347,15 +1347,12 @@ static int magicmouse_probe(struct hid_device *hdev,
 		case BUS_SPI:
 			report = hid_register_report(hdev, HID_INPUT_REPORT, SPI_REPORT_ID, 0);
 			break;
-		default:
-			break;
+		default: /* USB_DEVICE_ID_APPLE_MAGICTRACKPAD */
+			report = hid_register_report(hdev, HID_INPUT_REPORT,
+				TRACKPAD_REPORT_ID, 0);
+			report = hid_register_report(hdev, HID_INPUT_REPORT,
+				DOUBLE_REPORT_ID, 0);
 		}
-		break;
-	default: /* USB_DEVICE_ID_APPLE_MAGICTRACKPAD */
-		report = hid_register_report(hdev, HID_INPUT_REPORT,
-			TRACKPAD_REPORT_ID, 0);
-		report = hid_register_report(hdev, HID_INPUT_REPORT,
-			DOUBLE_REPORT_ID, 0);
 	}
 
 	if (!report) {
