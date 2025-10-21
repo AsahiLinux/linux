@@ -170,7 +170,7 @@ static int macsmc_input_probe(struct platform_device *pdev)
 	smcin->nb.notifier_call = macsmc_input_event;
 	blocking_notifier_chain_register(&smc->event_handlers, &smcin->nb);
 
-	device_init_wakeup(&pdev->dev, 1);
+	device_init_wakeup(&pdev->dev, true);
 
 	return 0;
 }
