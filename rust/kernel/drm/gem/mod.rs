@@ -279,6 +279,20 @@ pub trait BaseObject: IntoGEMObject {
         // SAFETY: The arguments are valid per the type invariant.
         Ok(unsafe { bindings::drm_vma_node_offset_addr(&raw mut (*self.as_raw()).vma_node) })
     }
+
+    /// Lock the gpuva lock
+    fn lock_gpuva(&self) {
+        unsafe {
+            bindings::mutex_lock(&raw mut (*self.as_raw()).gpuva.lock);
+        }
+    }
+
+    /// Lock the gpuva lock
+    fn unlock_gpuva(&self) {
+        unsafe {
+            bindings::mutex_unlock(&raw mut (*self.as_raw()).gpuva.lock);
+        }
+    }
 }
 
 impl<T: IntoGEMObject> BaseObject for T {}
