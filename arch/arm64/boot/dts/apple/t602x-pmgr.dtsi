@@ -7,7 +7,7 @@
 
 &DIE_NODE(pmgr) {
 	DIE_NODE(ps_afi): power-controller@100 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x100 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -16,7 +16,7 @@
 	};
 
 	DIE_NODE(ps_aic): power-controller@108 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x108 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -25,7 +25,7 @@
 	};
 
 	DIE_NODE(ps_dwi): power-controller@110 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x110 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -33,7 +33,7 @@
 	};
 
 	DIE_NODE(ps_pms): power-controller@118 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x118 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -42,7 +42,7 @@
 	};
 
 	DIE_NODE(ps_gpio): power-controller@120 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x120 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -51,7 +51,7 @@
 	};
 
 	DIE_NODE(ps_soc_dpe): power-controller@128 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x128 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -60,7 +60,7 @@
 	};
 
 	DIE_NODE(ps_pms_c1ppt): power-controller@130 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x130 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -69,7 +69,7 @@
 	};
 
 	DIE_NODE(ps_pmgr_soc_ocla): power-controller@138 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x138 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -78,7 +78,7 @@
 	};
 
 	DIE_NODE(ps_amcc0): power-controller@168 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x168 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -87,7 +87,7 @@
 	};
 
 	DIE_NODE(ps_amcc2): power-controller@170 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x170 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -96,7 +96,7 @@
 	};
 
 	DIE_NODE(ps_dcs_00): power-controller@178 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x178 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -105,7 +105,7 @@
 	};
 
 	DIE_NODE(ps_dcs_01): power-controller@180 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x180 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -114,7 +114,7 @@
 	};
 
 	DIE_NODE(ps_dcs_02): power-controller@188 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x188 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -123,7 +123,7 @@
 	};
 
 	DIE_NODE(ps_dcs_03): power-controller@190 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x190 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -132,7 +132,7 @@
 	};
 
 	DIE_NODE(ps_dcs_08): power-controller@198 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x198 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -141,7 +141,7 @@
 	};
 
 	DIE_NODE(ps_dcs_09): power-controller@1a0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1a0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -150,7 +150,7 @@
 	};
 
 	DIE_NODE(ps_dcs_10): power-controller@1a8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1a8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -159,7 +159,7 @@
 	};
 
 	DIE_NODE(ps_dcs_11): power-controller@1b0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1b0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -168,7 +168,7 @@
 	};
 
 	DIE_NODE(ps_afnc1_ioa): power-controller@1b8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1b8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -178,7 +178,7 @@
 	};
 
 	DIE_NODE(ps_afc): power-controller@1d0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1d0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -187,7 +187,7 @@
 	};
 
 	DIE_NODE(ps_afnc0_ioa): power-controller@1e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1e8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -197,7 +197,7 @@
 	};
 
 	DIE_NODE(ps_afnc1_ls): power-controller@1f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1f0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -207,7 +207,7 @@
 	};
 
 	DIE_NODE(ps_afnc0_ls): power-controller@1f8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1f8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -217,7 +217,7 @@
 	};
 
 	DIE_NODE(ps_afnc1_lw0): power-controller@200 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x200 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -227,7 +227,7 @@
 	};
 
 	DIE_NODE(ps_afnc1_lw1): power-controller@208 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x208 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -237,7 +237,7 @@
 	};
 
 	DIE_NODE(ps_afnc1_lw2): power-controller@210 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x210 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -247,7 +247,7 @@
 	};
 
 	DIE_NODE(ps_afnc0_lw0): power-controller@218 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x218 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -257,7 +257,7 @@
 	};
 
 	DIE_NODE(ps_scodec): power-controller@220 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x220 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -266,7 +266,7 @@
 	};
 
 	DIE_NODE(ps_atc0_common): power-controller@228 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x228 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -275,7 +275,7 @@
 	};
 
 	DIE_NODE(ps_atc1_common): power-controller@230 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x230 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -284,7 +284,7 @@
 	};
 
 	DIE_NODE(ps_atc2_common): power-controller@238 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x238 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -293,7 +293,7 @@
 	};
 
 	DIE_NODE(ps_atc3_common): power-controller@240 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x240 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -302,7 +302,7 @@
 	};
 
 	DIE_NODE(ps_dispext1_sys): power-controller@248 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x248 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -311,7 +311,7 @@
 	};
 
 	DIE_NODE(ps_pms_bridge): power-controller@250 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x250 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -321,7 +321,7 @@
 	};
 
 	DIE_NODE(ps_dispext0_sys): power-controller@258 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x258 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -330,7 +330,7 @@
 	};
 
 	DIE_NODE(ps_ane_sys): power-controller@260 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x260 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -339,7 +339,7 @@
 	};
 
 	DIE_NODE(ps_avd_sys): power-controller@268 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x268 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -348,7 +348,7 @@
 	};
 
 	DIE_NODE(ps_atc0_cio): power-controller@270 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x270 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -357,7 +357,7 @@
 	};
 
 	DIE_NODE(ps_atc0_pcie): power-controller@278 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x278 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -366,7 +366,7 @@
 	};
 
 	DIE_NODE(ps_atc1_cio): power-controller@280 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x280 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -375,7 +375,7 @@
 	};
 
 	DIE_NODE(ps_atc1_pcie): power-controller@288 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x288 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -384,7 +384,7 @@
 	};
 
 	DIE_NODE(ps_atc2_cio): power-controller@290 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x290 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -393,7 +393,7 @@
 	};
 
 	DIE_NODE(ps_atc2_pcie): power-controller@298 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x298 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -402,7 +402,7 @@
 	};
 
 	DIE_NODE(ps_atc3_cio): power-controller@2a0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2a0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -411,7 +411,7 @@
 	};
 
 	DIE_NODE(ps_atc3_pcie): power-controller@2a8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2a8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -420,7 +420,7 @@
 	};
 
 	DIE_NODE(ps_dispext1_fe): power-controller@2b0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2b0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -429,7 +429,7 @@
 	};
 
 	DIE_NODE(ps_dispext1_cpu0): power-controller@2b8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2b8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -439,7 +439,7 @@
 	};
 
 	DIE_NODE(ps_dispext0_fe): power-controller@2c0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2c0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -449,7 +449,7 @@
 
 	/* PMP is only present on die 0 of the M2 Ultra */
 	DIE_NODE(ps_pmp): power-controller@2c8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2c8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -457,7 +457,7 @@
 	};
 
 	DIE_NODE(ps_pms_sram): power-controller@2d0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2d0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -465,7 +465,7 @@
 	};
 
 	DIE_NODE(ps_dispext0_cpu0): power-controller@2d8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2d8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -475,7 +475,7 @@
 	};
 
 	DIE_NODE(ps_ane_cpu): power-controller@2e0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2e0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -484,7 +484,7 @@
 	};
 
 	DIE_NODE(ps_atc0_cio_pcie): power-controller@2e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2e8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -493,7 +493,7 @@
 	};
 
 	DIE_NODE(ps_atc0_cio_usb): power-controller@2f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2f0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -502,7 +502,7 @@
 	};
 
 	DIE_NODE(ps_atc1_cio_pcie): power-controller@2f8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2f8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -511,7 +511,7 @@
 	};
 
 	DIE_NODE(ps_atc1_cio_usb): power-controller@300 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x300 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -520,7 +520,7 @@
 	};
 
 	DIE_NODE(ps_atc2_cio_pcie): power-controller@308 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x308 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -529,7 +529,7 @@
 	};
 
 	DIE_NODE(ps_atc2_cio_usb): power-controller@310 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x310 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -538,7 +538,7 @@
 	};
 
 	DIE_NODE(ps_atc3_cio_pcie): power-controller@318 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x318 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -547,7 +547,7 @@
 	};
 
 	DIE_NODE(ps_atc3_cio_usb): power-controller@320 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x320 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -556,7 +556,7 @@
 	};
 
 	DIE_NODE(ps_trace_fab): power-controller@390 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x390 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -564,7 +564,7 @@
 	};
 
 	DIE_NODE(ps_ane_sys_mpm): power-controller@4000 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4000 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -573,7 +573,7 @@
 	};
 
 	DIE_NODE(ps_ane_td): power-controller@4008 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4008 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -582,7 +582,7 @@
 	};
 
 	DIE_NODE(ps_ane_base): power-controller@4010 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4010 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -591,7 +591,7 @@
 	};
 
 	DIE_NODE(ps_ane_set1): power-controller@4018 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4018 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -600,7 +600,7 @@
 	};
 
 	DIE_NODE(ps_ane_set2): power-controller@4020 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4020 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -609,7 +609,7 @@
 	};
 
 	DIE_NODE(ps_ane_set3): power-controller@4028 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4028 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -618,7 +618,7 @@
 	};
 
 	DIE_NODE(ps_ane_set4): power-controller@4030 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4030 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -629,7 +629,7 @@
 
 &DIE_NODE(pmgr_south) {
 	DIE_NODE(ps_amcc4): power-controller@100 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x100 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -638,7 +638,7 @@
 	};
 
 	DIE_NODE(ps_amcc5): power-controller@108 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x108 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -647,7 +647,7 @@
 	};
 
 	DIE_NODE(ps_amcc6): power-controller@110 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x110 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -656,7 +656,7 @@
 	};
 
 	DIE_NODE(ps_amcc7): power-controller@118 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x118 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -665,7 +665,7 @@
 	};
 
 	DIE_NODE(ps_dcs_16): power-controller@120 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x120 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -674,7 +674,7 @@
 	};
 
 	DIE_NODE(ps_dcs_17): power-controller@128 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x128 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -683,7 +683,7 @@
 	};
 
 	DIE_NODE(ps_dcs_18): power-controller@130 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x130 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -692,7 +692,7 @@
 	};
 
 	DIE_NODE(ps_dcs_19): power-controller@138 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x138 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -701,7 +701,7 @@
 	};
 
 	DIE_NODE(ps_dcs_20): power-controller@140 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x140 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -710,7 +710,7 @@
 	};
 
 	DIE_NODE(ps_dcs_21): power-controller@148 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x148 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -719,7 +719,7 @@
 	};
 
 	DIE_NODE(ps_dcs_22): power-controller@150 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x150 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -728,7 +728,7 @@
 	};
 
 	DIE_NODE(ps_dcs_23): power-controller@158 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x158 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -737,7 +737,7 @@
 	};
 
 	DIE_NODE(ps_dcs_24): power-controller@160 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x160 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -746,7 +746,7 @@
 	};
 
 	DIE_NODE(ps_dcs_25): power-controller@168 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x168 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -755,7 +755,7 @@
 	};
 
 	DIE_NODE(ps_dcs_26): power-controller@170 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x170 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -764,7 +764,7 @@
 	};
 
 	DIE_NODE(ps_dcs_27): power-controller@178 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x178 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -773,7 +773,7 @@
 	};
 
 	DIE_NODE(ps_dcs_28): power-controller@180 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x180 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -782,7 +782,7 @@
 	};
 
 	DIE_NODE(ps_dcs_29): power-controller@188 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x188 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -791,7 +791,7 @@
 	};
 
 	DIE_NODE(ps_dcs_30): power-controller@190 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x190 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -800,7 +800,7 @@
 	};
 
 	DIE_NODE(ps_dcs_31): power-controller@198 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x198 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -809,7 +809,7 @@
 	};
 
 	DIE_NODE(ps_afnc4_ioa): power-controller@1a0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1a0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -819,7 +819,7 @@
 	};
 
 	DIE_NODE(ps_afnc4_ls): power-controller@1a8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1a8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -829,7 +829,7 @@
 	};
 
 	DIE_NODE(ps_afnc4_lw0): power-controller@1b0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1b0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -839,7 +839,7 @@
 	};
 
 	DIE_NODE(ps_afnc5_ioa): power-controller@1b8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1b8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -849,7 +849,7 @@
 	};
 
 	DIE_NODE(ps_afnc5_ls): power-controller@1c0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1c0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -859,7 +859,7 @@
 	};
 
 	DIE_NODE(ps_afnc5_lw0): power-controller@1c8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1c8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -869,7 +869,7 @@
 	};
 
 	DIE_NODE(ps_dispext2_sys): power-controller@1d0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1d0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -877,7 +877,7 @@
 	};
 
 	DIE_NODE(ps_msr1): power-controller@1d8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1d8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -885,7 +885,7 @@
 	};
 
 	DIE_NODE(ps_dispext2_fe): power-controller@1e0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1e0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -894,7 +894,7 @@
 	};
 
 	DIE_NODE(ps_dispext2_cpu0): power-controller@1e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1e8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -904,7 +904,7 @@
 	};
 
 	DIE_NODE(ps_msr1_ase_core): power-controller@1f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1f0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -913,7 +913,7 @@
 	};
 
 	DIE_NODE(ps_dispext3_sys): power-controller@220 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x220 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -921,7 +921,7 @@
 	};
 
 	DIE_NODE(ps_venc1_sys): power-controller@228 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x228 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -929,7 +929,7 @@
 	};
 
 	DIE_NODE(ps_dispext3_fe): power-controller@230 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x230 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -938,7 +938,7 @@
 	};
 
 	DIE_NODE(ps_dispext3_cpu0): power-controller@238 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x238 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -948,7 +948,7 @@
 	};
 
 	DIE_NODE(ps_venc1_dma): power-controller@4000 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4000 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -957,7 +957,7 @@
 	};
 
 	DIE_NODE(ps_venc1_pipe4): power-controller@4008 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4008 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -966,7 +966,7 @@
 	};
 
 	DIE_NODE(ps_venc1_pipe5): power-controller@4010 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4010 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -975,7 +975,7 @@
 	};
 
 	DIE_NODE(ps_venc1_me0): power-controller@4018 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4018 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -984,7 +984,7 @@
 	};
 
 	DIE_NODE(ps_venc1_me1): power-controller@4020 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4020 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -995,7 +995,7 @@
 
 &DIE_NODE(pmgr_east) {
 	DIE_NODE(ps_clvr_spmi0): power-controller@100 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x100 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1004,7 +1004,7 @@
 	};
 
 	DIE_NODE(ps_clvr_spmi1): power-controller@108 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x108 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1013,7 +1013,7 @@
 	};
 
 	DIE_NODE(ps_clvr_spmi2): power-controller@110 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x110 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1022,7 +1022,7 @@
 	};
 
 	DIE_NODE(ps_clvr_spmi3): power-controller@118 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x118 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1031,7 +1031,7 @@
 	};
 
 	DIE_NODE(ps_clvr_spmi4): power-controller@120 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x120 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1040,7 +1040,7 @@
 	};
 
 	DIE_NODE(ps_ispsens0): power-controller@128 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x128 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1048,7 +1048,7 @@
 	};
 
 	DIE_NODE(ps_ispsens1): power-controller@130 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x130 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1056,7 +1056,7 @@
 	};
 
 	DIE_NODE(ps_ispsens2): power-controller@138 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x138 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1064,7 +1064,7 @@
 	};
 
 	DIE_NODE(ps_ispsens3): power-controller@140 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x140 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1072,7 +1072,7 @@
 	};
 
 	DIE_NODE(ps_afnc6_ioa): power-controller@148 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x148 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1082,7 +1082,7 @@
 	};
 
 	DIE_NODE(ps_afnc6_ls): power-controller@150 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x150 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1092,7 +1092,7 @@
 	};
 
 	DIE_NODE(ps_afnc6_lw0): power-controller@158 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x158 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1102,7 +1102,7 @@
 	};
 
 	DIE_NODE(ps_afnc2_ioa): power-controller@160 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x160 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1112,7 +1112,7 @@
 	};
 
 	DIE_NODE(ps_afnc2_ls): power-controller@168 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x168 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1122,7 +1122,7 @@
 	};
 
 	DIE_NODE(ps_afnc2_lw0): power-controller@170 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x170 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1132,7 +1132,7 @@
 	};
 
 	DIE_NODE(ps_afnc2_lw1): power-controller@178 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x178 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1142,7 +1142,7 @@
 	};
 
 	DIE_NODE(ps_afnc3_ioa): power-controller@180 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x180 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1152,7 +1152,7 @@
 	};
 
 	DIE_NODE(ps_afnc3_ls): power-controller@188 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x188 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1162,7 +1162,7 @@
 	};
 
 	DIE_NODE(ps_afnc3_lw0): power-controller@190 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x190 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1172,7 +1172,7 @@
 	};
 
 	DIE_NODE(ps_apcie_gp): power-controller@198 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x198 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1181,7 +1181,7 @@
 	};
 
 	DIE_NODE(ps_apcie_st): power-controller@1a0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1a0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1190,7 +1190,7 @@
 	};
 
 	DIE_NODE(ps_ans2): power-controller@1a8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1a8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1199,7 +1199,7 @@
 	};
 
 	DIE_NODE(ps_disp0_sys): power-controller@1b0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1b0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1208,7 +1208,7 @@
 	};
 
 	DIE_NODE(ps_jpg): power-controller@1b8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1b8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1217,7 +1217,7 @@
 	};
 
 	DIE_NODE(ps_sio): power-controller@1c0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1c0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1226,7 +1226,7 @@
 	};
 
 	DIE_NODE(ps_isp_sys): power-controller@1c8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1c8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1236,7 +1236,7 @@
 	};
 
 	DIE_NODE(ps_disp0_fe): power-controller@1d0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1d0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1245,7 +1245,7 @@
 	};
 
 	DIE_NODE(ps_disp0_cpu0): power-controller@1d8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1d8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1255,7 +1255,7 @@
 	};
 
 	DIE_NODE(ps_sio_cpu): power-controller@1e0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1e0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1264,7 +1264,7 @@
 	};
 
 	DIE_NODE(ps_fpwm0): power-controller@1e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1e8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1273,7 +1273,7 @@
 	};
 
 	DIE_NODE(ps_fpwm1): power-controller@1f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1f0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1282,7 +1282,7 @@
 	};
 
 	DIE_NODE(ps_fpwm2): power-controller@1f8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x1f8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1291,7 +1291,7 @@
 	};
 
 	DIE_NODE(ps_i2c0): power-controller@200 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x200 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1300,7 +1300,7 @@
 	};
 
 	DIE_NODE(ps_i2c1): power-controller@208 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x208 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1309,7 +1309,7 @@
 	};
 
 	DIE_NODE(ps_i2c2): power-controller@210 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x210 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1318,7 +1318,7 @@
 	};
 
 	DIE_NODE(ps_i2c3): power-controller@218 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x218 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1327,7 +1327,7 @@
 	};
 
 	DIE_NODE(ps_i2c4): power-controller@220 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x220 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1336,7 +1336,7 @@
 	};
 
 	DIE_NODE(ps_i2c5): power-controller@228 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x228 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1345,7 +1345,7 @@
 	};
 
 	DIE_NODE(ps_i2c6): power-controller@230 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x230 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1354,7 +1354,7 @@
 	};
 
 	DIE_NODE(ps_i2c7): power-controller@238 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x238 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1363,7 +1363,7 @@
 	};
 
 	DIE_NODE(ps_i2c8): power-controller@240 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x240 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1372,7 +1372,7 @@
 	};
 
 	DIE_NODE(ps_spi_p): power-controller@248 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x248 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1381,7 +1381,7 @@
 	};
 
 	DIE_NODE(ps_sio_spmi0): power-controller@250 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x250 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1390,7 +1390,7 @@
 	};
 
 	DIE_NODE(ps_sio_spmi1): power-controller@258 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x258 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1399,7 +1399,7 @@
 	};
 
 	DIE_NODE(ps_sio_spmi2): power-controller@260 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x260 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1408,7 +1408,7 @@
 	};
 
 	DIE_NODE(ps_uart_p): power-controller@268 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x268 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1417,7 +1417,7 @@
 	};
 
 	DIE_NODE(ps_audio_p): power-controller@270 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x270 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1426,7 +1426,7 @@
 	};
 
 	DIE_NODE(ps_sio_adma): power-controller@278 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x278 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1435,7 +1435,7 @@
 	};
 
 	DIE_NODE(ps_aes): power-controller@280 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x280 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1445,7 +1445,7 @@
 	};
 
 	DIE_NODE(ps_dptx_phy_ps): power-controller@288 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x288 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1455,7 +1455,7 @@
 	};
 
 	DIE_NODE(ps_spi0): power-controller@2d8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2d8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1464,7 +1464,7 @@
 	};
 
 	DIE_NODE(ps_spi1): power-controller@2e0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2e0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1473,7 +1473,7 @@
 	};
 
 	DIE_NODE(ps_spi2): power-controller@2e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2e8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1482,7 +1482,7 @@
 	};
 
 	DIE_NODE(ps_spi3): power-controller@2f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2f0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1491,7 +1491,7 @@
 	};
 
 	DIE_NODE(ps_spi4): power-controller@2f8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x2f8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1500,7 +1500,7 @@
 	};
 
 	DIE_NODE(ps_spi5): power-controller@300 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x300 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1509,7 +1509,7 @@
 	};
 
 	DIE_NODE(ps_uart_n): power-controller@308 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x308 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1518,7 +1518,7 @@
 	};
 
 	DIE_NODE(ps_uart0): power-controller@310 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x310 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1527,7 +1527,7 @@
 	};
 
 	DIE_NODE(ps_amcc1): power-controller@318 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x318 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1536,7 +1536,7 @@
 	};
 
 	DIE_NODE(ps_amcc3): power-controller@320 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x320 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1545,7 +1545,7 @@
 	};
 
 	DIE_NODE(ps_dcs_04): power-controller@328 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x328 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1554,7 +1554,7 @@
 	};
 
 	DIE_NODE(ps_dcs_05): power-controller@330 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x330 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1563,7 +1563,7 @@
 	};
 
 	DIE_NODE(ps_dcs_06): power-controller@338 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x338 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1572,7 +1572,7 @@
 	};
 
 	DIE_NODE(ps_dcs_07): power-controller@340 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x340 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1581,7 +1581,7 @@
 	};
 
 	DIE_NODE(ps_dcs_12): power-controller@348 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x348 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1590,7 +1590,7 @@
 	};
 
 	DIE_NODE(ps_dcs_13): power-controller@350 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x350 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1599,7 +1599,7 @@
 	};
 
 	DIE_NODE(ps_dcs_14): power-controller@358 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x358 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1608,7 +1608,7 @@
 	};
 
 	DIE_NODE(ps_dcs_15): power-controller@360 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x360 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1617,7 +1617,7 @@
 	};
 
 	DIE_NODE(ps_uart1): power-controller@368 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x368 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1626,7 +1626,7 @@
 	};
 
 	DIE_NODE(ps_uart2): power-controller@370 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x370 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1635,7 +1635,7 @@
 	};
 
 	DIE_NODE(ps_uart3): power-controller@378 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x378 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1644,7 +1644,7 @@
 	};
 
 	DIE_NODE(ps_uart4): power-controller@380 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x380 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1653,7 +1653,7 @@
 	};
 
 	DIE_NODE(ps_uart5): power-controller@388 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x388 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1662,7 +1662,7 @@
 	};
 
 	DIE_NODE(ps_uart6): power-controller@390 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x390 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1671,7 +1671,7 @@
 	};
 
 	DIE_NODE(ps_mca0): power-controller@398 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x398 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1680,7 +1680,7 @@
 	};
 
 	DIE_NODE(ps_mca1): power-controller@3a0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3a0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1689,7 +1689,7 @@
 	};
 
 	DIE_NODE(ps_mca2): power-controller@3a8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3a8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1698,7 +1698,7 @@
 	};
 
 	DIE_NODE(ps_mca3): power-controller@3b0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3b0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1707,7 +1707,7 @@
 	};
 
 	DIE_NODE(ps_dpa0): power-controller@3b8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3b8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1716,7 +1716,7 @@
 	};
 
 	DIE_NODE(ps_dpa1): power-controller@3c0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3c0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1725,7 +1725,7 @@
 	};
 
 	DIE_NODE(ps_dpa2): power-controller@3c8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3c8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1734,7 +1734,7 @@
 	};
 
 	DIE_NODE(ps_dpa3): power-controller@3d0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3d0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1743,7 +1743,7 @@
 	};
 
 	DIE_NODE(ps_msr0): power-controller@3d8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3d8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1751,7 +1751,7 @@
 	};
 
 	DIE_NODE(ps_venc_sys): power-controller@3e0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3e0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1759,7 +1759,7 @@
 	};
 
 	DIE_NODE(ps_dpa4): power-controller@3e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3e8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1768,7 +1768,7 @@
 	};
 
 	DIE_NODE(ps_msr0_ase_core): power-controller@3f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3f0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1777,7 +1777,7 @@
 	};
 
 	DIE_NODE(ps_apcie_gpshr_sys): power-controller@3f8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x3f8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1786,7 +1786,7 @@
 	};
 
 	DIE_NODE(ps_apcie_st_sys): power-controller@408 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x408 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1795,7 +1795,7 @@
 	};
 
 	DIE_NODE(ps_apcie_st1_sys): power-controller@410 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x410 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1804,7 +1804,7 @@
 	};
 
 	DIE_NODE(ps_apcie_gp_sys): power-controller@418 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x418 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1814,7 +1814,7 @@
 	};
 
 	DIE_NODE(ps_apcie_ge_sys): power-controller@420 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x420 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1823,7 +1823,7 @@
 	};
 
 	DIE_NODE(ps_apcie_phy_sw): power-controller@428 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x428 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1832,7 +1832,7 @@
 	};
 
 	DIE_NODE(ps_sep): power-controller@c00 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xc00 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1849,7 +1849,7 @@
 	 * have to enable/disable everything in the per-model DTs.
 	 */
 	DIE_NODE(ps_isp_cpu): power-controller@4000 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4000 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1859,7 +1859,7 @@
 	};
 
 	DIE_NODE(ps_isp_fe): power-controller@4008 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4008 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1868,7 +1868,7 @@
 	};
 
 	DIE_NODE(ps_dprx): power-controller@4010 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4010 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1877,7 +1877,7 @@
 	};
 
 	DIE_NODE(ps_isp_vis): power-controller@4018 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4018 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1886,7 +1886,7 @@
 	};
 
 	DIE_NODE(ps_isp_be): power-controller@4020 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4020 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1895,7 +1895,7 @@
 	};
 
 	DIE_NODE(ps_isp_raw): power-controller@4028 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4028 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1904,7 +1904,7 @@
 	};
 
 	DIE_NODE(ps_isp_clr): power-controller@4030 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x4030 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1913,7 +1913,7 @@
 	};
 
 	DIE_NODE(ps_venc_dma): power-controller@8000 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x8000 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1922,7 +1922,7 @@
 	};
 
 	DIE_NODE(ps_venc_pipe4): power-controller@8008 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x8008 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1931,7 +1931,7 @@
 	};
 
 	DIE_NODE(ps_venc_pipe5): power-controller@8010 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x8010 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1940,7 +1940,7 @@
 	};
 
 	DIE_NODE(ps_venc_me0): power-controller@8018 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x8018 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1949,7 +1949,7 @@
 	};
 
 	DIE_NODE(ps_venc_me1): power-controller@8020 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x8020 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1958,7 +1958,7 @@
 	};
 
 	DIE_NODE(ps_prores): power-controller@c000 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xc000 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1969,7 +1969,7 @@
 
 &DIE_NODE(pmgr_mini) {
 	DIE_NODE(ps_debug): power-controller@58 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x58 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1978,7 +1978,7 @@
 	};
 
 	DIE_NODE(ps_nub_spmi0): power-controller@60 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x60 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1987,7 +1987,7 @@
 	};
 
 	DIE_NODE(ps_nub_spmi1): power-controller@68 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x68 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -1996,7 +1996,7 @@
 	};
 
 	DIE_NODE(ps_nub_aon): power-controller@70 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x70 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2005,7 +2005,7 @@
 	};
 
 	DIE_NODE(ps_msg): power-controller@78 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x78 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2014,7 +2014,7 @@
 	};
 
 	DIE_NODE(ps_nub_gpio): power-controller@80 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x80 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2023,7 +2023,7 @@
 	};
 
 	DIE_NODE(ps_nub_fabric): power-controller@88 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x88 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2032,7 +2032,7 @@
 	};
 
 	DIE_NODE(ps_atc0_usb_aon): power-controller@90 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x90 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2041,7 +2041,7 @@
 	};
 
 	DIE_NODE(ps_atc1_usb_aon): power-controller@98 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x98 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2050,7 +2050,7 @@
 	};
 
 	DIE_NODE(ps_atc2_usb_aon): power-controller@a0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xa0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2059,7 +2059,7 @@
 	};
 
 	DIE_NODE(ps_atc3_usb_aon): power-controller@a8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xa8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2068,7 +2068,7 @@
 	};
 
 	DIE_NODE(ps_mtp_fabric): power-controller@b0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xb0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2079,7 +2079,7 @@
 	};
 
 	DIE_NODE(ps_nub_sram): power-controller@b8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xb8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2088,7 +2088,7 @@
 	};
 
 	DIE_NODE(ps_debug_switch): power-controller@c0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xc0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2097,7 +2097,7 @@
 	};
 
 	DIE_NODE(ps_atc0_usb): power-controller@c8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xc8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2106,7 +2106,7 @@
 	};
 
 	DIE_NODE(ps_atc1_usb): power-controller@d0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xd0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2115,7 +2115,7 @@
 	};
 
 	DIE_NODE(ps_atc2_usb): power-controller@d8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xd8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2124,7 +2124,7 @@
 	};
 
 	DIE_NODE(ps_atc3_usb): power-controller@e0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xe0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2135,7 +2135,7 @@
 #if 0
 	/* MTP stuff is self-managed */
 	DIE_NODE(ps_mtp_gpio): power-controller@e8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xe8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2145,7 +2145,7 @@
 	};
 
 	DIE_NODE(ps_mtp_base): power-controller@f0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xf0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2155,7 +2155,7 @@
 	};
 
 	DIE_NODE(ps_mtp_periph): power-controller@f8 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0xf8 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2165,7 +2165,7 @@
 	};
 
 	DIE_NODE(ps_mtp_spi0): power-controller@100 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x100 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2175,7 +2175,7 @@
 	};
 
 	DIE_NODE(ps_mtp_i2cm0): power-controller@108 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x108 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2185,7 +2185,7 @@
 	};
 
 	DIE_NODE(ps_mtp_uart0): power-controller@110 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x110 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2195,7 +2195,7 @@
 	};
 
 	DIE_NODE(ps_mtp_cpu): power-controller@118 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x118 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2205,7 +2205,7 @@
 	};
 
 	DIE_NODE(ps_mtp_scm_fabric): power-controller@120 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x120 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2215,7 +2215,7 @@
 	};
 
 	DIE_NODE(ps_mtp_sram): power-controller@128 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x128 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2225,7 +2225,7 @@
 	};
 
 	DIE_NODE(ps_mtp_dma): power-controller@130 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x130 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2238,7 +2238,7 @@
 
 &DIE_NODE(pmgr_gfx) {
 	DIE_NODE(ps_gpx): power-controller@0 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x0 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2248,7 +2248,7 @@
 	};
 
 	DIE_NODE(ps_afr): power-controller@100 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x100 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
@@ -2258,7 +2258,7 @@
 	};
 
 	DIE_NODE(ps_gfx): power-controller@108 {
-		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+		compatible = "apple,t6020-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x108 4>;
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;

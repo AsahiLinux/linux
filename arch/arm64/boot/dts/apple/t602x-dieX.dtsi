@@ -52,7 +52,7 @@
 	};
 
 	DIE_NODE(pinctrl_nub): pinctrl@29e1f0000 {
-		compatible = "apple,t6020-pinctrl", "apple,t8103-pinctrl";
+		compatible = "apple,t6020-pinctrl", "apple,t8103-pinctrl", "apple,pinctrl";
 		reg = <0x2 0x9e1f0000 0x0 0x4000>;
 		power-domains = <&DIE_NODE(ps_nub_gpio)>;
 
@@ -81,7 +81,7 @@
 	};
 
 	DIE_NODE(pinctrl_aop): pinctrl@2a6820000 {
-		compatible = "apple,t6020-pinctrl", "apple,t8103-pinctrl";
+		compatible = "apple,t6020-pinctrl", "apple,t8103-pinctrl", "apple,pinctrl";
 		reg = <0x2 0xa6820000 0x0 0x4000>;
 
 		gpio-controller;
@@ -102,7 +102,7 @@
 	};
 
 	DIE_NODE(pinctrl_ap): pinctrl@39b028000 {
-		compatible = "apple,t6020-pinctrl", "apple,t8103-pinctrl";
+		compatible = "apple,t6020-pinctrl", "apple,t8103-pinctrl", "apple,pinctrl";
 		reg = <0x3 0x9b028000 0x0 0x4000>;
 
 		interrupt-parent = <&aic>;
