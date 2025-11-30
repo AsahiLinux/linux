@@ -98,6 +98,11 @@ static const char *volume_control_names[] = {
 #define SSM3515_0DB (255 - 64) /* +24dB max, steps of 3/8 dB */
 #define SSM3515_DB(x) (SSM3515_0DB + (8 * (x) / 3))
 
+struct ma_codec_idle {
+	int idle_mode;
+	u32 idle_mask;
+};
+
 struct macaudio_snd_data {
 	struct snd_soc_card card;
 	struct snd_soc_jack jack;
@@ -118,6 +123,7 @@ struct macaudio_snd_data {
 		bool is_speakers;
 		bool is_headphones;
 		unsigned int tdm_mask;
+		struct ma_codec_idle *codecs;
 	} *link_props;
 
 	int speaker_sample_rate;
@@ -472,6 +478,36 @@ static int macaudio_parse_of_be_dai_link(struct macaudio_snd_data *ma,
 	return 0;
 }
 
+static int macaudio_get_codec_idle_props(struct device_node *np,
+					 struct ma_codec_idle *idle, int i,
+					 int be_index, int ncodecs_per_cpu)
+{
+	char propname[32];
+	int ret, sys_codec;
+
+	/*
+	 * Depending on the BE index on the DAI, we need to offset our i
+	 */
+	sys_codec = i + (be_index * ncodecs_per_cpu);
+
+	snprintf(propname, 32, "dai-tdm-idle-mode-%d", sys_codec);
+	ret = of_property_match_string(np, propname, "zero");
+	if (!ret) {
+		idle->idle_mode = SND_SOC_DAI_TDM_IDLE_ZERO;
+	} else {
+		ret = of_property_match_string(np, propname, "pulldown");
+		if (!ret)
+			idle->idle_mode = SND_SOC_DAI_TDM_IDLE_PULLDOWN;
+		else
+			return ret;
+	}
+
+	snprintf(propname, 32, "dai-tdm-slot-tx-idle-mask-%d", sys_codec);
+	of_property_read_u32(np, propname, &idle->idle_mask);
+
+	return 0;
+}
+
 static int macaudio_parse_of(struct macaudio_snd_data *ma)
 {
 	struct device_node *codec = NULL;
@@ -650,6 +686,19 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 
 			link_props->is_speakers = speakers;
 			link_props->is_headphones = !speakers;
+
+			link_props->codecs = devm_kcalloc(dev, ncodecs_per_cpu,
+							  sizeof(struct ma_codec_idle), GFP_KERNEL);
+			if (!link_props->codecs)
+				return -ENOMEM;
+			for (i = 0; i < ncodecs_per_cpu; i++) {
+				ret = macaudio_get_codec_idle_props(np, &link_props->codecs[i],
+								    i, be_index, ncodecs_per_cpu);
+
+				/* Not every codec's bus keeper will be configured */
+				if (ret)
+					dev_dbg(card->dev, "Codec %d has no idle props\n", i);
+			}
 
 			if (num_bes == 2)
 				/* This sound peripheral is split between left and right BE */
@@ -959,6 +1008,11 @@ static int macaudio_be_assign_tdm(struct snd_soc_pcm_runtime *rtd)
 					       MACAUDIO_SLOTWIDTH);
 		if (ret)
 			return ret;
+
+		if (props->codecs[i].idle_mode) {
+			ret = snd_soc_dai_set_tdm_idle(dai, props->codecs[i].idle_mask,
+						       0, props->codecs[i].idle_mode, 0);
+		}
 	}
 
 	return 0;
