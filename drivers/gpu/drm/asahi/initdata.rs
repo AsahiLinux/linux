@@ -670,14 +670,14 @@ impl<'a> InitDataBuilder::ver<'a> {
                     unk_2c: 1,
                     unk_30: 0,
                     unk_34: 120,
-                    sub <- try_init!(raw::GlobalsSub::ver {
+                    // sub <- try_init!(raw::GlobalsSub::ver {
                         unk_54: cfg.global_unk_54,
                         unk_56: 40,
                         unk_58: 0xffff,
                         unk_5e: U32(1),
                         unk_66: U32(1),
-                        ..Zeroable::init_zeroed()
-                    }),
+                    //     ..Zeroable::init_zeroed()
+                    // }),
                     unk_8900: 1,
                     pending_submissions: AtomicU32::new(0),
                     max_power: pwr.max_power_mw,

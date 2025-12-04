@@ -1007,26 +1007,6 @@ pub(crate) mod raw {
     }
     default_zeroed!(FaultInfo);
 
-    #[versions(AGX)]
-    #[derive(Debug, Clone, Copy)]
-    #[repr(C, packed)]
-    pub(crate) struct GlobalsSub {
-        pub(crate) unk_54: u16,
-        pub(crate) unk_56: u16,
-        pub(crate) unk_58: u16,
-        pub(crate) unk_5a: U32,
-        pub(crate) unk_5e: U32,
-        pub(crate) unk_62: U32,
-
-        #[ver(V >= V13_0B4)]
-        pub(crate) unk_66_0: Array<0xc, u8>,
-
-        pub(crate) unk_66: U32,
-        pub(crate) unk_6a: Array<0x16, u8>,
-    }
-    #[versions(AGX)]
-    default_zeroed!(GlobalsSub::ver);
-
     #[derive(Debug, Clone, Copy)]
     #[repr(C)]
     pub(crate) struct PowerZoneGlobal {
@@ -1064,7 +1044,20 @@ pub(crate) mod raw {
         pub(crate) unk_34: u32,
         pub(crate) unk_38: Array<0x1c, u8>,
 
-        pub(crate) sub: GlobalsSub::ver,
+        // pub(crate) sub: GlobalsSub::ver,
+        pub(crate) unk_54: u16,
+        pub(crate) unk_56: u16,
+        pub(crate) unk_58: u16,
+        pub(crate) unk_5a: U32,
+        pub(crate) unk_5e: U32,
+        pub(crate) unk_62: U32,
+
+        #[ver(V >= V13_0B4)]
+        pub(crate) unk_66_0: Array<0xc, u8>,
+
+        pub(crate) unk_66: U32,
+        pub(crate) unk_6a: Array<0x16, u8>,
+        // end GlobalsSub::ver
 
         pub(crate) unk_80: Array<0xf80, u8>,
         pub(crate) unk_1000: Array<0x7000, u8>,
