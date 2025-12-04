@@ -237,7 +237,7 @@ impl<'a> InitDataBuilder::ver<'a> {
 
         #[allow(unused_variables)]
         let base_clock_khz = self.cfg.base_clock_hz / 1000;
-        let clocks_per_period = pwr.pwr_sample_period_aic_clks;
+        let v_clocks_per_period = pwr.pwr_sample_period_aic_clks;
 
         #[allow(unused_variables)]
         let clocks_per_period_coarse = self.cfg.base_clock_hz / 1000 * pwr.power_sample_period;
@@ -248,9 +248,9 @@ impl<'a> InitDataBuilder::ver<'a> {
                 let cfg = &self.cfg;
                 let dyncfg = &self.dyncfg;
                 try_init!(raw::HwDataA::ver {
-                    clocks_per_period: clocks_per_period,
+                    clocks_per_period: v_clocks_per_period,
                     #[ver(V >= V13_0B4)]
-                    clocks_per_period_2: clocks_per_period,
+                    clocks_per_period_2: v_clocks_per_period,
                     pwr_status: AtomicU32::new(4),
                     unk_10: f32!(1.0),
                     actual_pstate: 1,
