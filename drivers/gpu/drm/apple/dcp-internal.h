@@ -184,6 +184,7 @@ struct apple_dcp {
 	/* Current display mode */
 	bool during_modeset;
 	bool valid_mode;
+	s64 precise_sync_rate;
 	struct dcp_set_digital_out_mode_req mode;
 
 	/* completion for active turning true */

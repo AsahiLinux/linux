@@ -1219,6 +1219,9 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 		.timing_mode_id = mode->timing_mode_id
 	};
 
+	/* keep around to fake timestamps in dcp_swap_submit */
+	dcp->precise_sync_rate = mode->precise_sync_rate;
+
 	cookie = kzalloc(sizeof(*cookie), GFP_KERNEL);
 	if (!cookie) {
 		return -ENOMEM;
@@ -1406,6 +1409,16 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		req->swap.swap_enabled |= IOMFB_SET_BACKGROUND;
 		req->swap.bg_color = 0xFF000000;
 		req->clear = 1;
+	}
+
+	if (has_surface && dcp->main_display && (dcp->precise_sync_rate >> 16) == 120) {
+		/*
+		 * Fake timstamps to get 120hz refresh rate. It looks
+		 * like the actual value does not matter, as long  as it is non zero.
+		 */
+		req->swap.ts1 = 120;
+		req->swap.ts2 = 120;
+		req->swap.ts3 = 120;
 	}
 
 	/* These fields should be set together */

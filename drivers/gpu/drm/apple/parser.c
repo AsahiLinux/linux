@@ -499,19 +499,6 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 	if (is_virtual)
 		return -EINVAL;
 
-	/*
-	 * HACK:
-	 * Ignore the 120 Hz mode on j314/j316 (identified by resolution).
-	 * DCP limits normal swaps to 60 Hz anyway and the 120 Hz mode might
-	 * cause choppiness with X11.
-	 * Just downscoring it and thus making the 60 Hz mode the preferred mode
-	 * seems not enough for some user space.
-	 */
-	if (vert.precise_sync_rate >> 16 == 120 &&
-	    ((horiz.active == 3024 && vert.active == 1964) ||
-	     (horiz.active == 3456 && vert.active == 2234)))
-		return -EINVAL;
-
 	vert.active -= notch_height;
 	vert.sync_width += notch_height;
 
@@ -539,6 +526,7 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 
 	out->timing_mode_id = id;
 	out->color_mode_id = best_color_mode;
+	out->precise_sync_rate = vert.precise_sync_rate;
 
 	trace_iomfb_timing_mode(handle->dcp, id, *score, horiz.active,
 				vert.active, vert.precise_sync_rate,
