@@ -1210,14 +1210,17 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 	if (cmode)
 		dev_info(dcp->dev,
 			"set_digital_out_mode() color mode depth:%hhu format:%u "
-			"colorimetry:%u eotf:%u range:%u\n", cmode->depth,
+			"colorimetry:%u eotf:%u range:%u vrr:%u\n", cmode->depth,
 			cmode->format, cmode->colorimetry, cmode->eotf,
-			cmode->range);
+			cmode->range, mode->vrr);
 
 	dcp->mode = (struct dcp_set_digital_out_mode_req){
 		.color_mode_id = mode->color_mode_id,
 		.timing_mode_id = mode->timing_mode_id
 	};
+
+	/* Keep track of suspected vrr modes */
+	dcp->use_timestamps = mode->vrr;
 
 	cookie = kzalloc(sizeof(*cookie), GFP_KERNEL);
 	if (!cookie) {
@@ -1406,6 +1409,16 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		req->swap.swap_enabled |= IOMFB_SET_BACKGROUND;
 		req->swap.bg_color = 0xFF000000;
 		req->clear = 1;
+	}
+
+	if (has_surface && dcp->use_timestamps) {
+		/*
+		 * Fake timstamps to get 120hz refresh rate. It looks
+		 * like the actual value does not matter, as long  as it is non zero.
+		 */
+		req->swap.ts1 = 120;
+		req->swap.ts2 = 120;
+		req->swap.ts3 = 120;
 	}
 
 	/* These fields should be set together */

@@ -91,6 +91,7 @@ struct dcp_display_mode {
 	struct dcp_color_mode sdr_444;
 	struct dcp_color_mode sdr;
 	struct dcp_color_mode best;
+	bool vrr;
 };
 
 struct dimension {
