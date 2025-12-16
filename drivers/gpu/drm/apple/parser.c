@@ -500,17 +500,16 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 		return -EINVAL;
 
 	/*
-	 * HACK:
-	 * Ignore the 120 Hz mode on j314/j316 (identified by resolution).
-	 * DCP limits normal swaps to 60 Hz anyway and the 120 Hz mode might
-	 * cause choppiness with X11.
-	 * Just downscoring it and thus making the 60 Hz mode the preferred mode
-	 * seems not enough for some user space.
-	 */
+	* HACK:
+	* Mark the 120 Hz mode on j314/j316 (identified by resolution) as vrr.
+	* We still do not know how to drive VRR but at least seetinng timestamps
+	* in the the swap_surface message to non-zero values drives the display
+	* at 120 fps.
+	*/
 	if (vert.precise_sync_rate >> 16 == 120 &&
 	    ((horiz.active == 3024 && vert.active == 1964) ||
 	     (horiz.active == 3456 && vert.active == 2234)))
-		return -EINVAL;
+		out->vrr = true;
 
 	vert.active -= notch_height;
 	vert.sync_width += notch_height;
