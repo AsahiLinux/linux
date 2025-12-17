@@ -176,25 +176,31 @@ impl platform::Driver for AsahiDriver {
             .property_read_array_vec(c_str!("apple,firmware-compat"), 3)?
             .required_by(pdev.as_ref())?;
 
-        let raw_drm = unsafe { drm::device::Device::<AsahiDriver>::new_uninit(pdev.as_ref())? };
-
-        let drm: AsahiDevRef = unsafe { ARef::from_raw(raw_drm) };
+        // TODO: This is very temporary
+        // SAFETY: This should be safe as data is not touched by the driver
+        // untill it gets fully initialised.
+        // Additionally drm::device::Device::release() will not drop data and
+        // leaks instead.
+        let uninit = unsafe {
+            pin_init::pin_init_from_closure::<AsahiData, kernel::error::Error>(|_slot| Ok(()))
+        };
+        let drm: ARef<AsahiDevice> = drm::device::Device::new(pdev.as_ref(), uninit)?;
 
         let gpu = match (cfg.gpu_gen, cfg.gpu_variant, compat.as_slice()) {
             (hw::GpuGen::G13, _, &[12, 3, 0]) => {
-                gpu::GpuManagerG13V12_3::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG13V12_3::new(&drm.clone(), &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G14, hw::GpuVariant::G, &[12, 4, 0]) => {
-                gpu::GpuManagerG14V12_4::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG14V12_4::new(&drm.clone(), &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G13, _, &[13, 5, 0]) => {
-                gpu::GpuManagerG13V13_5::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG13V13_5::new(&drm.clone(), &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G14, hw::GpuVariant::G, &[13, 5, 0]) => {
-                gpu::GpuManagerG14V13_5::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG14V13_5::new(&drm.clone(), &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             (hw::GpuGen::G14, _, &[13, 5, 0]) => {
-                gpu::GpuManagerG14XV13_5::new(&drm, &res, cfg)? as Arc<dyn gpu::GpuManager>
+                gpu::GpuManagerG14XV13_5::new(&drm.clone(), &res, cfg)? as Arc<dyn gpu::GpuManager>
             }
             _ => {
                 dev_info!(
@@ -214,7 +220,10 @@ impl platform::Driver for AsahiDriver {
             resources: res,
         });
 
-        let drm = unsafe { AsahiDevice::init_data(raw_drm, data)? };
+        let ptr: *const AsahiData = &raw const **drm;
+        unsafe {
+            data.__pinned_init(ptr as *mut AsahiData)?;
+        }
 
         (*drm).gpu.init()?;
 
