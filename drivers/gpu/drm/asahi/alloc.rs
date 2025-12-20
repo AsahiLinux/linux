@@ -36,8 +36,8 @@ use crate::object::{
 use crate::util::RangeExt;
 
 use core::cmp::Ordering;
+use core::fmt;
 use core::fmt::{
-    self,
     Debug,
     Formatter, //
 };
@@ -469,7 +469,7 @@ impl RawAllocation for SimpleAllocation {
 pub(crate) struct SimpleAllocator {
     dev: AsahiDevRef,
     range: Range<u64>,
-    prot: u32,
+    prot: mmu::Prot,
     vm: mmu::Vm,
     min_align: usize,
     cpu_maps: bool,
@@ -484,7 +484,7 @@ impl SimpleAllocator {
         vm: &mmu::Vm,
         range: Range<u64>,
         min_align: usize,
-        prot: u32,
+        prot: mmu::Prot,
         _block_size: usize,
         mut cpu_maps: bool,
         _name: fmt::Arguments<'_>,
@@ -678,7 +678,7 @@ pub(crate) struct HeapAllocator {
     dev: AsahiDevRef,
     range: Range<u64>,
     top: u64,
-    prot: u32,
+    prot: mmu::Prot,
     vm: mmu::Vm,
     min_align: usize,
     block_size: usize,
@@ -698,7 +698,7 @@ impl HeapAllocator {
         vm: &mmu::Vm,
         range: Range<u64>,
         min_align: usize,
-        prot: u32,
+        prot: mmu::Prot,
         block_size: usize,
         mut cpu_maps: bool,
         name: fmt::Arguments<'_>,

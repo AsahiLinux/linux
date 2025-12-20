@@ -23,6 +23,7 @@ use core::sync::atomic::{
 };
 
 use kernel::{
+    addr::PhysicalAddr,
     c_str,
     device,
     drm::{
@@ -32,12 +33,6 @@ use kernel::{
     },
     error::Result,
     io,
-    io_pgtable,
-    io_pgtable::{
-        prot,
-        AppleUAT,
-        IoPageTable, //
-    },
     new_mutex,
     prelude::*,
     static_lock_class,
@@ -66,9 +61,22 @@ use crate::{
     gem,
     hw,
     mem,
+    pgtable,
     slotalloc,
     util::RangeExt, //
 };
+
+// KernelMapping protection types
+pub(crate) use crate::pgtable::Prot;
+pub(crate) use pgtable::prot::*;
+pub(crate) use pgtable::{
+    UatPageTable,
+    UAT_PGBIT,
+    UAT_PGMSK,
+    UAT_PGSZ, //
+};
+
+use pgtable::UAT_IAS;
 
 use pin_init;
 
@@ -109,51 +117,9 @@ pub(crate) const IOVA_UNK_PAGE: u64 = IOVA_USER_TOP - 2 * UAT_PGSZ as u64;
 /// User VA range excluding the unk page
 pub(crate) const IOVA_USER_USABLE_RANGE: Range<u64> = IOVA_USER_BASE..IOVA_UNK_PAGE;
 
-// KernelMapping protection types
-
-// Note: prot::CACHE means "cache coherency", which for UAT means *uncached*,
-// since uncached mappings from the GFX ASC side are cache coherent with the AP cache.
-// Not having that flag means *cached noncoherent*.
-
-/// Firmware MMIO R/W
-pub(crate) const PROT_FW_MMIO_RW: u32 =
-    prot::PRIV | prot::READ | prot::WRITE | prot::CACHE | prot::MMIO;
-/// Firmware MMIO R/O
-pub(crate) const PROT_FW_MMIO_RO: u32 = prot::PRIV | prot::READ | prot::CACHE | prot::MMIO;
-/// Firmware shared (uncached) RW
-pub(crate) const PROT_FW_SHARED_RW: u32 = prot::PRIV | prot::READ | prot::WRITE | prot::CACHE;
-/// Firmware shared (uncached) RO
-pub(crate) const PROT_FW_SHARED_RO: u32 = prot::PRIV | prot::READ | prot::CACHE;
-/// Firmware private (cached) RW
-pub(crate) const PROT_FW_PRIV_RW: u32 = prot::PRIV | prot::READ | prot::WRITE;
-/*
-/// Firmware private (cached) RO
-pub(crate) const PROT_FW_PRIV_RO: u32 = prot::PRIV | prot::READ;
-*/
-/// Firmware/GPU shared (uncached) RW
-pub(crate) const PROT_GPU_FW_SHARED_RW: u32 = prot::READ | prot::WRITE | prot::CACHE;
-/// Firmware/GPU shared (private) RW
-pub(crate) const PROT_GPU_FW_PRIV_RW: u32 = prot::READ | prot::WRITE;
-/// Firmware-RW/GPU-RO shared (private) RW
-pub(crate) const PROT_GPU_RO_FW_PRIV_RW: u32 = prot::PRIV | prot::WRITE;
-/// GPU shared/coherent RW
-pub(crate) const PROT_GPU_SHARED_RW: u32 = prot::READ | prot::WRITE | prot::CACHE | prot::NOEXEC;
-/// GPU shared/coherent RO
-pub(crate) const PROT_GPU_SHARED_RO: u32 = prot::READ | prot::CACHE | prot::NOEXEC;
-/// GPU shared/coherent WO
-pub(crate) const PROT_GPU_SHARED_WO: u32 = prot::WRITE | prot::CACHE | prot::NOEXEC;
-/*
-/// GPU private/noncoherent RW
-pub(crate) const PROT_GPU_PRIV_RW: u32 = prot::READ | prot::WRITE | prot::NOEXEC;
-/// GPU private/noncoherent RO
-pub(crate) const PROT_GPU_PRIV_RO: u32 = prot::READ | prot::NOEXEC;
-*/
-
-type PhysAddr = bindings::phys_addr_t;
-
 /// A pre-allocated memory region for UAT management
 struct UatRegion {
-    base: PhysAddr,
+    base: PhysicalAddr,
     map: io::mem::Mem,
 }
 
@@ -208,7 +174,7 @@ struct VmInner {
     dev: driver::AsahiDevRef,
     is_kernel: bool,
     va_range: Range<u64>,
-    page_table: AppleUAT<Uat>,
+    page_table: UatPageTable,
     mm: mm::Allocator<(), KernelMappingInner>,
     uat_inner: Arc<UatInner>,
     binding: Arc<Mutex<VmBinding>>,
@@ -244,7 +210,7 @@ struct StepContext {
     prev_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
     next_va: Option<Pin<KBox<gpuvm::GpuVa<VmInner>>>>,
     vm_bo: Option<ARef<gpuvm::GpuVmBo<VmInner>>>,
-    prot: u32,
+    prot: Prot,
 }
 
 impl gpuvm::DriverGpuVm for VmInner {
@@ -296,7 +262,8 @@ impl gpuvm::DriverGpuVm for VmInner {
                 iova
             );
 
-            self.map_pages(iova, addr, UAT_PGSZ, len >> UAT_PGBIT, ctx.prot)?;
+            self.page_table
+                .map_pages(iova..(iova + len as u64), addr as PhysicalAddr, ctx.prot)?;
 
             left -= len;
             iova += len as u64;
@@ -332,7 +299,8 @@ impl gpuvm::DriverGpuVm for VmInner {
 
         mod_dev_dbg!(self.dev, "MMU: unmap: {:#x}:{:#x}\n", va.addr(), va.range());
 
-        self.unmap_pages(va.addr(), UAT_PGSZ, (va.range() >> UAT_PGBIT) as usize)?;
+        self.page_table
+            .unmap_pages(va.addr()..(va.addr() + va.range()))?;
 
         if let Some(asid) = self.slot() {
             fence(Ordering::SeqCst);
@@ -375,18 +343,18 @@ impl gpuvm::DriverGpuVm for VmInner {
             orig_addr + orig_range
         };
 
-        let unmap_range = unmap_end - unmap_start;
-
         mod_dev_dbg!(
             self.dev,
-            "MMU: unmap for remap: {:#x}:{:#x} (from {:#x}:{:#x})\n",
+            "MMU: unmap for remap: {:#x}..{:#x} (from {:#x}:{:#x})\n",
             unmap_start,
-            unmap_range,
+            unmap_end,
             orig_addr,
             orig_range
         );
 
-        self.unmap_pages(unmap_start, UAT_PGSZ, (unmap_range >> UAT_PGBIT) as usize)?;
+        let unmap_range = unmap_end - unmap_start;
+
+        self.page_table.unmap_pages(unmap_start..unmap_end)?;
 
         if let Some(asid) = self.slot() {
             fence(Ordering::SeqCst);
@@ -456,78 +424,22 @@ impl VmInner {
 
     /// Returns the translation table base for this Vm
     fn ttb(&self) -> u64 {
-        self.page_table.cfg().ttbr
-    }
-
-    /// Map an IOVA to the shifted address the underlying io_pgtable uses.
-    fn map_iova(&self, iova: u64, size: usize) -> Result<u64> {
-        if !self.va_range.is_superset(iova..(iova + size as u64)) {
-            Err(EINVAL)
-        } else if self.is_kernel {
-            Ok(iova - self.va_range.start)
-        } else {
-            Ok(iova)
-        }
-    }
-
-    /// Map a contiguous range of virtual->physical pages.
-    fn map_pages(
-        &mut self,
-        mut iova: u64,
-        mut paddr: usize,
-        pgsize: usize,
-        pgcount: usize,
-        prot: u32,
-    ) -> Result<usize> {
-        let mut left = pgcount;
-        while left > 0 {
-            let mapped_iova = self.map_iova(iova, pgsize * left)?;
-            let mapped =
-                self.page_table
-                    .map_pages(mapped_iova as usize, paddr, pgsize, left, prot)?;
-            assert!(mapped <= left * pgsize);
-
-            left -= mapped / pgsize;
-            paddr += mapped;
-            iova += mapped as u64;
-        }
-        Ok(pgcount * pgsize)
-    }
-
-    /// Unmap a contiguous range of pages.
-    fn unmap_pages(&mut self, mut iova: u64, pgsize: usize, pgcount: usize) -> Result<usize> {
-        let mut left = pgcount;
-        while left > 0 {
-            let mapped_iova = self.map_iova(iova, pgsize * left)?;
-            let mut unmapped = self
-                .page_table
-                .unmap_pages(mapped_iova as usize, pgsize, left);
-            if unmapped == 0 {
-                dev_err!(
-                    self.dev.as_ref(),
-                    "unmap_pages {:#x}:{:#x} returned 0\n",
-                    mapped_iova,
-                    left
-                );
-                unmapped = pgsize; // Pretend we unmapped one page and try again...
-            }
-            assert!(unmapped <= left * pgsize);
-
-            left -= unmapped / pgsize;
-            iova += unmapped as u64;
-        }
-
-        Ok(pgcount * pgsize)
+        self.page_table.ttb()
     }
 
     /// Map an `mm::Node` representing an mapping in VA space.
-    fn map_node(&mut self, node: &mm::Node<(), KernelMappingInner>, prot: u32) -> Result {
+    fn map_node(&mut self, node: &mm::Node<(), KernelMappingInner>, prot: Prot) -> Result {
         let mut iova = node.start();
         let guard = node.bo.as_ref().ok_or(EINVAL)?.inner().sgt.lock();
         let sgt = guard.as_ref().ok_or(EINVAL)?;
         let mut offset = node.offset;
+        let mut left = node.mapped_size;
 
-        for range in unsafe { sgt.iter_raw() } {
+        for range in sgt.iter() {
+            if left == 0 {
+                break;
+            }
+
             // TODO: proper DMA address/length handling
             let mut addr = range.dma_address() as usize;
             let mut len: usize = range.dma_len() as usize;
@@ -550,6 +462,8 @@ impl VmInner {
                 offset -= skip;
             }
 
+            len = len.min(left);
+
             if len == 0 {
                 continue;
             }
@@ -562,9 +476,11 @@ impl VmInner {
                 iova
             );
 
-            self.map_pages(iova, addr, UAT_PGSZ, len >> UAT_PGBIT, prot)?;
+            self.page_table
+                .map_pages(iova..(iova + len as u64), addr as PhysicalAddr, prot)?;
 
             iova += len as u64;
+            left -= len;
         }
         Ok(())
     }
@@ -641,7 +557,7 @@ pub(crate) struct KernelMappingInner {
     _gem: Option<ARef<gem::Object>>,
     owner: ARef<gpuvm::GpuVm<VmInner>>,
     uat_inner: Arc<UatInner>,
-    prot: u32,
+    prot: Prot,
     offset: usize,
     mapped_size: usize,
 }
@@ -660,13 +576,18 @@ impl KernelMapping {
         self.0.mapped_size
     }
 
+    /// Returns the IOVA base of this mapping
+    pub(crate) fn iova_range(&self) -> Range<u64> {
+        self.0.start()..(self.0.start() + self.0.mapped_size as u64)
+    }
+
     /// Remap a cached mapping as uncached, then synchronously flush that range of VAs from the
     /// coprocessor cache. This is required to safely unmap cached/private mappings.
     fn remap_uncached_and_flush(&mut self) {
         let mut owner = self
             .0
             .owner
-            .exec_lock(None)
+            .exec_lock(None, false)
             .expect("Failed to exec_lock in remap_uncached_and_flush");
 
         mod_dev_dbg!(
@@ -676,23 +597,14 @@ impl KernelMapping {
             self.size()
         );
 
-        // The IOMMU API does not allow us to remap things in-place...
-        // just do an unmap and map again for now.
-        // Do not try to unmap guard page (-1)
+        // Remap in-place as uncached.
+        // Do not try to unmap the guard page (-1)
+        let prot = self.0.prot.as_uncached();
         if owner
-            .unmap_pages(self.iova(), UAT_PGSZ, self.size() >> UAT_PGBIT)
+            .page_table
+            .reprot_pages(self.iova_range(), prot)
             .is_err()
         {
-            dev_err!(
-                owner.dev.as_ref(),
-                "MMU: unmap for remap {:#x}:{:#x} failed\n",
-                self.iova(),
-                self.size()
-            );
-        }
-
-        let prot = self.0.prot | prot::CACHE;
-        if owner.map_node(&self.0, prot).is_err() {
             dev_err!(
                 owner.dev.as_ref(),
                 "MMU: remap {:#x}:{:#x} failed\n",
@@ -821,15 +733,19 @@ impl Drop for KernelMapping {
         // 4. Unmap
         // 5. Flush the TLB range again
 
-        // prot::CACHE means "cache coherent" which means *uncached* here.
-        if self.0.prot & prot::CACHE == 0 {
+        if self.0.prot.is_cached_noncoherent() {
+            mod_pr_debug!(
+                "MMU: remap as uncached {:#x}:{:#x}\n",
+                self.iova(),
+                self.size()
+            );
             self.remap_uncached_and_flush();
         }
 
         let mut owner = self
             .0
             .owner
-            .exec_lock(None)
+            .exec_lock(None, false)
             .expect("exec_lock failed in KernelMapping::drop");
         mod_dev_dbg!(
             owner.dev,
@@ -838,10 +754,7 @@ impl Drop for KernelMapping {
             self.size()
         );
 
-        if owner
-            .unmap_pages(self.iova(), UAT_PGSZ, self.size() >> UAT_PGBIT)
-            .is_err()
-        {
+        if owner.page_table.unmap_pages(self.iova_range()).is_err() {
             dev_err!(
                 owner.dev.as_ref(),
                 "MMU: unmap {:#x}:{:#x} failed\n",
@@ -915,7 +828,6 @@ impl UatInner {
 pub(crate) struct Uat {
     dev: driver::AsahiDevRef,
     cfg: &'static hw::HwConfig,
-    pagetables_rgn: UatRegion,
 
     inner: Arc<UatInner>,
     slots: slotalloc::SlotAllocator<SlotInner>,
@@ -1032,27 +944,6 @@ impl HandoffFlush {
     }
 }
 
-// We do not implement FlushOps, since we flush manually in this module after
-// page table operations. Just provide dummy implementations.
-impl io_pgtable::FlushOps for Uat {
-    type Data = ();
-
-    fn tlb_flush_all(_data: <Self::Data as ForeignOwnable>::Borrowed<'_>) {}
-    fn tlb_flush_walk(
-        _data: <Self::Data as ForeignOwnable>::Borrowed<'_>,
-        _iova: usize,
-        _size: usize,
-        _granule: usize,
-    ) {
-    }
-    fn tlb_add_page(
-        _data: <Self::Data as ForeignOwnable>::Borrowed<'_>,
-        _iova: usize,
-        _granule: usize,
-    ) {
-    }
-}
-
 impl Vm {
     /// Create a new virtual memory address space
     fn new(
@@ -1060,22 +951,18 @@ impl Vm {
         uat_inner: Arc<UatInner>,
         kernel_range: Range<u64>,
         cfg: &'static hw::HwConfig,
-        is_kernel: bool,
+        ttb: Option<PhysicalAddr>,
         id: u64,
     ) -> Result<Vm> {
-        let dummy_obj = gem::new_kernel_object(dev, 0x4000)?;
+        let dummy_obj = gem::new_kernel_object(dev, UAT_PGSZ)?;
+        let is_kernel = ttb.is_some();
 
-        let page_table = AppleUAT::new(
-            dev.as_ref(),
-            io_pgtable::Config {
-                pgsize_bitmap: UAT_PGSZ,
-                ias: if is_kernel { UAT_IAS_KERN } else { UAT_IAS },
-                oas: cfg.uat_oas,
-                coherent_walk: true,
-                quirks: 0,
-            },
-            (),
-        )?;
+        let page_table = if let Some(ttb) = ttb {
+            UatPageTable::new_with_ttb(ttb, IOVA_KERN_RANGE, cfg.uat_oas)?
+        } else {
+            UatPageTable::new(cfg.uat_oas)?
+        };
+
         let (va_range, gpuvm_range) = if is_kernel {
             (IOVA_KERN_RANGE, kernel_range.clone())
         } else {
@@ -1090,7 +977,7 @@ impl Vm {
                     binding: None,
                     bind_token: None,
                     active_users: 0,
-                    ttb: page_table.cfg().ttbr,
+                    ttb: page_table.ttb(),
                 },
                 "VmBinding",
             ),
@@ -1135,12 +1022,12 @@ impl Vm {
         object_range: Range<usize>,
         alignment: u64,
         range: Range<u64>,
-        prot: u32,
+        prot: Prot,
         guard: bool,
     ) -> Result<KernelMapping> {
         let size = object_range.range();
         let sgt = gem.owned_sg_table()?;
-        let mut inner = self.inner.exec_lock(Some(gem))?;
+        let mut inner = self.inner.exec_lock(Some(gem), false)?;
         let vm_bo = inner.obtain_bo()?;
 
         let mut vm_bo_guard = vm_bo.inner().sgt.lock();
@@ -1168,7 +1055,11 @@ impl Vm {
             mm::InsertMode::Best,
         )?;
 
-        inner.map_node(&node, prot)?;
+        let ret = inner.map_node(&node, prot);
+        // Drop the exec_lock first, so that if map_node failed the
+        // KernelMappingInner destructur does not deadlock.
+        core::mem::drop(inner);
+        ret?;
         Ok(KernelMapping(node))
     }
 
@@ -1179,11 +1070,11 @@ impl Vm {
         addr: u64,
         size: usize,
         gem: ARef<gem::Object>,
-        prot: u32,
+        prot: Prot,
         guard: bool,
     ) -> Result<KernelMapping> {
         let sgt = gem.owned_sg_table()?;
-        let mut inner = self.inner.exec_lock(Some(&gem))?;
+        let mut inner = self.inner.exec_lock(Some(&gem), false)?;
 
         let vm_bo = inner.obtain_bo()?;
 
@@ -1209,7 +1100,11 @@ impl Vm {
             0,
         )?;
 
-        inner.map_node(&node, prot)?;
+        let ret = inner.map_node(&node, prot);
+        // Drop the exec_lock first, so that if map_node failed the
+        // KernelMappingInner destructur does not deadlock.
+        core::mem::drop(inner);
+        ret?;
         Ok(KernelMapping(node))
     }
 
@@ -1221,7 +1116,7 @@ impl Vm {
         addr: u64,
         size: u64,
         offset: u64,
-        prot: u32,
+        prot: Prot,
     ) -> Result {
         // Mapping needs a complete context
         let mut ctx = StepContext {
@@ -1233,7 +1128,7 @@ impl Vm {
         };
 
         let sgt = gem.owned_sg_table()?;
-        let mut inner = self.inner.exec_lock(Some(gem))?;
+        let mut inner = self.inner.exec_lock(Some(gem), true)?;
 
         // Preallocate the page tables, to fail early if we ENOMEM
         inner.page_table.alloc_pages(addr..(addr + size))?;
@@ -1275,9 +1170,9 @@ impl Vm {
         iova: u64,
         phys: usize,
         size: usize,
-        prot: u32,
+        prot: Prot,
     ) -> Result<KernelMapping> {
-        let mut inner = self.inner.exec_lock(None)?;
+        let mut inner = self.inner.exec_lock(None, false)?;
 
         if (iova as usize | phys | size) & UAT_PGMSK != 0 {
             dev_err!(
@@ -1314,8 +1209,14 @@ impl Vm {
             0,
         )?;
 
-        inner.map_pages(iova, phys, UAT_PGSZ, size >> UAT_PGBIT, prot)?;
-
+        let ret =
+            inner
+                .page_table
+                .map_pages(iova..(iova + size as u64), phys as PhysicalAddr, prot);
+        // Drop the exec_lock first, so that if map_node failed the
+        // KernelMappingInner destructur does not deadlock.
+        core::mem::drop(inner);
+        ret?;
         Ok(KernelMapping(node))
     }
 
@@ -1329,7 +1230,7 @@ impl Vm {
             ..Default::default()
         };
 
-        let mut inner = self.inner.exec_lock(None)?;
+        let mut inner = self.inner.exec_lock(None, false)?;
 
         mod_dev_dbg!(inner.dev, "MMU: sm_unmap: {:#x}:{:#x}\n", iova, size);
         inner.sm_unmap(&mut ctx, iova, size)
@@ -1340,7 +1241,7 @@ impl Vm {
         // Removing whole mappings only does unmaps, so no preallocated VAs
         let mut ctx = Default::default();
 
-        let mut inner = self.inner.exec_lock(Some(gem))?;
+        let mut inner = self.inner.exec_lock(Some(gem), false)?;
 
         if let Some(bo) = inner.find_bo() {
             mod_dev_dbg!(inner.dev, "MMU: bo_unmap\n");
@@ -1455,12 +1356,6 @@ impl Uat {
         Ok(UatRegion { base, map })
     }
 
-    /// Returns a view into the root kernel (upper half) page table
-    fn kpt0(&self) -> &[Pte; UAT_NPTE] {
-        // SAFETY: pointer is non-null per the type invariant
-        unsafe { (self.pagetables_rgn.map.as_ptr() as *mut [Pte; UAT_NPTE]).as_ref() }.unwrap()
-    }
-
     /// Returns a reference to the global kernel (upper half) `Vm`
     pub(crate) fn kernel_vm(&self) -> &Vm {
         &self.kernel_vm
@@ -1515,8 +1410,8 @@ impl Uat {
                         idx
                     );
                 }
-                ttbs[idx].ttb0.store(ttb, Ordering::Relaxed);
-                ttbs[idx].ttb1.store(ttb1, Ordering::Relaxed);
+                ttbs[idx].ttb0.store(ttb, Ordering::Release);
+                ttbs[idx].ttb1.store(ttb1, Ordering::Release);
                 uat_inner.handoff().unlock();
                 core::mem::drop(uat_inner);
 
@@ -1543,7 +1438,7 @@ impl Uat {
             self.inner.clone(),
             kernel_range,
             self.cfg,
-            false,
+            None,
             id,
         )
     }
@@ -1590,22 +1485,27 @@ impl Uat {
 
         let inner = Self::make_inner(dev)?;
 
-        let pagetables_rgn =
-            Self::map_region(dev.as_ref(), c_str!("pagetables"), PAGETABLES_SIZE, true)?;
+        let of_node = dev.as_ref().of_node().ok_or(EINVAL)?;
+        let res = of_node.reserved_mem_region_to_resource_byname(c_str!("pagetables"))?;
+        let ttb1 = res.start();
+        let ttb1size: usize = res.size().try_into()?;
+
+        if ttb1size < PAGETABLES_SIZE {
+            dev_err!(dev.as_ref(), "MMU: Pagetables region is too small\n");
+            return Err(ENOMEM);
+        }
 
         dev_info!(dev.as_ref(), "MMU: Creating kernel page tables\n");
-        let kernel_lower_vm = Vm::new(dev, inner.clone(), IOVA_USER_RANGE, cfg, false, 1)?;
-        let kernel_vm = Vm::new(dev, inner.clone(), IOVA_KERN_RANGE, cfg, true, 0)?;
+        let kernel_lower_vm = Vm::new(dev, inner.clone(), IOVA_USER_RANGE, cfg, None, 1)?;
+        let kernel_vm = Vm::new(dev, inner.clone(), IOVA_KERN_RANGE, cfg, Some(ttb1), 0)?;
 
         dev_info!(dev.as_ref(), "MMU: Kernel page tables created\n");
 
         let ttb0 = kernel_lower_vm.ttb();
-        let ttb1 = kernel_vm.ttb();
 
         let uat = Self {
             dev: dev.into(),
             cfg,
-            pagetables_rgn,
             kernel_vm,
             kernel_lower_vm,
             inner,
@@ -1622,7 +1522,7 @@ impl Uat {
         let mut inner = uat.inner.lock();
 
         inner.map_kernel_to_user = map_kernel_to_user;
-        inner.kernel_ttb1 = uat.pagetables_rgn.base;
+        inner.kernel_ttb1 = ttb1;
 
         inner.handoff().init()?;
 
@@ -1632,10 +1532,8 @@ impl Uat {
 
         let ttbs = inner.ttbs();
 
-        ttbs[0].ttb0.store(ttb0 | TTBR_VALID, Ordering::Relaxed);
-        ttbs[0]
-            .ttb1
-            .store(uat.pagetables_rgn.base | TTBR_VALID, Ordering::Relaxed);
+        ttbs[0].ttb0.store(ttb0 | TTBR_VALID, Ordering::SeqCst);
+        ttbs[0].ttb1.store(ttb1 | TTBR_VALID, Ordering::SeqCst);
 
         for ctx in &ttbs[1..] {
             ctx.ttb0.store(0, Ordering::Relaxed);
@@ -1646,8 +1544,6 @@ impl Uat {
 
         core::mem::drop(inner);
 
-        uat.kpt0()[2].store(ttb1 | PTE_TABLE, Ordering::Relaxed);
-
         dev_info!(dev.as_ref(), "MMU: initialized\n");
 
         Ok(uat)
@@ -1656,9 +1552,6 @@ impl Uat {
 
 impl Drop for Uat {
     fn drop(&mut self) {
-        // Unmap what we mapped
-        self.kpt0()[2].store(0, Ordering::Relaxed);
-
         // Make sure we flush the TLBs
         fence(Ordering::SeqCst);
         mem::tlbi_all();
