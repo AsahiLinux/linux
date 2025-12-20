@@ -113,6 +113,7 @@ impl<T: DriverGpuVm> GpuVm<T> {
             sm_step_map: Some(Self::sm_step_map),
             sm_step_unmap: Some(Self::sm_step_unmap),
             sm_step_remap: Some(Self::sm_step_remap),
+            sm_can_merge_flags: None,
         }
     }
 
