@@ -479,7 +479,9 @@ dptxport_call_activate(struct apple_epic_service *service,
 	const struct apple_dcp *dcp = service->ep->dcp;
 
 	// TODO: hack, use phy_set_mode to select the correct DCP(EXT) input
-	phy_set_mode_ext(dptx->atcphy, PHY_MODE_DP, dcp->index);
+	// for standalone phy (i.e. not atc phy).
+	if (!dcp->typec_mux)
+		phy_set_mode_ext(dptx->atcphy, PHY_MODE_DP, dcp->index);
 
 	memcpy(reply, data, min(reply_size, data_size));
 	if (reply_size >= 4)

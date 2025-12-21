@@ -21,6 +21,9 @@
 #include <linux/slab.h>
 #include <linux/soc/apple/rtkit.h>
 #include <linux/string.h>
+#include <linux/usb/typec_altmode.h>
+#include <linux/usb/typec_dp.h>
+#include <linux/usb/typec_mux.h>
 #include <linux/workqueue.h>
 
 #include <drm/drm_fb_dma_helper.h>
@@ -1090,6 +1093,8 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 	if (dcp->hdmi_hpd_irq)
 		disable_irq(dcp->hdmi_hpd_irq);
 
+	typec_mux_put(dcp->typec_mux);
+
 	if (dcp->avep) {
 		av_service_disconnect(dcp);
 		afk_shutdown(dcp->avep);
@@ -1227,6 +1232,27 @@ static int dcp_platform_probe(struct platform_device *pdev)
 			ret = mux_control_select(dcp->xbar, mux_index);
 			if (ret)
 				dev_warn(dev, "mux_control_select failed: %d\n", ret);
+
+			/*
+			 * Switch atcphy to DP-only. should move to a Macbook Pro
+			 * 14-/16-inch specific DP-to-HDMI drm_bridge.
+			 */
+			dcp->typec_mux = fwnode_typec_mux_get(dev_fwnode(dcp->dev));
+			if (!IS_ERR_OR_NULL(dcp->typec_mux)) {
+				struct typec_altmode alt = {
+					.svid = USB_TYPEC_DP_SID,
+				};
+				struct typec_mux_state state = {
+					.alt = &alt,
+					.mode = TYPEC_DP_STATE_C,
+				};
+				int ret = typec_mux_set(dcp->typec_mux, &state);
+				dev_info(dev, "typec_mux_set() returned: %d\n", ret);
+			} else {
+				dev_info(dev, "fwnode_typec_mux_get() returned: %ld\n",
+						IS_ERR(dcp->typec_mux) ? PTR_ERR(dcp->typec_mux) : 0);
+				dcp->typec_mux = NULL;
+			}
 		}
 	}
 

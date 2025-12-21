@@ -12,6 +12,7 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>
+#include <linux/usb/typec_mux.h>
 
 #include "dptxep.h"
 #include "iomfb.h"
@@ -252,6 +253,7 @@ struct apple_dcp {
 	/* these fields are output port specific */
 	struct phy *phy;
 	struct mux_control *xbar;
+	struct typec_mux *typec_mux;
 
 	struct gpio_desc *hdmi_hpd;
 	struct gpio_desc *hdmi_pwren;
