@@ -735,6 +735,17 @@ static int add_dcp_components(struct device *dev,
 					continue;
 				}
 #endif
+
+				/*
+				 * The ATC phy driver is not part of the component
+				 * collection for the Apple display-subsystem so
+				 * ignore it here.
+				 */
+				if (of_device_is_compatible(port, "apple,t8103-atcphy")) {
+					of_node_put(port);
+					continue;
+				}
+
 				if (of_device_is_available(port))
 					drm_of_component_match_add(dev, matchptr,
 							   component_compare_of,
