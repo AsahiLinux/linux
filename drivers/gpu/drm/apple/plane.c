@@ -12,6 +12,7 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_framebuffer.h>
+#include <drm/drm_gem.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_plane.h>
 
@@ -81,6 +82,29 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
+	/*
+	 * Pitches have to be 64-byte aligned.
+	 */
+	for (u32 i = 0; i < new_plane_state->fb->format->num_planes; i++)
+		if (new_plane_state->fb->pitches[i] & 63)
+			return -EINVAL;
+
+	/*
+	 * FIXME: dcp can currently only use multi-planar buffers using the same
+	 *        object for all planes. It has a mandatory iommu so it should
+	 *        be no problem to map multiple objects "linearly" into DCP
+	 *        virtual address space and calculate the offsets accordingly.
+	 *        Or maybe it can accept multiple BOs via the per plane field
+	 *        `base`.
+	 */
+	if (new_plane_state->fb->format->num_planes > 1) {
+		const struct drm_gem_object *first = new_plane_state->fb->obj[0];
+		for (u32 i = 1; i < new_plane_state->fb->format->num_planes; i++)
+			if (new_plane_state->fb->obj[i] != NULL &&
+			    new_plane_state->fb->obj[i] != first)
+				return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -105,8 +129,9 @@ static struct dcp_rect drm_to_dcp_rect_fp(const struct drm_rect *fp_rect)
 	return drm_to_dcp_rect(&rect);
 }
 
-static u32 drm_format_to_dcp(u32 drm)
+static u32 drm_format_to_dcp(u32 drm, enum drm_color_range range)
 {
+	bool fr = range == DRM_COLOR_YCBCR_FULL_RANGE;
 	switch (drm) {
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
@@ -119,10 +144,65 @@ static u32 drm_format_to_dcp(u32 drm)
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
 		return DCP_FORMAT_L10R;
+
+	/* semi planar YCbCr formats, limited and full range */
+	case DRM_FORMAT_NV12:
+		return fr ? DCP_FORMAT_420F : DCP_FORMAT_420V;
+	case DRM_FORMAT_NV16:
+		return fr ? DCP_FORMAT_422F : DCP_FORMAT_422V;
+	case DRM_FORMAT_NV24:
+		return fr ? DCP_FORMAT_444F : DCP_FORMAT_444V;
+
+	/* semi planar 10-bit YCbCr formats, limited and full range */
+	case DRM_FORMAT_P010:
+		return fr ? DCP_FORMAT_XF20 : DCP_FORMAT_X420;
+	case DRM_FORMAT_P210:
+		return fr ? DCP_FORMAT_XF22 : DCP_FORMAT_X422;
+	/*
+	 * TODO: missing DRM fourcc for P410
+	 */
+#if defined(DRM_FORMAT_P410)
+	case DRM_FORMAT_P410:
+		return fr ? DCP_FORMAT_XF44 : DCP_FORMAT_X444;
+#endif
 	}
 
 	pr_warn("DRM format %X not supported in DCP\n", drm);
 	return 0;
+}
+
+static enum dcp_xfer_func get_xfer_func(bool is_yuv, enum drm_color_encoding enc)
+{
+	if (!is_yuv)
+		return DCP_XFER_FUNC_SDR;
+
+	switch (enc) {
+	case DRM_COLOR_YCBCR_BT601:
+		return DCP_XFER_FUNC_BT601;
+	case DRM_COLOR_YCBCR_BT709:
+	case DRM_COLOR_YCBCR_BT2020:
+		return DCP_XFER_FUNC_BT1886;
+	default:
+		return DCP_XFER_FUNC_SDR;
+	}
+}
+
+static enum dcp_colorspace get_colorspace(bool is_yuv,
+					  enum drm_color_encoding enc)
+{
+	if (!is_yuv)
+		return DCP_COLORSPACE_NATIVE;
+
+	switch (enc) {
+	case DRM_COLOR_YCBCR_BT601:
+		return DCP_COLORSPACE_BT601;
+	case DRM_COLOR_YCBCR_BT709:
+		return DCP_COLORSPACE_BT709;
+	case DRM_COLOR_YCBCR_BT2020:
+		return DCP_COLORSPACE_BG_BT2020;
+	default:
+		return DCP_COLORSPACE_NATIVE;
+	}
 }
 
 static void apple_plane_atomic_update(struct drm_plane *plane,
@@ -160,9 +240,11 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 
 	new_state->surf = (struct dcp_surface){
 		.is_premultiplied = is_premultiplied,
-		.format = drm_format_to_dcp(fb->format->format),
-		.xfer_func = DCP_XFER_FUNC_SDR,
-		.colorspace = DCP_COLORSPACE_NATIVE,
+		.plane_cnt = fb->format->num_planes,
+		.plane_cnt2 = fb->format->num_planes,
+		.format = drm_format_to_dcp(fmt->format, base->color_range),
+		.xfer_func = get_xfer_func(fmt->is_yuv, base->color_encoding),
+		.colorspace = get_colorspace(fmt->is_yuv, base->color_encoding),
 		.stride = fb->pitches[0],
 		.width = fb->width,
 		.height = fb->height,
@@ -176,6 +258,30 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 		.has_comp = 1,
 		.has_planes = 1,
 	};
+
+	/* Populate plane information for planar formats */
+	struct dcp_surface *surf = &new_state->surf;
+	for (int i = 0; fb->format->num_planes && i < fb->format->num_planes; i++) {
+		u32 width = drm_format_info_plane_width(fb->format, fb->width, i);
+		u32 height = drm_format_info_plane_height(fb->format, fb->height, i);
+		u32 bh = drm_format_info_block_height(fb->format, i);
+		u32 bw = drm_format_info_block_width(fb->format, i);
+
+		surf->planes[i] = (struct dcp_plane_info){
+			.width = width,
+			.height = height,
+			.base = fb->offsets[i] - fb->offsets[0],
+			.offset = fb->offsets[i] - fb->offsets[0],
+			.stride = fb->pitches[i],
+			.size = height * fb->pitches[i],
+			.tile_size = bw * bh,
+			.tile_w = bw,
+			.tile_h = bh,
+		};
+
+		if (i > 0)
+			surf->buf_size += surf->planes[i].size;
+	}
 
 	/* the obvious helper call drm_fb_dma_get_gem_addr() adjusts
 	 * the address for source x/y offsets. Since IOMFB has a direct
@@ -264,12 +370,28 @@ static const u32 dcp_primary_formats[] = {
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XBGR8888,
 	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV24,
+	DRM_FORMAT_P010,
+	DRM_FORMAT_P210,
+#if defined(DRM_FORMAT_P410)
+	DRM_FORMAT_P410,
+#endif
 };
 
 static const u32 dcp_overlay_formats[] = {
 	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV24,
+	DRM_FORMAT_P010,
+	DRM_FORMAT_P210,
+#if defined(DRM_FORMAT_P410)
+	DRM_FORMAT_P410,
+#endif
 };
 
 u64 apple_format_modifiers[] = {
@@ -307,6 +429,12 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 
 	if (IS_ERR(plane))
 		return ERR_PTR(PTR_ERR(plane));
+
+	drm_plane_create_color_properties(&plane->base,
+					  (1 << DRM_COLOR_ENCODING_MAX) - 1,
+					  (1 << DRM_COLOR_RANGE_MAX) - 1,
+					  DRM_COLOR_YCBCR_BT709,
+					  DRM_COLOR_YCBCR_LIMITED_RANGE);
 
 	if (type == DRM_PLANE_TYPE_PRIMARY)
 		drm_plane_helper_add(&plane->base, &apple_primary_plane_helper_funcs);
