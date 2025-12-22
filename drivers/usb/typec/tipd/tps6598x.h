@@ -373,6 +373,8 @@ struct cd321x {
 	struct cd321x_status update_status;
 	struct delayed_work update_work;
 	struct usb_pd_identity cur_partner_identity;
+
+	struct fwnode_handle *connector_fwnode;
 };
 
 struct sn201202x {
