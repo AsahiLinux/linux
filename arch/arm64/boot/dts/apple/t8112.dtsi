@@ -1662,6 +1662,13 @@
 			power-domains = <&ps_atc0_usb>;
 		};
 
+		atcphy0_xbar: mux@38304c000 {
+			compatible = "apple,t8112-display-crossbar", "apple,t8103-display-crossbar";
+			reg = <0x3 0x8304c000 0x0 0x4000>;
+			#mux-control-cells = <1>;
+			power-domains = <&ps_atc0_usb>;
+		};
+
 		dwc3_1: usb@502280000 {
 			compatible = "apple,t8112-dwc3", "apple,t8103-dwc3";
 			reg = <0x5 0x02280000 0x0 0xcd00>, <0x5 0x0228cd00 0x0 0x3200>;
@@ -1711,6 +1718,13 @@
 
 			orientation-switch;
 			mode-switch;
+			power-domains = <&ps_atc1_usb>;
+		};
+
+		atcphy1_xbar: mux@50304c000 {
+			compatible = "apple,t8112-display-crossbar", "apple,t8103-display-crossbar";
+			reg = <0x5 0x0304c000 0x0 0x4000>;
+			#mux-control-cells = <1>;
 			power-domains = <&ps_atc1_usb>;
 		};
 
