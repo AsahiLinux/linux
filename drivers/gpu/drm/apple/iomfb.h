@@ -79,7 +79,6 @@ enum iomfb_property_id {
 #define SWAP_SURFACES 4
 /* We have 4 surfaces, but we can only ever blend two */
 #define MAX_BLEND_SURFACES 2
-#define MAX_PLANES 3
 
 enum dcp_colorspace {
 	DCP_COLORSPACE_BG_SRGB = 0,
@@ -112,25 +111,6 @@ struct dcp_rect {
  * Update background color to struct dcp_swap.bg_color
  */
 #define IOMFB_SET_BACKGROUND	BIT(31)
-
-/* Information describing a plane of a planar compressed surface */
-struct dcp_plane_info {
-	u32 width;
-	u32 height;
-	u32 base;
-	u32 offset;
-	u32 stride;
-	u32 size;
-	u16 tile_size;
-	u8 tile_w;
-	u8 tile_h;
-	u32 unk[13];
-} __packed;
-
-struct dcp_component_types {
-	u8 count;
-	u8 types[7];
-} __packed;
 
 struct dcp_allocate_bandwidth_req {
 	u64 unk1;

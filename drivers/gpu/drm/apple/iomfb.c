@@ -356,25 +356,6 @@ struct dcp_rect drm_to_dcp_rect(struct drm_rect *rect)
 				  .h = drm_rect_height(rect) };
 }
 
-u32 drm_format_to_dcp(u32 drm)
-{
-	switch (drm) {
-	case DRM_FORMAT_XRGB8888:
-	case DRM_FORMAT_ARGB8888:
-		return fourcc_code('A', 'R', 'G', 'B');
-
-	case DRM_FORMAT_XBGR8888:
-	case DRM_FORMAT_ABGR8888:
-		return fourcc_code('A', 'B', 'G', 'R');
-
-	case DRM_FORMAT_XRGB2101010:
-		return fourcc_code('r', '0', '3', 'w');
-	}
-
-	pr_warn("DRM format %X not supported in DCP\n", drm);
-	return 0;
-}
-
 int dcp_get_modes(struct drm_connector *connector)
 {
 	struct apple_connector *apple_connector = to_apple_connector(connector);
