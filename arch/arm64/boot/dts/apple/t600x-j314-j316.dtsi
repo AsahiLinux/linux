@@ -137,6 +137,10 @@
 	status = "okay";
 };
 
+&ps_atc3_common {
+	apple,always-on; /* Needs to stay on for HDMI resume */
+};
+
 /* USB Type C */
 &i2c0 {
 	hpm0: usb-pd@38 {
