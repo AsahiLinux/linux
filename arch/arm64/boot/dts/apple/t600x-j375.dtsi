@@ -240,6 +240,10 @@
 &atcphy1_xbar {
         status = "okay";
 };
+
+&ps_atc1_common {
+	apple,always-on; /* Needs to stay on for DP-alt suspend/resume */
+};
 #endif
 
 /* USB controllers */
