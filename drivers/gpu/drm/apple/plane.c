@@ -12,6 +12,7 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_framebuffer.h>
+#include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_plane.h>
 
 #define FRAC_16_16(mult, div)    (((mult) << 16) / (div))
@@ -128,6 +129,7 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 {
 	struct drm_plane_state *base = drm_atomic_get_new_plane_state(commit, plane);
 	struct apple_plane_state *new_state;
+	struct drm_gem_dma_object *obj;
 	bool is_premultiplied = false;
 
 	if (!base)
@@ -171,6 +173,14 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 		.has_comp = 1,
 		.has_planes = 1,
 	};
+
+	/* the obvious helper call drm_fb_dma_get_gem_addr() adjusts
+	 * the address for source x/y offsets. Since IOMFB has a direct
+	 * support source position prefer that.
+	 */
+	obj = drm_fb_dma_get_gem_obj(base->fb, 0);
+	if (obj)
+		new_state->iova = obj->dma_addr + base->fb->offsets[0];
 }
 
 static const struct drm_plane_helper_funcs apple_primary_plane_helper_funcs = {

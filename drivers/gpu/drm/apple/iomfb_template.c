@@ -20,7 +20,6 @@
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
-#include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
@@ -1306,8 +1305,6 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 
 	for_each_oldnew_plane_in_state(commit, plane, old_state, new_state, plane_idx) {
 		struct apple_plane_state *apple_state = to_apple_plane_state(new_state);
-		struct drm_framebuffer *fb = new_state->fb;
-		struct drm_gem_dma_object *obj;
 
 		/* skip planes not for this crtc */
 		if (old_state->crtc != crtc && new_state->crtc != crtc)
@@ -1329,7 +1326,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 
 		req->swap.swap_enabled |= BIT(l);
 
-		if (old_state->fb && fb != old_state->fb) {
+		if (old_state->fb && new_state->fb != old_state->fb) {
 			/*
 			 * Race condition between a framebuffer unbind getting
 			 * swapped out and GEM unreferencing a framebuffer. If
@@ -1362,14 +1359,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		if (dcp->notch_height > 0)
 			req->swap.dst_rect[l].y += dcp->notch_height;
 
-		/* the obvious helper call drm_fb_dma_get_gem_addr() adjusts
-		 * the address for source x/y offsets. Since IOMFB has a direct
-		 * support source position prefer that.
-		 */
-		obj = drm_fb_dma_get_gem_obj(fb, 0);
-		if (obj)
-			req->surf_iova[l] = obj->dma_addr + fb->offsets[0];
-
+		req->surf_iova[l] = apple_state->iova;
 		req->surf[l].base = apple_state->surf;
 
 	}
