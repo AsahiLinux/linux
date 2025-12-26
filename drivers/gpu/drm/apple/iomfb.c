@@ -343,19 +343,6 @@ static void dcpep_got_msg(struct apple_dcp *dcp, u64 message)
 		dcpep_handle_cb(dcp, ctx_id, data, length, offset);
 }
 
-/*
- * DRM specifies rectangles as start and end coordinates.  DCP specifies
- * rectangles as a start coordinate and a width/height. Convert a DRM rectangle
- * to a DCP rectangle.
- */
-struct dcp_rect drm_to_dcp_rect(struct drm_rect *rect)
-{
-	return (struct dcp_rect){ .x = rect->x1,
-				  .y = rect->y1,
-				  .w = drm_rect_width(rect),
-				  .h = drm_rect_height(rect) };
-}
-
 int dcp_get_modes(struct drm_connector *connector)
 {
 	struct apple_connector *apple_connector = to_apple_connector(connector);

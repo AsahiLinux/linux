@@ -100,13 +100,6 @@ struct dcp_iouserclient {
 	u8 padding[2];
 } __packed;
 
-struct dcp_rect {
-	u32 x;
-	u32 y;
-	u32 w;
-	u32 h;
-} __packed;
-
 /*
  * Update background color to struct dcp_swap.bg_color
  */

@@ -11,6 +11,13 @@
 
 #define DCP_SURF_MAX_PLANES 3
 
+struct dcp_rect {
+	u32 x;
+	u32 y;
+	u32 w;
+	u32 h;
+} __packed;
+
 /* Information describing a plane of a planar compressed surface */
 struct dcp_plane_info {
 	u32 width;

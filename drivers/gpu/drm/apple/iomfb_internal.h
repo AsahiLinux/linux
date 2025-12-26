@@ -109,13 +109,6 @@ int dcp_parse_tag(char tag[4]);
 
 void dcp_ack(struct apple_dcp *dcp, enum dcp_context_id context);
 
-/*
- * DRM specifies rectangles as start and end coordinates.  DCP specifies
- * rectangles as a start coordinate and a width/height. Convert a DRM rectangle
- * to a DCP rectangle.
- */
-struct dcp_rect drm_to_dcp_rect(struct drm_rect *rect);
-
 /* The user may own drm_display_mode, so we need to search for our copy */
 struct dcp_display_mode *lookup_mode(struct apple_dcp *dcp,
 					    const struct drm_display_mode *mode);
