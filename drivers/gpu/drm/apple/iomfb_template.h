@@ -13,6 +13,7 @@
 #include <linux/types.h>
 
 #include "iomfb.h"
+#include "iomfb_plane.h"
 #include "plane.h"
 #include "version_utils.h"
 

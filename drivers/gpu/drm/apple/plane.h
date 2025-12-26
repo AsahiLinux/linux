@@ -15,6 +15,8 @@
 struct apple_plane_state {
 	struct drm_plane_state base;
 	struct dcp_surface surf;
+	struct dcp_rect src_rect;
+	struct dcp_rect dst_rect;
 };
 
 #define to_apple_plane_state(x) container_of(x, struct apple_plane_state, base)

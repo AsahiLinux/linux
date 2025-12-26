@@ -83,6 +83,27 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
+/*
+ * DRM specifies rectangles as start and end coordinates.  DCP specifies
+ * rectangles as a start coordinate and a width/height. Convert a DRM rectangle
+ * to a DCP rectangle.
+ */
+static struct dcp_rect drm_to_dcp_rect(const struct drm_rect *rect)
+{
+	return (struct dcp_rect){ .x = rect->x1,
+				  .y = rect->y1,
+				  .w = drm_rect_width(rect),
+				  .h = drm_rect_height(rect),
+	};
+}
+
+static struct dcp_rect drm_to_dcp_rect_fp(const struct drm_rect *fp_rect)
+{
+	struct drm_rect rect;
+	drm_rect_fp_to_int(&rect, fp_rect);
+	return drm_to_dcp_rect(&rect);
+}
+
 static u32 drm_format_to_dcp(u32 drm)
 {
 	switch (drm) {
@@ -128,6 +149,9 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 	if (fb->format->format == DRM_FORMAT_XRGB8888 ||
 	    fb->format->format == DRM_FORMAT_XBGR8888)
 		is_premultiplied = true;
+
+	new_state->src_rect = drm_to_dcp_rect_fp(&base->src);
+	new_state->dst_rect = drm_to_dcp_rect(&base->dst);
 
 	new_state->surf = (struct dcp_surface){
 		.is_premultiplied = is_premultiplied,
