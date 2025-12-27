@@ -55,6 +55,19 @@ static bool unstable_edid = true;
 module_param(unstable_edid, bool, 0644);
 MODULE_PARM_DESC(unstable_edid, "Enable unstable EDID retrival support");
 
+u32 swap_hdr_colorspace = DCP_COLORSPACE_BG_BT2020;
+module_param(swap_hdr_colorspace, uint, 0644);
+MODULE_PARM_DESC(swap_hdr_colorspace, "Colorspace to use for primary swap with hdr");
+
+u32 swap_hdr_transferfunc = DCP_XFER_FUNC_HDR;
+module_param(swap_hdr_transferfunc, uint, 0644);
+MODULE_PARM_DESC(swap_hdr_transferfunc, "Transfer function to use for primary swap with hdr");
+
+u32 swap_hdr_brightness = 0x98FFFFC0; // max brightness observed with hdr content
+module_param(swap_hdr_brightness, uint, 0644);
+MODULE_PARM_DESC(swap_hdr_brightness, "Force the display into this brightness when in hdr mode");
+
+
 /* copied and simplified from drm_vblank.c */
 static void send_vblank_event(struct drm_device *dev,
 		struct drm_pending_vblank_event *e,

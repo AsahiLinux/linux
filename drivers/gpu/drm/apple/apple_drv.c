@@ -507,6 +507,19 @@ static int apple_probe_per_dcp(struct device *dev,
 	crtc->dcp = dcp;
 	dcp_link(dcp, crtc, connector);
 
+	// gnome wants to see BT2020_RGB
+	u32 supported_colorspaces =
+		BIT(DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65) |
+		BIT(DRM_MODE_COLORIMETRY_BT2020_RGB);
+
+	// allow userspace to signal the color space used
+	if (!drm_mode_create_dp_colorspace_property(&connector->base, supported_colorspaces))
+		drm_connector_attach_colorspace_property(&connector->base);
+
+	// allow userspace to expose hdr output metadata.
+	// this indicates "hey i am rendering hdr content now"
+	drm_connector_attach_hdr_output_metadata_property(&connector->base);
+
 	return drm_connector_attach_encoder(&connector->base, &enc->base);
 }
 

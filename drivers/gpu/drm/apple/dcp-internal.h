@@ -91,6 +91,7 @@ struct dcp_brightness {
 	struct backlight_device *bl_dev;
 	u32 maximum;
 	u32 dac;
+	u32 dac_hdr_restore;
 	int nits;
 	int scale;
 	bool update;

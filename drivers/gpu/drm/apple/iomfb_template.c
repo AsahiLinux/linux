@@ -1264,6 +1264,24 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 	return 0;
 }
 
+extern u32 swap_hdr_colorspace;
+extern u32 swap_hdr_transferfunc;
+extern u32 swap_hdr_brightness;
+
+static bool drm_format_maybe_hdr(u32 format)
+{
+	switch (format) {
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		return false;
+
+	default:
+		return true;
+	}
+}
+
 void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, struct drm_atomic_state *state)
 {
 	struct drm_plane *plane;
@@ -1374,11 +1392,47 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		if (obj)
 			req->surf_iova[l] = obj->dma_addr + fb->offsets[0];
 
+		u32 format = drm_format_to_dcp_sdr(fb->format->format);
+		u32 colorspace = DCP_COLORSPACE_NATIVE;
+		u32 transferfunc = DCP_XFER_FUNC_SDR;
+
+		if (plane->type == DRM_PLANE_TYPE_PRIMARY && drm_format_maybe_hdr(fb->format->format)) {
+			if (dcp->connector->base.state->hdr_output_metadata) {
+				// HACK: hard code the values kwin & mutter use:
+				//   DCP_COLORSPACE_BT2020
+				//   DCP_XFER_FUNC_HDR          # looks like PQ
+				//
+				// TODO need to pick the current colorspace and
+				// the transfer function from the drm properties
+				// (colorspace + HDR_OUTPUT_METADATA).
+				//
+				// For testing: You can set swap_hdr_colorspace
+				// and swap_hdr_transferfunc as parameters from
+				// userspace to try out different values.
+				//
+				colorspace = swap_hdr_colorspace;
+				transferfunc = swap_hdr_transferfunc;
+				format = drm_format_to_dcp_hdr(fb->format->format);
+
+				// force brightness to full for now.
+				if (!dcp->brightness.dac_hdr_restore && swap_hdr_brightness) {
+					dcp->brightness.dac_hdr_restore = dcp->brightness.dac;
+					dcp->brightness.dac = swap_hdr_brightness;
+					dcp->brightness.update = true;
+				}
+			} else if (dcp->brightness.dac_hdr_restore) {
+				// restore pre hdr brightness
+				dcp->brightness.dac = dcp->brightness.dac_hdr_restore;
+				dcp->brightness.dac_hdr_restore = 0;
+				dcp->brightness.update = true;
+			}
+		}
+
 		req->surf[l] = (struct DCP_FW_NAME(dcp_surface)){
 			.is_premultiplied = is_premultiplied,
-			.format = drm_format_to_dcp(fb->format->format),
-			.xfer_func = DCP_XFER_FUNC_SDR,
-			.colorspace = DCP_COLORSPACE_NATIVE,
+			.format = format,
+			.xfer_func = transferfunc,
+			.colorspace = colorspace,
 			.stride = fb->pitches[0],
 			.width = fb->width,
 			.height = fb->height,
