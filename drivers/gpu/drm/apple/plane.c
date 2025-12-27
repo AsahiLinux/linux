@@ -117,7 +117,8 @@ static u32 drm_format_to_dcp(u32 drm)
 		return DCP_FORMAT_RGBA;
 
 	case DRM_FORMAT_XRGB2101010:
-		return DCP_FORMAT_W30R;
+	case DRM_FORMAT_ARGB2101010:
+		return DCP_FORMAT_L10R;
 	}
 
 	pr_warn("DRM format %X not supported in DCP\n", drm);
@@ -143,13 +144,15 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	struct drm_framebuffer *fb = base->fb;
+	const struct drm_format_info *fmt = fb->format;
 	/*
-	 * DCP doesn't support XBGR8 / XRGB8 natively. Blending as
+	 * DCP doesn't support XBGR8 / XRGB8 / XBGR2101010 natively. Blending as
 	 * pre-multiplied alpha with a black background can be used as
 	 * workaround for the bottommost plane.
 	 */
-	if (fb->format->format == DRM_FORMAT_XRGB8888 ||
-	    fb->format->format == DRM_FORMAT_XBGR8888)
+	if (fmt->format == DRM_FORMAT_XRGB8888 ||
+	    fmt->format == DRM_FORMAT_XBGR8888 ||
+	    fmt->format == DRM_FORMAT_XBGR2101010)
 		is_premultiplied = true;
 
 	new_state->src_rect = drm_to_dcp_rect_fp(&base->src);
@@ -256,6 +259,7 @@ static const struct drm_plane_funcs apple_plane_funcs = {
  */
 static const u32 dcp_primary_formats[] = {
 	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XBGR8888,
@@ -263,6 +267,7 @@ static const u32 dcp_primary_formats[] = {
 };
 
 static const u32 dcp_overlay_formats[] = {
+	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_ABGR8888,
 };
