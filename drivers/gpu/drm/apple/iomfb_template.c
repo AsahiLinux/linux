@@ -825,7 +825,7 @@ void DCP_FW_NAME(iomfb_poweron)(struct apple_dcp *dcp)
 		dcp_set_display_device(dcp, false, &handle,
 				       dcp_on_set_parameter, cookie);
 	}
-	ret = wait_for_completion_timeout(&cookie->done, msecs_to_jiffies(500));
+	ret = wait_for_completion_timeout(&cookie->done, msecs_to_jiffies(5000));
 
 	if (ret == 0)
 		dev_warn(dcp->dev, "wait for power timed out\n");
