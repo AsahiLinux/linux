@@ -817,6 +817,21 @@ static int macsmc_power_event(struct notifier_block *nb, unsigned long event, vo
 		power_supply_changed(power->ac);
 
 		return NOTIFY_OK;
+	} else if ((event & 0xffff0000) == 0x71130000) {
+		u8 port_index = (event >> 8) & 0xff;
+		u8 status = event & 0xff;
+
+		if (port_index == 0xff)
+			dev_info(power->dev, "Connector event: Disconnect (status 0x%02x)\n",
+				status);
+		else
+			dev_info(power->dev, "Connector event: Port %d (status 0x%02x)\n",
+				port_index + 1, status);
+
+		power_supply_changed(power->batt);
+		power_supply_changed(power->ac);
+
+		return NOTIFY_OK;
 	} else if ((event & 0xff000000) == 0x71000000) {
 		dev_info(power->dev, "Unknown charger event 0x%lx\n", event);
 
