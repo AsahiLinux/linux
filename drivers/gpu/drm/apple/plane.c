@@ -109,14 +109,14 @@ static u32 drm_format_to_dcp(u32 drm)
 	switch (drm) {
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		return fourcc_code('A', 'R', 'G', 'B');
+		return DCP_FORMAT_BGRA;
 
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		return fourcc_code('A', 'B', 'G', 'R');
+		return DCP_FORMAT_RGBA;
 
 	case DRM_FORMAT_XRGB2101010:
-		return fourcc_code('r', '0', '3', 'w');
+		return DCP_FORMAT_W30R;
 	}
 
 	pr_warn("DRM format %X not supported in DCP\n", drm);
