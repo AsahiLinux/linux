@@ -7,9 +7,19 @@
 #ifndef __APPLE_IOMFB_PLANE_H__
 #define __APPLE_IOMFB_PLANE_H__
 
+#include <drm/drm_fourcc.h>
+
 #include <linux/types.h>
 
 #define DCP_SURF_MAX_PLANES 3
+
+#define DCP_FORMAT_BGRA		fourcc_code('A', 'R', 'G', 'B')
+#define DCP_FORMAT_RGBA		fourcc_code('A', 'B', 'G', 'R')
+
+#define DCP_FORMAT_W30R		fourcc_code('r', '0', '3', 'w')	// wide gamut packed 10-bit RGB without alpha
+#define DCP_FORMAT_L10R		fourcc_code('r', '0', '1', 'l')	// full range packed 10-bit RGB with alpha
+
+
 
 struct dcp_rect {
 	u32 x;
