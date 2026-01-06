@@ -402,6 +402,8 @@ static int apple_drm_init_dcp(struct device *dev)
 		if (!dcp[num_dcp])
 			continue;
 
+		device_link_add(dev, &dcp[num_dcp]->dev, DL_FLAG_AUTOREMOVE_SUPPLIER);
+
 		ret = apple_probe_per_dcp(dev, &apple->drm, dcp[num_dcp],
 					  num_dcp, dcp_ext);
 		if (ret)
