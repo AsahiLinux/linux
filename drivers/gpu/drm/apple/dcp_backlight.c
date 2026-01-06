@@ -144,7 +144,14 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 	struct drm_crtc *crtc = &dcp->crtc->base;
 	int ret = 0;
 
-	DRM_MODESET_LOCK_ALL_BEGIN(crtc->dev, ctx, 0, ret);
+	drm_modeset_acquire_init(&ctx, DRM_MODESET_ACQUIRE_INTERRUPTIBLE);
+	ret = drm_modeset_lock(&crtc->mutex, &ctx);
+	if (ret == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		return -EDEADLK;
+	} else if (ret == -ERESTARTSYS) {
+		return -ERESTARTSYS;
+	}
 
 	if (!dcp->brightness.update)
 		goto done;
@@ -169,7 +176,7 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 fail:
 	drm_atomic_state_put(state);
 done:
-	DRM_MODESET_LOCK_ALL_END(crtc->dev, ctx, ret);
+	drm_modeset_drop_locks(&ctx);
 
 	return ret;
 }
@@ -199,12 +206,19 @@ static int dcp_set_brightness(struct backlight_device *bd)
 	struct drm_modeset_acquire_ctx ctx;
 	int brightness = backlight_get_brightness(bd);
 
-	DRM_MODESET_LOCK_ALL_BEGIN(dcp->crtc->base.dev, ctx, 0, ret);
+	drm_modeset_acquire_init(&ctx, DRM_MODESET_ACQUIRE_INTERRUPTIBLE);
+	ret = drm_modeset_lock(&dcp->crtc->base.mutex, &ctx);
+	if (ret == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		return -EDEADLK;
+	} else if (ret == -ERESTARTSYS) {
+		return -ERESTARTSYS;
+	}
 
 	dcp->brightness.dac = calculate_dac(dcp, brightness);
 	dcp->brightness.update = true;
 
-	DRM_MODESET_LOCK_ALL_END(dcp->crtc->base.dev, ctx, ret);
+	drm_modeset_drop_locks(&ctx);
 
 	return dcp_backlight_update(dcp);
 }
