@@ -426,7 +426,7 @@ out_unlock:
 
 static void disconnected_hpd_event(struct apple_connector *con)
 {
-	if (con) {
+	if (con && con->connected) {
 		con->connected = 0;
 		drm_kms_helper_connector_hotplug_event(&con->base);
 	}
