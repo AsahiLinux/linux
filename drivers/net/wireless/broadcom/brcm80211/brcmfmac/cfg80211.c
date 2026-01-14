@@ -1836,7 +1836,7 @@ brcmf_set_key_mgmt(struct net_device *ndev, struct cfg80211_connect_params *sme)
 				       "wpa_auth", &val);
 	if (err) {
 		bphy_err(drvr, "could not get wpa_auth (%d)\n", err);
-		return err;
+		profile->is_okc = false; // If we couldn't ask the chip if OKC is supported, assume it is NOT supported and do not try to use it
 	}
 	if (val & (WPA_AUTH_PSK | WPA_AUTH_UNSPECIFIED)) {
 		switch (sme->crypto.akm_suites[0]) {
@@ -1938,6 +1938,7 @@ brcmf_set_key_mgmt(struct net_device *ndev, struct cfg80211_connect_params *sme)
 					       &okc_enable);
 		if (err) {
 			bphy_err(drvr, "get okc_enable failed (%d)\n", err);
+			profile->is_okc = false; // Again, set state so it does not try OKC if not allowed
 		} else {
 			brcmf_dbg(INFO, "get okc_enable (%d)\n", okc_enable);
 			profile->is_okc = okc_enable;
@@ -1949,6 +1950,7 @@ brcmf_set_key_mgmt(struct net_device *ndev, struct cfg80211_connect_params *sme)
 					       &okc_enable);
 		if (err) {
 			bphy_err(drvr, "get okc_enable failed (%d)\n", err);
+			profile->is_okc = false; // Again set state
 		} else {
 			brcmf_dbg(INFO, "get okc_enable (%d)\n", okc_enable);
 			profile->is_okc = okc_enable;
