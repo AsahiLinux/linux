@@ -30,7 +30,7 @@ fn get_lux_offset(aop: &dyn AOP, dev: &platform::Device, svc: &EPICService) -> R
             dev_warn!(
                 dev.as_ref(),
                 "Unknown sensor type {:?}",
-                str::from_utf8(&name)
+                core::str::from_utf8(&name)
             );
             Err(EIO)
         }
