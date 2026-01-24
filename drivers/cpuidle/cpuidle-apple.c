@@ -146,6 +146,16 @@ static int __init apple_cpuidle_init(void)
 	if (!of_machine_is_compatible("apple,arm-platform"))
 		return 0;
 
+	if (!(of_machine_is_compatible("apple,t8103") ||
+	      of_machine_is_compatible("apple,t8112") ||
+	      of_machine_is_compatible("apple,t6000") ||
+	      of_machine_is_compatible("apple,t6001") ||
+	      of_machine_is_compatible("apple,t6002") ||
+	      of_machine_is_compatible("apple,t6020") ||
+	      of_machine_is_compatible("apple,t6021") ||
+	      of_machine_is_compatible("apple,t6022")))
+		return 0;
+
 	pdev = platform_device_register_simple("cpuidle-apple", -1, NULL, 0);
 	if (IS_ERR(pdev)) {
 		platform_driver_unregister(&apple_cpuidle_driver);
