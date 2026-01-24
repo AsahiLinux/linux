@@ -1362,6 +1362,14 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		req->surf_iova[l] = apple_state->iova;
 		req->surf[l].base = apple_state->surf;
 
+		/* Use sRGB colorspace only for internal panels. External
+		 * displays are expected to have EDID and user space can use
+		 * the contained colorimetry information to provide native
+		 * colors.
+		 */
+		if (dcp->connector_type == DRM_MODE_CONNECTOR_eDP &&
+		    req->surf[l].base.colorspace == DCP_COLORSPACE_BG_SRGB)
+			req->surf[l].base.colorspace = DCP_COLORSPACE_NATIVE;
 	}
 
 	if (!has_surface && !crtc_state->color_mgmt_changed) {

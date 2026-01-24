@@ -191,7 +191,7 @@ static enum dcp_colorspace get_colorspace(bool is_yuv,
 					  enum drm_color_encoding enc)
 {
 	if (!is_yuv)
-		return DCP_COLORSPACE_BG_SRGB;
+		return DCP_COLORSPACE_NATIVE;
 
 	switch (enc) {
 	case DRM_COLOR_YCBCR_BT601:
