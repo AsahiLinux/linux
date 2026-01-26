@@ -25,6 +25,7 @@
 		wifi0 = &wifi0;
 		atcphy0 = &atcphy0;
 		atcphy1 = &atcphy1;
+		sio = &sio;
 	};
 
 	chosen {
