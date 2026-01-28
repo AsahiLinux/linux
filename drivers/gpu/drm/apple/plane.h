@@ -24,6 +24,7 @@ struct apple_plane_state {
 
 struct drm_plane *apple_plane_init(struct drm_device *dev,
 				   unsigned long possible_crtcs,
+				   bool supports_l10r,
 				   enum drm_plane_type type);
 
 #endif /* __APPLE_PLANE_H__ */
