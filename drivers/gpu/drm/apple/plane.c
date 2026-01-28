@@ -394,6 +394,37 @@ static const u32 dcp_overlay_formats[] = {
 #endif
 };
 
+/*
+ * Formats for the 12.x firmware which does not support "l10r" / ARGB2101010
+ */
+static const u32 dcp_primary_formats_12_x[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV24,
+	DRM_FORMAT_P010,
+	DRM_FORMAT_P210,
+#if defined(DRM_FORMAT_P410)
+	DRM_FORMAT_P410,
+#endif
+};
+
+static const u32 dcp_overlay_formats_12_x[] = {
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV24,
+	DRM_FORMAT_P010,
+	DRM_FORMAT_P210,
+#if defined(DRM_FORMAT_P410)
+	DRM_FORMAT_P410,
+#endif
+};
+
 u64 apple_format_modifiers[] = {
 	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID
@@ -405,22 +436,37 @@ struct apple_plane {
 
 struct drm_plane *apple_plane_init(struct drm_device *dev,
 				   unsigned long possible_crtcs,
+				   bool supports_l10r,
 				   enum drm_plane_type type)
 {
 	struct apple_plane *plane;
+	const u32 *fmts;
+	u32 num_fmts;
 
 	switch (type) {
 	case DRM_PLANE_TYPE_PRIMARY:
+		if (supports_l10r) {
+			fmts = dcp_primary_formats;
+			num_fmts = ARRAY_SIZE(dcp_primary_formats);
+		} else {
+			fmts = dcp_primary_formats_12_x;
+			num_fmts = ARRAY_SIZE(dcp_primary_formats_12_x);
+		}
 		plane = drmm_universal_plane_alloc(dev, struct apple_plane, base, possible_crtcs,
-				       &apple_plane_funcs,
-				       dcp_primary_formats, ARRAY_SIZE(dcp_primary_formats),
+				       &apple_plane_funcs, fmts, num_fmts,
 				       apple_format_modifiers, type, NULL);
 		break;
 	case DRM_PLANE_TYPE_OVERLAY:
 	case DRM_PLANE_TYPE_CURSOR:
+		if (supports_l10r) {
+			fmts = dcp_overlay_formats;
+			num_fmts = ARRAY_SIZE(dcp_overlay_formats);
+		} else {
+			fmts = dcp_overlay_formats_12_x;
+			num_fmts = ARRAY_SIZE(dcp_overlay_formats_12_x);
+		}
 		plane = drmm_universal_plane_alloc(dev, struct apple_plane, base, possible_crtcs,
-				       &apple_plane_funcs,
-				       dcp_overlay_formats, ARRAY_SIZE(dcp_overlay_formats),
+				       &apple_plane_funcs, fmts, num_fmts,
 				       apple_format_modifiers, type, NULL);
 		break;
 	default:

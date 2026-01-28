@@ -273,8 +273,10 @@ static int apple_probe_per_dcp(struct device *dev,
 	struct drm_plane *planes[DCP_MAX_PLANES];
 	int ret, i;
 	int immutable_zpos = 0;
+	bool supports_l10r = !dcp_fw_compat_is_12_x(dcp);
 
-	planes[0] = apple_plane_init(drm, 1U << num, DRM_PLANE_TYPE_PRIMARY);
+	planes[0] = apple_plane_init(drm, 1U << num, supports_l10r,
+				     DRM_PLANE_TYPE_PRIMARY);
 	if (IS_ERR(planes[0]))
 		return PTR_ERR(planes[0]);
 	ret = drm_plane_create_zpos_immutable_property(planes[0], immutable_zpos);
@@ -285,7 +287,8 @@ static int apple_probe_per_dcp(struct device *dev,
 
 	/* Set up our other planes */
 	for (i = 1; i < DCP_MAX_PLANES; i++) {
-		planes[i] = apple_plane_init(drm, 1U << num, DRM_PLANE_TYPE_OVERLAY);
+		planes[i] = apple_plane_init(drm, 1U << num, supports_l10r,
+					     DRM_PLANE_TYPE_OVERLAY);
 		if (IS_ERR(planes[i]))
 			return PTR_ERR(planes[i]);
 		immutable_zpos++;
