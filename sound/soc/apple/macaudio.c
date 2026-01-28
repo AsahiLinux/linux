@@ -489,6 +489,11 @@ static int macaudio_parse_of(struct macaudio_snd_data *ma)
 		dev_err_probe(dev, ret, "parsing card name\n");
 		return ret;
 	}
+	/*
+	 * Set long_name to prevent snd_soc_set_dmi_name() from setting one from
+	 * make believe data u-boot provides in its SMBIOS emulation.
+	 */
+	card->long_name = card->name;
 
 	/* Populate links, start with the fixed number of FE links */
 	num_links = ARRAY_SIZE(macaudio_fe_links);
