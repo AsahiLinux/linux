@@ -4,7 +4,7 @@
  *
  * This file contains parts common to all Apple M3 devices using the t8122.
  *
- * target-type: J433, J434, J504, J513, J515
+ * target-type: J433, J434, J504, J613, J615
  *
  * Copyright The Asahi Linux Contributors
  */
