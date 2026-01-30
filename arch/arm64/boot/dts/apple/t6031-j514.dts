@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple MacBook Pro (14-inch, M3 Max, 2023)
+ *
+ * target-type: J514
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6031.dtsi"
+
+/ {
+	compatible = "apple,j514c", "apple,j514", "apple,t6031", "apple,arm-platform";
+	model = "Apple MacBook Pro (14-inch, M3 Pro, 2023)";
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		simple-framebuffer = &framebuffer0;
+    	stdout-path = "serial0:115200n8";
+	};
+
+    framebuffer0: framebuffer@11fc02a4000 {
+        compatible = "simple-framebuffer";
+        /* Reg: <AddressHigh AddressLow SizeHigh SizeLow> */
+        /* Address: 0x11f_c02a4000, Size: 23,756,544 bytes */
+        reg = <0x11f 0xc02a4000 0x0 0x16a7e00>;
+        width = <3024>;
+        height = <1964>;
+        stride = <12096>;
+        format = "x2r10g10b10";
+        status = "okay";
+    };
+
+	memory@10000000000 {
+		device_type = "memory";
+		reg = <0x100 0 0x2 0>; /* To be filled by loader */
+	};
+
+};
+	&serial0 {
+		status = "okay";
+
+};
