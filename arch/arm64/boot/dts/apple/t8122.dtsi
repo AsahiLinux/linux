@@ -559,6 +559,12 @@
 					 <APPLE_PINMUX(148, 1)>;
 			};
 
+			pcie_pins: pcie-pins {
+				// clkreq pins
+				pinmux = <APPLE_PINMUX(183, 1)>,
+					 <APPLE_PINMUX(184, 1)>,
+					 <APPLE_PINMUX(185, 1)>;
+			};
 		};
 
 		pinctrl_nub: pinctrl@2e41f0000 {
@@ -789,6 +795,70 @@
     			power-domains = <&ps_ans>, <&ps_apcie_phy_sw>;
     			power-domain-names = "ans", "apcie_phy_sw";
     			resets = <&ps_ans>;
+		};
+
+                pcie0_dart_0: iommu@594000000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x5 0x94000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 924 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_st>;
+		};
+
+		pcie0: pcie@580000000 {
+			compatible = "apple,t8122-pcie", "apple,t6020-pcie";
+			device_type = "pci";
+
+			reg = <0x5 0x80000000 0x0 0x1000000>,	/* config */
+				<0x5 0x91000000 0x0 0x4000>,	/* rc */
+				<0x5 0x94008000 0x0 0x4000>,	/* port0 */
+				<0x5 0x9e008000 0x0 0x4000>;	/* phy0 */
+			reg-names = "config", "rc", "port0", "phy0";
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 923 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 932 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 941 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 950 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			msi-parent = <&pcie0>;
+			msi-ranges = <&aic AIC_IRQ 1075 IRQ_TYPE_EDGE_RISING 32>;
+
+			iommu-map = <0x100 &pcie0_dart_0 1 1>;
+			iommu-map-mask = <0xff00>;
+
+			bus-range = <0 4>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges = <0x43000000 0x5 0xa0000000 0x5 0xa0000000 0x0 0x20000000>,
+				 <0x02000000 0x0 0xc0000000 0x5 0xc0000000 0x0 0x40000000>;
+
+			power-domains = <&ps_apcie_gp>;
+			pinctrl-0 = <&pcie_pins>;
+			pinctrl-names = "default";
+
+			dma-coherent;
+
+			port00: pci@0,0 {
+				device_type = "pci";
+				reg = <0x0 0x0 0x0 0x0 0x0>;
+				reset-gpios = <&pinctrl_ap 187 GPIO_ACTIVE_LOW>; // perst
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+				ranges;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port00 0 0 0 0>,
+						<0 0 0 2 &port00 0 0 0 1>,
+						<0 0 0 3 &port00 0 0 0 2>,
+						<0 0 0 4 &port00 0 0 0 3>;
+			};
 		};
 	};
 };
