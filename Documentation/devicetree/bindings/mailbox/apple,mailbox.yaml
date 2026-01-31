@@ -10,8 +10,7 @@ maintainers:
   - Hector Martin <marcan@marcan.st>
   - Sven Peter <sven@svenpeter.dev>
 
-description:
-  The Apple mailbox consists of two FIFOs used to exchange 64+32 bit
+description: The Apple mailbox consists of two FIFOs used to exchange 64+32 bit
   messages between the main CPU and a co-processor. Multiple instances
   of this mailbox can be found on Apple SoCs.
   One of the two FIFOs is used to send data to a co-processor while the other
@@ -30,6 +29,7 @@ properties:
           - enum:
               - apple,t8103-asc-mailbox
               - apple,t8112-asc-mailbox
+              - apple,t8122-asc-mailbox
               - apple,t6000-asc-mailbox
               - apple,t6020-asc-mailbox
           - const: apple,asc-mailbox-v4
