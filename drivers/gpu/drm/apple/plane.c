@@ -9,14 +9,60 @@
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
-#include <drm/drm_fourcc.h>
 #include <drm/drm_fb_dma_helper.h>
+#include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_plane.h>
 
+#include <linux/align.h>
+#include <linux/log2.h>
+
+#ifndef DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED
+#define DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED fourcc_mod_code(APPLE, 3)
+#endif
+
 #define FRAC_16_16(mult, div)    (((mult) << 16) / (div))
+
+#define APPLE_GPU_CACHELINE 16
+
+struct apple_interchange_layout {
+	u32 tiles_width;
+	u32 tiles_height;
+	u32 tile_size_B;
+	u32 meta_offset;
+	u32 meta_size;
+};
+
+static struct apple_interchange_layout
+get_apple_interchange_layout(u32 width, u32 height, u32 bpp)
+{
+	u32 tw = DIV_ROUND_UP(width, 16);
+	u32 th = DIV_ROUND_UP(height, 16);
+	u32 tsize_B = 16 * 16 * (bpp / 8);
+
+	u32 meta_offset = ALIGN(tw * th * tsize_B, APPLE_GPU_CACHELINE);
+
+	/*
+	 * The metadata buffer contains 8 bytes per 16x16 compression tile.
+	 * Addressing is fully twiddled, so both width and height are padded to
+	 * powers-of-two.
+	 */
+	u32 w_tl = roundup_pow_of_two(tw);
+	u32 h_tl = roundup_pow_of_two(th);
+	u32 B_per_tl = 8;
+
+	u32 meta_size = ALIGN(w_tl * h_tl * B_per_tl, APPLE_GPU_CACHELINE);
+
+	return (struct apple_interchange_layout){
+		.tiles_width = tw,
+		.tiles_height = th,
+		.tile_size_B = tsize_B,
+		.meta_offset = meta_offset,
+		.meta_size = meta_size,
+	};
+}
 
 static int apple_plane_atomic_check(struct drm_plane *plane,
 				    struct drm_atomic_state *state)
@@ -82,12 +128,14 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
-	/*
-	 * Pitches have to be 64-byte aligned.
-	 */
-	for (u32 i = 0; i < new_plane_state->fb->format->num_planes; i++)
-		if (new_plane_state->fb->pitches[i] & 63)
-			return -EINVAL;
+	if (new_plane_state->fb->modifier != DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED) {
+		/*
+		 * Pitches have to be 64-byte aligned for non-tiled modifiers.
+		 */
+		for (u32 i = 0; i < new_plane_state->fb->format->num_planes; i++)
+			if (new_plane_state->fb->pitches[i] & 63)
+				return -EINVAL;
+	}
 
 	/*
 	 * FIXME: dcp can currently only use multi-planar buffers using the same
@@ -103,6 +151,38 @@ static int apple_plane_atomic_check(struct drm_plane *plane,
 			if (new_plane_state->fb->obj[i] != NULL &&
 			    new_plane_state->fb->obj[i] != first)
 				return -EINVAL;
+	}
+
+	/*
+	 * The calculated size of the compression meta data must fit into the size
+	 * of the gem object
+	 */
+	for (u32 i = 0; i < new_plane_state->fb->format->num_planes; i++) {
+		struct drm_framebuffer *fb = new_plane_state->fb;
+
+		if (fb->modifier != DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED)
+			continue;
+
+		u32 width =
+			drm_format_info_plane_width(fb->format, fb->width, i);
+		u32 height =
+			drm_format_info_plane_height(fb->format, fb->height, i);
+		u32 bpp = drm_format_info_bpp(fb->format, i);
+		struct apple_interchange_layout l =
+			get_apple_interchange_layout(width, height, bpp);
+
+		u32 required_size =
+			fb->offsets[0] + l.meta_offset + l.meta_size;
+
+		struct drm_gem_dma_object *obj = drm_fb_dma_get_gem_obj(fb, i);
+		if (obj && required_size > obj->base.size) {
+			dev_err_ratelimited(
+				state->dev->dev,
+				"dcp: atomic_check, required size of %u bytes is more than gem size of %zu\n",
+				required_size, obj->base.size);
+
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -248,7 +328,6 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 		.stride = fb->pitches[0],
 		.width = fb->width,
 		.height = fb->height,
-		.buf_size = fb->height * fb->pitches[0],
 		// .surface_id = req->swap.surf_ids[l],
 
 		/* Only used for compressed or multiplanar surfaces */
@@ -257,6 +336,7 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 		.pel_h = 1,
 		.has_comp = 1,
 		.has_planes = 1,
+		.has_compr_info = 1,
 	};
 
 	/* Populate plane information for planar formats */
@@ -279,8 +359,33 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 			.tile_h = bh,
 		};
 
-		if (i > 0)
-			surf->buf_size += surf->planes[i].size;
+		if (fb->modifier == DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED) {
+			u32 bpp = drm_format_info_bpp(fmt, i);
+			struct apple_interchange_layout l =
+				get_apple_interchange_layout(width, height, bpp);
+
+			surf->planes[i].tile_w = 16;
+			surf->planes[i].tile_h = 16;
+			surf->planes[i].stride = l.tiles_width * l.tile_size_B;
+			surf->planes[i].size = l.meta_offset + l.meta_size;
+			surf->planes[i].tile_size = l.tile_size_B;
+			surf->planes[i].address_format = DCP_ADDRESS_FORMAT_INTERCHANGE_TILED;
+
+			surf->compression_info[i] = (struct dcp_compression_info){
+				.tile_w = 16,
+				.tile_h = 16,
+				.data_offset = 0,
+				.meta_offset = l.meta_offset,
+				.tile_meta_bytes = 8,
+				.tiles_w = l.tiles_width,
+				.tiles_h = l.tiles_height,
+				.tile_bytes = l.tile_size_B,
+				.row_stride = l.tiles_width * l.tile_size_B,
+				.compresson_type = DCP_COMPRESSION_TYPE_INTERCHANGE_TILED,
+			};
+		}
+
+		surf->buf_size += surf->planes[i].size;
 	}
 
 	/* the obvious helper call drm_fb_dma_get_gem_addr() adjusts
@@ -337,6 +442,28 @@ apple_plane_duplicate_state(struct drm_plane *plane)
 	return &apple_plane_state->base;
 }
 
+static bool apple_plane_format_mod_supported(struct drm_plane *plane,
+					     uint32_t format, uint64_t modifier)
+{
+	if (modifier != DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED) {
+		return true;
+	}
+
+	// interchange is only supported with rgba formats for now.
+	switch (format) {
+	case DRM_FORMAT_XRGB2101010:
+	case DRM_FORMAT_ARGB2101010:
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 // void apple_plane_destroy_state(struct drm_plane *plane,
 //                                      struct drm_plane_state *state)
 // {
@@ -350,6 +477,7 @@ static const struct drm_plane_funcs apple_plane_funcs = {
 	.atomic_duplicate_state = apple_plane_duplicate_state,
 	// .atomic_destroy_state	= apple_plane_destroy_state,
 	.atomic_destroy_state	= drm_atomic_helper_plane_destroy_state,
+	.format_mod_supported	= apple_plane_format_mod_supported,
 };
 
 /*
@@ -426,6 +554,7 @@ static const u32 dcp_overlay_formats_12_x[] = {
 };
 
 u64 apple_format_modifiers[] = {
+	DRM_FORMAT_MOD_APPLE_INTERCHANGE_COMPRESSED,
 	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID
 };
