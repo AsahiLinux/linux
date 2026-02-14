@@ -233,7 +233,6 @@ struct WorkQueueInner {
     size: u32,
     wptr: u32,
     pending: KVec<Pin<KBox<SubmittedWorkContainer>>>,
-    last_completed_work: Option<Pin<KBox<SubmittedWorkContainer>>>,
     last_token: Option<event::Token>,
     pending_jobs: usize,
     last_submitted: Option<event::EventValue>,
@@ -715,7 +714,6 @@ impl WorkQueue::ver {
             size,
             wptr: 0,
             pending: KVec::new(),
-            last_completed_work: None,
             last_token: None,
             event: None,
             priority,
@@ -909,8 +907,6 @@ impl WorkQueue for WorkQueue::ver {
         let last_wptr = inner.pending[completed_commands - 1].inner.wptr();
         let pipe_type = inner.pipe_type;
 
-        let mut last_cmd = inner.last_completed_work.take();
-
         for mut cmd in inner.pending.drain(..completed_commands) {
             mod_pr_debug!(
                 "WorkQueue({:?}): Queueing command @ {:?} for cleanup\n",
@@ -918,12 +914,8 @@ impl WorkQueue for WorkQueue::ver {
                 cmd.inner.gpu_va()
             );
             cmd.as_mut().inner_mut().complete();
-            if let Some(last_cmd) = last_cmd.replace(cmd) {
-                workqueue::system().enqueue(last_cmd);
-            }
+            workqueue::system().enqueue(cmd);
         }
-
-        inner.last_completed_work = last_cmd;
 
         mod_pr_debug!(
             "WorkQueue({:?}): Completed {} commands, left pending {}, ls {:#x?}, lc {:#x?}\n",
@@ -1018,15 +1010,6 @@ impl WorkQueue for WorkQueue::ver {
         for mut cmd in cmds {
             cmd.as_mut().inner_mut().mark_error(error);
             cmd.as_mut().inner_mut().complete();
-        }
-    }
-}
-
-#[versions(AGX)]
-impl Drop for WorkQueueInner::ver {
-    fn drop(&mut self) {
-        if let Some(last_cmd) = self.last_completed_work.take() {
-            workqueue::system().enqueue(last_cmd);
         }
     }
 }
