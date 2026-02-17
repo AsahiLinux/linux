@@ -315,11 +315,11 @@ properties:
       - description: Apple M2 SoC based platforms
         items:
           - enum:
-              - apple,j504 # MacBook Pro (13-inch, M3, 2023)
-              - apple,j613 # MacBook Air (13-inch, M3, 2024)
-              - apple,j615 # MacBook Air (15-inch, M3, 2024)
-              - apple,j433 # iMac (24-inch, 2x USB-C, M3, 2023)
-              - apple,j434 # iMac (24-inch, 4x USB-C, M3, 2023)
+            - apple,j433 # iMac (24-inch, 2x USB-C, M3, 2023)
+            - apple,j434 # iMac (24-inch, 4x USB-C, M3, 2023)
+            - apple,j504 # MacBook Pro (13-inch, M3, 2023)
+            - apple,j613 # MacBook Air (13-inch, M3, 2024)
+            - apple,j615 # MacBook Air (15-inch, M3, 2024)
           - const: apple,t8122
           - const: apple,arm-platform
 
@@ -376,8 +376,8 @@ properties:
       - description: Apple M3 Pro SoC based platforms
         items:
           - enum:
-              - apple,j514s # MacBook Pro (14-inch, M3 Pro, 2023)
-              - apple,j516s # MacBook Pro (16-inch, M3 Pro, 2023)
+            - apple,j514s # MacBook Pro (14-inch, M3 Pro, 2023)
+            - apple,j516s # MacBook Pro (16-inch, M3 Pro, 2023)
           - const: apple,t6030
           - const: apple,arm-platform
 
@@ -385,21 +385,21 @@ properties:
         oneOf:
           - items:
             - enum:
-                - apple,j414c # MacBook Pro (14-inch, M3 Max, 16 cores, 2023)
-                - apple,j416c # MacBook Pro (16-inch, M3 Max, 16 cores, 2023)
+              - apple,j514c # MacBook Pro (14-inch, M3 Max, 16 cores, 2023)
+              - apple,j516c # MacBook Pro (16-inch, M3 Max, 16 cores, 2023)
             - const: apple,t6031
             - const: apple,arm-platform
           - items:
             - enum:
-                - apple,j414m # MacBook Pro (14-inch, M3 Max, 14 cores, 2023)
-                - apple,j416m # MacBook Pro (16-inch, M3 Max, 14 cores, 2023)
+              - apple,j514m # MacBook Pro (14-inch, M3 Max, 14 cores, 2023)
+              - apple,j516m # MacBook Pro (16-inch, M3 Max, 14 cores, 2023)
             - const: apple,t6034
             - const: apple,arm-platform
 
       - description: Apple M3 Ultra SoC based platforms
         items:
           - enum:
-              - apple,j575d # Mac Studio (M3 Ultra, 2025)
+            - apple,j575d # Mac Studio (M3 Ultra, 2025)
           - const: apple,t6032
           - const: apple,arm-platform
 

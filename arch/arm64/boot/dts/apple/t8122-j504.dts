@@ -10,6 +10,7 @@
 /dts-v1/;
 
 #include "t8122.dtsi"
+#include "t8122-usbpd-i2c.dtsi"
 #include "t8122-jxxx.dtsi"
 #include <dt-bindings/leds/common.h>
 
@@ -29,33 +30,6 @@
 		};
 	};
 };
-
-&framebuffer0 {
-	// panel = &panel;
-	power-domains = <&ps_disp_cpu>, <&ps_dptx_ext_phy>;
-};
-
-&i2c0 {
-	status = "okay";
-
-	hpm0: usb-pd@38 {
-		compatible = "apple,cd321x";
-		reg = <0x38>;
-		interrupt-parent = <&pinctrl_ap>;
-		interrupts = <8 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "irq";
-	};
-
-	hpm1: usb-pd@3f {
-		compatible = "apple,cd321x";
-		reg = <0x3f>;
-		interrupt-parent = <&pinctrl_ap>;
-		interrupts = <8 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "irq";
-	};
-};
-
-
 
 &fpwm1 {
 	status = "okay";

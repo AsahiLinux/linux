@@ -4,7 +4,7 @@
  *
  * This file contains parts common to all Apple M3 devices using the t8122.
  *
- * target-type: J433, J434, J504, J513, J515
+ * target-type: J433, J434, J504, J613, J615
  *
  * Copyright The Asahi Linux Contributors
  */
@@ -24,7 +24,7 @@
 		framebuffer0: framebuffer@0 {
 			compatible = "apple,simple-framebuffer", "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
-			power-domains = <&ps_disp_cpu>;
+			power-domains = <&ps_disp_cpu>, <&ps_dptx_ext_phy>;
 			/* Format properties will be added by loader */
 			status = "disabled";
 		};
