@@ -1081,6 +1081,112 @@ static int atcphy_configure_pipehandler_usb3(struct apple_atcphy *atcphy, bool h
 	return 0;
 }
 
+static int atcphy_configure_pipehandler_usb4(struct apple_atcphy *atcphy, bool host)
+{
+	int ret;
+	u32 reg;
+
+	ret = atcphy_pipehandler_check(atcphy);
+	if (ret)
+		return ret;
+
+	/*
+	 * USB4 pipehandler setup follows the same BIST sequence as USB3 host
+	 * mode but switches the PIPE mux to USB4 instead of USB3.
+	 * Observed via m1n1 hypervisor tracing of macOS 13.5 on T8112.
+	 */
+	if (host) {
+		/* Force disable link detection */
+		clear32(atcphy->regs.pipehandler + PIPEHANDLER_OVERRIDE_VALUES,
+			PIPEHANDLER_OVERRIDE_VAL_RXDETECT0 | PIPEHANDLER_OVERRIDE_VAL_RXDETECT1);
+		set32(atcphy->regs.pipehandler + PIPEHANDLER_OVERRIDE,
+		      PIPEHANDLER_OVERRIDE_RXVALID);
+		set32(atcphy->regs.pipehandler + PIPEHANDLER_OVERRIDE,
+		      PIPEHANDLER_OVERRIDE_RXDETECT);
+
+		ret = atcphy_pipehandler_lock(atcphy);
+		if (ret) {
+			dev_err(atcphy->dev, "Failed to lock pipehandler");
+			return ret;
+		}
+
+		/* BIST dance (same as USB3) */
+		core_set32(atcphy, ACIOPHY_TOP_BIST_PHY_CFG0,
+			   ACIOPHY_TOP_BIST_PHY_CFG0_LN0_RESET_N);
+		core_set32(atcphy, ACIOPHY_TOP_BIST_OV_CFG, ACIOPHY_TOP_BIST_OV_CFG_LN0_RESET_N_OV);
+		ret = readl_poll_timeout(atcphy->regs.core + ACIOPHY_TOP_PHY_STAT, reg,
+					 !(reg & ACIOPHY_TOP_PHY_STAT_LN0_UNK23), 10, 10000);
+		if (ret)
+			dev_warn(atcphy->dev,
+				 "Timed out waiting for ACIOPHY_TOP_PHY_STAT_LN0_UNK23\n");
+
+		core_set32(atcphy, ACIOPHY_TOP_BIST_READ_CTRL,
+			   ACIOPHY_TOP_BIST_READ_CTRL_LN0_PHY_STATUS_RE);
+		core_clear32(atcphy, ACIOPHY_TOP_BIST_READ_CTRL,
+			     ACIOPHY_TOP_BIST_READ_CTRL_LN0_PHY_STATUS_RE);
+
+		core_mask32(atcphy, ACIOPHY_TOP_BIST_PHY_CFG1,
+			    ACIOPHY_TOP_BIST_PHY_CFG1_LN0_PWR_DOWN,
+			    FIELD_PREP(ACIOPHY_TOP_BIST_PHY_CFG1_LN0_PWR_DOWN, 3));
+
+		core_set32(atcphy, ACIOPHY_TOP_BIST_OV_CFG,
+			   ACIOPHY_TOP_BIST_OV_CFG_LN0_PWR_DOWN_OV);
+		core_set32(atcphy, ACIOPHY_TOP_BIST_CIOPHY_CFG1,
+			   ACIOPHY_TOP_BIST_CIOPHY_CFG1_CLK_EN);
+		core_set32(atcphy, ACIOPHY_TOP_BIST_CIOPHY_CFG1,
+			   ACIOPHY_TOP_BIST_CIOPHY_CFG1_BIST_EN);
+		writel(0, atcphy->regs.core + ACIOPHY_TOP_BIST_CIOPHY_CFG1);
+
+		ret = readl_poll_timeout(atcphy->regs.core + ACIOPHY_TOP_PHY_STAT, reg,
+					 (reg & ACIOPHY_TOP_PHY_STAT_LN0_UNK0), 10, 10000);
+		if (ret)
+			dev_warn(atcphy->dev,
+				 "timed out waiting for ACIOPHY_TOP_PHY_STAT_LN0_UNK0\n");
+
+		ret = readl_poll_timeout(atcphy->regs.core + ACIOPHY_TOP_PHY_STAT, reg,
+					 !(reg & ACIOPHY_TOP_PHY_STAT_LN0_UNK23), 10, 10000);
+		if (ret)
+			dev_warn(atcphy->dev,
+				 "timed out waiting for ACIOPHY_TOP_PHY_STAT_LN0_UNK23\n");
+
+		/* Clear reset for non-selected PHY */
+		mask32(atcphy->regs.pipehandler + PIPEHANDLER_NONSELECTED_OVERRIDE,
+		       PIPEHANDLER_NATIVE_POWER_DOWN, FIELD_PREP(PIPEHANDLER_NATIVE_POWER_DOWN, 3));
+		clear32(atcphy->regs.pipehandler + PIPEHANDLER_NONSELECTED_OVERRIDE,
+			PIPEHANDLER_NATIVE_RESET);
+
+		/* More BIST stuff */
+		writel(0, atcphy->regs.core + ACIOPHY_TOP_BIST_OV_CFG);
+		core_set32(atcphy, ACIOPHY_TOP_BIST_CIOPHY_CFG1,
+			   ACIOPHY_TOP_BIST_CIOPHY_CFG1_CLK_EN);
+		core_set32(atcphy, ACIOPHY_TOP_BIST_CIOPHY_CFG1,
+			   ACIOPHY_TOP_BIST_CIOPHY_CFG1_BIST_EN);
+	}
+
+	/* Configure PIPE mux to USB4 PHY */
+	mask32(atcphy->regs.pipehandler + PIPEHANDLER_MUX_CTRL, PIPEHANDLER_MUX_CTRL_CLK,
+	       FIELD_PREP(PIPEHANDLER_MUX_CTRL_CLK, PIPEHANDLER_MUX_CTRL_CLK_OFF));
+	udelay(10);
+	mask32(atcphy->regs.pipehandler + PIPEHANDLER_MUX_CTRL, PIPEHANDLER_MUX_CTRL_DATA,
+	       FIELD_PREP(PIPEHANDLER_MUX_CTRL_DATA, PIPEHANDLER_MUX_CTRL_DATA_USB4));
+	udelay(10);
+	mask32(atcphy->regs.pipehandler + PIPEHANDLER_MUX_CTRL, PIPEHANDLER_MUX_CTRL_CLK,
+	       FIELD_PREP(PIPEHANDLER_MUX_CTRL_CLK, PIPEHANDLER_MUX_CTRL_CLK_USB4));
+	udelay(10);
+
+	/* Remove link detection override */
+	clear32(atcphy->regs.pipehandler + PIPEHANDLER_OVERRIDE, PIPEHANDLER_OVERRIDE_RXVALID);
+	clear32(atcphy->regs.pipehandler + PIPEHANDLER_OVERRIDE, PIPEHANDLER_OVERRIDE_RXDETECT);
+
+	if (host) {
+		ret = atcphy_pipehandler_unlock(atcphy);
+		if (ret)
+			dev_warn(atcphy->dev, "Failed to unlock pipehandler");
+	}
+
+	return 0;
+}
+
 static int atcphy_configure_pipehandler_dummy(struct apple_atcphy *atcphy)
 {
 	int ret;
@@ -1134,10 +1240,8 @@ static int atcphy_configure_pipehandler(struct apple_atcphy *atcphy, bool host)
 		atcphy->pipehandler_up = true;
 		break;
 	case ATCPHY_PIPEHANDLER_STATE_USB4:
-		dev_warn(atcphy->dev,
-			 "ATCPHY_PIPEHANDLER_STATE_USB4 not implemented; falling back to USB2\n");
-		ret = atcphy_configure_pipehandler_dummy(atcphy);
-		atcphy->pipehandler_up = false;
+		ret = atcphy_configure_pipehandler_usb4(atcphy, host);
+		atcphy->pipehandler_up = true;
 		break;
 	default:
 		ret = -EINVAL;
