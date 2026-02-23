@@ -61,3 +61,21 @@ config USB4_DMA_TEST
 	  called thunderbolt_dma_test.
 
 endif # USB4
+
+config APPLE_ACIO
+	tristate "Apple ACIO Thunderbolt/USB4 Controller"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on OF
+	select APPLE_RTKIT
+	help
+	  Driver for the Apple ACIO Thunderbolt/USB4 host controller found
+	  in Apple Silicon SoCs (M1, M2, etc.). The ACIO is a platform-based
+	  controller that uses an IOP coprocessor for Thunderbolt protocol
+	  management and provides PCIe, DisplayPort, and USB3 tunneling.
+
+	  This driver is required for Thunderbolt devices and external
+	  displays connected via USB-C/Thunderbolt on Apple Silicon Macs
+	  running Linux.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called apple-acio.

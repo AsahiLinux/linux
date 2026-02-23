@@ -768,6 +768,7 @@ static void cd321x_update_work(struct work_struct *work)
 			      (TPS_DATA_STATUS_USB2_CONNECTION | TPS_DATA_STATUS_USB3_CONNECTION);
 
 	bool dp_hpd = st.data_status & CD321X_DATA_STATUS_HPD_LEVEL;
+	bool tbt_connected = st.data_status & TPS_DATA_STATUS_TBT_CONNECTION;
 	bool dp_hpd_changed = st.data_status_changed & CD321X_DATA_STATUS_HPD_LEVEL;
 
 	enum usb_role old_role = usb_role_switch_get_role(tps->role_sw);
@@ -798,7 +799,7 @@ static void cd321x_update_work(struct work_struct *work)
 	if (old_role != USB_ROLE_NONE && (new_role != old_role || was_disconnected))
 		usb_role_switch_set_role(tps->role_sw, USB_ROLE_NONE);
 
-	if (cd321x->connector_fwnode && (!dp_hpd || dp_hpd_changed)) {
+	if (cd321x->connector_fwnode && (!(dp_hpd || tbt_connected) || dp_hpd_changed)) {
 		drm_connector_oob_hotplug_event(cd321x->connector_fwnode, connector_status_disconnected);
 	}
 
@@ -856,7 +857,7 @@ static void cd321x_update_work(struct work_struct *work)
 	/* Launch the USB role switch */
 	usb_role_switch_set_role(tps->role_sw, new_role);
 
-	if (cd321x->connector_fwnode && dp_hpd)
+	if (cd321x->connector_fwnode && (dp_hpd || tbt_connected))
 		drm_connector_oob_hotplug_event(cd321x->connector_fwnode, connector_status_connected);
 
 	power_supply_changed(tps->psy);

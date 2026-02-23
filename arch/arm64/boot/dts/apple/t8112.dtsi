@@ -1776,6 +1776,42 @@
 			power-domains = <&ps_atc0_usb>;
 		};
 
+		dart_acio0: iommu@381a80000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x3 0x81a80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1065 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_atc0_usb>;
+			status = "disabled";
+		};
+
+		acio0: thunderbolt@381f00000 {
+			compatible = "apple,t8112-acio", "apple,acio";
+			reg = <0x3 0x81f00000 0x0 0x100000>,
+			      <0x3 0x81db0000 0x0 0x30000>,
+			      <0x3 0x81ac0000 0x0 0x4000>,
+			      <0x3 0x81ac4000 0x0 0x4000>,
+			      <0x3 0x81ac8000 0x0 0x4000>,
+			      <0x3 0x81e44000 0x0 0x4000>;
+			reg-names = "nhi", "hbw", "fw0", "fw1", "fw2", "lbw";
+			iommus = <&dart_acio0 1>, <&dart_acio0 15>;
+			power-domains = <&ps_atc0_usb>;
+			phys = <&atcphy0 10>; /* USB4 */
+			phy-names = "usb4-phy";
+			status = "disabled";
+		};
+
+		acio_cpu0: thunderbolt-cpu@381108000 {
+			compatible = "apple,t8112-acio-cpu", "apple,acio-cpu";
+			reg = <0x3 0x81108000 0x0 0x4000>,
+			      <0x3 0x81100000 0x0 0x4000>;
+			reg-names = "coproc", "mbox";
+			mboxes = <&acio0>;
+			power-domains = <&ps_atc0_usb>;
+			status = "disabled";
+		};
+
 		atcphy0_xbar: mux@38304c000 {
 			compatible = "apple,t8112-display-crossbar", "apple,t8103-display-crossbar";
 			reg = <0x3 0x8304c000 0x0 0x4000>;
@@ -1852,6 +1888,42 @@
 			orientation-switch;
 			mode-switch;
 			power-domains = <&ps_atc1_usb>;
+		};
+
+		dart_acio1: iommu@501a80000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x5 0x01a80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1125 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_atc1_usb>;
+			status = "disabled";
+		};
+
+		acio1: thunderbolt@501f00000 {
+			compatible = "apple,t8112-acio", "apple,acio";
+			reg = <0x5 0x01f00000 0x0 0x100000>,
+			      <0x5 0x01db0000 0x0 0x30000>,
+			      <0x5 0x01ac0000 0x0 0x4000>,
+			      <0x5 0x01ac4000 0x0 0x4000>,
+			      <0x5 0x01ac8000 0x0 0x4000>,
+			      <0x5 0x01e44000 0x0 0x4000>;
+			reg-names = "nhi", "hbw", "fw0", "fw1", "fw2", "lbw";
+			iommus = <&dart_acio1 1>, <&dart_acio1 15>;
+			power-domains = <&ps_atc1_usb>;
+			phys = <&atcphy1 10>; /* USB4 */
+			phy-names = "usb4-phy";
+			status = "disabled";
+		};
+
+		acio_cpu1: thunderbolt-cpu@501108000 {
+			compatible = "apple,t8112-acio-cpu", "apple,acio-cpu";
+			reg = <0x5 0x01108000 0x0 0x4000>,
+			      <0x5 0x01100000 0x0 0x4000>;
+			reg-names = "coproc", "mbox";
+			mboxes = <&acio1>;
+			power-domains = <&ps_atc1_usb>;
+			status = "disabled";
 		};
 
 		atcphy1_xbar: mux@50304c000 {
