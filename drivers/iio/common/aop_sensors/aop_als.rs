@@ -38,8 +38,19 @@ fn get_lux_offset(aop: &dyn AOP, dev: &platform::Device, svc: &EPICService) -> R
 }
 
 fn enable_als(aop: &dyn AOP, dev: &platform::Device, svc: &EPICService) -> Result<()> {
-    let fw = Firmware::request(c_str!("apple/aop-als-cal.bin"), dev.as_ref())?;
-    set_als_property(aop, svc, 0xb, fw.data())?;
+    let cal_result = match Firmware::request(c_str!("apple/aop-als-cal.bin"), dev.as_ref()) {
+        Ok(fw) => set_als_property(aop, svc, 0xb, fw.data()),
+        Err(_) => {
+            dev_warn!(
+                dev.as_ref(),
+                "ALS calibration firmware not found, sending empty calibration"
+            );
+            set_als_property(aop, svc, 0xb, &[])
+        }
+    };
+    if let Err(ref e) = cal_result {
+        dev_warn!(dev.as_ref(), "ALS calibration returned error (expected): {:?}", e);
+    }
     set_als_property(aop, svc, 0, &200000u32.to_le_bytes())?;
 
     Ok(())
