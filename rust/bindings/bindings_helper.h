@@ -70,6 +70,7 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/types.h>
+#include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/iosys-map.h>
 #include <linux/jiffies.h>
