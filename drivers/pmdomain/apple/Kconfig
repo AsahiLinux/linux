@@ -14,4 +14,10 @@ config APPLE_PMGR_PWRSTATE
 	  controls for SoC devices. This driver manages them through the
 	  generic power domain framework, and also provides reset support.
 
+config APPLE_PMP_REPORT
+	bool "Apple PMP report control"
+	depends on OF
+	depends on PM
+	select PM_GENERIC_DOMAINS
+
 endif
