@@ -13,6 +13,9 @@
 
 	aliases {
 		gpu = &gpu;
+		#ifdef APPLE_USE_PMP
+		pmp = &pmp;
+		#endif
 	};
 
 	cpus {

@@ -426,6 +426,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(pmp);
+		apple,always-on;
 	};
 #endif
 
@@ -435,6 +436,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(pms_sram);
+		apple,always-on;
 	};
 
 	DIE_NODE(ps_apcie_st_sys): power-controller@2e8 {

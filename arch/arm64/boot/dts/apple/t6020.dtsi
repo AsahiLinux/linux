@@ -18,6 +18,13 @@
 };
 
 /delete-node/ &pmgr_south;
+/delete-node/ &pmp_report_dispext2;
+/delete-node/ &pmp_report_dispext3;
+/delete-node/ &pmp_report_venc1;
+/delete-node/ &pmp_report_msr1;
+/delete-node/ &pmp_report_prores;
+/delete-node/ &pmp_report_afnc4_ioa;
+/delete-node/ &pmp_report_afnc5_ioa;
 
 &gpu {
 	compatible = "apple,agx-t6020", "apple,agx-g14x", "apple,agx-g14s";
