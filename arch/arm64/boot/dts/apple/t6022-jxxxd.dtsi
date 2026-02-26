@@ -68,6 +68,7 @@
 /* delete power-domains for missing disp0 / disp0_die1 */
 /delete-node/ &ps_disp0_cpu0;
 /delete-node/ &ps_disp0_fe;
+/delete-node/ &pmp_report_disp0;
 
 /delete-node/ &ps_disp0_cpu0_die1;
 /delete-node/ &ps_disp0_fe_die1;

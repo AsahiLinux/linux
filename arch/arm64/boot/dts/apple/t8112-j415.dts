@@ -287,3 +287,7 @@
 	apple,platform-id = <15>;
 	apple,temporal-filter = <1>;
 };
+
+&pmp_report_isp_sys {
+	status = "okay";
+};

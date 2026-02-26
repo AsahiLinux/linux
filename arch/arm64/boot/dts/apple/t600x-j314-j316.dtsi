@@ -633,3 +633,7 @@
 &isp {
 	apple,platform-id = <3>;
 };
+
+&pmp_report_isp_sys {
+	status = "okay";
+};
