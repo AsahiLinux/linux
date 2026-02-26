@@ -23,3 +23,5 @@ apple-sart-y = sart.o
 obj-$(CONFIG_APPLE_AOP) += aop.o
 
 obj-$(CONFIG_APPLE_SEP) += sep.o
+
+obj-$(CONFIG_APPLE_PMP) += pmp.o
