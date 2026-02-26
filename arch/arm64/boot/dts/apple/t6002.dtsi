@@ -320,6 +320,63 @@
 	power-domains = <&ps_afr>, <&ps_afr_die1>;
 };
 
+&pmp {
+	apple,pio-ranges = <0x2 0x82000000 0x0 0x1000000>,
+		<0x3 0x4000000 0x0 0x1000000>,
+		<0x3 0x83000000 0x0 0x1000000>,
+		<0x4 0x2000000 0x0 0x1000000>,
+		<0x2 0x10e70000 0x0 0x90000>,
+		<0x2 0x11e70000 0x0 0x90000>,
+		<0x2 0x12e70000 0x0 0x90000>,
+		<0x4 0x82000000 0x0 0x1000000>,
+		<0x5 0x2000000 0x0 0x1000000>,
+		<0x22 0x82000000 0x0 0x1000000>,
+		<0x23 0x4000000 0x0 0x1000000>,
+		<0x23 0x83000000 0x0 0x1000000>,
+		<0x24 0x2000000 0x0 0x1000000>,
+		<0x24 0x82000000 0x0 0x1000000>,
+		<0x25 0x2000000 0x0 0x1000000>,
+		<0x22 0x10e70000 0x0 0x90000>,
+		<0x22 0x11e70000 0x0 0x90000>,
+		<0x22 0x12e70000 0x0 0x90000>;
+};
+
+&pmp_report {
+	pmp_report_dispext0_die1: report@33 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x33>;
+		label = "pmp-dispext0_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext0_cpu0_die1>;
+	};
+
+	pmp_report_dispext1_die1: report@34 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x34>;
+		label = "pmp-dispext1_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+	};
+
+	pmp_report_dispext2_die1: report@35 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x35>;
+		label = "pmp-dispext2_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+		status = "disabled";
+	};
+
+	pmp_report_dispext3_die1: report@36 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x36>;
+		label = "pmp-dispext3_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+		status = "disabled";
+	};
+};
+
 &gpu {
 	compatible = "apple,agx-t6002", "apple,agx-g13d", "apple,agx-g13s";
 };

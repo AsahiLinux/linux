@@ -22,6 +22,7 @@
 
 	aliases {
 		gpu = &gpu;
+		pmp = &pmp;
 	};
 
 	cpus {
@@ -508,7 +509,7 @@
 				<0x2 0x4000000 0 0x1000000>;
 			reg-names = "asc", "sgx";
 			mboxes = <&agx_mbox>;
-			power-domains = <&ps_gfx>;
+			power-domains = <&pmp_report_gfx>;
 			memory-region = <&uat_ttbs>, <&uat_pagetables>, <&uat_handoff>,
 					<&gpu_hw_cal_a>, <&gpu_hw_cal_b>, <&gpu_globals>;
 			memory-region-names = "ttbs", "pagetables", "handoff",
@@ -578,7 +579,7 @@
 			reg = <0x2 0x28200000 0x0 0xc000>,
 			      <0x2 0x28400000 0x0 0x4000>;
 			reg-names = "be", "fe";
-			power-domains = <&ps_dispdfr_fe>, <&ps_dispdfr_be>;
+			power-domains = <&pmp_report_dispdfr>, <&ps_dispdfr_be>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 614 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 618 IRQ_TYPE_LEVEL_HIGH>;
@@ -672,7 +673,7 @@
 				<0x2 0x2c4c4430 0x0 0x100>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 269 IRQ_TYPE_LEVEL_HIGH>;
-			power-domains = <&ps_isp_sys>, <&ps_isp_set0>,
+			power-domains = <&pmp_report_isp_sys>, <&ps_isp_set0>,
 				<&ps_isp_set1>, <&ps_isp_set2>, <&ps_isp_fe>,
 				<&ps_isp_set4>, <&ps_isp_set5>, <&ps_isp_set6>,
 				<&ps_isp_set7>, <&ps_isp_set8>, <&ps_isp_set9>,
@@ -733,7 +734,7 @@
 				<0x2 0x31344000 0x0 0x4000>,
 				<0x2 0x31800000 0x0 0x800000>;
 			apple,bw-scratch = <&pmgr_dcp 0 4 0x5d8>;
-			power-domains = <&ps_disp0_cpu0>;
+			power-domains = <&pmp_report_disp0>;
 			resets = <&ps_disp0_cpu0>;
 			clocks = <&clk_disp0>;
 			phandle = <&dcp>;
@@ -1062,6 +1063,157 @@
 			reg = <0x2 0x3b700000 0 0x14000>;
 			/* child nodes are added in t8103-pmgr.dtsi */
 		};
+
+		pmp_dart: iommu@23b300000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x2 0x3b300000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 632 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_pmp>;
+		};
+
+		pmp_report: pmp_report@23b3c0000 {
+			compatible = "apple,t8112-pmp-v2-report";
+			reg = <0x2 0x3b3c0000 0x0 0x20000>;
+			power-domains = <&ps_pms_sram>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pmp_report_gfx: report@4 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x4>;
+				label = "pmp-gfx";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_gfx>;
+			};
+
+			pmp_report_ane_sys: report@5 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x5>;
+				label = "pmp-ane-sys";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_ane_sys>;
+				status = "disabled";
+			};
+
+			pmp_report_isp_sys: report@6 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x6>;
+				label = "pmp-isp-sys";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_isp_sys>;
+			};
+
+			pmp_report_disp0: report@7 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x7>;
+				label = "pmp-disp0";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_disp0_cpu0>;
+				apple,always-on;
+			};
+
+			pmp_report_dispext: report@8 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x8>;
+				label = "pmp-dispext";
+				#power-domain-cells = <0>;
+				power-domains = <&pmp_report_dispext>;
+			};
+
+			pmp_report_venc_sys: report@9 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x9>;
+				label = "pmp-venc-sys";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_venc_sys>;
+				status = "disabled";
+			};
+
+			pmp_report_avd_sys: report@a {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0xa>;
+				label = "pmp-avd-sys";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_avd_sys>;
+				status = "disabled";
+			};
+
+			pmp_report_msr: report@b {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0xb>;
+				label = "pmp-msr";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_msr>;
+				status = "disabled";
+			};
+
+			pmp_report_jpg: report@c {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0xc>;
+				label = "pmp-jpg";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_jpg>;
+				status = "disabled";
+			};
+
+			pmp_report_scodec: report@d {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0xd>;
+				label = "pmp-scodec";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_scodec>;
+				status = "disabled";
+			};
+
+			pmp_report_dispdfr: report@11 {
+				compatible = "apple,t8112-pmp-v2-report-entry",
+					"apple,t6000-pmp-v2-report-entry";
+				reg = <0x11>;
+				label = "pmp-dispdfr";
+				#power-domain-cells = <0>;
+				power-domains = <&ps_dispdfr_fe>;
+			};
+		};
+
+		pmp: pmp@23b500000 {
+			compatible = "apple,t8112-pmp-v2", "apple,t6000-pmp-v2";
+			reg = <0x2 0x3b500000 0x0 0x80000>,
+				<0x2 0x3bc00000 0x0 0x4000>;
+			reg-names = "pmp", "asc";
+			mboxes = <&pmp_mbox>;
+			mbox-names = "mbox";
+			iommus = <&pmp_dart 0>;
+			power-domains = <&ps_pmp>;
+			tunables {
+			};
+		};
+
+		pmp_mbox: mbox@23bc08000 {
+			compatible = "apple,t8112-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x3bc08000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 628 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 629 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 630 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 631 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_pmp>, <&ps_pms_sram>;
+		};
+
 
 		pmgr_dcp: power-management@23b3d0000 {
 			reg = <0x2 0x3b3d0000 0x0 0x4000>;

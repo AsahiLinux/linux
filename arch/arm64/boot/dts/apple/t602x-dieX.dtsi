@@ -74,7 +74,7 @@
 			<0x2 0x89344000 0x0 0x4000>,
 			<0x2 0x89800000 0x0 0x800000>;
 		apple,bw-scratch = <&pmgr_dcp 0 4 0x1210>;
-		power-domains = <&DIE_NODE(ps_dispext0_cpu0)>;
+		power-domains = <&DIE_NODE(pmp_report_dispext0)>;
 		resets = <&DIE_NODE(ps_dispext0_cpu0)>;
 		clocks = <&DIE_NODE(clk_dispext0)>;
 		phandle = <&DIE_NODE(dcpext0)>;
@@ -222,7 +222,7 @@
 			<0x3 0x15344000 0x0 0x4000>,
 			<0x3 0x15800000 0x0 0x800000>;
 		apple,bw-scratch = <&pmgr_dcp 0 4 0x1218>;
-		power-domains = <&DIE_NODE(ps_dispext1_cpu0)>;
+		power-domains = <&DIE_NODE(pmp_report_dispext1)>;
 		resets = <&DIE_NODE(ps_dispext1_cpu0)>;
 		clocks = <&DIE_NODE(clk_dispext1)>;
 		phandle = <&DIE_NODE(dcpext1)>;
