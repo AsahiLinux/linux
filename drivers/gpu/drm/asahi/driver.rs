@@ -11,7 +11,6 @@ use kernel::{
     },
     drm,
     drm::ioctl,
-    error::Result,
     of,
     platform,
     prelude::*,
@@ -155,7 +154,7 @@ impl platform::Driver for AsahiDriver {
     fn probe(
         pdev: &platform::Device<Core>,
         info: Option<&Self::IdInfo>,
-    ) -> Result<Pin<KBox<Self>>> {
+    ) -> impl PinInit<Self, Error> {
         debug::update_debug_flags();
 
         dev_info!(pdev.as_ref(), "Probing...\n");
@@ -221,6 +220,6 @@ impl platform::Driver for AsahiDriver {
 
         drm::driver::Registration::new_foreign_owned(&drm, pdev.as_ref(), 0)?;
 
-        Ok(KBox::new(Self { drm }, GFP_KERNEL)?.into())
+        Ok(Self { drm })
     }
 }
