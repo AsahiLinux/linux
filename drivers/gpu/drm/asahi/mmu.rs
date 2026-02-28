@@ -1381,7 +1381,7 @@ impl Uat {
         // much of this file and also the `pgtable` module, so it is difficult
         // to prove in a single safety comment. Such is life with raw GPU
         // page table management...
-        let map = unsafe { io::mem::Mem::try_new(res, flags) }.inspect_err(|_| {
+        let map = unsafe { io::mem::Mem::try_new(res, flags.into()) }.inspect_err(|_| {
             dev_err!(dev, "Failed to remap {} mem resource\n", name);
         })?;
 

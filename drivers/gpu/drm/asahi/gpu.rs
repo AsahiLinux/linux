@@ -24,7 +24,10 @@ use kernel::{
     c_str,
     drm::gem::shmem,
     error::code::*,
-    io::mem::{Mem, MemFlags},
+    io::mem::{
+        Mem,
+        MemFlag, //
+    },
     iosys_map::IoSysMapRef,
     macros::versions,
     new_mutex,
@@ -775,7 +778,7 @@ impl GpuManager::ver {
             .try_into()?;
         let res = of_node.reserved_mem_region_to_resource_byname(name)?;
         // SAFETY: No dma here, just loading init data.
-        let mem = unsafe { Mem::try_new(res, MemFlag::WB)? };
+        let mem = unsafe { Mem::try_new(res, (MemFlag::WB).into())? };
         if size > mem.size() {
             return Err(ENOENT);
         }
