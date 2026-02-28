@@ -1106,7 +1106,7 @@ impl GpuManager::ver {
         mod_dev_dbg!(self.dev, "GPU: run_job: ring doorbell\n");
 
         let mut guard = self.rtkit.lock();
-        let rtk = guard.as_mut().unwrap();
+        let rtk = guard.as_mut().as_pin_mut().unwrap();
         rtk.send_message(
             EP_DOORBELL,
             MSG_TX_DOORBELL | pipe_type as u64 | ((index as u64) << 2),
@@ -1177,7 +1177,7 @@ impl GpuManager::ver {
 
         {
             let mut guard = self.rtkit.lock();
-            let rtk = guard.as_mut().unwrap();
+            let rtk = guard.as_mut().as_pin_mut().unwrap();
             rtk.send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)?;
         }
 
@@ -1214,13 +1214,15 @@ impl GpuManager for GpuManager::ver {
 
         let initdata = self.initdata.gpu_va().get();
         let mut guard = self.rtkit.lock();
-        let rtk = guard.as_mut().unwrap();
+        let mut rtk = guard.as_mut().as_pin_mut().unwrap();
 
-        rtk.boot()?;
-        rtk.start_endpoint(EP_FIRMWARE)?;
-        rtk.start_endpoint(EP_DOORBELL)?;
-        rtk.send_message(EP_FIRMWARE, MSG_INIT | (initdata & INIT_DATA_MASK))?;
-        rtk.send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)?;
+        rtk.as_mut().boot()?;
+        rtk.as_mut().start_endpoint(EP_FIRMWARE)?;
+        rtk.as_mut().start_endpoint(EP_DOORBELL)?;
+        rtk.as_mut()
+            .send_message(EP_FIRMWARE, MSG_INIT | (initdata & INIT_DATA_MASK))?;
+        rtk.as_mut()
+            .send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)?;
         core::mem::drop(guard);
 
         self.kick_firmware()?;
@@ -1326,7 +1328,7 @@ impl GpuManager for GpuManager::ver {
         }
 
         let mut guard = self.rtkit.lock();
-        let rtk = guard.as_mut().unwrap();
+        let rtk = guard.as_mut().as_pin_mut().unwrap();
         rtk.send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_KICKFW)?;
 
         Ok(())
@@ -1367,7 +1369,7 @@ impl GpuManager for GpuManager::ver {
         let token = txch.device_control.send(&dc);
         {
             let mut guard = self.rtkit.lock();
-            let rtk = guard.as_mut().unwrap();
+            let rtk = guard.as_mut().as_pin_mut().unwrap();
             rtk.send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)?;
         }
 
@@ -1477,7 +1479,7 @@ impl GpuManager for GpuManager::ver {
         let token = txch.device_control.send(&dc);
         {
             let mut guard = self.rtkit.lock();
-            let rtk = guard.as_mut().unwrap();
+            let rtk = guard.as_mut().as_pin_mut().unwrap();
             if rtk
                 .send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)
                 .is_err()
@@ -1524,7 +1526,7 @@ impl GpuManager for GpuManager::ver {
         txch.device_control.send(&dc);
         {
             let mut guard = self.rtkit.lock();
-            let rtk = guard.as_mut().unwrap();
+            let rtk = guard.as_mut().as_pin_mut().unwrap();
             if rtk
                 .send_message(EP_DOORBELL, MSG_TX_DOORBELL | DOORBELL_DEVCTRL)
                 .is_err()
@@ -1543,7 +1545,7 @@ impl GpuManager for GpuManager::ver {
         let token = fwctl.send(&msg);
         {
             let mut guard = self.rtkit.lock();
-            let rtk = guard.as_mut().unwrap();
+            let rtk = guard.as_mut().as_pin_mut().unwrap();
             rtk.send_message(EP_DOORBELL, MSG_FWCTL)?;
         }
         fwctl.wait_for(token)?;
