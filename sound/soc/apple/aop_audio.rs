@@ -5,6 +5,7 @@
 //!
 //! Copyright (C) The Asahi Linux Contributors
 
+use core::fmt;
 use core::sync::atomic::{AtomicU32, Ordering};
 use core::{mem, ptr, slice};
 
@@ -22,6 +23,24 @@ use kernel::{
 };
 
 use pin_init::Zeroable;
+
+/// An unaligned u32 type.
+///
+/// This is useful to avoid having to pack firmware structures entirely, since that is incompatible
+/// with `#[derive(Debug)]` and atomics.
+#[derive(Copy, Clone, Default)]
+#[repr(C, packed(1))]
+pub(crate) struct U32(pub(crate) u32);
+
+// SAFETY: U32 is zeroable just like u32
+unsafe impl Zeroable for U32 {}
+
+impl fmt::Debug for U32 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let v = self.0;
+        f.write_fmt(format_args!("{:#x}", v))
+    }
+}
 
 const EPIC_SUBTYPE_WRAPPED_CALL: u16 = 0x20;
 const CALLTYPE_AUDIO_ATTACH_DEVICE: u32 = 0xc3000002;
