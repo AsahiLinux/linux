@@ -113,7 +113,7 @@ impl AudioAttachDevice {
     }
 }
 
-#[repr(C, packed)]
+#[repr(C, packed(4))]
 #[derive(Clone, Copy, Default)]
 struct LpaiChannelConfig {
     unk1: u32,
@@ -122,7 +122,7 @@ struct LpaiChannelConfig {
     unk4: u32,
 }
 
-#[repr(C, packed)]
+#[repr(C, packed(4))]
 #[derive(Debug, Copy, Clone)]
 struct PDMConfig {
     bytes_per_sample: u32,
@@ -139,21 +139,26 @@ struct PDMConfig {
     ratio2: u8,
     ratio3: u8,
     _pad0: u8,
-    filter_lengths: u32,
-    coeff_bulk: u32,
+    filter_lengths: U32,
+    coeff_bulk: U32,
     coeffs: [u8; PDM_NUM_COEFFS * mem::size_of::<u32>()],
-    unk3: u32,
-    mic_turn_on_time_ms: u32,
-    _zero0: u64,
-    _zero1: u64,
-    unk4: u32,
-    mic_settle_time_ms: u32,
+    unk3: U32,
+    mic_turn_on_time_ms: U32,
+    _zero0: [u8; 8],
+    _zero1: [u8; 8],
+    unk4: U32,
+    mic_settle_time_ms: U32,
     _zero2: [u8; 69], // ?????
+    _pad_extra: u8, // extra padding to increase the struct size to multiple of mem::size_of::<u32>()
 }
+// PDMConfig is intended to use `#[repr(C, packed)]` but this
+// conflicts ith pin_init. Instead just ensure that it has the same size as if
+// it where packed.
+static_assert!(mem::size_of::<PDMConfig>() == 36 + 14 + (120 * 4) + 32 + 69 + 1);
 
 unsafe impl Zeroable for PDMConfig {}
 
-#[repr(C, packed)]
+#[repr(C, packed(4))]
 #[derive(Debug, Copy, Clone)]
 struct DecimatorConfig {
     latency: u32,
@@ -165,16 +170,20 @@ struct DecimatorConfig {
     coeff_bulk: u32,
     coeffs: [u8; PDM_NUM_COEFFS * mem::size_of::<u32>()],
 }
+// DecimatorConfig is intended to use `#[repr(C, packed)]` but this
+// conflicts ith pin_init. Instead just ensure that it has the same size as if
+// it where packed.
+static_assert!(mem::size_of::<DecimatorConfig>() == 16 + (120 * 4));
 
 unsafe impl Zeroable for DecimatorConfig {}
 
-#[repr(C, packed)]
+#[repr(C, packed(4))]
 #[derive(Clone, Copy, Default, Debug)]
 struct PowerSetting {
     dev_id: u32,
     cookie: u32,
     _unk0: u32,
-    _zero0: u64,
+    _zero0: [u8; 8],
     target_pstate: u32,
     unk1: u32,
     _zero1: [u8; 20],
@@ -192,21 +201,36 @@ impl PowerSetting {
     }
 }
 
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Clone, Copy, Default, Debug)]
 struct AudioSetDeviceProp<T> {
     _zero0: u32,
     unk0: u32,
     calltype: u32,
-    _zero1: u64,
-    _zero2: u64,
+    _zero1: [u8; 8],
+    _zero2: [u8; 8],
     _pad0: u32,
-    len: u64,
+    len: u32,
+    _pad1: u32,
     dev_id: u32,
     modifier: u32,
     len2: u32,
     data: T,
 }
+// AudioSetDeviceProp<T> is intended to use `#[repr(C, packed)]` but this
+// conflicts ith pin_init. Instead just ensure that it has the same size as if
+// it where packed.
+static_assert!(mem::size_of::<AudioSetDeviceProp<PDMConfig>>() == 52 + mem::size_of::<PDMConfig>());
+static_assert!(
+    mem::size_of::<AudioSetDeviceProp<DecimatorConfig>>() == 52 + mem::size_of::<DecimatorConfig>()
+);
+static_assert!(
+    mem::size_of::<AudioSetDeviceProp<LpaiChannelConfig>>()
+        == 52 + mem::size_of::<LpaiChannelConfig>()
+);
+static_assert!(
+    mem::size_of::<AudioSetDeviceProp<PowerSetting>>() == 52 + mem::size_of::<PowerSetting>()
+);
 
 impl<T: Default> AudioSetDeviceProp<T> {
     fn new(dev_id: u32, modifier: u32, data: T) -> AudioSetDeviceProp<T> {
@@ -215,7 +239,7 @@ impl<T: Default> AudioSetDeviceProp<T> {
             calltype: CALLTYPE_AUDIO_SET_PROP,
             dev_id,
             modifier,
-            len: mem::size_of::<T>() as u64 + 0x30,
+            len: mem::size_of::<T>() as u32 + 0x30,
             len2: mem::size_of::<T>() as u32,
             data,
             ..AudioSetDeviceProp::default()
@@ -240,7 +264,7 @@ impl<T: Zeroable> AudioSetDeviceProp<T> {
                 calltype: CALLTYPE_AUDIO_SET_PROP,
                 dev_id,
                 modifier,
-                len: mem::size_of::<T>() as u64 + 0x30,
+                len: mem::size_of::<T>() as u32 + 0x30,
                 len2: mem::size_of::<T>() as u32,
                 data <- data,
                 ..Zeroable::init_zeroed()
@@ -290,13 +314,13 @@ impl SndSocAopData {
             ratio1: DECIMATION_RATIOS[0],
             ratio2: DECIMATION_RATIOS[1],
             ratio3: DECIMATION_RATIOS[2],
-            filter_lengths: FILTER_LENGTHS,
-            coeff_bulk: PDM_NUM_COEFFS as u32,
+            filter_lengths: U32(FILTER_LENGTHS),
+            coeff_bulk: U32(PDM_NUM_COEFFS as u32),
             coeffs: COEFFICIENTS,
-            unk3: 1,
-            mic_turn_on_time_ms: 20,
-            unk4: 1,
-            mic_settle_time_ms: 50,
+            unk3: U32(1),
+            mic_turn_on_time_ms: U32(20),
+            unk4: U32(1),
+            mic_settle_time_ms: U32(50),
             ..Zeroable::init_zeroed()
         });
         let set_prop = AudioSetDeviceProp::<PDMConfig>::try_init(AUDIO_DEV_PDM0, 200, pdm_cfg);
