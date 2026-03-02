@@ -109,6 +109,8 @@ static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
 	if (crtc_state->active_changed && crtc_state->active) {
 		struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
 		dcp_poweron(apple_crtc->dcp);
+		/* Force the CTM to be set on first swap */
+		crtc_state->color_mgmt_changed = true;
 	}
 
 	if (crtc_state->active)
