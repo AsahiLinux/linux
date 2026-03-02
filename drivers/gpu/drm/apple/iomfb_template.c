@@ -1406,12 +1406,18 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		dcp->brightness.update = false;
 	}
 
-	if (crtc_state->color_mgmt_changed && crtc_state->ctm) {
-		struct drm_color_ctm *ctm = (struct drm_color_ctm *)crtc_state->ctm->data;
+	if (crtc_state->color_mgmt_changed) {
 		struct iomfb_set_matrix_req mat = {
 			.location = 9,
 		};
-		memcpy(mat.matrix, ctm->matrix, sizeof(mat.matrix));
+
+		if (crtc_state->ctm) {
+			struct drm_color_ctm *ctm = (struct drm_color_ctm *)crtc_state->ctm->data;
+			memcpy(mat.matrix, ctm->matrix, sizeof(mat.matrix));
+		} else {
+			mat.matrix[0] = mat.matrix[4] = mat.matrix[8] = 1LLU << 32;
+		}
+
 		iomfb_set_matrix(dcp, false, &mat, do_swap, NULL);
 	} else
 		do_swap(dcp, NULL, NULL);
