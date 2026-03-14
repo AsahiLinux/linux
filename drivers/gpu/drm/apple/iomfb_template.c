@@ -824,15 +824,21 @@ void DCP_FW_NAME(iomfb_poweron)(struct apple_dcp *dcp)
 		dcp_set_display_device(dcp, false, &handle,
 				       dcp_on_set_parameter, cookie);
 	}
-	ret = wait_for_completion_timeout(&cookie->done, msecs_to_jiffies(5000));
+	ret = wait_for_completion_timeout(&cookie->done, msecs_to_jiffies(10000));
 
-	if (ret == 0)
-		dev_warn(dcp->dev, "wait for power timed out\n");
-	else if (ret > 0)
-		dev_info(dcp->dev, "dcp_set_power_state_req returned, %d ms remaining\n", jiffies_to_msecs(ret));
-	if (ret <= 0)
+	if (ret == 0) {
+		dev_warn(dcp->dev, "wait for power timed out, connector will be broken\n");
+	} else if (ret > 0) {
+		int msecs = jiffies_to_msecs(ret);
+		if (msecs > 6000)
+			dev_info(dcp->dev, "dcp_set_power_state_req returned, %d ms remaining\n", msecs);
+		else
+			dev_warn(dcp->dev, "dcp_set_power_state_req returned, %d ms remaining\n", msecs);
+	} else {
 		drm_connector_set_link_status_property(&dcp->connector->base,
 						       DRM_MODE_LINK_STATUS_BAD);
+		dev_warn(dcp->dev, "wait for completion error: %d\n", ret);
+	}
 
 	kref_put(&cookie->refcount, release_wait_cookie);;
 
