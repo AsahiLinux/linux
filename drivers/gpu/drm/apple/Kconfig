@@ -5,6 +5,7 @@ config DRM_APPLE
 	depends on ARCH_APPLE || COMPILE_TEST
 	depends on APPLE_RTKIT
 	depends on OF_ADDRESS
+	select APPLE_PMP_REPORT
 	select DRM_CLIENT_SELECTION
 	select DRM_KMS_HELPER
 	select DRM_KMS_DMA_HELPER
