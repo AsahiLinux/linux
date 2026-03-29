@@ -9,8 +9,6 @@
  * Copyright The Asahi Linux Contributors
  */
 
-#define ENABLE_DCPEXT_TYPEC
-
 #include <dt-bindings/leds/common.h>
 
 / {
