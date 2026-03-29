@@ -189,11 +189,6 @@
 			power-role = "dual";
 			data-role = "dual";
 
-#ifdef ENABLE_DCPEXT_TYPEC
-			/* hacks */
-			displayport = <&dcpext1>;
-#endif
-
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -225,6 +220,11 @@
 			label = "USB-C Right";
 			power-role = "dual";
 			data-role = "dual";
+
+#ifdef ENABLE_DCPEXT_TYPEC
+			/* hacks */
+			displayport = <&dcpext1>;
+#endif
 
 			ports {
 				#address-cells = <1>;
@@ -278,10 +278,10 @@
 	apple,connector-type = "DP";
 
 	/* hacks */
-	apple,dptx-phy = <1>;
-	phys = <&atcphy1 PHY_TYPE_DP>;
+	apple,dptx-phy = <2>;
+	phys = <&atcphy2 PHY_TYPE_DP>;
 	phy-names = "dp-phy";
-	mux-controls = <&atcphy1_xbar 0>;
+	mux-controls = <&atcphy2_xbar 0>;
 	mux-control-names = "dp-xbar";
 	mux-index = <2>;
 };
@@ -290,11 +290,11 @@
 	status = "okay";
 };
 
-&atcphy1_xbar {
+&atcphy2_xbar {
         status = "okay";
 };
 
-&ps_atc1_common {
+&ps_atc2_common {
 	apple,always-on; /* Needs to stay on for DP-alt suspend/resume */
 };
 #endif
