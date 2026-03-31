@@ -439,9 +439,7 @@ impl SndSocAopData {
 struct SndSocAopDriver(*mut bindings::snd_card);
 
 fn copy_str(target: &mut [u8], source: &[u8]) {
-    for i in 0..source.len() {
-        target[i] = source[i];
-    }
+    target[..source.len()].copy_from_slice(source)
 }
 
 unsafe fn dmaengine_slave_config(
@@ -613,47 +611,28 @@ impl SndSocAopDriver {
             .property_read::<CString>(c_str!("apple,machine-kind"))
             .required_by(&data.dev)?;
         unsafe {
-            let name = b"aop_audio\0";
-            let target = (*this.0).driver.as_mut();
-            copy_str(target, name.as_ref());
+            copy_str(&mut (*this.0).driver, c"aop_audio".to_bytes_with_nul());
         }
+        let id_str = CString::try_from_fmt(fmt!("Apple{}HPAI", *chassis))?;
         unsafe {
-            let prefix = b"Apple";
-            let target = (*this.0).id.as_mut();
-            copy_str(target, prefix.as_ref());
-            let mut ptr = prefix.len();
-            copy_str(&mut target[ptr..], chassis.to_bytes_with_nul());
-            ptr += chassis.count_bytes();
-            let suffix = b"HPAI\0";
-            copy_str(&mut target[ptr..], suffix);
+            copy_str(&mut (*this.0).id, id_str.to_bytes_with_nul());
         }
-        let longname_suffix = b"High-Power Audio Interface\0";
-        let mut machine_name = KVec::with_capacity(
-            chassis.count_bytes() + 2 + machine_kind.count_bytes() + longname_suffix.len(),
-            GFP_KERNEL,
-        )?;
-        machine_name.extend_from_slice(machine_kind.to_bytes_with_nul(), GFP_KERNEL)?;
-        let last_item = machine_name.len() - 1;
-        machine_name[last_item] = b' ';
-        machine_name.extend_from_slice(chassis.to_bytes_with_nul(), GFP_KERNEL)?;
-        let last_item = machine_name.len() - 1;
-        machine_name[last_item] = b' ';
+        let shortname = CString::try_from_fmt(fmt!("{} {} HPAI", *machine_kind, *chassis))?;
         unsafe {
-            let target = (*this.0).shortname.as_mut();
-            copy_str(target, machine_name.as_ref());
-            let ptr = machine_name.len();
-            let suffix = b"HPAI\0";
-            copy_str(&mut target[ptr..], suffix);
+            copy_str(&mut (*this.0).shortname, shortname.to_bytes_with_nul());
         }
-        machine_name.extend_from_slice(longname_suffix, GFP_KERNEL)?;
+        let longname = CString::try_from_fmt(fmt!(
+            "{} {} High-Power Audio Interface",
+            *machine_kind,
+            *chassis
+        ))?;
         unsafe {
-            let target = (*this.0).longname.as_mut();
-            copy_str(target, machine_name.as_ref());
+            copy_str(&mut (*this.0).longname, longname.to_bytes_with_nul());
         }
 
         let mut pcm = ptr::null_mut();
         let ret =
-            unsafe { bindings::snd_pcm_new(this.0, machine_name.as_ptr() as _, 0, 0, 1, &mut pcm) };
+            unsafe { bindings::snd_pcm_new(this.0, longname.as_ptr() as _, 0, 0, 1, &mut pcm) };
         if ret < 0 {
             dev_err!(data.dev, "Unable to allocate PCM device");
             return Err(Error::from_errno(ret));
@@ -671,8 +650,7 @@ impl SndSocAopDriver {
             (*pcm).private_data = data.clone().into_foreign() as _;
             (*pcm).private_free = Some(aop_pcm_free_private);
             (*pcm).info_flags = 0;
-            let name = c"aop_audio";
-            copy_str((*pcm).name.as_mut(), name.to_bytes());
+            copy_str(&mut (*pcm).name, c"aop_audio".to_bytes_with_nul());
         }
 
         let ret = unsafe { bindings::snd_card_register(this.0) };
