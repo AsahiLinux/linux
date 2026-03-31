@@ -581,6 +581,21 @@ int dcp_start(struct platform_device *pdev)
 	return ret;
 }
 
+static void _dcp_poweroff(struct apple_dcp *dcp)
+{
+	switch (dcp->fw_compat) {
+	case DCP_FIRMWARE_V_12_3:
+		iomfb_poweroff_v12_3(dcp);
+		break;
+	case DCP_FIRMWARE_V_13_5:
+		iomfb_poweroff_v13_3(dcp);
+		break;
+	default:
+		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
+		break;
+	}
+}
+
 static int dcp_enable_dp2hdmi_hpd(struct apple_dcp *dcp)
 {
 	// check HPD state before enabling the edge triggered IRQ
@@ -590,6 +605,8 @@ static int dcp_enable_dp2hdmi_hpd(struct apple_dcp *dcp)
 
 		if (connected)
 			dcp_dptx_connect(dcp, 0);
+		else
+			_dcp_poweroff(dcp);
 	}
 
 	if (dcp->hdmi_hpd_irq)
@@ -673,17 +690,7 @@ void dcp_poweroff(struct platform_device *pdev)
 	if (dcp->avep)
 		av_service_disconnect(dcp);
 
-	switch (dcp->fw_compat) {
-	case DCP_FIRMWARE_V_12_3:
-		iomfb_poweroff_v12_3(dcp);
-		break;
-	case DCP_FIRMWARE_V_13_5:
-		iomfb_poweroff_v13_3(dcp);
-		break;
-	default:
-		WARN_ONCE(true, "Unexpected firmware version: %u\n", dcp->fw_compat);
-		break;
-	}
+	_dcp_poweroff(dcp);
 
 	if (dcp->hdmi_hpd) {
 		bool connected = gpiod_get_value_cansleep(dcp->hdmi_hpd);
