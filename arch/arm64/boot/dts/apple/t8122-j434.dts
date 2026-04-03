@@ -44,6 +44,7 @@
 
 &port02 {
 	bus-range = <3 3>;
+	pwren-gpios = <&smc_gpio 14 GPIO_ACTIVE_HIGH>;
 
 	status = "okay";
 };
