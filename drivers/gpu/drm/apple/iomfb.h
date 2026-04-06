@@ -46,6 +46,15 @@ enum dcpep_type {
 	IOMFB_MESSAGE_TYPE_MSG = 2,
 };
 
+/*
+ * IOMFB supports the setting of a number of parameters
+ * that alter various aspects of the connected sink's
+ * behaviour at runtime.
+ */
+enum iomfb_parameter {
+	IOMFBPARAM_ADAPTIVE_SYNC = 14,
+};
+
 #define IOMFB_MESSAGE_TYPE	GENMASK_ULL( 3,  0)
 
 /* Message */
