@@ -32,6 +32,7 @@
 #include <net/bluetooth/iso.h>
 #include <net/bluetooth/mgmt.h>
 
+#include "brcm.h"
 #include "smp.h"
 #include "eir.h"
 
@@ -3203,6 +3204,32 @@ int hci_conn_set_phy(struct hci_conn *conn, u32 phys)
 	default:
 		return -EINVAL;
 	}
+}
+
+int hci_conn_setsockopt(struct hci_conn *conn, struct sock *sk, int level,
+			int optname, sockptr_t optval, unsigned int optlen) {
+	int val;
+	bool old_high, new_high, changed;
+
+	if (level != SOL_SOCKET)
+		return 0;
+
+	if (optname != SO_PRIORITY)
+		return 0;
+
+	if (optlen < sizeof(int))
+		return -EINVAL;
+
+	if (copy_from_sockptr(&val, optval, sizeof(val)))
+		return -EFAULT;
+
+	old_high = sk->sk_priority >= TC_PRIO_INTERACTIVE;
+	new_high = val >= TC_PRIO_INTERACTIVE;
+	changed = old_high != new_high;
+	if (!changed)
+		return 0;
+
+	return brcm_set_high_priority(conn->hdev, conn->handle, new_high);
 }
 
 static int abort_conn_sync(struct hci_dev *hdev, void *data)
