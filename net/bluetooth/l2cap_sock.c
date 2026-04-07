@@ -942,6 +942,16 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname,
 
 	BT_DBG("sk %p", sk);
 
+	if (level == SOL_SOCKET) {
+		conn = chan->conn;
+		if (conn)
+			err = hci_conn_setsockopt(conn->hcon, sock->sk, level,
+						  optname, optval, optlen);
+		if (err)
+			return err;
+		return sock_setsockopt(sock, level, optname, optval, optlen);
+	}
+
 	if (level == SOL_L2CAP)
 		return l2cap_sock_setsockopt_old(sock, optname, optval, optlen);
 
@@ -2035,6 +2045,9 @@ static struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock,
 	sk->sk_sndtimeo = L2CAP_CONN_TIMEOUT;
 
 	INIT_LIST_HEAD(&l2cap_pi(sk)->rx_busy);
+
+	if (sock)
+		set_bit(SOCK_CUSTOM_SOCKOPT, &sock->flags);
 
 	/* The sock takes ownership of the caller's reference on chan. */
 	l2cap_pi(sk)->chan = chan;
