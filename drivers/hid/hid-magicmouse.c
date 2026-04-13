@@ -132,6 +132,17 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 
 #define J314_TP_MAX_FINGER_ORIENTATION 16384
 
+/*
+ * Maximum frame-to-frame displacement (in mm) allowed when matching a
+ * multitouch contact to an existing tracking-ID slot. Without this, passing
+ * dmax=0 to input_mt_assign_slots() makes the kernel happily reuse a
+ * tracking ID across two physically distinct contacts that landed far
+ * apart, causing the cursor to teleport across the trackpad. 10mm matches
+ * drivers/input/mouse/synaptics.c and is far larger than any frame-to-frame
+ * motion a real finger can make.
+ */
+#define MAGICMOUSE_TP_DMAX 10
+
 struct magicmouse_input_ops {
 	int (*raw_event)(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size);
@@ -785,7 +796,9 @@ static int magicmouse_raw_event_mtp(struct hid_device *hdev,
 		n++;
 	}
 
-	input_mt_assign_slots(input, msc->tracking_ids, msc->pos, n, 0);
+	input_mt_assign_slots(input, msc->tracking_ids, msc->pos, n,
+			      MAGICMOUSE_TP_DMAX *
+			      input_abs_get_res(input, ABS_MT_POSITION_X));
 
 	for (i = 0; i < n; i++) {
 		int idx = map_contacs[i];
