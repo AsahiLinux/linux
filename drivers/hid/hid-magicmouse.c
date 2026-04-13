@@ -143,6 +143,35 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
  */
 #define MAGICMOUSE_TP_DMAX 10
 
+/*
+ * If a brand-new touch arrives with an approach area (WIDTH_MAJOR) larger
+ * than this threshold, flag it as MT_TOOL_PALM at its first frame, before
+ * TOUCH_MAJOR has time to ramp up high enough for libinput's size-based
+ * palm detection to fire. This eliminates the 5-10mm of cursor drift per
+ * palm contact that would otherwise occur during the classification
+ * window while typing.
+ *
+ * Measurement (M1 MacBook Pro 16" trackpad):
+ *   real fingertip first-frame WIDTH_MAJOR caps at ~2900
+ *   typing palms first-frame WIDTH_MAJOR: 1900-3750 (mean ~2900-3000)
+ * 3000 catches a large share of palms with negligible finger false
+ * positives on the sample set.
+ */
+#define MAGICMOUSE_TP_PALM_WIDTH 3000
+
+/*
+ * Width (as a percentage of total trackpad X range) of the left/right
+ * edge palm zones. A NEW contact landing in these zones is classified
+ * as a palm on its first frame. Contacts that start in the center and
+ * drag INTO the edge zones are unaffected — the classification only
+ * runs on freshly-active slots.
+ *
+ * Measurement: on a typing session with hands at rest, palm landing X
+ * clusters in the outermost ~12% of trackpad width on each side; real
+ * finger landings cluster centrally (~54-67% of width).
+ */
+#define MAGICMOUSE_TP_PALM_EDGE_PCT 12
+
 struct magicmouse_input_ops {
 	int (*raw_event)(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size);
@@ -185,6 +214,10 @@ struct magicmouse_sc {
 		bool scroll_y_active;
 	} touches[MAX_CONTACTS];
 	int tracking_ids[MAX_CONTACTS];
+	/* Per-slot palm classification (true = MT_TOOL_PALM, false = MT_TOOL_FINGER) */
+	bool palm_slot[MAX_CONTACTS];
+	/* Which slots had an active contact in the previous frame */
+	bool prev_active[MAX_CONTACTS];
 
 	struct hid_device *hdev;
 	struct delayed_work work;
@@ -730,10 +763,11 @@ struct tp_mouse_report {
 
 static void report_finger_data(struct input_dev *input, int slot,
 			       const struct input_mt_pos *pos,
-			       const struct tp_finger *f)
+			       const struct tp_finger *f, bool is_palm)
 {
 	input_mt_slot(input, slot);
-	input_mt_report_slot_state(input, MT_TOOL_FINGER, true);
+	input_mt_report_slot_state(input, is_palm ? MT_TOOL_PALM : MT_TOOL_FINGER,
+				   true);
 
 	input_report_abs(input, ABS_MT_TOUCH_MAJOR,
 			 le16_to_int(f->touch_major) << 1);
@@ -800,10 +834,55 @@ static int magicmouse_raw_event_mtp(struct hid_device *hdev,
 			      MAGICMOUSE_TP_DMAX *
 			      input_abs_get_res(input, ABS_MT_POSITION_X));
 
-	for (i = 0; i < n; i++) {
-		int idx = map_contacs[i];
-		f = (struct tp_finger *)(data + hdr_sz + idx * touch_sz);
-		report_finger_data(input, msc->tracking_ids[i], &msc->pos[i], f);
+	{
+		bool curr_active[MAX_CONTACTS] = { false };
+		int x_min = input->absinfo[ABS_MT_POSITION_X].minimum;
+		int x_max = input->absinfo[ABS_MT_POSITION_X].maximum;
+		int x_edge = (x_max - x_min) * MAGICMOUSE_TP_PALM_EDGE_PCT / 100;
+		int x_left_zone = x_min + x_edge;
+		int x_right_zone = x_max - x_edge;
+
+		for (i = 0; i < n; i++) {
+			int slot = msc->tracking_ids[i];
+			int idx = map_contacs[i];
+
+			f = (struct tp_finger *)(data + hdr_sz + idx * touch_sz);
+
+			if (slot >= 0 && slot < MAX_CONTACTS) {
+				/*
+				 * Classify on the first frame a slot becomes
+				 * active. Palms land with large WIDTH_MAJOR
+				 * (approach area) even before TOUCH_MAJOR has
+				 * time to ramp up, and they land at the far
+				 * X edges where users rest their hands. Both
+				 * are first-frame-only checks — a finger
+				 * that drags into an edge zone after starting
+				 * in the center keeps its finger tool type.
+				 */
+				if (!msc->prev_active[slot]) {
+					int wm = le16_to_int(f->tool_major) << 1;
+					int x = msc->pos[i].x;
+
+					msc->palm_slot[slot] =
+						(wm > MAGICMOUSE_TP_PALM_WIDTH ||
+						 x < x_left_zone ||
+						 x > x_right_zone);
+				}
+				curr_active[slot] = true;
+				report_finger_data(input, slot, &msc->pos[i], f,
+						   msc->palm_slot[slot]);
+			} else {
+				report_finger_data(input, slot, &msc->pos[i], f,
+						   false);
+			}
+		}
+
+		/* Roll active state forward; reset palm flag on lifted slots */
+		for (i = 0; i < MAX_CONTACTS; i++) {
+			if (!curr_active[i])
+				msc->palm_slot[i] = false;
+			msc->prev_active[i] = curr_active[i];
+		}
 	}
 
 	input_mt_sync_frame(input);
@@ -1064,6 +1143,15 @@ static int magicmouse_setup_input_mtp(struct input_dev *input,
 	 */
 
 	input_set_abs_params(input, ABS_MT_PRESSURE, 0, 6000, 0, 0);
+
+	/*
+	 * input_mt_init_slots() does not register ABS_MT_TOOL_TYPE; we need it
+	 * registered so input_mt_report_slot_state() can flag contacts as
+	 * MT_TOOL_PALM. Per Documentation/input/multi-touch-protocol.rst and
+	 * input_mt_report_slot_state() behavior: "The tool type is only
+	 * reported if the corresponding absbit field is set."
+	 */
+	input_set_abs_params(input, ABS_MT_TOOL_TYPE, 0, MT_TOOL_PALM, 0, 0);
 
 	/*
 	 * This makes libinput recognize this as a PressurePad and
