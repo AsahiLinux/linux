@@ -1129,7 +1129,7 @@ static int macaudio_add_backend_dai_route(struct snd_soc_card *card, struct snd_
 		r->sink = "Speaker Sense Capture";
 	}
 
-	ret = snd_soc_dapm_add_routes(&card->dapm, routes, nroutes);
+	ret = snd_soc_dapm_add_routes(card->dapm, routes, nroutes);
 	if (ret)
 		dev_err(card->dev, "failed adding dynamic DAPM routes for %s\n",
 			dai->name);
@@ -1165,7 +1165,7 @@ static int macaudio_add_pin_routes(struct snd_soc_card *card, struct snd_soc_com
 		r->sink = "Jack HS";
 	}
 
-	ret = snd_soc_dapm_add_routes(&card->dapm, routes, nroutes);
+	ret = snd_soc_dapm_add_routes(card->dapm, routes, nroutes);
 	if (ret)
 		dev_err(card->dev, "failed adding dynamic DAPM routes for %s\n",
 			component->name);
