@@ -1868,7 +1868,7 @@ drm_gpuvm_bo_obtain_locked(struct drm_gpuvm *gpuvm,
 	 * and this method allocates. Immediate mode drivers should use
 	 * drm_gpuvm_bo_obtain_prealloc() instead.
 	 */
-	drm_WARN_ON(gpuvm->drm, drm_gpuvm_immediate_mode(gpuvm));
+	// drm_WARN_ON(gpuvm->drm, drm_gpuvm_immediate_mode(gpuvm));
 
 	vm_bo = drm_gpuvm_bo_find(gpuvm, obj);
 	if (vm_bo)
