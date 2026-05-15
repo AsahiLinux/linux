@@ -87,6 +87,8 @@ struct dcp_display_mode {
 	struct drm_display_mode mode;
 	u32 color_mode_id;
 	u32 timing_mode_id;
+	u32 min_vrr;
+	u32 max_vrr;
 	struct dcp_color_mode sdr_rgb;
 	struct dcp_color_mode sdr_444;
 	struct dcp_color_mode sdr;
