@@ -21,6 +21,10 @@
 	power-domains = <&ps_disp_cpu>;
 };
 
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j514s.bin";
+};
+
 &wifi0 {
 	brcm,board-type = "apple,texa";
 };

@@ -17,6 +17,10 @@
 	model = "Apple MacBook Pro (14-inch, M3 Max, 16 CPU cores, Nov 2023)";
 };
 
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j514c.bin";
+};
+
 &wifi0 {
 	brcm,board-type = "apple,texa";
 };
