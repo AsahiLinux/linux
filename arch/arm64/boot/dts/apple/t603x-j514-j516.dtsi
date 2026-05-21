@@ -74,6 +74,44 @@
 	clock-frequency = <900000000>;
 };
 
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	apple,afe-reset-gpios = <&smc_gpio_low 25 GPIO_ACTIVE_LOW>;
+	apple,stm-reset-gpios = <&smc_gpio_low 26 GPIO_ACTIVE_LOW>;
+
+	mtp_mt: multi-touch {
+	};
+
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+
+	actuator {
+	};
+
+	tp_accel {
+	};
+};
+
 /* PCIe devices */
 
 /*
