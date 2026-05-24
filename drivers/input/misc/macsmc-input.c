@@ -9,6 +9,7 @@
 
 #include <linux/device.h>
 #include <linux/input.h>
+#include <linux/ktime.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/macsmc.h>
 #include <linux/module.h>
@@ -28,7 +29,16 @@ struct macsmc_input {
 	struct input_dev *input;
 	struct notifier_block nb;
 	bool wakeup_mode;
+	bool s2idle_ready;
+	ktime_t s2idle_start;
+	struct delayed_work lid_work;
+	u8 pending_lid_state;
 };
+
+/* Ignore spurious SMC button events within this window after s2idle entry */
+#define S2IDLE_GRACE_MS		500
+/* Lid state must be stable for this long before reporting to userspace */
+#define LID_DEBOUNCE_MS		3000
 
 #define SMC_EV_BTN 0x7201
 #define SMC_EV_LID 0x7203
@@ -46,13 +56,22 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 	switch (button) {
 	case BTN_POWER:
 	case BTN_TOUCHID:
-		pm_wakeup_dev_event(smcin->dev, 0, (smcin->wakeup_mode && state));
-		/*
-		 * Suppress KEY_POWER reports when suspended to avoid powering down
-		 * immediately after waking from s2idle.
-		 * */
-		if (smcin->wakeup_mode)
+		if (smcin->wakeup_mode) {
+			if (!smcin->s2idle_ready) {
+				dev_info(smcin->dev, "SUPPRESSED btn (not in s2idle yet)\n");
+				return;
+			}
+			if (ktime_ms_delta(ktime_get(), smcin->s2idle_start) < S2IDLE_GRACE_MS) {
+				dev_info(smcin->dev, "SUPPRESSED btn (spurious, %lldms after s2idle)\n",
+					 ktime_ms_delta(ktime_get(), smcin->s2idle_start));
+				return;
+			}
+			dev_info(smcin->dev, "ALLOWING btn (s2idle_ready, state=%d)\n", state);
+			if (state)
+				pm_wakeup_dev_event(smcin->dev, 0, true);
 			return;
+		}
+		pm_wakeup_dev_event(smcin->dev, 0, false);
 
 		input_report_key(smcin->input, KEY_POWER, state);
 		input_sync(smcin->input);
@@ -79,13 +98,28 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 	}
 }
 
+static void macsmc_input_lid_work(struct work_struct *work)
+{
+	struct macsmc_input *smcin = container_of(work, struct macsmc_input, lid_work.work);
+
+	input_report_switch(smcin->input, SW_LID, smcin->pending_lid_state);
+	input_sync(smcin->input);
+}
+
 static void macsmc_input_event_lid(struct macsmc_input *smcin, unsigned long event)
 {
 	u8 lid_state = !!((event >> 8) & 0xff);
 
-	pm_wakeup_dev_event(smcin->dev, 0, (smcin->wakeup_mode && !lid_state));
-	input_report_switch(smcin->input, SW_LID, lid_state);
-	input_sync(smcin->input);
+	if (smcin->wakeup_mode) {
+		if (!smcin->s2idle_ready)
+			return;
+		if (!lid_state) /* Only wake on lid open */
+			pm_wakeup_dev_event(smcin->dev, 0, true);
+		return;
+	}
+
+	smcin->pending_lid_state = lid_state;
+	mod_delayed_work(system_wq, &smcin->lid_work, msecs_to_jiffies(LID_DEBOUNCE_MS));
 }
 
 static int macsmc_input_event(struct notifier_block *nb, unsigned long event, void *data)
@@ -126,6 +160,7 @@ static int macsmc_input_probe(struct platform_device *pdev)
 	smcin->dev = &pdev->dev;
 	smcin->smc = smc;
 	platform_set_drvdata(pdev, smcin);
+	INIT_DELAYED_WORK(&smcin->lid_work, macsmc_input_lid_work);
 
 	smcin->input = devm_input_allocate_device(&pdev->dev);
 	if (!smcin->input)
@@ -180,6 +215,27 @@ static int macsmc_input_pm_prepare(struct device *dev)
 	struct macsmc_input *smcin = dev_get_drvdata(dev);
 
 	smcin->wakeup_mode = true;
+	smcin->s2idle_ready = false;
+	dev_info(dev, "WAKEUP_MODE ON, s2idle_ready=false\n");
+	return 0;
+}
+
+static int macsmc_input_suspend_noirq(struct device *dev)
+{
+	struct macsmc_input *smcin = dev_get_drvdata(dev);
+
+	smcin->s2idle_ready = true;
+	smcin->s2idle_start = ktime_get();
+	dev_info(dev, "suspend_noirq: s2idle_ready=true\n");
+	return 0;
+}
+
+static int macsmc_input_resume_noirq(struct device *dev)
+{
+	struct macsmc_input *smcin = dev_get_drvdata(dev);
+
+	smcin->s2idle_ready = false;
+	dev_info(dev, "resume_noirq: s2idle_ready=false\n");
 	return 0;
 }
 
@@ -187,11 +243,14 @@ static void macsmc_input_pm_complete(struct device *dev)
 {
 	struct macsmc_input *smcin = dev_get_drvdata(dev);
 
+	cancel_delayed_work_sync(&smcin->lid_work);
 	smcin->wakeup_mode = false;
 }
 
 static const struct dev_pm_ops macsmc_input_pm_ops = {
 	.prepare = macsmc_input_pm_prepare,
+	.suspend_noirq = macsmc_input_suspend_noirq,
+	.resume_noirq = macsmc_input_resume_noirq,
 	.complete = macsmc_input_pm_complete,
 };
 

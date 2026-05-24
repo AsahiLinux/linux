@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only OR MIT
-/* Copyright 2021 Alyssa Rosenzweig */
+/* Copyright 2021 Alyssa Rosenzweig <alyssa@rosenzweig.io> */
 /* Based on meson driver which is
  * Copyright (C) 2016 BayLibre, SAS
  * Author: Neil Armstrong <narmstrong@baylibre.com>
@@ -109,8 +109,6 @@ static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
 	if (crtc_state->active_changed && crtc_state->active) {
 		struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
 		dcp_poweron(apple_crtc->dcp);
-		/* Force the CTM to be set on first swap */
-		crtc_state->color_mgmt_changed = true;
 	}
 
 	if (crtc_state->active)
@@ -439,8 +437,9 @@ static int apple_drm_init_dcp(struct device *dev)
 		 * (successfully). Ignoring it should not do any harm now.
 		 * Needs to reevaluated when adding dcpext support.
 		 */
-		if (ret)
+		if (ret) {
 			dev_warn(dev, "DCP[%d] not ready: %d\n", i, ret);
+		}
 	}
 	/* HACK: Wait for dcp* to settle before a modeset */
 	msleep(100);
@@ -627,9 +626,13 @@ MODULE_DEVICE_TABLE(of, of_match);
 static int apple_platform_suspend(struct device *dev)
 {
 	struct apple_drm_private *apple = dev_get_drvdata(dev);
+	int ret;
 
-	if (apple)
-		return drm_mode_config_helper_suspend(&apple->drm);
+	if (apple) {
+		ret = drm_mode_config_helper_suspend(&apple->drm);
+		if (ret)
+			dev_warn(dev, "drm suspend helper failed: %d, will hotplug on resume\n", ret);
+	}
 
 	return 0;
 }
@@ -638,8 +641,13 @@ static int apple_platform_resume(struct device *dev)
 {
 	struct apple_drm_private *apple = dev_get_drvdata(dev);
 
-	if (apple)
+	if (!apple)
+		return 0;
+
+	if (apple->drm.mode_config.suspend_state)
 		drm_mode_config_helper_resume(&apple->drm);
+	else
+		drm_kms_helper_hotplug_event(&apple->drm);
 
 	return 0;
 }
@@ -690,6 +698,6 @@ static void __exit appledrm_unregister(void)
 module_init(appledrm_register);
 module_exit(appledrm_unregister);
 
-MODULE_AUTHOR("Asahi Linux contributors");
+MODULE_AUTHOR("Alyssa Rosenzweig <alyssa@rosenzweig.io>");
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("Dual MIT/GPL");
