@@ -627,9 +627,13 @@ MODULE_DEVICE_TABLE(of, of_match);
 static int apple_platform_suspend(struct device *dev)
 {
 	struct apple_drm_private *apple = dev_get_drvdata(dev);
+	int ret;
 
-	if (apple)
-		return drm_mode_config_helper_suspend(&apple->drm);
+	if (apple) {
+		ret = drm_mode_config_helper_suspend(&apple->drm);
+		if (ret)
+			dev_warn(dev, "drm suspend helper failed: %d, will hotplug on resume\n", ret);
+	}
 
 	return 0;
 }
@@ -638,8 +642,13 @@ static int apple_platform_resume(struct device *dev)
 {
 	struct apple_drm_private *apple = dev_get_drvdata(dev);
 
-	if (apple)
+	if (!apple)
+		return 0;
+
+	if (apple->drm.mode_config.suspend_state)
 		drm_mode_config_helper_resume(&apple->drm);
+	else
+		drm_kms_helper_hotplug_event(&apple->drm);
 
 	return 0;
 }
