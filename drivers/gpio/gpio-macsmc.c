@@ -75,6 +75,7 @@ struct macsmc_gpio {
 	struct gpio_chip gc;
 
 	int first_index;
+	smc_key base_key;
 };
 
 static int macsmc_gpio_nr(smc_key key)
@@ -88,15 +89,15 @@ static int macsmc_gpio_nr(smc_key key)
 	return low | (high << 4);
 }
 
-static int macsmc_gpio_key(unsigned int offset)
+static int macsmc_gpio_key(smc_key base_key, unsigned int offset)
 {
-	return _SMC_KEY("gP\0\0") | hex_asc_hi(offset) << 8 | hex_asc_lo(offset);
+	return base_key | hex_asc_hi(offset) << 8 | hex_asc_lo(offset);
 }
 
 static int macsmc_gpio_find_first_gpio_index(struct macsmc_gpio *smcgp)
 {
 	struct apple_smc *smc = smcgp->smc;
-	smc_key key = macsmc_gpio_key(0);
+	smc_key key = macsmc_gpio_key(smcgp->base_key, 0);
 	smc_key first_key, last_key;
 	int start, count, ret;
 
@@ -143,7 +144,7 @@ static int macsmc_gpio_find_first_gpio_index(struct macsmc_gpio *smcgp)
 static int macsmc_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 {
 	struct macsmc_gpio *smcgp = gpiochip_get_data(gc);
-	smc_key key = macsmc_gpio_key(offset);
+	smc_key key = macsmc_gpio_key(smcgp->base_key, offset);
 	u32 val;
 	int ret;
 
@@ -163,7 +164,7 @@ static int macsmc_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 static int macsmc_gpio_get(struct gpio_chip *gc, unsigned int offset)
 {
 	struct macsmc_gpio *smcgp = gpiochip_get_data(gc);
-	smc_key key = macsmc_gpio_key(offset);
+	smc_key key = macsmc_gpio_key(smcgp->base_key, offset);
 	u32 cmd, val;
 	int ret;
 
@@ -186,7 +187,7 @@ static int macsmc_gpio_get(struct gpio_chip *gc, unsigned int offset)
 static int macsmc_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
 	struct macsmc_gpio *smcgp = gpiochip_get_data(gc);
-	smc_key key = macsmc_gpio_key(offset);
+	smc_key key = macsmc_gpio_key(smcgp->base_key, offset);
 	int ret;
 
 	value |= CMD_OUTPUT;
@@ -217,7 +218,7 @@ static int macsmc_gpio_init_valid_mask(struct gpio_chip *gc,
 		if (ret < 0)
 			return ret;
 
-		if (key > SMC_KEY(gPff))
+		if (key > macsmc_gpio_key(smcgp->base_key, MAX_GPIO - 1))
 			break;
 
 		gpio_nr = macsmc_gpio_nr(key);
@@ -232,10 +233,15 @@ static int macsmc_gpio_init_valid_mask(struct gpio_chip *gc,
 	return 0;
 }
 
+struct macsmc_gpio_of_match_data {
+	smc_key base_key;
+};
+
 static int macsmc_gpio_probe(struct platform_device *pdev)
 {
 	struct macsmc_gpio *smcgp;
 	struct apple_smc *smc = dev_get_drvdata(pdev->dev.parent);
+	const struct macsmc_gpio_of_match_data *data = of_device_get_match_data(&pdev->dev);
 	smc_key key;
 	int ret;
 
@@ -245,6 +251,7 @@ static int macsmc_gpio_probe(struct platform_device *pdev)
 
 	smcgp->dev = &pdev->dev;
 	smcgp->smc = smc;
+	smcgp->base_key = data ? data->base_key : _SMC_KEY("gP\0\0");
 
 	smcgp->first_index = macsmc_gpio_find_first_gpio_index(smcgp);
 	if (smcgp->first_index < 0)
@@ -254,12 +261,15 @@ static int macsmc_gpio_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	if (key > macsmc_gpio_key(MAX_GPIO - 1))
+	if (key > macsmc_gpio_key(smcgp->base_key, MAX_GPIO - 1))
 		return -ENODEV;
 
 	dev_info(smcgp->dev, "First GPIO key: %p4ch\n", &key);
 
-	smcgp->gc.label = "macsmc-pmu-gpio";
+	if (device_is_compatible(&pdev->dev, "apple,smc-low-gpio"))
+		smcgp->gc.label = "macsmc-pmu-low-gpio";
+	else
+		smcgp->gc.label = "macsmc-pmu-gpio";
 	smcgp->gc.owner = THIS_MODULE;
 	smcgp->gc.get = macsmc_gpio_get;
 	smcgp->gc.set = macsmc_gpio_set;
@@ -273,8 +283,23 @@ static int macsmc_gpio_probe(struct platform_device *pdev)
 	return devm_gpiochip_add_data(&pdev->dev, &smcgp->gc, smcgp);
 }
 
+static const struct macsmc_gpio_of_match_data macsmc_gpio_up_data = {
+	.base_key = _SMC_KEY("gP\0\0"),
+};
+
+static const struct macsmc_gpio_of_match_data macsmc_gpio_low_data = {
+	.base_key = _SMC_KEY("gp\0\0"),
+};
+
 static const struct of_device_id macsmc_gpio_of_table[] = {
-	{ .compatible = "apple,smc-gpio", },
+	{
+		.compatible = "apple,smc-gpio",
+		.data = &macsmc_gpio_up_data,
+	},
+	{
+		.compatible = "apple,smc-low-gpio",
+		.data = &macsmc_gpio_low_data,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, macsmc_gpio_of_table);
