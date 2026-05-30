@@ -20,3 +20,11 @@
 &mtp_mt {
 	firmware-name = "apple/tpmtfw-j514c.bin";
 };
+
+&wifi0 {
+	brcm,board-type = "apple,texa";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,texa";
+};
