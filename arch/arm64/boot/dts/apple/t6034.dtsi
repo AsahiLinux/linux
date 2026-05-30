@@ -10,3 +10,35 @@
 / {
 	compatible = "apple,t6034", "apple,arm-platform";
 };
+
+// Memory channels not present on the 14-core variant
+&ps_amcc6 {
+	status = "disabled";
+};
+&ps_dcs_24 {
+	status = "disabled";
+};
+&ps_dcs_25 {
+	status = "disabled";
+};
+&ps_dcs_26 {
+	status = "disabled";
+};
+&ps_dcs_27 {
+	status = "disabled";
+};
+&ps_amcc7 {
+	status = "disabled";
+};
+&ps_dcs_28 {
+	status = "disabled";
+};
+&ps_dcs_29 {
+	status = "disabled";
+};
+&ps_dcs_30 {
+	status = "disabled";
+};
+&ps_dcs_31 {
+	status = "disabled";
+};
