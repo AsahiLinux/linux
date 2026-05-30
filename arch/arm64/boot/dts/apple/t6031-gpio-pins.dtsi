@@ -50,4 +50,11 @@
 		pinmux = <APPLE_PINMUX(72, 1)>,
 			<APPLE_PINMUX(73, 1)>;
 	};
+
+	pcie_pins: pcie-pins {
+		pinmux = <APPLE_PINMUX(0, 1)>,
+			<APPLE_PINMUX(1, 1)>,
+			<APPLE_PINMUX(2, 1)>,
+			<APPLE_PINMUX(3, 1)>;
+	};
 };
