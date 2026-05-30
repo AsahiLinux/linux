@@ -83,8 +83,8 @@
 };
 
 &mtp_hid {
-	apple,afe-reset-gpios = <&smc_gpio 25 GPIO_ACTIVE_LOW>;
-	apple,stm-reset-gpios = <&smc_gpio 26 GPIO_ACTIVE_LOW>;
+	apple,afe-reset-gpios = <&smc_gpio_low 25 GPIO_ACTIVE_LOW>;
+	apple,stm-reset-gpios = <&smc_gpio_low 26 GPIO_ACTIVE_LOW>;
 
 	mtp_mt: multi-touch {
 	};
