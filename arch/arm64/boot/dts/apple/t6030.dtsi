@@ -900,7 +900,7 @@
 			status = "disabled";
 		};
 
-		pcie_dart_3: iommu@597000000 {
+		pcie0_dart_3: iommu@597000000 {
 			compatible = "apple,t6030-dart", "apple,t8110-dart";
 			reg = <0x6 0x97000000 0x0 0x4000>;
 			#iommu-cells = <1>;
