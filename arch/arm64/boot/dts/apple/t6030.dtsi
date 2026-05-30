@@ -749,45 +749,6 @@
 			resets = <&ps_ans>;
 		};
 
-                pcie0_dart: iommu@594000000 {
-			compatible = "apple,t6030-dart", "apple,t8110-dart";
-			reg = <0x5 0x94000000 0x0 0x4000>;
-			#iommu-cells = <1>;
-			interrupt-parent = <&aic>;
-			interrupts = <AIC_IRQ 1039 IRQ_TYPE_LEVEL_HIGH>;
-			power-domains = <&ps_apcie_gp>;
-		};
-
-		pcie1_dart: iommu@595000000 {
-			compatible = "apple,t6030-dart", "apple,t8110-dart";
-			reg = <0x5 0x95000000 0x0 0x4000>;
-			#iommu-cells = <1>;
-			interrupt-parent = <&aic>;
-			interrupts = <AIC_IRQ 1048 IRQ_TYPE_LEVEL_HIGH>;
-			power-domains = <&ps_apcie_gp>;
-			status = "disabled";
-		};
-
-		pcie2_dart: iommu@596000000 {
-			compatible = "apple,t6030-dart", "apple,t8110-dart";
-			reg = <0x6 0x96000000 0x0 0x4000>;
-			#iommu-cells = <1>;
-			interrupt-parent = <&aic>;
-			interrupts = <AIC_IRQ 1057 IRQ_TYPE_LEVEL_HIGH>;
-			power-domains = <&ps_apcie_gp>;
-			status = "disabled";
-		};
-
-		pcie3_dart: iommu@597000000 {
-			compatible = "apple,t6030-dart", "apple,t8110-dart";
-			reg = <0x6 0x97000000 0x0 0x4000>;
-			#iommu-cells = <1>;
-			interrupt-parent = <&aic>;
-			interrupts = <AIC_IRQ 1066 IRQ_TYPE_LEVEL_HIGH>;
-			power-domains = <&ps_apcie_gp>;
-			status = "disabled";
-		};
-
 		pcie0: pcie@580000000 {
 			compatible = "apple,t6030-pcie", "apple,t6020-pcie";
 			device_type = "pci";
@@ -814,10 +775,10 @@
 			msi-parent = <&pcie0>;
 			msi-ranges = <&aic AIC_IRQ 1342 IRQ_TYPE_EDGE_RISING 32>;
 
-			iommu-map = <0x100 &pcie0_dart 0 1>,
-				    <0x200 &pcie1_dart 1 1>,
-				    <0x300 &pcie2_dart 2 1>,
-				    <0x300 &pcie3_dart 3 1>;
+			iommu-map = <0x100 &pcie0_dart_0 0 1>,
+				    <0x200 &pcie0_dart_1 1 1>,
+				    <0x300 &pcie0_dart_2 2 1>,
+				    <0x300 &pcie0_dart_3 3 1>;
 			iommu-map-mask = <0xff00>;
 
 			bus-range = <0 4>;
@@ -908,6 +869,45 @@
 						<0 0 0 4 &port03 0 0 0 3>;
 				status = "disabled";
 			};
+		};
+
+		pcie0_dart_0: iommu@594000000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x5 0x94000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1039 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+		};
+
+		pcie0_dart_1: iommu@595000000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x5 0x95000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1048 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+			status = "disabled";
+		};
+
+		pcie0_dart_2: iommu@596000000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x6 0x96000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1057 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+			status = "disabled";
+		};
+
+		pcie_dart_3: iommu@597000000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x6 0x97000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1066 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+			status = "disabled";
 		};
 	};
 };
