@@ -553,8 +553,14 @@
 			reg-names = "smc", "sram";
 			mboxes = <&smc_mbox>;
 
-			smc_gpio: gpio {
+			smc_gpio: gpio@67500000 {
 				compatible = "apple,smc-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			smc_gpio_low: gpio@67700000 {
+				compatible = "apple,smc-low-gpio";
 				gpio-controller;
 				#gpio-cells = <2>;
 			};
