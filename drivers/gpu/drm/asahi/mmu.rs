@@ -22,6 +22,8 @@ use core::sync::atomic::{
     Ordering, //
 };
 
+use core::cmp;
+
 use kernel::{
     addr::PhysicalAddr,
     bindings::drm_gpuvm_flags_DRM_GPUVM_IMMEDIATE_MODE,
@@ -194,17 +196,25 @@ struct VmBinding {
     ttb: u64,
 }
 
+struct VmBoInner {
+    sgt: Option<shmem::SGTable<gem::AsahiObject>>,
+    sg_vec: Option<KVVec<(usize, Range<usize>)>>,
+}
+
 /// Data associated with a VM <=> BO pairing
 #[pin_data]
 struct VmBo {
     #[pin]
-    sgt: Mutex<Option<shmem::SGTable<gem::AsahiObject>>>,
+    inner: Mutex<VmBoInner>,
 }
 
 impl gpuvm::DriverGpuVmBo for VmBo {
     fn new() -> impl PinInit<Self> {
         pin_init!(VmBo {
-            sgt <- new_mutex!(None, "VmBinding"),
+            inner <- new_mutex!(VmBoInner {
+                sgt: None,
+                sg_vec: None,
+            }, "VmBinding"),
         })
     }
 }
@@ -236,28 +246,21 @@ impl gpuvm::DriverGpuVm for VmInner {
 
         let one_page = op.flags().contains(gpuvm::GpuVaFlags::REPEAT);
 
-        let guard = bo.inner().sgt.lock();
-        for range in guard.as_ref().expect("step_map with no SGT").iter() {
-            // TODO: proper DMA address/length handling
-            let mut addr = range.dma_address() as usize;
-            let mut len: usize = range.dma_len() as usize;
-
+        let mut do_map = |mut addr: usize, mut len: usize, offset: &mut usize| -> Result<bool> {
             if left == 0 {
-                break;
+                return Ok(false);
             }
 
-            if offset > 0 {
-                let skip = len.min(offset);
+            if *offset > 0 {
+                let skip = len.min(*offset);
                 addr += skip;
                 len -= skip;
-                offset -= skip;
+                *offset -= skip;
             }
-
             if len == 0 {
-                continue;
+                return Ok(true);
             }
-
-            assert!(offset == 0);
+            assert!(*offset == 0);
 
             if one_page {
                 len = left;
@@ -283,6 +286,39 @@ impl gpuvm::DriverGpuVm for VmInner {
 
             left -= len;
             iova += len as u64;
+            Ok(true)
+        };
+
+        let guard = bo.inner().inner.lock();
+        if let Some(sg_vec) = guard.sg_vec.as_ref() {
+            let start_idx = sg_vec.binary_search_by(|range| {
+                if range.0 > offset {
+                    cmp::Ordering::Greater
+                } else if (range.0 + range.1.len()) <= offset {
+                    cmp::Ordering::Less
+                } else {
+                    cmp::Ordering::Equal
+                }
+            }).expect("sg_vec does not contain offset???");
+
+            offset -= sg_vec[start_idx].0 as usize;
+
+            for cur in start_idx..sg_vec.len() {
+                let addr = sg_vec[cur].1.start as usize;
+                let len: usize = sg_vec[cur].1.len() as usize;
+                if do_map(addr, len, &mut offset)? == false {
+                    break;
+                }
+            }
+        } else {
+            for range in guard.sgt.as_ref().expect("step_map with no SGT").iter() {
+                // TODO: proper DMA address/length handling
+                let addr = range.dma_address() as usize;
+                let len: usize = range.dma_len() as usize;
+                if do_map(addr, len, &mut offset)? == false {
+                    break;
+                }
+            }
         }
 
         let gpuva = ctx.new_va.take().expect("Multiple step_map calls");
@@ -446,8 +482,8 @@ impl VmInner {
     /// Map an `mm::Node` representing an mapping in VA space.
     fn map_node(&mut self, node: &mm::Node<(), KernelMappingInner>, prot: Prot) -> Result {
         let mut iova = node.start();
-        let guard = node.bo.as_ref().ok_or(EINVAL)?.inner().sgt.lock();
-        let sgt = guard.as_ref().ok_or(EINVAL)?;
+        let guard = node.bo.as_ref().ok_or(EINVAL)?.inner().inner.lock();
+        let sgt = guard.sgt.as_ref().ok_or(EINVAL)?;
         let mut offset = node.offset;
         let mut left = node.mapped_size;
 
@@ -1052,9 +1088,9 @@ impl Vm {
         let mut inner = self.inner.exec_lock(Some(gem), false)?;
         let vm_bo = self.inner.obtain_bo(gem)?;
 
-        let mut vm_bo_guard = vm_bo.inner().sgt.lock();
-        if vm_bo_guard.is_none() {
-            vm_bo_guard.replace(sgt);
+        let mut vm_bo_guard = vm_bo.inner().inner.lock();
+        if vm_bo_guard.sgt.is_none() {
+            vm_bo_guard.sgt.replace(sgt);
         }
         core::mem::drop(vm_bo_guard);
 
@@ -1100,9 +1136,9 @@ impl Vm {
 
         let vm_bo = self.inner.obtain_bo(&gem)?;
 
-        let mut vm_bo_guard = vm_bo.inner().sgt.lock();
-        if vm_bo_guard.is_none() {
-            vm_bo_guard.replace(sgt);
+        let mut vm_bo_guard = vm_bo.inner().inner.lock();
+        if vm_bo_guard.sgt.is_none() {
+            vm_bo_guard.sgt.replace(sgt);
         }
         core::mem::drop(vm_bo_guard);
 
@@ -1150,19 +1186,32 @@ impl Vm {
             ..Default::default()
         };
 
-        let sgt = gem.owned_sg_table()?;
+        let vm_bo = self.inner.obtain_bo(gem)?;
+        {
+            let mut vm_bo_guard = vm_bo.inner().inner.lock();
+            if vm_bo_guard.sgt.is_none() {
+                let sgt = gem.owned_sg_table()?;
+
+                if vm_bo_guard.sg_vec.is_none() {
+                    let mut sg_vec = KVVec::new();
+                    let mut offset = 0;
+                    for range in sgt.iter() {
+                        let addr = range.dma_address() as usize;
+                        let len = range.dma_len() as usize;
+                        sg_vec.push((offset, addr..(addr + len)), GFP_KERNEL)?;
+                        offset += len;
+                    }
+                    vm_bo_guard.sg_vec.replace(sg_vec);
+                }
+                vm_bo_guard.sgt.replace(sgt);
+            }
+            core::mem::drop(vm_bo_guard);
+        }
+
         let mut inner = self.inner.exec_lock(Some(gem), true)?;
 
         // Preallocate the page tables, to fail early if we ENOMEM
         inner.page_table.alloc_pages(addr..(addr + size))?;
-
-        let vm_bo = self.inner.obtain_bo(gem)?;
-
-        let mut vm_bo_guard = vm_bo.inner().sgt.lock();
-        if vm_bo_guard.is_none() {
-            vm_bo_guard.replace(sgt);
-        }
-        core::mem::drop(vm_bo_guard);
 
         ctx.vm_bo = Some(vm_bo);
 
