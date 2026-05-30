@@ -14,7 +14,9 @@ description:
 
 properties:
   compatible:
-    const: apple,smc-gpio
+    enum:
+      - apple,smc-gpio
+      - apple,smc-low-gpio
 
   gpio-controller: true
 
