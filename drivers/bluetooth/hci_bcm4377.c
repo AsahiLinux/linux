@@ -1832,8 +1832,15 @@ static int bcm4377_boot(struct bcm4377_data *bcm4377)
 	int ret = 0;
 	u32 bootstage, rti_status;
 
+	int retries = 50;
 	bootstage = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_BOOTSTAGE);
 	rti_status = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_STATUS);
+	while ((bootstage != 0 || rti_status != 0) && retries > 0) {
+		msleep(10);
+		bootstage = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_BOOTSTAGE);
+		rti_status = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_STATUS);
+		retries--;
+	}
 
 	if (bootstage != 0) {
 		dev_err(&bcm4377->pdev->dev, "bootstage is %d and not 0\n",
@@ -2421,11 +2428,26 @@ static int bcm4377_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 static int bcm4377_suspend(struct pci_dev *pdev, pm_message_t state)
 {
 	struct bcm4377_data *bcm4377 = pci_get_drvdata(pdev);
+	struct pci_dev *wifi_pdev;
 	int ret;
 
 	ret = hci_suspend_dev(bcm4377->hdev);
 	if (ret)
 		return ret;
+
+	wifi_pdev = pci_get_slot(pdev->bus, PCI_DEVFN(PCI_SLOT(pdev->devfn), 0));
+	if (wifi_pdev) {
+		int retries = 500;
+		while (wifi_pdev->current_state < PCI_D3hot && retries > 0) {
+			msleep(10);
+			retries--;
+		}
+		if (retries == 0) {
+			dev_warn(&pdev->dev, "WiFi sibling function did not enter D3 in time (state=%d)\n",
+				 wifi_pdev->current_state);
+		}
+		pci_dev_put(wifi_pdev);
+	}
 
 	iowrite32(BCM4377_BAR0_SLEEP_CONTROL_QUIESCE,
 		  bcm4377->bar0 + BCM4377_BAR0_SLEEP_CONTROL);

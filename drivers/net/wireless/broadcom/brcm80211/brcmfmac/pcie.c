@@ -328,7 +328,7 @@ static const struct brcmf_firmware_mapping brcmf_pcie_fwnames[] = {
 #define BRCMF_H2D_HOST_D0_INFORM_IN_USE		0x00000008
 #define BRCMF_H2D_HOST_D0_INFORM		0x00000010
 
-#define BRCMF_PCIE_MBDATA_TIMEOUT		msecs_to_jiffies(2000)
+#define BRCMF_PCIE_MBDATA_TIMEOUT		msecs_to_jiffies(5000)
 
 #define BRCMF_PCIE_CFGREG_STATUS_CMD		0x4
 #define BRCMF_PCIE_CFGREG_PM_CSR		0x4C
@@ -2997,6 +2997,7 @@ static int brcmf_pcie_pm_enter_D3(struct device *dev)
 {
 	struct brcmf_pciedev_info *devinfo;
 	struct brcmf_bus *bus;
+	int ret;
 
 	brcmf_dbg(PCIE, "Enter\n");
 
@@ -3007,7 +3008,12 @@ static int brcmf_pcie_pm_enter_D3(struct device *dev)
 	brcmf_bus_change_state(bus, BRCMF_BUS_DOWN);
 
 	devinfo->mbdata_completed = false;
-	brcmf_pcie_send_mb_data(devinfo, BRCMF_H2D_HOST_D3_INFORM);
+	ret = brcmf_pcie_send_mb_data(devinfo, BRCMF_H2D_HOST_D3_INFORM);
+	if (ret) {
+		brcmf_err(bus, "Failed to send H2D D3 inform mailbox data (%d)\n", ret);
+		brcmf_bus_change_state(bus, BRCMF_BUS_UP);
+		return ret;
+	}
 
 	wait_event_timeout(devinfo->mbdata_resp_wait, devinfo->mbdata_completed,
 			   BRCMF_PCIE_MBDATA_TIMEOUT);
