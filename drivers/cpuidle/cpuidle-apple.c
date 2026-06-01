@@ -148,12 +148,17 @@ static int __init apple_cpuidle_init(void)
 
 	if (!(of_machine_is_compatible("apple,t8103") ||
 	      of_machine_is_compatible("apple,t8112") ||
+	      of_machine_is_compatible("apple,t8122") ||
 	      of_machine_is_compatible("apple,t6000") ||
 	      of_machine_is_compatible("apple,t6001") ||
 	      of_machine_is_compatible("apple,t6002") ||
 	      of_machine_is_compatible("apple,t6020") ||
 	      of_machine_is_compatible("apple,t6021") ||
-	      of_machine_is_compatible("apple,t6022")))
+	      of_machine_is_compatible("apple,t6022") ||
+	      of_machine_is_compatible("apple,t6030") ||
+	      of_machine_is_compatible("apple,t6031") ||
+	      of_machine_is_compatible("apple,t6032") ||
+	      of_machine_is_compatible("apple,t6034")))
 		return 0;
 
 	pdev = platform_device_register_simple("cpuidle-apple", -1, NULL, 0);
