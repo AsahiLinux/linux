@@ -6,6 +6,24 @@
  * Copyright The Asahi Linux Contributors
  */
 
+	DIE_NODE(cpufreq_e): cpufreq@210e20000 {
+		compatible = "apple,t6031-cluster-cpufreq", "apple,t8112-cluster-cpufreq";
+		reg = <0x2 0x10e20000 0 0x1000>;
+		#performance-domain-cells = <0>;
+	};
+
+	DIE_NODE(cpufreq_p0): cpufreq@211e20000 {
+		compatible = "apple,t6031-cluster-cpufreq", "apple,t8112-cluster-cpufreq";
+		reg = <0x2 0x11e20000 0 0x1000>;
+		#performance-domain-cells = <0>;
+	};
+
+	DIE_NODE(cpufreq_p1): cpufreq@212e20000 {
+		compatible = "apple,t6031-cluster-cpufreq", "apple,t8112-cluster-cpufreq";
+		reg = <0x2 0x12e20000 0 0x1000>;
+		#performance-domain-cells = <0>;
+	};
+
 	DIE_NODE(pmgr): power-management@292280000 {
 		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
 		#address-cells = <1>;
