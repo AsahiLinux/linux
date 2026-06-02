@@ -108,3 +108,5 @@
 		wp-inverted;
 	};
 };
+
+#include "spi1-nvram.dtsi"
