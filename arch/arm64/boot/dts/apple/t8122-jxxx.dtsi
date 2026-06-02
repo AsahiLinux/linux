@@ -79,4 +79,6 @@
 	clock-frequency = <900000000>;
 };
 
+#include "hwmon-common.dtsi"
+
 #include "spi1-nvram.dtsi"
