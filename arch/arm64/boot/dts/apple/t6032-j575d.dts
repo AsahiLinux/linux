@@ -124,3 +124,5 @@
 };
 
 #include "spi1-nvram.dtsi"
+#include "hwmon-common.dtsi"
+#include "hwmon-fan-dual.dtsi"
