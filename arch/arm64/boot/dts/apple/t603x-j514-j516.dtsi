@@ -70,6 +70,10 @@
 	status = "okay";
 };
 
+&nco_clkref {
+	clock-frequency = <900000000>;
+};
+
 /* PCIe devices */
 
 /*
