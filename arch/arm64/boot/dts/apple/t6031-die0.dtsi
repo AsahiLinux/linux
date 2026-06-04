@@ -415,7 +415,7 @@
 	};
 
 	admac: dma-controller@393200000 {
-		compatible = "apple,t6031-admac", "apple,t8103-admac";
+		compatible = "apple,t6031-admac", "apple,t8122-admac";
 		reg = <0x3 0x93200000 0x0 0x34000>;
 		#dma-cells = <1>;
 		dma-channels = <24>;

@@ -76,6 +76,18 @@
 	};
 };
 
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
 &nco_clkref {
 	clock-frequency = <900000000>;
 };
