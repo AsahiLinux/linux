@@ -516,7 +516,7 @@
 		};
 
 		admac: dma-controller@2a3200000 {
-			compatible = "apple,t8122-admac", "apple,t8103-admac";
+			compatible = "apple,t8122-admac";
 			reg = <0x2 0xa3200000 0x0 0x34000>;
 			dma-channels = <24>;
 			interrupts-extended = <0>,
