@@ -1137,7 +1137,13 @@ static int atcphy_configure_pipehandler(struct apple_atcphy *atcphy, bool host)
 		atcphy->pipehandler_up = false;
 		break;
 	default:
-		ret = -EINVAL;
+		/* DUMMY pipehandler state (DP-only, USB2-only, OFF): SS lanes are
+		 * not available for USB3. Configure dummy so DWC3/xHCI falls back
+		 * to USB2-only operation instead of failing probe.
+		 */
+		ret = atcphy_configure_pipehandler_dummy(atcphy);
+		atcphy->pipehandler_up = false;
+		break;
 	}
 
 	return ret;
