@@ -16,6 +16,12 @@ __rust_helper void rust_helper_drm_gem_object_put(struct drm_gem_object *obj)
 	drm_gem_object_put(obj);
 }
 
+__rust_helper bool
+rust_helper_drm_gem_is_imported(const struct drm_gem_object *obj)
+{
+	return drm_gem_is_imported(obj);
+}
+
 __rust_helper __u64
 rust_helper_drm_vma_node_offset_addr(struct drm_vma_offset_node *node)
 {
