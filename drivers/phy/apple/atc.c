@@ -110,6 +110,7 @@
 #define ACIOPHY_CMN_SHM_STS_REG0_CMD_READY BIT(0)
 
 #define CIO3PLL_CLK_CTRL 0x2a00
+
 #define CIO3PLL_CLK_PCLK_EN BIT(1)
 #define CIO3PLL_CLK_REFCLK_EN BIT(5)
 
@@ -922,7 +923,7 @@ static void atcphy_apply_tunables(struct apple_atcphy *atcphy, enum atcphy_mode 
 
 static int atcphy_pipehandler_lock(struct apple_atcphy *atcphy)
 {
-	int ret;
+	int ret, retries = 10;
 	u32 reg;
 
 	if (readl(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ) & PIPEHANDLER_LOCK_EN) {
@@ -930,15 +931,17 @@ static int atcphy_pipehandler_lock(struct apple_atcphy *atcphy)
 		return 0;
 	}
 
-	set32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ, PIPEHANDLER_LOCK_EN);
+	do {
+		set32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ, PIPEHANDLER_LOCK_EN);
+		ret = readl_poll_timeout(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_ACK, reg,
+					 reg & PIPEHANDLER_LOCK_EN, 10, PIPEHANDLER_LOCK_ACK_TIMEOUT_US);
+		if (!ret)
+			return 0;
+		clear32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ, PIPEHANDLER_LOCK_EN);
+		usleep_range(5000, 10000);
+	} while (--retries);
 
-	ret = readl_poll_timeout(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_ACK, reg,
-				 reg & PIPEHANDLER_LOCK_EN, 10, PIPEHANDLER_LOCK_ACK_TIMEOUT_US);
-	if (ret) {
-		clear32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ, 1);
-		dev_warn(atcphy->dev, "Pipehandler lock not acked.\n");
-	}
-
+	dev_warn(atcphy->dev, "Pipehandler lock not acked.\n");
 	return ret;
 }
 
@@ -1000,6 +1003,8 @@ static int atcphy_configure_pipehandler_usb3(struct apple_atcphy *atcphy, bool h
 		ret = atcphy_pipehandler_lock(atcphy);
 		if (ret) {
 			dev_err(atcphy->dev, "Failed to lock pipehandler");
+			clear32(atcphy->regs.pipehandler + PIPEHANDLER_OVERRIDE,
+				PIPEHANDLER_OVERRIDE_RXVALID | PIPEHANDLER_OVERRIDE_RXDETECT);
 			return ret;
 		}
 
@@ -1835,6 +1840,7 @@ static int atcphy_usb3_power_off(struct phy *phy)
 static int atcphy_usb3_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 {
 	struct apple_atcphy *atcphy = phy_get_drvdata(phy);
+	int ret;
 
 	guard(mutex)(&atcphy->lock);
 
@@ -1846,9 +1852,17 @@ static int atcphy_usb3_set_mode(struct phy *phy, enum phy_mode mode, int submode
 	if (atcphy->pipehandler_up)
 		return 0;
 
+	/* xhci can race tipd's debounced mux_set; the PHY may still be OFF */
+	if (atcphy->mode == APPLE_ATCPHY_MODE_OFF) {
+		ret = atcphy_configure(atcphy, APPLE_ATCPHY_MODE_USB3);
+		if (ret)
+			return ret;
+	}
+
 	switch (mode) {
 	case PHY_MODE_USB_HOST:
-		return atcphy_configure_pipehandler(atcphy, true);
+		/* BIST's RXDETECT override suppresses xhci link detection at boot */
+		return atcphy_configure_pipehandler(atcphy, false);
 	case PHY_MODE_USB_DEVICE:
 		return atcphy_configure_pipehandler(atcphy, false);
 	default:
@@ -2081,6 +2095,7 @@ static int atcphy_mux_set(struct typec_mux_dev *mux, struct typec_mux_state *sta
 {
 	struct apple_atcphy *atcphy = typec_mux_get_drvdata(mux);
 	enum atcphy_mode target_mode;
+	int ret;
 
 	guard(mutex)(&atcphy->lock);
 
@@ -2137,12 +2152,19 @@ static int atcphy_mux_set(struct typec_mux_dev *mux, struct typec_mux_state *sta
 	if (atcphy->mode == target_mode)
 		return 0;
 
-	/*
-	 * If the pipehandler is still/already up here there's a bug somewhere so make sure to
-	 * complain loudly. We can still try to switch modes and hope for the best though,
-	 * in the worst case the hardware will fall back to USB2-only.
-	 */
-	WARN_ON_ONCE(atcphy->pipehandler_up);
+	/* A DP alt-mode mux switch can race DWC3's phy_power_off on hotplug */
+	if (atcphy->pipehandler_up &&
+	    atcphy_modes[target_mode].pipehandler_state == ATCPHY_PIPEHANDLER_STATE_DUMMY) {
+		ret = atcphy_configure_pipehandler_dummy(atcphy);
+		if (ret)
+			dev_warn(atcphy->dev,
+				 "Failed to clear pipehandler before mode switch: %d\n", ret);
+		else
+			atcphy->pipehandler_up = false;
+	}
+
+	WARN_ON_ONCE(atcphy->pipehandler_up &&
+		     atcphy_modes[target_mode].pipehandler_state == ATCPHY_PIPEHANDLER_STATE_DUMMY);
 	return atcphy_configure(atcphy, target_mode);
 }
 
