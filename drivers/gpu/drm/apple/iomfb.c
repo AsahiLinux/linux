@@ -244,6 +244,7 @@ void dcp_hotplug(struct work_struct *work)
 
 	if (!connector->connected) {
 		drm_edid_free(connector->drm_edid);
+		drm_connector_set_vrr_capable_property(&connector->base, false);
 		connector->drm_edid = NULL;
 	}
 

@@ -335,6 +335,10 @@ static int apple_probe_per_dcp(struct device *dev,
 	if (ret)
 		return ret;
 
+	ret = drm_connector_attach_vrr_capable_property(&connector->base);
+	if (ret)
+		return ret;
+
 	connector->base.polled = DRM_CONNECTOR_POLL_HPD;
 	connector->connected = false;
 	connector->dcp = dcp;

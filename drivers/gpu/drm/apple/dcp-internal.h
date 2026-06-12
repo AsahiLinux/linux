@@ -186,6 +186,7 @@ struct apple_dcp {
 	bool during_modeset;
 	bool valid_mode;
 	bool use_timestamps;
+	bool vrr_enabled;
 	struct dcp_set_digital_out_mode_req mode;
 
 	/* completion for active turning true */

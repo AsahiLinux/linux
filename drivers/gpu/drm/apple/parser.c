@@ -517,18 +517,21 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 	/*
 	* HACK:
 	* Mark the 120 Hz mode on j314/j316 (identified by resolution) as vrr.
-	* We still do not know how to drive VRR but at least seetinng timestamps
-	* in the the swap_surface message to non-zero values drives the display
-	* at 120 fps.
+	* Setting timestamps in the the swap_surface message to non-zero
+	* values drives the display at 120 fps.
 	*/
 	if (vert.precise_sync_rate >> 16 == 120 &&
 	    ((horiz.active == 3024 && vert.active == 1964) ||
-	     (horiz.active == 3456 && vert.active == 2234)))
+	     (horiz.active == 3456 && vert.active == 2234))) {
+		out->min_vrr = 24 << 16;
+		out->max_vrr = 120 << 16;
 		out->vrr = true;
+	}
 
 	if (min_vrr && max_vrr) {
 		out->min_vrr = min_vrr;
 		out->max_vrr = max_vrr;
+		out->vrr = true;
 	}
 
 	vert.active -= notch_height;

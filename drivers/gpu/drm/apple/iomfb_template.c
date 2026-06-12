@@ -34,6 +34,8 @@
 /* Register defines used in bandwidth setup structure */
 #define REG_DOORBELL_BIT(idx) (2 + (idx))
 
+extern bool force_vrr;
+
 struct dcp_wait_cookie {
 	struct kref refcount;
 	struct completion done;
@@ -546,8 +548,9 @@ static u8 dcpep_cb_prop_chunk(struct apple_dcp *dcp,
 static bool dcpep_process_chunks(struct apple_dcp *dcp,
 				 struct dcp_set_dcpav_prop_end_req *req)
 {
+	// struct apple_connector *connector = dcp->connector;
 	struct dcp_parse_ctx ctx;
-	int ret;
+	int ret; //, i;
 
 	if (!dcp->chunks.data) {
 		dev_warn(dcp->dev, "ignoring spurious end\n");
@@ -588,6 +591,15 @@ static bool dcpep_process_chunks(struct apple_dcp *dcp,
 
 		dcp_set_dimensions(dcp);
 	}
+
+	// if (connector) {
+	// 	for (i = 0; i < dcp->nr_modes; i++) {
+	// 		if (dcp->modes[i].vrr) {
+	// 			drm_connector_set_vrr_capable_property(&connector->base, true);
+	// 			break;
+	// 		}
+	// 	}
+	// }
 
 	return true;
 }
@@ -784,21 +796,6 @@ static void dcp_on_set_power_state(struct apple_dcp *dcp, void *out, void *cooki
 	dcp_set_power_state(dcp, false, &req, dcp_on_final, cookie);
 }
 
-static void dcp_on_set_parameter(struct apple_dcp *dcp, void *out, void *cookie)
-{
-	struct dcp_set_parameter_dcp param = {
-		.param = IOMFBPARAM_ADAPTIVE_SYNC,
-		.value = { 0 },
-#if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
-		.count = 3,
-#else
-		.count = 1,
-#endif
-	};
-
-	dcp_set_parameter_dcp(dcp, false, &param, dcp_on_set_power_state, cookie);
-}
-
 void DCP_FW_NAME(iomfb_poweron)(struct apple_dcp *dcp)
 {
 	struct dcp_wait_cookie *cookie;
@@ -815,15 +812,11 @@ void DCP_FW_NAME(iomfb_poweron)(struct apple_dcp *dcp)
 	/* increase refcount to ensure the receiver has a reference */
 	kref_get(&cookie->refcount);
 
-	if (dcp->main_display) {
-		handle = 0;
-		dcp_set_display_device(dcp, false, &handle, dcp_on_set_power_state,
-				       cookie);
-	} else {
-		handle = 2;
-		dcp_set_display_device(dcp, false, &handle,
-				       dcp_on_set_parameter, cookie);
-	}
+	handle = dcp->main_display ? 0 : 2;
+
+	dcp_set_display_device(dcp, false, &handle, dcp_on_set_power_state,
+			       cookie);
+
 	ret = wait_for_completion_timeout(&cookie->done, msecs_to_jiffies(10000));
 
 	if (ret == 0) {
@@ -1190,6 +1183,33 @@ static void complete_set_digital_out_mode(struct apple_dcp *dcp, void *data,
 	}
 }
 
+/* Changes to Adaptive Sync require a trip through set_digital_out_mode */
+static void dcp_on_set_adaptive_sync(struct apple_dcp *dcp, void *out, void *cookie)
+{
+	dcp_set_digital_out_mode(dcp, false, &dcp->mode,
+				 complete_set_digital_out_mode, cookie);
+}
+
+static void dcp_set_adaptive_sync(struct apple_dcp *dcp, u32 rate, void *cookie)
+{
+	struct dcp_set_parameter_dcp param = {
+		.param = IOMFBPARAM_ADAPTIVE_SYNC,
+		.value = {
+			rate,              /* minRR */
+			0,                 /* mediaTargetRate */
+			0,                 /* Fractional Rate (?) */
+			0,                 /* unused */
+		},
+#if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
+		.count = 3,
+#else
+		.count = 1,
+#endif
+	};
+
+	dcp_set_parameter_dcp(dcp, false, &param, dcp_on_set_adaptive_sync, cookie);
+}
+
 int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 			       struct drm_crtc_state *crtc_state)
 {
@@ -1229,8 +1249,8 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 		.timing_mode_id = mode->timing_mode_id
 	};
 
-	/* Keep track of suspected vrr modes */
-	dcp->use_timestamps = mode->vrr;
+	/* Use DCP swap timestamps on MacBook Pros with VRR */
+	dcp->use_timestamps = mode->vrr && dcp->main_display;
 
 	cookie = kzalloc(sizeof(*cookie), GFP_KERNEL);
 	if (!cookie) {
@@ -1244,8 +1264,12 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 
 	dcp->during_modeset = true;
 
-	dcp_set_digital_out_mode(dcp, false, &dcp->mode,
-				 complete_set_digital_out_mode, cookie);
+	if (mode->vrr) {
+		dcp_set_adaptive_sync(dcp, force_vrr ? mode->min_vrr : 0, cookie);
+	} else {
+		dcp_set_digital_out_mode(dcp, false, &dcp->mode,
+					 complete_set_digital_out_mode, cookie);
+	}
 
 	/*
 	 * The DCP firmware has an internal timeout of ~8 seconds for
@@ -1273,8 +1297,18 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 			jiffies_to_msecs(ret));
 	}
 	dcp->valid_mode = true;
+	dcp->vrr_enabled = mode->vrr && force_vrr;
 
 	return 0;
+}
+
+/*
+ * DCP timestamps are expressed in system timer ticks. Approximate
+ * this by converting from ktime nanoseconds to 24 MHz ticks.
+ */
+static u64 ns_to_mach(u64 ns)
+{
+	return ns * 3 / 125;
 }
 
 void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, struct drm_atomic_state *state)
@@ -1391,14 +1425,16 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		req->clear = 1;
 	}
 
-	if (has_surface && dcp->use_timestamps) {
+	if (has_surface && (dcp->use_timestamps || crtc_state->vrr_enabled || force_vrr)) {
 		/*
-		 * Fake timstamps to get 120hz refresh rate. It looks
-		 * like the actual value does not matter, as long  as it is non zero.
+		 * TODO: ascertain with certainty what these timestamps
+		 * are. They are something to do with presentation timing,
+		 * but that is all we know for sure. These values seem to
+		 * work well with VRR.
 		 */
-		req->swap.ts1 = 120;
-		req->swap.ts2 = 120;
-		req->swap.ts3 = 120;
+		req->swap.unk_pres_ts1 = ns_to_mach(ktime_get_ns());
+		req->swap.unk_pres_ts2 = ns_to_mach(ktime_to_ns(dcp->swap_start));
+		req->swap.unk_pres_ts3 = req->swap.unk_pres_ts1;
 	}
 
 	/* These fields should be set together */
