@@ -1637,6 +1637,12 @@ static const struct of_device_id macaudio_snd_device_id[]  = {
 	/* j475    AID25   sn012776    20      1× 1W    Compat: apple,j375-macaudio */
 	/* j493    AID18   sn012776    15      2× 2W */
 	{ .compatible = "apple,j493-macaudio", .data = &macaudio_j493_cfg },
+	/* j504    AID24   sn012776    15      2× 2W+1T Compat: apple,j314-macaudio */
+	/* j514    AID28   sn012776    15      2x 2W+1T Compat: apple,j314-macaudio */
+	/* j516    AID29   sn012776    15      2x 2W+1T Compat: apple,j316-macaudio */
+	/* j575    AID33   sn012776    15      1x 1W    Compat: apple,j375-macaudio */
+	/* j613    AID20   sn012776    15      2x 1W+1T Compat: apple,j413-macaudio */
+	/* j615    AID21   sn012776    15      2x 2W+1T Compat: apple,j415-macaudio */
 	/* Fallback, jack only */
 	{ .compatible = "apple,macaudio"},
 	{ }
