@@ -657,6 +657,7 @@
 				<0x2 0x3b3d0000 0x0 0x4000>;
 			apple,bw-scratch = <&pmgr_dcp 0 5 0x14>;
 			apple,bw-doorbell = <&pmgr_dcp 1 6>;
+			apple,iomfb-surfaces = <1 1 0 0>;
 			power-domains = <&ps_disp0_cpu0>;
 			resets = <&ps_disp0_cpu0>;
 			clocks = <&clk_disp0>;
@@ -1494,6 +1495,7 @@
 			      <0x2 0x3b3d0000 0x0 0x4000>;
 			apple,bw-scratch = <&pmgr_dcp 0 5 0x18>;
 			apple,bw-doorbell = <&pmgr_dcp 1 6>;
+			apple,iomfb-surfaces = <1 1 0 0>;
 			power-domains = <&ps_dispext_cpu0>;
 			resets = <&ps_dispext_cpu0>;
 			clocks = <&clk_dispext0>;
