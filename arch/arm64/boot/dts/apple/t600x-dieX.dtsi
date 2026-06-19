@@ -106,6 +106,7 @@
 			<0x2 0x89344000 0x0 0x4000>,
 			<0x2 0x89800000 0x0 0x800000>;
 		apple,bw-scratch = <&pmgr_dcp 0 4 0x990>;
+		apple,iomfb-surfaces = <1 1 0 0>;
 		#ifdef APPLE_USE_PMP
 		power-domains = <&DIE_NODE(pmp_report_dispext0)>;
 		#else
@@ -185,6 +186,7 @@
 			<0x2 0x8c344000 0x0 0x4000>,
 			<0x2 0x8c800000 0x0 0x800000>;
 		apple,bw-scratch = <&pmgr_dcp 0 4 0x998>;
+		apple,iomfb-surfaces = <1 1 0 0>;
 		#ifdef APPLE_USE_PMP
 		power-domains = <&DIE_NODE(pmp_report_dispext1)>;
 		#else
