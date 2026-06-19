@@ -49,6 +49,14 @@ enum dcp_xfer_func {
 	DCP_XFER_FUNC_HDR = 16,
 };
 
+enum dcp_address_format {
+    DCP_ADDRESS_FORMAT_INTERCHANGE_TILED = 5,
+};
+
+enum dcp_compression_type {
+    DCP_COMPRESSION_TYPE_INTERCHANGE_TILED = 3,
+};
+
 struct dcp_rect {
 	u32 x;
 	u32 y;
@@ -67,7 +75,26 @@ struct dcp_plane_info {
 	u16 tile_size;
 	u8 tile_w;
 	u8 tile_h;
-	u32 unk[13];
+	u8 unk1[0xd];
+	u8 address_format;
+	u8 unk2[0x26];
+} __packed;
+
+struct dcp_compression_info {
+	u32 tile_w;
+	u32 tile_h;
+	u32 meta_offset;
+	u32 data_offset;
+	u32 tile_meta_bytes;
+	u32 tiles_w;
+	u32 tiles_h;
+	u32 unk1;
+	u32 compresson_type;
+	u32 unk3;
+	u8 _pad1[3];
+	u32 tile_bytes;
+	u32 row_stride;
+	u8 pad2;
 } __packed;
 
 struct dcp_component_types {
@@ -100,7 +127,7 @@ struct dcp_surface {
 	u64 has_comp;
 	struct dcp_plane_info planes[DCP_SURF_MAX_PLANES];
 	u64 has_planes;
-	u32 compression_info[DCP_SURF_MAX_PLANES][13];
+	struct dcp_compression_info compression_info[DCP_SURF_MAX_PLANES];
 	u64 has_compr_info;
 	u32 unk_num;
 	u32 unk_denom;
