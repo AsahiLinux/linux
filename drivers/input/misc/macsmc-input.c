@@ -28,6 +28,12 @@ struct macsmc_input {
 	struct input_dev *input;
 	struct notifier_block nb;
 	bool wakeup_mode;
+	int ignore_btn_count;
+	struct delayed_work lid_work;
+	u8 pending_lid_state;
+	u8 debounce_lid_state;
+	int debounce_count;
+	bool have_lid;
 };
 
 #define SMC_EV_BTN 0x7201
@@ -46,11 +52,21 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 	switch (button) {
 	case BTN_POWER:
 	case BTN_TOUCHID:
+		/*
+		 * The SMC fires a spurious BTN_TOUCHID press+release ~1ms
+		 * after entering s2idle. Skip those first 2 events, then
+		 * let real presses through normally.
+		 */
+		if (smcin->wakeup_mode && smcin->ignore_btn_count > 0) {
+			smcin->ignore_btn_count--;
+			return;
+		}
+
 		pm_wakeup_dev_event(smcin->dev, 0, (smcin->wakeup_mode && state));
 		/*
 		 * Suppress KEY_POWER reports when suspended to avoid powering down
 		 * immediately after waking from s2idle.
-		 * */
+		 */
 		if (smcin->wakeup_mode)
 			return;
 
@@ -79,14 +95,75 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 	}
 }
 
+static void macsmc_input_lid_work(struct work_struct *work)
+{
+	struct macsmc_input *smcin = container_of(work, struct macsmc_input, lid_work.work);
+	u8 val;
+	int ret;
+
+	ret = apple_smc_read_u8(smcin->smc, SMC_KEY(MSLD), &val);
+	if (ret) {
+		dev_warn_once(smcin->dev, "MSLD read failed: %d\n", ret);
+		goto resched;
+	}
+
+	/*
+	 * Debounce: DP disconnect can cause MSLD to bounce briefly.
+	 * Require 2 consecutive polls with the same changed value
+	 * before reporting a lid state change.
+	 */
+	if (val != smcin->debounce_lid_state) {
+		smcin->debounce_lid_state = val;
+		smcin->debounce_count = 1;
+	} else {
+		smcin->debounce_count++;
+	}
+
+	if (smcin->debounce_lid_state != smcin->pending_lid_state &&
+	    smcin->debounce_count >= 2) {
+		dev_info(smcin->dev, "lid state changed: %d -> %d\n",
+			 smcin->pending_lid_state, smcin->debounce_lid_state);
+		smcin->pending_lid_state = smcin->debounce_lid_state;
+		input_report_switch(smcin->input, SW_LID, smcin->pending_lid_state);
+		input_sync(smcin->input);
+	}
+
+resched:
+	schedule_delayed_work(&smcin->lid_work, msecs_to_jiffies(1000));
+}
+
 static void macsmc_input_event_lid(struct macsmc_input *smcin, unsigned long event)
 {
-	u8 lid_state = !!((event >> 8) & 0xff);
-
-	pm_wakeup_dev_event(smcin->dev, 0, (smcin->wakeup_mode && !lid_state));
-	input_report_switch(smcin->input, SW_LID, lid_state);
-	input_sync(smcin->input);
+	/*
+	 * SMC lid events (0x7203) are not reliably delivered via RTKit
+	 * notifications on all machines. Lid state is polled via the
+	 * MSLD key in lid_work instead.
+	 */
 }
+
+static ssize_t msld_state_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct macsmc_input *smcin = dev_get_drvdata(dev);
+	u8 val;
+	int ret;
+
+	if (!smcin->have_lid)
+		return sysfs_emit(buf, "unsupported\n");
+
+	ret = apple_smc_read_u8(smcin->smc, SMC_KEY(MSLD), &val);
+	if (ret)
+		return sysfs_emit(buf, "error %d\n", ret);
+
+	return sysfs_emit(buf, "%d\n", val);
+}
+static DEVICE_ATTR_RO(msld_state);
+
+static struct attribute *macsmc_input_attrs[] = {
+	&dev_attr_msld_state.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(macsmc_input);
 
 static int macsmc_input_event(struct notifier_block *nb, unsigned long event, void *data)
 {
@@ -125,7 +202,9 @@ static int macsmc_input_probe(struct platform_device *pdev)
 
 	smcin->dev = &pdev->dev;
 	smcin->smc = smc;
+	smcin->have_lid = have_lid;
 	platform_set_drvdata(pdev, smcin);
+	INIT_DELAYED_WORK(&smcin->lid_work, macsmc_input_lid_work);
 
 	smcin->input = devm_input_allocate_device(&pdev->dev);
 	if (!smcin->input)
@@ -143,10 +222,14 @@ static int macsmc_input_probe(struct platform_device *pdev)
 		u8 val;
 
 		error = apple_smc_read_u8(smc, SMC_KEY(MSLD), &val);
-		if (error < 0)
+		if (error < 0) {
 			dev_warn(&pdev->dev, "Failed to read initial lid state\n");
-		else
+		} else {
+			smcin->pending_lid_state = val;
+			smcin->debounce_lid_state = val;
+			smcin->debounce_count = 2;
 			input_report_switch(smcin->input, SW_LID, val);
+		}
 	}
 
 	if (have_power) {
@@ -172,7 +255,19 @@ static int macsmc_input_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, true);
 
+	if (have_lid)
+		schedule_delayed_work(&smcin->lid_work, msecs_to_jiffies(1000));
+
 	return 0;
+}
+
+static void macsmc_input_remove(struct platform_device *pdev)
+{
+	struct macsmc_input *smcin = platform_get_drvdata(pdev);
+	struct apple_smc *smc = smcin->smc;
+
+	cancel_delayed_work_sync(&smcin->lid_work);
+	blocking_notifier_chain_unregister(&smc->event_handlers, &smcin->nb);
 }
 
 static int macsmc_input_pm_prepare(struct device *dev)
@@ -180,6 +275,7 @@ static int macsmc_input_pm_prepare(struct device *dev)
 	struct macsmc_input *smcin = dev_get_drvdata(dev);
 
 	smcin->wakeup_mode = true;
+	smcin->ignore_btn_count = 2;
 	return 0;
 }
 
@@ -187,7 +283,11 @@ static void macsmc_input_pm_complete(struct device *dev)
 {
 	struct macsmc_input *smcin = dev_get_drvdata(dev);
 
+	cancel_delayed_work_sync(&smcin->lid_work);
 	smcin->wakeup_mode = false;
+	smcin->ignore_btn_count = 0;
+	if (smcin->have_lid)
+		schedule_delayed_work(&smcin->lid_work, msecs_to_jiffies(1000));
 }
 
 static const struct dev_pm_ops macsmc_input_pm_ops = {
@@ -199,8 +299,10 @@ static struct platform_driver macsmc_input_driver = {
 	.driver = {
 		.name = "macsmc-input",
 		.pm = &macsmc_input_pm_ops,
+		.dev_groups = macsmc_input_groups,
 	},
 	.probe = macsmc_input_probe,
+	.remove = macsmc_input_remove,
 };
 module_platform_driver(macsmc_input_driver);
 
