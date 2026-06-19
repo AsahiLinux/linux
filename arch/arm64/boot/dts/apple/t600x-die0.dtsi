@@ -109,7 +109,6 @@
 			label = "pmp-avd-sys";
 			#power-domain-cells = <0>;
 			power-domains = <&ps_avd_sys>;
-			status = "disabled";
 		};
 
 		pmp_report_msr0: report@12 {
