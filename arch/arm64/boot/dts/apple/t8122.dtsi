@@ -465,6 +465,30 @@
 			power-domains = <&ps_sio_cpu>;
 		};
 
+		avd: avd@288000000 {
+			compatible = "apple,t8122-avd";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 679 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 680 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_avd_sys>;
+			resets = <&ps_avd_sys>;
+			reg = <0x2 0x89080000 0x0 0x12000>,
+				<0x2 0x89092000 0x0 0x12000>,
+				<0x2 0x890a4000 0x0 0x4000>,
+				<0x2 0x89100000 0x0 0x10000>;
+			reg-names = "code", "sram", "mbox", "ctrl";
+			iommus = <&avd_dart 0>;
+		};
+
+		avd_dart: iommu@289010000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x2 0x89010000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 686 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_avd_sys>;
+		};
+
 		fpwm1: pwm@2a1044000 {
 			compatible = "apple,t8122-fpwm", "apple,s5l-fpwm";
 			reg = <0x2 0xa1044000 0x0 0x4000>;
