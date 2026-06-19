@@ -618,6 +618,7 @@
 			<0x3 0x89344000 0x0 0x4000>,
 			<0x3 0x89800000 0x0 0x800000>;
 		apple,bw-scratch = <&pmgr_dcp 0 4 0x1208>;
+		apple,iomfb-surfaces = <1 1 0 1>;
 		#ifdef APPLE_USE_PMP
 		power-domains = <&pmp_report_disp0>;
 		#else
