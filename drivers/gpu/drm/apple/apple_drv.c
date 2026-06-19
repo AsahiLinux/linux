@@ -38,7 +38,11 @@
 #include <drm/drm_vblank.h>
 #include <drm/drm_fixed.h>
 
+#include <linux/soc/apple/rtkit.h>
+
 #include "dcp.h"
+#include "dcp-internal.h"
+#include "connector.h"
 #include "plane.h"
 
 #define DRIVER_NAME     "apple"
@@ -627,9 +631,55 @@ MODULE_DEVICE_TABLE(of, of_match);
 static int apple_platform_suspend(struct device *dev)
 {
 	struct apple_drm_private *apple = dev_get_drvdata(dev);
+	int ret;
 
-	if (apple)
-		return drm_mode_config_helper_suspend(&apple->drm);
+	if (apple) {
+		ret = drm_mode_config_helper_suspend(&apple->drm);
+		if (ret)
+			dev_warn(dev, "drm suspend helper failed: %d, will hotplug on resume\n", ret);
+	}
+
+	return 0;
+}
+
+static int apple_platform_suspend_noirq(struct device *dev)
+{
+	struct apple_drm_private *apple = dev_get_drvdata(dev);
+	struct drm_crtc *crtc;
+
+	if (!apple || apple->drm.mode_config.suspend_state)
+		return 0;
+
+	drm_for_each_crtc(crtc, &apple->drm) {
+		struct apple_crtc *acrtc = to_apple_crtc(crtc);
+		struct apple_dcp *dcp = platform_get_drvdata(acrtc->dcp);
+
+		if (dcp && dcp->connector && !dcp->connector->connected && dcp->rtk) {
+			dev_info(dev, "quiescing disconnected DCP %d\n", dcp->index);
+			apple_rtkit_quiesce(dcp->rtk);
+		}
+	}
+
+	return 0;
+}
+
+static int apple_platform_resume_noirq(struct device *dev)
+{
+	struct apple_drm_private *apple = dev_get_drvdata(dev);
+	struct drm_crtc *crtc;
+
+	if (!apple || apple->drm.mode_config.suspend_state)
+		return 0;
+
+	drm_for_each_crtc(crtc, &apple->drm) {
+		struct apple_crtc *acrtc = to_apple_crtc(crtc);
+		struct apple_dcp *dcp = platform_get_drvdata(acrtc->dcp);
+
+		if (dcp && dcp->connector && !dcp->connector->connected && dcp->rtk) {
+			dev_info(dev, "re-booting DCP %d after quiesce\n", dcp->index);
+			apple_rtkit_boot(dcp->rtk);
+		}
+	}
 
 	return 0;
 }
@@ -638,14 +688,21 @@ static int apple_platform_resume(struct device *dev)
 {
 	struct apple_drm_private *apple = dev_get_drvdata(dev);
 
-	if (apple)
+	if (!apple)
+		return 0;
+
+	if (apple->drm.mode_config.suspend_state)
 		drm_mode_config_helper_resume(&apple->drm);
+	else
+		drm_kms_helper_hotplug_event(&apple->drm);
 
 	return 0;
 }
 
 static const struct dev_pm_ops apple_platform_pm_ops = {
 	.suspend	= apple_platform_suspend,
+	.suspend_noirq	= apple_platform_suspend_noirq,
+	.resume_noirq	= apple_platform_resume_noirq,
 	.resume		= apple_platform_resume,
 };
 #endif
