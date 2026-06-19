@@ -430,11 +430,7 @@ u64 apple_format_modifiers[] = {
 	DRM_FORMAT_MOD_INVALID
 };
 
-struct apple_plane {
-	struct drm_plane base;
-};
-
-struct drm_plane *apple_plane_init(struct drm_device *dev,
+struct apple_plane *apple_plane_init(struct drm_device *dev,
 				   unsigned long possible_crtcs,
 				   bool supports_l10r,
 				   enum drm_plane_type type)
@@ -487,5 +483,5 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 	else
 		drm_plane_helper_add(&plane->base, &apple_plane_helper_funcs);
 
-	return &plane->base;
+	return plane;
 }

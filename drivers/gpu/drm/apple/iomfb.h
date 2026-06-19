@@ -86,8 +86,6 @@ enum iomfb_property_id {
 /* Structures used in v12.0 firmware */
 
 #define SWAP_SURFACES 4
-/* We have 4 surfaces, but we can only ever blend two */
-#define MAX_BLEND_SURFACES 2
 
 struct dcp_iouserclient {
 	/* Handle for the IOUserClient. macOS sets this to a kernel VA. */
