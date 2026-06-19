@@ -331,10 +331,7 @@ int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 {
 	struct platform_device *pdev = to_apple_crtc(crtc)->dcp;
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
-	struct drm_plane_state *new_state;
-	struct drm_plane *plane;
 	struct drm_crtc_state *crtc_state;
-	int plane_idx, plane_count = 0;
 	bool needs_modeset;
 
 	if (dcp->crashed)
@@ -345,19 +342,6 @@ int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 	needs_modeset = drm_atomic_crtc_needs_modeset(crtc_state) || !dcp->valid_mode;
 	if (!needs_modeset && !dcp->connector->connected) {
 		dev_err(dcp->dev, "crtc_atomic_check: disconnected but no modeset\n");
-		return -EINVAL;
-	}
-
-	for_each_new_plane_in_state(state, plane, new_state, plane_idx) {
-		/* skip planes not for this crtc */
-		if (new_state->crtc != crtc)
-			continue;
-
-		plane_count += 1;
-	}
-
-	if (plane_count > DCP_MAX_PLANES) {
-		dev_err(dcp->dev, "crtc_atomic_check: Blend supports only 2 layers!\n");
 		return -EINVAL;
 	}
 
@@ -1194,6 +1178,11 @@ static int dcp_platform_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to get dp-phy: %ld\n", PTR_ERR(dcp->phy));
 		return PTR_ERR(dcp->phy);
 	}
+
+	if (of_property_read_u32_array(dev->of_node, "apple,iomfb-surfaces",
+				       dcp->iomfb_surfaces, DCP_MAX_PLANES))
+		dcp->iomfb_surfaces[0] = 1;
+
 	if (dcp->phy) {
 		int ret;
 		/*
