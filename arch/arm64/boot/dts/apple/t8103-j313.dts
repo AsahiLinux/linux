@@ -104,7 +104,6 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <0>;
 		ti,vmon-slot-no = <2>;
-		ti,sdout-zero-fill;
 	};
 };
 
@@ -118,7 +117,6 @@
 		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <4>;
 		ti,vmon-slot-no = <6>;
-		ti,sdout-zero-fill;
 	};
 
 	jack_codec: codec@48 {
@@ -165,6 +163,8 @@
 
 		dai-link@0 {
 			link-name = "Speakers";
+			dai-tdm-idle-mode-0 = "zero";
+			dai-tdm-idle-mode-1 = "zero";
 
 			cpu {
 				sound-dai = <&mca 0>, <&mca 1>;
