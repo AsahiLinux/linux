@@ -272,7 +272,6 @@
 		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <0>;
 		ti,vmon-slot-no = <2>;
-		ti,sdout-force-zero-mask = <0xf0f0f0>;
 	};
 
 	speaker_left_woof2: codec@39 {
@@ -323,7 +322,6 @@
 		interrupts-extended = <&pinctrl_ap 179 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <4>;
 		ti,vmon-slot-no = <6>;
-		ti,sdout-force-zero-mask = <0x0f0f0f>;
 	};
 
 	speaker_right_woof2: codec@3c {
@@ -598,6 +596,10 @@
 
 		dai-link@0 {
 			link-name = "Speakers";
+			dai-tdm-idle-mode-0 = "zero";
+			dai-tdm-idle-mode-3 = "zero";
+			dai-tdm-slot-tx-idle-mask-0 = <0xf0f0f0>;
+			dai-tdm-slot-tx-idle-mask-3 = <0x0f0f0f>;
 
 			cpu {
 				sound-dai = <&mca 0>, <&mca 1>;
