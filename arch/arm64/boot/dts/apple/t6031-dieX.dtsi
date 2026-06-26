@@ -91,6 +91,30 @@
 				<AIC_IRQ DIE_NO 601 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	DIE_NODE(avd): avd@2cc000000 {
+		compatible = "apple,t6031-avd", "apple,t8122-avd";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1185 IRQ_TYPE_LEVEL_HIGH>,
+			<AIC_IRQ DIE_NO 1186 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_avd_sys)>;
+		resets = <&DIE_NODE(ps_avd_sys)>;
+		reg = <0x2 0xcd080000 0x0 0x12000>,
+			<0x2 0xcd092000 0x0 0x12000>,
+			<0x2 0xcd0a4000 0x0 0x4000>,
+			<0x2 0xcd100000 0x0 0x10000>;
+		reg-names = "code", "sram", "mbox", "ctrl";
+		iommus = <&DIE_NODE(avd_dart) 0>;
+	};
+
+	DIE_NODE(avd_dart): iommu@2cd010000 {
+		compatible = "apple,t6031-dart", "apple,t8110-dart";
+		reg = <0x2 0xcd010000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1192 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_avd_sys)>;
+	};
+
 	DIE_NODE(sio_dart): iommu@391004000 {
 		compatible = "apple,t6031-dart", "apple,t8110-dart";
 		reg = <0x3 0x91004000 0x0 0x4000>;
