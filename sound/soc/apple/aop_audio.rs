@@ -6,20 +6,38 @@
 //! Copyright (C) The Asahi Linux Contributors
 
 use core::fmt;
-use core::sync::atomic::{AtomicU32, Ordering};
-use core::{mem, ptr, slice};
+use core::{
+    mem,
+    ptr,
+    slice, //
+};
 
 use kernel::{
-    bindings, c_str, device,
+    bindings,
+    c_str,
+    device,
     device::property::FwNode,
     device::Core,
     error::from_err_ptr,
-    module_platform_driver, of, platform,
+    module_platform_driver,
+    of,
+    platform,
     prelude::*,
-    soc::apple::aop::{from_fourcc, EPICService, AOP},
+    soc::apple::aop::{
+        from_fourcc,
+        EPICService,
+        AOP, //
+    },
     str::CString,
-    sync::Arc,
-    types::{ARef, ForeignOwnable},
+    sync::{
+        aref::ARef,
+        atomic::{
+            Atomic,
+            Relaxed, //
+        },
+        Arc, //
+    },
+    types::ForeignOwnable, //
 };
 
 use pin_init::Zeroable;
@@ -277,7 +295,7 @@ struct SndSocAopData {
     dev: ARef<device::Device>,
     adata: Arc<dyn AOP>,
     service: EPICService,
-    pstate_cookie: AtomicU32,
+    pstate_cookie: Atomic<u32>,
     fwnode: ARef<FwNode>,
 }
 
@@ -294,7 +312,7 @@ impl SndSocAopData {
                 adata,
                 service,
                 fwnode,
-                pstate_cookie: AtomicU32::new(1),
+                pstate_cookie: Atomic::new(1),
             },
             GFP_KERNEL,
         )?)
@@ -397,7 +415,7 @@ impl SndSocAopData {
     fn set_audio_power(&self, pstate: u32, unk1: u32) -> Result<()> {
         let set_pstate = PowerSetting::new(
             AUDIO_DEV_HPAI,
-            self.pstate_cookie.fetch_add(1, Ordering::Relaxed),
+            self.pstate_cookie.fetch_add(1, Relaxed),
             pstate,
             unk1,
         );
