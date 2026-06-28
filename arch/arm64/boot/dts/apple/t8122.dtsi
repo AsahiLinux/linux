@@ -530,7 +530,7 @@
 				     <AIC_IRQ 775 IRQ_TYPE_LEVEL_HIGH>;
 
 			resets = <&ps_audio_p>;
-			clocks = <&nco 0>, <&nco 1>, <&nco 2>, <&nco 3>;
+			clocks = <&nco 0>, <&nco 1>, <&nco 2>, <&nco 3>, <&nco 4>, <&nco 4>;
 			power-domains = <&ps_audio_p>, <&ps_mca0>, <&ps_mca1>,
 					<&ps_mca2>, <&ps_mca3>;
 			dmas = <&admac 0>, <&admac 1>, <&admac 2>, <&admac 3>,
