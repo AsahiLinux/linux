@@ -288,15 +288,17 @@ impl gpuvm::DriverGpuVm for VmInner {
 
         let guard = bo.inner().inner.lock();
         if let Some(sg_vec) = guard.sg_vec.as_ref() {
-            let start_idx = sg_vec.binary_search_by(|range| {
-                if range.0 > offset {
-                    cmp::Ordering::Greater
-                } else if (range.0 + range.1.len()) <= offset {
-                    cmp::Ordering::Less
-                } else {
-                    cmp::Ordering::Equal
-                }
-            }).expect("sg_vec does not contain offset???");
+            let start_idx = sg_vec
+                .binary_search_by(|range| {
+                    if range.0 > offset {
+                        cmp::Ordering::Greater
+                    } else if (range.0 + range.1.len()) <= offset {
+                        cmp::Ordering::Less
+                    } else {
+                        cmp::Ordering::Equal
+                    }
+                })
+                .expect("sg_vec does not contain offset???");
 
             offset -= sg_vec[start_idx].0 as usize;
 
