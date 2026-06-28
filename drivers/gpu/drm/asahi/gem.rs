@@ -17,8 +17,8 @@ use kernel::{
     },
     error::Result,
     prelude::*,
-    types::ARef,
-    uapi,
+    sync::aref::ARef,
+    uapi, //
 };
 
 use core::ops::Range;

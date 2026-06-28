@@ -12,10 +12,13 @@ use kernel::{
     c_str,
     device::Core,
     devres::Devres,
-    io::mem::IoMem,
+    io::{
+        mem::IoMem, //
+        Io,
+    },
     platform,
     prelude::*,
-    types::ARef, //
+    sync::aref::ARef, //
 };
 
 /// Size of the ASC control MMIO region.

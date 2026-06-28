@@ -14,7 +14,10 @@ use kernel::{
     of,
     platform,
     prelude::*,
-    sync::Arc, //
+    sync::{
+        aref::ARef,
+        Arc, //
+    }, //
 };
 
 use crate::{
@@ -27,7 +30,6 @@ use crate::{
 };
 
 use kernel::macros::vtable;
-use kernel::types::ARef;
 
 /// Holds a reference to the top-level `GpuManager` object.
 #[pin_data]

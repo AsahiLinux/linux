@@ -40,19 +40,20 @@ use kernel::{
     prelude::*,
     static_lock_class,
     sync::{
+        aref::ARef,
         lock::{
             mutex::MutexBackend,
             Guard, //
         },
-        Arc, Mutex,
+        Arc,
+        Mutex, //
     },
     time::{
         delay::fsleep,
         Delta,
         Instant,
         Monotonic, //
-    },
-    types::ARef, //
+    }, //
 };
 
 use crate::debug::*;
