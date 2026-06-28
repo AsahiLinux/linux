@@ -172,7 +172,7 @@ impl Resources {
 
     fn sgx_read32<const OFF: usize>(&self) -> u32 {
         if let Some(sgx) = self.sgx.try_access() {
-            sgx.read32_relaxed(OFF)
+            sgx.relaxed().read32(OFF)
         } else {
             0
         }
@@ -188,7 +188,7 @@ impl Resources {
 
     fn sgx_read64<const OFF: usize>(&self) -> u64 {
         if let Some(sgx) = self.sgx.try_access() {
-            sgx.read64_relaxed(OFF)
+            sgx.relaxed().read64(OFF)
         } else {
             0
         }
@@ -213,10 +213,10 @@ impl Resources {
     pub(crate) fn start_cpu(pdev: &platform::Device<Core>) -> Result {
         let asc_req = pdev.io_request_by_name(c_str!("asc")).ok_or(EINVAL)?;
         let asc_iomem = KBox::pin_init(asc_req.iomap_sized::<ASC_CTL_SIZE>(), GFP_KERNEL)?;
-        let res = asc_iomem.access(pdev.as_ref())?;
+        let res = asc_iomem.access(pdev.as_ref())?.relaxed();
 
-        let val = res.read32_relaxed(CPU_CONTROL);
-        res.write32_relaxed(val | CPU_RUN, CPU_CONTROL);
+        let val = res.read32(CPU_CONTROL);
+        res.write32(val | CPU_RUN, CPU_CONTROL);
         Ok(())
     }
 
