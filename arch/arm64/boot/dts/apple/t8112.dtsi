@@ -1155,7 +1155,6 @@
 				label = "pmp-avd-sys";
 				#power-domain-cells = <0>;
 				power-domains = <&ps_avd_sys>;
-				status = "disabled";
 			};
 
 			pmp_report_msr: report@b {
@@ -1663,6 +1662,34 @@
 			interrupt-names = "send-empty", "send-not-empty",
 				"recv-empty", "recv-not-empty";
 			#mbox-cells = <0>;
+		};
+
+		avd: avd@268000000 {
+			compatible = "apple,t8112-avd";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 667 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 668 IRQ_TYPE_LEVEL_HIGH>;
+			#ifdef APPLE_USE_PMP
+			power-domains = <&pmp_report_avd_sys>;
+			#else
+			power-domains = <&ps_avd_sys>;
+			#endif
+			resets = <&ps_avd_sys>;
+			reg = <0x2 0x69080000 0x0 0x10000>,
+				<0x2 0x69090000 0x0 0x10000>,
+				<0x2 0x690a0000 0x0 0x4000>,
+				<0x2 0x69100000 0x0 0x10000>;
+			reg-names = "code", "sram", "mbox", "ctrl";
+			iommus = <&avd_dart 0>;
+		};
+
+		avd_dart: iommu@269010000 {
+			compatible = "apple,t8110-dart";
+			reg = <0x2 0x69010000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 674 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_avd_sys>;
 		};
 
 		dispext0_dart: iommu@271304000 {
