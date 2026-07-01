@@ -12,6 +12,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/iommu.h>
 #include <linux/kref.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
@@ -1422,6 +1423,40 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 			memcpy(mat.matrix, ctm->matrix, sizeof(mat.matrix));
 		} else {
 			mat.matrix[0] = mat.matrix[4] = mat.matrix[8] = 1LLU << 32;
+		}
+
+		/*
+		 * The firmware has no gamma-LUT IPC, so approximate a per-channel
+		 * gamma ramp as a diagonal gain folded into the colour matrix.
+		 * The DRM pipeline is out = GAMMA(CTM(in)), so the combined
+		 * transform is diag(g) * CTM, i.e. scale matrix row i by g[i].
+		 * Exact for the linear ramps used by Night Light; a non-linear
+		 * curve is reduced to its endpoint gain (matrix[] and CTM are
+		 * S31.32, and all Night Light coefficients are positive, so the
+		 * sign bit is preserved and the magnitude scaled).
+		 */
+		if (crtc_state->gamma_lut) {
+			struct drm_color_lut *lut = crtc_state->gamma_lut->data;
+			u32 n = crtc_state->gamma_lut->length / sizeof(*lut);
+
+			if (n) {
+				u64 g[3] = {
+					((u64)lut[n - 1].red   << 32) / 0xffff,
+					((u64)lut[n - 1].green << 32) / 0xffff,
+					((u64)lut[n - 1].blue  << 32) / 0xffff,
+				};
+				int row, col;
+
+				for (row = 0; row < 3; row++) {
+					for (col = 0; col < 3; col++) {
+						u64 *e = &mat.matrix[row * 3 + col];
+						u64 sign = *e & (1ULL << 63);
+
+						*e = sign | mul_u64_u64_shr(*e & ~(1ULL << 63),
+									    g[row], 32);
+					}
+				}
+			}
 		}
 
 		iomfb_set_matrix(dcp, false, &mat, do_swap, NULL);

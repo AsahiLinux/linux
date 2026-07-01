@@ -313,7 +313,15 @@ static int apple_probe_per_dcp(struct device *dev,
 		return ret;
 
 	drm_crtc_helper_add(&crtc->base, &apple_crtc_helper_funcs);
-	drm_crtc_enable_color_mgmt(&crtc->base, 0, true, 0);
+	/*
+	 * The DCP firmware exposes no arbitrary gamma-LUT IPC, only a 3x3
+	 * colour matrix (iomfb_set_matrix / "A422"). Advertise a 256-entry
+	 * GAMMA_LUT anyway so userspace features gated on gamma support
+	 * (notably GNOME Night Light) become available; the swap builder folds
+	 * the ramp into the matrix diagonal. Non-linear curves (e.g. ICC VCGT
+	 * calibration) collapse to their linear per-channel gain.
+	 */
+	drm_crtc_enable_color_mgmt(&crtc->base, 0, true, 256);
 
 	enc = drmm_simple_encoder_alloc(drm, struct apple_encoder, base,
 					DRM_MODE_ENCODER_TMDS);
