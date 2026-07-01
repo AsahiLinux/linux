@@ -8430,6 +8430,10 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
 		cpu = cpumask_first(cpus);
 		cpu_actual_cap = get_actual_cpu_capacity(cpu);
 
+		/* E-core bias for low util tasks to avoid waking P-cores */
+		if (cpu_actual_cap > 700 && task_util_est(p) < 150 && p_util_min < 100)
+			continue;
+
 		eenv.cpu_cap = cpu_actual_cap;
 		eenv.pd_cap = 0;
 
@@ -8549,7 +8553,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
 	rcu_read_unlock();
 
 	if ((best_fits > prev_fits) ||
-	    ((best_fits > 0) && (best_delta < prev_delta)) ||
+	    ((best_fits > 0) && ((prev_delta - best_delta) > (prev_delta >> 4))) ||
 	    ((best_fits < 0) && (best_actual_cap > prev_actual_cap)))
 		target = best_energy_cpu;
 
