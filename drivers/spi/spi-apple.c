@@ -495,6 +495,8 @@ static int apple_spi_probe(struct platform_device *pdev)
 	ctlr->use_gpio_descriptors = true;
 	ctlr->auto_runtime_pm = true;
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	ret = devm_pm_runtime_enable(&pdev->dev);
 	if (ret < 0)
@@ -506,8 +508,32 @@ static int apple_spi_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return dev_err_probe(&pdev->dev, ret, "devm_spi_register_controller failed\n");
 
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
+
 	return 0;
 }
+
+static int __maybe_unused apple_spi_runtime_suspend(struct device *dev)
+{
+	struct spi_controller *ctlr = dev_get_drvdata(dev);
+	struct apple_spi *spi = spi_controller_get_devdata(ctlr);
+
+	clk_disable_unprepare(spi->clk);
+	return 0;
+}
+
+static int __maybe_unused apple_spi_runtime_resume(struct device *dev)
+{
+	struct spi_controller *ctlr = dev_get_drvdata(dev);
+	struct apple_spi *spi = spi_controller_get_devdata(ctlr);
+
+	return clk_prepare_enable(spi->clk);
+}
+
+static const struct dev_pm_ops apple_spi_pm_ops = {
+	SET_RUNTIME_PM_OPS(apple_spi_runtime_suspend, apple_spi_runtime_resume, NULL)
+};
 
 static const struct of_device_id apple_spi_of_match[] = {
 	{ .compatible = "apple,t8103-spi", },
@@ -520,6 +546,7 @@ static struct platform_driver apple_spi_driver = {
 	.probe = apple_spi_probe,
 	.driver = {
 		.name = "apple-spi",
+		.pm = pm_ptr(&apple_spi_pm_ops),
 		.of_match_table = apple_spi_of_match,
 	},
 };
