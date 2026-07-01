@@ -12,6 +12,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 #define DWI_BL_CTL			0x0
 #define DWI_BL_CTL_SEND1		BIT(0)
@@ -36,13 +37,26 @@
 
 struct apple_dwi_bl {
 	void __iomem *base;
+	bool is_suspended;
 };
 
 static int dwi_bl_update_status(struct backlight_device *bl)
 {
 	struct apple_dwi_bl *dwi_bl = bl_get_data(bl);
-
 	int brightness = backlight_get_brightness(bl);
+	int ret;
+
+	if (brightness == 0 && dwi_bl->is_suspended)
+		return 0;
+
+	if (brightness > 0 && dwi_bl->is_suspended) {
+		ret = pm_runtime_get_sync(bl->dev.parent);
+		if (ret < 0) {
+			pm_runtime_put_noidle(bl->dev.parent);
+			return ret;
+		}
+		dwi_bl->is_suspended = false;
+	}
 
 	u32 cmd = 0;
 
@@ -52,14 +66,24 @@ static int dwi_bl_update_status(struct backlight_device *bl)
 	writel(cmd, dwi_bl->base + DWI_BL_CMD);
 	writel(DWI_BL_CTL_SEND, dwi_bl->base + DWI_BL_CTL);
 
+	if (brightness == 0 && !dwi_bl->is_suspended) {
+		pm_runtime_mark_last_busy(bl->dev.parent);
+		pm_runtime_put_autosuspend(bl->dev.parent);
+		dwi_bl->is_suspended = true;
+	}
+
 	return 0;
 }
 
 static int dwi_bl_get_brightness(struct backlight_device *bl)
 {
 	struct apple_dwi_bl *dwi_bl = bl_get_data(bl);
+	u32 cmd;
 
-	u32 cmd = readl(dwi_bl->base + DWI_BL_CMD);
+	if (dwi_bl->is_suspended)
+		return 0;
+
+	cmd = readl(dwi_bl->base + DWI_BL_CMD);
 
 	return FIELD_GET(DWI_BL_CMD_DATA, cmd);
 }
@@ -76,6 +100,7 @@ static int dwi_bl_probe(struct platform_device *dev)
 	struct backlight_device *bl;
 	struct backlight_properties props;
 	struct resource *res;
+	int ret;
 
 	dwi_bl = devm_kzalloc(&dev->dev, sizeof(*dwi_bl), GFP_KERNEL);
 	if (!dwi_bl)
@@ -84,6 +109,15 @@ static int dwi_bl_probe(struct platform_device *dev)
 	dwi_bl->base = devm_platform_get_and_ioremap_resource(dev, 0, &res);
 	if (IS_ERR(dwi_bl->base))
 		return PTR_ERR(dwi_bl->base);
+
+	dwi_bl->is_suspended = false;
+
+	pm_runtime_set_autosuspend_delay(&dev->dev, 100);
+	pm_runtime_use_autosuspend(&dev->dev);
+	pm_runtime_set_active(&dev->dev);
+	ret = devm_pm_runtime_enable(&dev->dev);
+	if (ret < 0)
+		return ret;
 
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_PLATFORM;
@@ -102,6 +136,10 @@ static int dwi_bl_probe(struct platform_device *dev)
 	return 0;
 }
 
+static const struct dev_pm_ops dwi_bl_pm_ops = {
+	SET_RUNTIME_PM_OPS(NULL, NULL, NULL)
+};
+
 static const struct of_device_id dwi_bl_of_match[] = {
 	{ .compatible = "apple,dwi-bl" },
 	{},
@@ -112,6 +150,7 @@ MODULE_DEVICE_TABLE(of, dwi_bl_of_match);
 static struct platform_driver dwi_bl_driver = {
 	.driver		= {
 		.name	= "apple-dwi-bl",
+		.pm	= pm_ptr(&dwi_bl_pm_ops),
 		.of_match_table = dwi_bl_of_match
 	},
 	.probe		= dwi_bl_probe,
