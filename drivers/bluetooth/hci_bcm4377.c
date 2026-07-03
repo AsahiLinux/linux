@@ -15,6 +15,7 @@
 #include <linux/msi.h>
 #include <linux/of.h>
 #include <linux/pci.h>
+#include <linux/pm_runtime.h>
 #include <linux/printk.h>
 
 #include <linux/unaligned.h>
@@ -840,6 +841,8 @@ static irqreturn_t bcm4377_irq(int irq, void *data)
 	struct bcm4377_data *bcm4377 = data;
 	u32 bootstage, rti_status;
 
+	pm_runtime_get(&bcm4377->pdev->dev);
+
 	bootstage = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_BOOTSTAGE);
 	rti_status = ioread32(bcm4377->bar2 + bcm4377->hw->bar2_offset + BCM4377_BAR2_RTI_STATUS);
 
@@ -862,6 +865,9 @@ static irqreturn_t bcm4377_irq(int irq, void *data)
 	bcm4377_poll_completion_ring(bcm4377, &bcm4377->hci_acl_ack_ring);
 	bcm4377_poll_completion_ring(bcm4377, &bcm4377->sco_ack_ring);
 	bcm4377_poll_completion_ring(bcm4377, &bcm4377->sco_event_ring);
+
+	pm_runtime_mark_last_busy(&bcm4377->pdev->dev);
+	pm_runtime_put_autosuspend(&bcm4377->pdev->dev);
 
 	return IRQ_HANDLED;
 }
@@ -891,6 +897,8 @@ static int bcm4377_enqueue(struct bcm4377_data *bcm4377,
 		return -EINVAL;
 	if (ring->virtual)
 		return -EINVAL;
+
+	pm_runtime_get(&bcm4377->pdev->dev);
 
 	spin_lock_irqsave(&ring->lock, flags);
 
@@ -974,6 +982,8 @@ out:
 		spin_unlock_irqrestore(&ring->lock, flags);
 	}
 
+	pm_runtime_mark_last_busy(&bcm4377->pdev->dev);
+	pm_runtime_put_autosuspend(&bcm4377->pdev->dev);
 	return ret;
 }
 
@@ -1309,6 +1319,12 @@ static int bcm4377_hci_open(struct hci_dev *hdev)
 	struct bcm4377_data *bcm4377 = hci_get_drvdata(hdev);
 	int ret;
 
+	ret = pm_runtime_get_sync(&bcm4377->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&bcm4377->pdev->dev);
+		return ret;
+	}
+
 	dev_dbg(&bcm4377->pdev->dev, "creating rings\n");
 
 	ret = bcm4377_create_completion_ring(bcm4377,
@@ -1391,6 +1407,8 @@ static int bcm4377_hci_close(struct hci_dev *hdev)
 	bcm4377_destroy_completion_ring(bcm4377, &bcm4377->sco_ack_ring);
 	bcm4377_destroy_completion_ring(bcm4377, &bcm4377->hci_acl_event_ring);
 	bcm4377_destroy_completion_ring(bcm4377, &bcm4377->hci_acl_ack_ring);
+
+	pm_runtime_put_sync_suspend(&bcm4377->pdev->dev);
 
 	return 0;
 }
@@ -2273,6 +2291,14 @@ static void bcm4377_hci_unregister_dev(void *data)
 	hci_unregister_dev(data);
 }
 
+static void bcm4377_pm_runtime_disable(void *data)
+{
+	struct pci_dev *pdev = data;
+
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_forbid(&pdev->dev);
+}
+
 static int bcm4377_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	struct bcm4377_data *bcm4377;
@@ -2414,8 +2440,25 @@ static int bcm4377_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ret = hci_register_dev(hdev);
 	if (ret)
 		return ret;
-	return devm_add_action_or_reset(&pdev->dev, bcm4377_hci_unregister_dev,
-					hdev);
+	ret = devm_add_action_or_reset(&pdev->dev, bcm4377_hci_unregister_dev,
+				       hdev);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, bcm4377_pm_runtime_disable,
+				       pdev);
+	if (ret)
+		return ret;
+
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	/* pm_runtime_enable() already called by PCI bus core (pci/bus.c);
+	 * calling it again would cause "Unbalanced pm_runtime_enable!"
+	 * pm_runtime_irq_safe(&pdev->dev) is removed to avoid lock/timing issues in GNOME bluetooth. */
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
+
+	return 0;
 }
 
 static int bcm4377_suspend(struct device *dev)
@@ -2424,9 +2467,17 @@ static int bcm4377_suspend(struct device *dev)
 	struct bcm4377_data *bcm4377 = pci_get_drvdata(pdev);
 	int ret;
 
-	ret = hci_suspend_dev(bcm4377->hdev);
-	if (ret)
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
 		return ret;
+	}
+
+	ret = hci_suspend_dev(bcm4377->hdev);
+	if (ret) {
+		pm_runtime_put_sync(dev);
+		return ret;
+	}
 
 	iowrite32(BCM4377_BAR0_SLEEP_CONTROL_QUIESCE,
 		  bcm4377->bar0 + BCM4377_BAR0_SLEEP_CONTROL);
@@ -2438,14 +2489,49 @@ static int bcm4377_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm4377_data *bcm4377 = pci_get_drvdata(pdev);
+	int ret;
 
 	iowrite32(BCM4377_BAR0_SLEEP_CONTROL_UNQUIESCE,
 		  bcm4377->bar0 + BCM4377_BAR0_SLEEP_CONTROL);
 
-	return hci_resume_dev(bcm4377->hdev);
+	ret = hci_resume_dev(bcm4377->hdev);
+
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
+	return ret;
+}
+
+static int bcm4377_runtime_suspend(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm4377_data *bcm4377 = pci_get_drvdata(pdev);
+
+	iowrite32(BCM4377_BAR0_SLEEP_CONTROL_QUIESCE,
+		  bcm4377->bar0 + BCM4377_BAR0_SLEEP_CONTROL);
+
+	pci_save_state(pdev);
+	return 0;
+}
+
+static int bcm4377_runtime_resume(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm4377_data *bcm4377 = pci_get_drvdata(pdev);
+
+	iowrite32(BCM4377_BAR0_SLEEP_CONTROL_UNQUIESCE,
+		  bcm4377->bar0 + BCM4377_BAR0_SLEEP_CONTROL);
+
+	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(bcm4377_ops, bcm4377_suspend, bcm4377_resume);
+
+/* Re-define with runtime PM once callbacks are in place */
+static const struct dev_pm_ops bcm4377_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(bcm4377_suspend, bcm4377_resume)
+	SET_RUNTIME_PM_OPS(bcm4377_runtime_suspend, bcm4377_runtime_resume, NULL)
+};
 
 static const struct dmi_system_id bcm4377_dmi_board_table[] = {
 	{
@@ -2547,7 +2633,7 @@ static struct pci_driver bcm4377_pci_driver = {
 	.name = "hci_bcm4377",
 	.id_table = bcm4377_devid_table,
 	.probe = bcm4377_probe,
-	.driver.pm = &bcm4377_ops,
+	.driver.pm = &bcm4377_pm_ops,
 };
 module_pci_driver(bcm4377_pci_driver);
 
