@@ -28,6 +28,7 @@ struct macsmc_input {
 	struct input_dev *input;
 	struct notifier_block nb;
 	bool wakeup_mode;
+	int ignore_btn_count;
 };
 
 #define SMC_EV_BTN 0x7201
@@ -46,11 +47,21 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 	switch (button) {
 	case BTN_POWER:
 	case BTN_TOUCHID:
+		/*
+		 * The SMC fires spurious BTN_TOUCHID press+release events
+		 * within ~1ms of entering s2idle. Skip those to prevent
+		 * an immediate wake. Real presses after that work normally.
+		 */
+		if (smcin->wakeup_mode && smcin->ignore_btn_count > 0) {
+			smcin->ignore_btn_count--;
+			return;
+		}
+
 		pm_wakeup_dev_event(smcin->dev, 0, (smcin->wakeup_mode && state));
 		/*
 		 * Suppress KEY_POWER reports when suspended to avoid powering down
 		 * immediately after waking from s2idle.
-		 * */
+		 */
 		if (smcin->wakeup_mode)
 			return;
 
@@ -180,6 +191,7 @@ static int macsmc_input_pm_prepare(struct device *dev)
 	struct macsmc_input *smcin = dev_get_drvdata(dev);
 
 	smcin->wakeup_mode = true;
+	smcin->ignore_btn_count = 2;
 	return 0;
 }
 
@@ -188,6 +200,7 @@ static void macsmc_input_pm_complete(struct device *dev)
 	struct macsmc_input *smcin = dev_get_drvdata(dev);
 
 	smcin->wakeup_mode = false;
+	smcin->ignore_btn_count = 0;
 }
 
 static const struct dev_pm_ops macsmc_input_pm_ops = {
