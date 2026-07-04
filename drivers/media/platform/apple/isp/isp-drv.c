@@ -17,6 +17,7 @@
 #include "isp-cam.h"
 #include "isp-fw.h"
 #include "isp-iommu.h"
+#include "isp-regs.h"
 #include "isp-v4l2.h"
 
 static void apple_isp_detach_genpd(struct apple_isp *isp)
@@ -224,6 +225,8 @@ static const char * isp_fw2str(enum isp_firmware_version version)
 		return "12.4";
 	case ISP_FIRMWARE_V_13_5:
 		return "13.5";
+	case ISP_FIRMWARE_V_14_7:
+		return "14.7";
 	default:
 		return "unknown";
 	}
@@ -248,6 +251,8 @@ static enum isp_firmware_version isp_read_fw_version(struct device *dev,
 			return ISP_FIRMWARE_V_12_4;
 		else if (ver[0] == 13 && ver[1] == 5 && ver[2] == 0)
 			return ISP_FIRMWARE_V_13_5;
+		else if (ver[0] == 14 && ver[1] == 7 && ver[2] == 0)
+			return ISP_FIRMWARE_V_14_7;
 
 		dev_warn(dev, "unknown %s: %d.%d.%d\n", name, ver[0], ver[1], ver[2]);
 		break;
@@ -454,6 +459,7 @@ static const struct apple_isp_hw apple_isp_hw_t8103 = {
 	.bandwidth_base = 0x23bc3c000,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x4,
+	.mbox_irq_enable = ISP_MBOX_IRQ_ENABLE,
 
 	.scl1 = false,
 	.lpdp = false,
@@ -482,6 +488,7 @@ static const struct apple_isp_hw apple_isp_hw_t6000 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
+	.mbox_irq_enable = ISP_MBOX_IRQ_ENABLE,
 
 	.scl1 = false,
 	.lpdp = false,
@@ -504,6 +511,7 @@ static const struct apple_isp_hw apple_isp_hw_t8112 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
+	.mbox_irq_enable = ISP_MBOX_IRQ_ENABLE,
 
 	.scl1 = false,
 	.lpdp = false,
@@ -526,10 +534,27 @@ static const struct apple_isp_hw apple_isp_hw_t6020 = {
 	.bandwidth_base = 0x0,
 	.bandwidth_bit = 0x0,
 	.bandwidth_size = 0x8,
+	.mbox_irq_enable = ISP_MBOX_IRQ_ENABLE,
 
 	.scl1 = true,
 	.lpdp = true,
 	.meta_size = ISP_META_SIZE_T8112,
+};
+
+static const struct apple_isp_hw apple_isp_hw_t6031 = {
+	.gen = ISP_GEN_T6031,
+	.pmu_base = 0x292284008,
+
+	.dsid_count = 1,
+	.dsid_clr_base0 = 0x200f14000,
+	.dsid_clr_range0 = 0x1000,
+
+	.clock_scratch = 0x0,
+	.mbox_irq_enable = ISP_MBOX_IRQ_ENABLE_T6031,
+
+	.scl1 = true,
+	.lpdp = false,
+	.meta_size = ISP_META_SIZE_T6031,
 };
 
 static const struct of_device_id apple_isp_of_match[] = {
@@ -537,6 +562,7 @@ static const struct of_device_id apple_isp_of_match[] = {
 	{ .compatible = "apple,t8112-isp", .data = &apple_isp_hw_t8112 },
 	{ .compatible = "apple,t6000-isp", .data = &apple_isp_hw_t6000 },
 	{ .compatible = "apple,t6020-isp", .data = &apple_isp_hw_t6020 },
+	{ .compatible = "apple,t6031-isp", .data = &apple_isp_hw_t6031 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, apple_isp_of_match);

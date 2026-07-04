@@ -23,10 +23,11 @@
 #define ISP_COPROC_IRQ_MASK_4  0x1400a10
 #define ISP_COPROC_IRQ_MASK_5  0x1400a14
 
-#define ISP_MBOX_IRQ_INTERRUPT 0x00
-#define ISP_MBOX_IRQ_ENABLE    0x04
-#define ISP_MBOX2_IRQ_DOORBELL 0x00
-#define ISP_MBOX2_IRQ_ACK      0x0c
+#define ISP_MBOX_IRQ_INTERRUPT    0x00
+#define ISP_MBOX_IRQ_ENABLE       0x04
+#define ISP_MBOX_IRQ_ENABLE_T6031 0x08
+#define ISP_MBOX2_IRQ_DOORBELL    0x00
+#define ISP_MBOX2_IRQ_ACK         0x0c
 
 #define ISP_GPIO_0	       0x00
 #define ISP_GPIO_1	       0x04

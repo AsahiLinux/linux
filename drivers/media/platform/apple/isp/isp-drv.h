@@ -21,8 +21,9 @@
 #define ISP_MAX_CHANNELS      6
 #define ISP_IPC_MESSAGE_SIZE  64
 #define ISP_IPC_FLAG_ACK      0x1
-#define ISP_META_SIZE_T8103      0x4640
-#define ISP_META_SIZE_T8112      0x4840
+#define ISP_META_SIZE_T8103  0x4640
+#define ISP_META_SIZE_T8112  0x4840
+#define ISP_META_SIZE_T6031  0x4a40
 
 /* used to limit the user space buffers to the buffer_pool_config */
 #define ISP_MAX_BUFFERS 16
@@ -30,6 +31,7 @@
 enum isp_generation {
 	ISP_GEN_T8103,
 	ISP_GEN_T8112,
+	ISP_GEN_T6031,
 };
 
 enum isp_firmware_version {
@@ -37,6 +39,7 @@ enum isp_firmware_version {
 	ISP_FIRMWARE_V_12_3,
 	ISP_FIRMWARE_V_12_4,
 	ISP_FIRMWARE_V_13_5,
+	ISP_FIRMWARE_V_14_7,
 };
 
 struct isp_surf {
@@ -118,6 +121,7 @@ struct apple_isp_hw {
 	u8 bandwidth_bit;
 	u8 bandwidth_size;
 
+	u32 mbox_irq_enable;
 	u32 meta_size;
 	bool scl1;
 	bool lpdp;

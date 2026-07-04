@@ -189,7 +189,7 @@ static irqreturn_t apple_isp_isr_thread(int irq, void *dev)
 
 static void isp_disable_irq(struct apple_isp *isp)
 {
-	isp_mbox_write32(isp, ISP_MBOX_IRQ_ENABLE, 0x0);
+	isp_mbox_write32(isp, isp->hw->mbox_irq_enable, 0x0);
 	free_irq(isp->irq, isp);
 	isp_gpio_write32(isp, ISP_GPIO_1, 0xfeedbabe); /* real funny */
 }
@@ -207,7 +207,7 @@ static int isp_enable_irq(struct apple_isp *isp)
 
 	isp_dbg(isp, "about to enable interrupts...\n");
 
-	isp_mbox_write32(isp, ISP_MBOX_IRQ_ENABLE, 0xf);
+	isp_mbox_write32(isp, isp->hw->mbox_irq_enable, 0xf);
 
 	return 0;
 }
@@ -303,7 +303,7 @@ static int isp_firmware_boot_stage1(struct apple_isp *isp)
 	isp_gpio_write32(isp, ISP_GPIO_6, 0x0);
 	isp_gpio_write32(isp, ISP_GPIO_7, 0x0);
 
-	isp_mbox_write32(isp, ISP_MBOX_IRQ_ENABLE, 0x0);
+	isp_mbox_write32(isp, isp->hw->mbox_irq_enable, 0x0);
 
 	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x0);
 	isp_coproc_write32(isp, ISP_COPROC_CONTROL, 0x10);
@@ -672,13 +672,15 @@ static int isp_start_command_processor(struct apple_isp *isp)
 			return err;
 	}
 
-	err = isp_cmd_pmp_ctrl_set(
-		isp, isp->hw->clock_scratch, isp->hw->clock_base,
-		isp->hw->clock_bit, isp->hw->clock_size,
-		isp->hw->bandwidth_scratch, isp->hw->bandwidth_base,
-		isp->hw->bandwidth_bit, isp->hw->bandwidth_size);
-	if (err)
-		return err;
+	if (isp->hw->clock_scratch) {
+		err = isp_cmd_pmp_ctrl_set(
+			isp, isp->hw->clock_scratch, isp->hw->clock_base,
+			isp->hw->clock_bit, isp->hw->clock_size,
+			isp->hw->bandwidth_scratch, isp->hw->bandwidth_base,
+			isp->hw->bandwidth_bit, isp->hw->bandwidth_size);
+		if (err)
+			return err;
+	}
 
 	err = isp_cmd_start(isp, 0);
 	if (err)
