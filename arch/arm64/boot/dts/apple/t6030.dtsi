@@ -13,6 +13,8 @@
 #include <dt-bindings/pinctrl/apple.h>
 #include <dt-bindings/spmi/spmi.h>
 
+#define NO_ISP_YET 1
+
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
