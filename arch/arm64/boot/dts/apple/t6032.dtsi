@@ -380,6 +380,10 @@
 /delete-node/ &ps_disp_sys_die1;
 
 /* delete non-present ISP power-states */
+/delete-node/ &isp_dart0;
+/delete-node/ &isp_dart1;
+/delete-node/ &isp_dart2;
+/delete-node/ &isp;
 /delete-node/ &ps_dprx;
 /delete-node/ &ps_dprx_die1;
 /delete-node/ &ps_isp_be;

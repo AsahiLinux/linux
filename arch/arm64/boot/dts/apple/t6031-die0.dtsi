@@ -240,6 +240,59 @@
 		};
 	};
 
+	isp_dart0: iommu@38e4a8000 {
+		compatible = "apple,t6031-dart", "apple,t8110-dart";
+		reg = <0x3 0x8e4a8000 0x0 0x4000>;
+		#iommu-cells = <5>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 571 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_isp_sys>;
+
+		status = "disabled";
+	};
+
+	isp_dart1: iommu@38e4b4000 {
+		compatible = "apple,t6031-dart", "apple,t8110-dart";
+		reg = <0x3 0x8e4b4000 0x0 0x4000>;
+		#iommu-cells = <5>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 571 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_isp_sys>;
+
+		status = "disabled";
+	};
+
+	isp_dart2: iommu@38e4bc000 {
+		compatible = "apple,t6031-dart", "apple,t8110-dart";
+		reg = <0x3 0x8e4bc000 0x0 0x4000>;
+		#iommu-cells = <5>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 571 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_isp_sys>;
+
+		status = "disabled";
+	};
+
+	isp: isp@38c000000 {
+		compatible = "apple,t6031-isp";
+		iommus = <&isp_dart0 0 0x100 0x0 0x1 0x0>,
+			 <&isp_dart1 0 0x100 0x0 0x1 0x0>,
+			 <&isp_dart2 0 0x100 0x0 0x1 0x0>;
+		reg-names = "coproc", "mbox", "gpio", "mbox2";
+		reg = <0x3 0x8c000000 0x0 0x2000000>,
+			<0x3 0x8e4c4000 0x0 0x100>,
+			<0x3 0x8e4c41d0 0x0 0x100>,
+			<0x3 0x8e4c4458 0x0 0x100>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 0 566 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_isp_cpu>, <&ps_isp_fe>,
+			<&ps_dprx>, <&ps_isp_secure>, <&ps_isp_be>,
+			<&ps_isp_clr>;
+		apple,dart-vm-size = <0x0 0xa0000000>;
+
+		status = "disabled";
+	};
+
 	i2c0: i2c@391010000 {
 		compatible = "apple,t6031-i2c", "apple,t8103-i2c";
 		reg = <0x3 0x91010000 0x0 0x4000>;
