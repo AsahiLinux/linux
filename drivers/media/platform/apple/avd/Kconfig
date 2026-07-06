@@ -10,3 +10,4 @@ config VIDEO_APPLE_AVD
 	select V4L2_MEM2MEM_DEV
 	select VIDEOBUF2_DMA_CONTIG
 	select V4L2_H264
+	select V4L2_VP9

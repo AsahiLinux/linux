@@ -63,6 +63,13 @@ struct avd_ctrls {
 	unsigned int num_ctrls;
 };
 
+struct avd_vp9_decoded_buffer_info {
+	/* Info needed when the decoded frame serves as a reference frame. */
+	unsigned short width;
+	unsigned short height;
+	unsigned int bit_depth : 4;
+};
+
 struct avd_rvra {
 	u32 offsets[4]; /* sizes or offsets */
 	u32 size;
@@ -74,6 +81,11 @@ struct avd_decoded_buffer {
 	struct v4l2_m2m_buffer base;
 
 	struct avd_rvra rvra;
+
+	union {
+		struct avd_vp9_decoded_buffer_info vp9;
+	};
+
 };
 
 static inline struct avd_decoded_buffer *
@@ -85,6 +97,7 @@ vb2_to_avd_decoded_buf(struct vb2_buffer *buf)
 struct avd_coded_fmt_ops {
 	void (*adjust_decoded_fmt)(struct avd_ctx *ctx,
 			struct v4l2_pix_format_mplane *pix_mp);
+	void (*submit)(struct avd_ctx *ctx);
 	int (*start)(struct avd_ctx *ctx);
 	void (*stop)(struct avd_ctx *ctx);
 	int (*run)(struct avd_ctx *ctx);
