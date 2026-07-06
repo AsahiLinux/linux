@@ -179,13 +179,9 @@ static irqreturn_t avd_irq_handler(int irq, void *data)
 	} else if (status & 0x100) {
 		free_vp_slot(avd, ctx);
 		/* a vp is done, kick the pp and hope for the best */
-		/* clang-format off */
-		writel_relaxed(0x2b000000
-				| (avd->variant->revision == 3 ? 0x100 : 0x200)
-				| (ctx->fifo_idx << 4)
-				| avd->variant->fifo_slots,
-				avd->ctrl + avd->variant->submit_offset);
-		/* clang-format done */
+		if(ctx->coded_fmt_desc->ops->submit)
+			ctx->coded_fmt_desc->ops->submit(ctx);
+
 		goto done;
 	} else {
 		dev_err(avd->dev, "H%d %02d error", status, ctx->fifo_idx);
@@ -253,7 +249,7 @@ static int avd_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	dst_vq->drv_priv = ctx;
 	dst_vq->ops = &avd_queue_ops;
-	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+	dst_vq->buf_struct_size = sizeof(struct avd_decoded_buffer);
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &ctx->dev->vdev_lock;
 	dst_vq->dev = ctx->dev->v4l2_dev.dev;
@@ -661,7 +657,6 @@ err_disable_runtime_pm:
 }
 
 const struct avd_coded_fmt_ops avd_hevc_fmt_ops;
-const struct avd_coded_fmt_ops avd_vp9_fmt_ops;
 
 static void avd_remove(struct platform_device *pdev)
 {

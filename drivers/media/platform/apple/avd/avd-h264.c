@@ -764,11 +764,21 @@ static int avd_h264_try_ctrl(struct avd_ctx *ctx, struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static void avd_h264_submit(struct avd_ctx *ctx)
+{
+	writel_relaxed(0x2b000000
+			| (ctx->dev->variant->revision == 3 ? 0x100 : 0x200)
+			| (ctx->fifo_idx << 4)
+			| ctx->dev->variant->fifo_slots,
+			ctx->dev->ctrl + ctx->dev->variant->submit_offset);
+}
+
 const struct avd_coded_fmt_ops avd_h264_fmt_ops = {
 	.adjust_decoded_fmt = avd_h264_adjust_decoded_fmt,
 	.start = avd_h264_start,
 	.stop = avd_h264_stop,
 	.run = avd_h264_run,
+	.submit = avd_h264_submit,
 	.try_ctrl = avd_h264_try_ctrl,
 	.get_image_fmt = avd_h264_get_image_fmt,
 };

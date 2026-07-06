@@ -297,7 +297,7 @@ static const struct avd_ctrl_desc avd_vp9_ctrl_descs[] = {
 	{
 		.cfg.id = V4L2_CID_MPEG_VIDEO_VP9_PROFILE,
 		.cfg.min = V4L2_MPEG_VIDEO_VP9_PROFILE_0,
-		.cfg.max = V4L2_MPEG_VIDEO_VP9_PROFILE_0,
+		.cfg.max = V4L2_MPEG_VIDEO_VP9_PROFILE_3,
 		.cfg.def = V4L2_MPEG_VIDEO_VP9_PROFILE_0,
 	},
 };
@@ -312,6 +312,22 @@ static const struct avd_decoded_fmt_desc avd_vp9_decoded_fmts[] = {
 		.fourcc = V4L2_PIX_FMT_NV12,
 		.image_fmt = AVD_IMG_FMT_420_8BIT,
 	},
+	/*
+	 * TODO: it looks like gstreamer uses h264 to decide what format to use
+	 * ffmpeg handles it fine
+	{
+		.fourcc = V4L2_PIX_FMT_P010,
+		.image_fmt = AVD_IMG_FMT_420_10BIT,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV16,
+		.image_fmt = AVD_IMG_FMT_422_8BIT,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_P010,
+		.image_fmt = AVD_IMG_FMT_422_10BIT,
+	},
+	*/
 };
 
 static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
@@ -354,7 +370,7 @@ static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
 		.frmsize = {
 			.min_width = 64,
 			.max_width = 4096,
-			.step_width = 16,
+			.step_width = 64,
 			.min_height = 64,
 			.max_height = 4096,
 			.step_height = 16,
@@ -369,7 +385,7 @@ static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
 
 static bool avd_is_capable(struct avd_ctx *ctx, unsigned int capability)
 {
-	return capability == AVD_CAPABILITY_H264;
+	return capability & (AVD_CAPABILITY_H264 | AVD_CAPABILITY_VP9);
 	/* return (ctx->dev->variant->capabilities & capability) == capability; */
 }
 
@@ -861,11 +877,15 @@ void avd_job_finish(struct avd_ctx *ctx, enum vb2_buffer_state result)
 void avd_run_preamble(struct avd_ctx *ctx, struct avd_run *run)
 {
 	struct media_request *src_req;
+	struct avd_decoded_buffer *dst;
 
 	memset(run, 0, sizeof(*run));
 
 	run->bufs.src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	run->bufs.dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+
+	dst = vb2_to_avd_decoded_buf(&run->bufs.dst->vb2_buf);
+	memcpy(&dst->rvra, &ctx->rvra, sizeof(ctx->rvra));
 
 	/* Apply request(s) controls if needed. */
 	src_req = run->bufs.src->vb2_buf.req_obj.req;
