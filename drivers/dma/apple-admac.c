@@ -39,10 +39,14 @@
 
 #define FLAG_DESC_NOTIFY	BIT(16)
 
+#define T603X_UNK_28_VAL	0x200000
+
 #define REG_TX_START		0x0000
 #define REG_TX_STOP		0x0004
 #define REG_RX_START		0x0008
 #define REG_RX_STOP		0x000c
+#define REG_UNK_28		0x0028
+#define REG_UNK_2C		0x002c
 #define REG_IMPRINT		0x0090
 #define REG_TX_SRAM_SIZE	0x0094
 #define REG_RX_SRAM_SIZE	0x0098
@@ -127,6 +131,7 @@ struct admac_data {
 	struct mutex cache_alloc_lock;
 	struct admac_sram txcache, rxcache;
 
+	bool set_unk28;
 	int irq;
 	int irq_index;
 	int nchannels;
@@ -145,6 +150,10 @@ struct admac_tx {
 	size_t reclaimed_pos;
 
 	struct list_head node;
+};
+
+struct admac_hw {
+	bool set_unk28;
 };
 
 static int admac_alloc_sram_carveout(struct admac_data *ad,
@@ -747,6 +756,11 @@ static int admac_device_config(struct dma_chan *chan,
 	u32 bus_width = readl_relaxed(ad->base + REG_BUS_WIDTH(adchan->no)) &
 		~(BUS_WIDTH_WORD_SIZE | BUS_WIDTH_FRAME_SIZE);
 
+	if (ad->set_unk28) {
+		writel_relaxed(T603X_UNK_28_VAL, ad->base + REG_UNK_28);
+		writel_relaxed(T603X_UNK_28_VAL, ad->base + REG_UNK_2C);
+	}
+
 	switch (is_tx ? config->dst_addr_width : config->src_addr_width) {
 	case DMA_SLAVE_BUSWIDTH_1_BYTE:
 		wordsize = 1;
@@ -805,6 +819,7 @@ static int admac_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct admac_data *ad;
 	struct dma_device *dma;
+	const struct admac_hw *hw;
 	int nchannels;
 	int err, irq, i;
 
@@ -813,6 +828,9 @@ static int admac_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "missing or invalid dma-channels property\n");
 		return -EINVAL;
 	}
+	hw = of_device_get_match_data(&pdev->dev);
+	if (!hw)
+		return -EINVAL;
 
 	ad = devm_kzalloc(&pdev->dev, struct_size(ad, channels, nchannels), GFP_KERNEL);
 	if (!ad)
@@ -821,6 +839,7 @@ static int admac_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ad);
 	ad->dev = &pdev->dev;
 	ad->nchannels = nchannels;
+	ad->set_unk28 = hw->set_unk28;
 	mutex_init(&ad->cache_alloc_lock);
 
 	/*
@@ -935,9 +954,18 @@ static void admac_remove(struct platform_device *pdev)
 	reset_control_rearm(ad->rstc);
 }
 
+static const struct admac_hw admac_t8013_hw = {
+	.set_unk28 = false,
+};
+
+static const struct admac_hw admac_t8122_hw = {
+	.set_unk28 = true,
+};
+
 static const struct of_device_id admac_of_match[] = {
-	{ .compatible = "apple,t8103-admac", },
-	{ .compatible = "apple,admac", },
+	{ .compatible = "apple,t8122-admac", .data = &admac_t8122_hw },
+	{ .compatible = "apple,t8103-admac", .data = &admac_t8013_hw },
+	{ .compatible = "apple,admac", .data = &admac_t8013_hw },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, admac_of_match);
