@@ -39,6 +39,27 @@
 	brcm,board-type = "apple,dnieper";
 };
 
+&aop_mbox {
+	status = "okay";
+};
+
+&aop_dart {
+	status = "okay";
+};
+
+&aop_admac {
+	status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
+&aop_audio {
+	apple,chassis-name = "J613";
+	apple,machine-kind = "MacBook Air";
+};
+
 &i2c1 {
 	speaker_left_woof: codec@38 {
 		compatible = "ti,sn012776", "ti,tas2764";
