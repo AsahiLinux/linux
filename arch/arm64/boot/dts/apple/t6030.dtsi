@@ -958,6 +958,68 @@
 			apple,npins = <18>;
 		};
 
+		aop_mbox: mbox@374408000 {
+			compatible = "apple,t6030-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x3 0x74408000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 419 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 420 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 421 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 422 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			status = "disabled";
+		};
+
+		aop_dart: iommu@374818000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x3 0x74818000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 439 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		aop_admac: dma-controller@374980000 {
+			compatible = "apple,t6030-admac", "apple,t8122-admac";
+			reg = <0x3 0x74980000 0x0 0x34000>;
+			#dma-cells = <1>;
+			dma-channels = <16>;
+			interrupts-extended = <0>,
+					      <0>,
+					      <&aic AIC_IRQ 460 IRQ_TYPE_LEVEL_HIGH>,
+					      <0>;
+			iommus = <&aop_dart 10>;
+			status = "disabled";
+		};
+
+		aop: aop@374c00000 {
+			compatible = "apple,t6030-aop", "apple,t6020-aop";
+			reg = <0x3 0x74c00000 0x0 0x1e0000>,
+			      <0x3 0x74400000 0x0 0x6c000>;
+			mboxes = <&aop_mbox>;
+			mbox-names = "mbox";
+			iommus = <&aop_dart 0>;
+
+			status = "disabled";
+
+			aop_audio: audio {
+				compatible = "apple,t6030-aop-audio";
+				dmas = <&aop_admac 1>;
+				dma-names = "dma";
+			};
+
+			aop_als: als {
+				compatible = "apple,t6030-aop-als", "apple,t6020-aop-als", "apple,aop-als";
+				// intentionally empty
+			};
+
+			las {
+				compatible = "apple,t6030-aop-las", "apple,t6020-aop-las", "apple,aop-las";
+			};
+		};
+
 		pinctrl_aop: pinctrl@374824000 {
 			compatible = "apple,t6030-pinctrl", "apple,t8103-pinctrl";
 			reg = <0x3 0x74824000 0x0 0x4000>;
