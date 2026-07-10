@@ -19,6 +19,7 @@
 #include "iomfb_v12_3.h"
 #include "iomfb_v13_3.h"
 #include "epic/dpavservep.h"
+#include "version_utils.h"
 
 #define DCP_MAX_PLANES 4
 
@@ -26,12 +27,6 @@ struct apple_dcp;
 struct apple_dcp_afkep;
 
 struct dcpav_service_epic;
-
-enum dcp_firmware_version {
-	DCP_FIRMWARE_UNKNOWN,
-	DCP_FIRMWARE_V_12_3,
-	DCP_FIRMWARE_V_13_5,
-};
 
 enum {
 	SYSTEM_ENDPOINT = 0x20,
