@@ -12,4 +12,10 @@
 #define DCP_FW_NAME(name) CONCATENATE(name, DCP_FW_SUFFIX)
 #define DCP_FW_VERSION(x, y, z) ( ((x) << 16) | ((y) << 8) | (z) )
 
+enum dcp_firmware_version {
+	DCP_FIRMWARE_UNKNOWN,
+	DCP_FIRMWARE_V_12_3,
+	DCP_FIRMWARE_V_13_5,
+};
+
 #endif /*__APPLE_VERSION_UTILS_H__*/
