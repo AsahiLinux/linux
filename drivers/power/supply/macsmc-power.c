@@ -87,6 +87,7 @@ struct macsmc_power {
 	bool has_ch0c; /* Inhibit charge (Older firmware) */
 	bool has_chte; /* Inhibit charge (Modern firmware) */
 	bool bcf0_1byte; /* Battery critical key is 1 byte (Modern firmware) */
+	bool b0rm_native_endian; /* Remaining capacity key uses native byte order */
 
 	u8 num_cells;
 	int nominal_voltage_mv;
@@ -163,6 +164,38 @@ static int apple_smc_read_f32_scaled(struct apple_smc *smc, smc_key key,
 			*p = val;
 	}
 
+	return 0;
+}
+
+static void macsmc_battery_detect_b0rm_endianness(struct macsmc_power *power)
+{
+	s16 native, swapped;
+	int reference;
+	u16 raw;
+
+	if (apple_smc_read_u16(power->smc, SMC_KEY(B0RM), &raw) ||
+	    apple_smc_read_f32_scaled(power->smc, SMC_KEY(SBAR), &reference, 1))
+		return;
+
+	native = raw;
+	swapped = swab16(raw);
+	if (abs(native - reference) < abs(swapped - reference))
+		power->b0rm_native_endian = true;
+
+	dev_info(power->dev, "B0RM uses %s byte order\n",
+		 power->b0rm_native_endian ? "native" : "legacy");
+}
+
+static int macsmc_battery_read_b0rm(struct macsmc_power *power, s16 *val)
+{
+	u16 raw;
+	int ret;
+
+	ret = apple_smc_read_u16(power->smc, SMC_KEY(B0RM), &raw);
+	if (ret)
+		return ret;
+
+	*val = power->b0rm_native_endian ? raw : swab16(raw);
 	return 0;
 }
 
@@ -509,9 +542,8 @@ static int macsmc_battery_get_property(struct power_supply *psy,
 		val->intval = vu16 * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		ret = apple_smc_read_u16(power->smc, SMC_KEY(B0RM), &vu16);
-		/* B0RM is Big Endian, likely pass through from TI gas gauge */
-		val->intval = (s16)swab16(vu16) * 1000;
+		ret = macsmc_battery_read_b0rm(power, &vs16);
+		val->intval = vs16 * 1000;
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
 		ret = apple_smc_read_u16(power->smc, SMC_KEY(B0DC), &vu16);
@@ -522,9 +554,8 @@ static int macsmc_battery_get_property(struct power_supply *psy,
 		val->intval = vu16 * power->nominal_voltage_mv;
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_NOW:
-		ret = apple_smc_read_u16(power->smc, SMC_KEY(B0RM), &vu16);
-		/* B0RM is Big Endian, likely pass through from TI gas gauge */
-		val->intval = (s16)swab16(vu16) * power->nominal_voltage_mv;
+		ret = macsmc_battery_read_b0rm(power, &vs16);
+		val->intval = vs16 * power->nominal_voltage_mv;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		ret = apple_smc_read_u16(power->smc, SMC_KEY(B0AT), &vu16);
@@ -870,6 +901,8 @@ static int macsmc_power_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unexpected BCF0 key size %d\n", info.size);
 			return -EIO;
 		}
+
+		macsmc_battery_detect_b0rm_endianness(power);
 
 		/* Reset "Optimised Battery Charging" flags to default state */
 		if (power->has_chte)
