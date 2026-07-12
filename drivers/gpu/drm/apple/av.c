@@ -393,6 +393,7 @@ int avep_init(struct apple_dcp *dcp)
 		audiosrv_data->cmds = dcp_av_audio_cmds_v12_3;
 		break;
 	case DCP_FIRMWARE_V_13_5:
+	case DCP_FIRMWARE_V_14_7:
 		audiosrv_data->cmds = dcp_av_audio_cmds_v13_5;
 		break;
 	default:

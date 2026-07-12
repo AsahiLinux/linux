@@ -78,7 +78,8 @@ struct dcp_packet_header {
 #define DCP_PACKET_ALIGNMENT (0x40)
 
 enum iomfb_property_id {
-    IOMFB_PROPERTY_NITS = 15, // divide by Brightness_Scale
+    IOMFB_PROPERTY_NITS_V13_3 = 15, // divide by Brightness_Scale
+    IOMFB_PROPERTY_NITS_V14_7 = 19,
 };
 
 #define IOMFB_BRIGHTNESS_MIN 0x10000000
