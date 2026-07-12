@@ -30,7 +30,9 @@ struct DCP_FW_NAME(dcp_swap) {
 
 	u64 flags1;
 	u64 flags2;
-
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
+	u8 unk_v14_7[0x48];
+#endif
 	u32 swap_id;
 
 	u32 surf_ids[SWAP_SURFACES];
@@ -42,22 +44,39 @@ struct DCP_FW_NAME(dcp_swap) {
 	u32 swap_completed;
 
 	u32 bg_color;
-	u8 unk_110[0x1b8];
+	u8 unk_110[0x30];
+	u32 active_region_en[SWAP_SURFACES];
+	struct dcp_rect active_regions[SWAP_SURFACES];
+	u8 unk_190[0x138];
 	u32 unk_2c8;
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7, 0)
 	u8 unk_2cc[0x14];
+#else
+	u8 unk_2cc[0x40];
+#endif
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7, 0)
 	u32 unk_2e0;
+#else
+	u32 bl_update;
+#endif
 #if DCP_FW_VER < DCP_FW_VERSION(13, 2, 0)
 	u16 unk_2e2;
 #else
 	u8 unk_2e2[3];
 #endif
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7 ,0)
 	u64 bl_unk;
+#else
+	u32 bl_unk;
+#endif
 	u32 bl_value; // min value is 0x10000000
 	u8  bl_power; // constant 0x40 for on
 	u8 unk_2f3[0x2d];
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
-	u8 unk_320[0x13f];
-	u64 unk_1;
+	u8 unk_320[0x147];
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
+	u8 unk_14_7_2[0x30];
+#endif
 #endif
 } __packed;
 
@@ -103,6 +122,9 @@ struct DCP_FW_NAME(dcp_swap_submit_req) {
 	u8 unkU32out_null;
 #endif
 	u8 padding[1];
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
+	u8 padding_14_7[0x234];
+#endif
 } __packed;
 
 struct DCP_FW_NAME(dcp_swap_submit_resp) {

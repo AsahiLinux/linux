@@ -200,7 +200,8 @@ static bool iomfbep_cb_match_backlight_service(struct apple_dcp *dcp, int tag, v
 static void iomfb_cb_pr_publish(struct apple_dcp *dcp, struct iomfb_property *prop)
 {
 	switch (prop->id) {
-	case IOMFB_PROPERTY_NITS:
+	case IOMFB_PROPERTY_NITS_V13_3:
+	case IOMFB_PROPERTY_NITS_V14_7:
 	{
 		if (dcp_has_panel(dcp)) {
 			dcp->brightness.nits = prop->value / dcp->brightness.scale;
@@ -909,7 +910,11 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 	 * brightness.
 	 */
 	if (dcp_has_panel(dcp)) {
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7, 0)
 		swap->swap.bl_unk = 1;
+#else
+		swap->swap.bl_update = 1;
+#endif
 		swap->swap.bl_value = 0;
 		swap->swap.bl_power = 0;
 	}
@@ -1394,7 +1399,11 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 
 	/* update brightness if changed */
 	if (dcp_has_panel(dcp) && dcp->brightness.update) {
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
+		req->swap.bl_update = 1;
+#else
 		req->swap.bl_unk = 1;
+#endif
 		req->swap.bl_value = dcp->brightness.dac;
 		req->swap.bl_power = 0x40;
 		dcp->brightness.update = false;

@@ -10,6 +10,7 @@ appledrm-y += connector.o
 appledrm-y += ibootep.o
 appledrm-y += iomfb_v12_3.o
 appledrm-y += iomfb_v13_3.o
+appledrm-y += iomfb_v14_7.o
 appledrm-y += epic/dpavservep.o
 appledrm-y += plane.o
 
