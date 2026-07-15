@@ -225,8 +225,8 @@ dptxport_call_set_drive_settings(struct apple_epic_service *service,
 		 request->unk1, request->unk2, request->unk3, request->unk4,
 		 request->unk5, request->unk6, request->unk7);
 
-	dptx->drive_settings[0] = cpu_to_le32(reply->unk5);
-	dptx->drive_settings[1] = cpu_to_le32(reply->unk7);
+	dptx->drive_settings[0] = le32_to_cpu(reply->unk5);
+	dptx->drive_settings[1] = le32_to_cpu(reply->unk7);
 
 	return 0;
 }
