@@ -46,6 +46,9 @@ void fill_rvra(struct avd_rvra *rvra, enum avd_image_fmt image_fmt,
 	rvra->size = round_up(size0 + size1 + size2, 0x4000);
 	rvra->size +=
 		(width < 1000 ? 0 : width < 1800 ? 2 : width < 3800 ? 3 : 9) * 0x4000;
+	/* TODO */
+	rvra->size +=
+		(height < 1000 ? 0 : height < 1800 ? 2 : height < 3800 ? 3 : 9) * 0x4000;
 
 	rvra->offsets[1] = 0;
 	rvra->offsets[0] = size0;
@@ -445,6 +448,8 @@ static const struct avd_variant avd_t8103_variant = {
 	.quirks = AVD_QUIRK_LSR | AVD_QUIRK_NO_PIPE_STATE,
 	.vp_slot_offset = 0x4004,
 	.submit_offset = 0x4014,
+	.submit_queue_max_offset = 0x4018,
+	.submit_queue_status_offset = 0x402c, /* (vp slots + 1) * 4 */
 };
 
 static const struct avd_variant avd_t6000_variant = {
@@ -463,6 +468,8 @@ static const struct avd_variant avd_t6000_variant = {
 	.quirks = AVD_QUIRK_LSR | AVD_QUIRK_NO_PIPE_STATE,
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x30,
+	.submit_queue_max_offset = 0x34,
+	.submit_queue_status_offset = 0x5c,
 };
 
 static const struct avd_variant avd_t8112_variant = {
@@ -481,6 +488,8 @@ static const struct avd_variant avd_t8112_variant = {
 	.quirks = AVD_QUIRK_LSR,
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x30,
+	.submit_queue_max_offset = 0x34,
+	.submit_queue_status_offset = 0x5c,
 };
 
 static const struct avd_variant avd_t6020_variant = {
@@ -498,6 +507,8 @@ static const struct avd_variant avd_t6020_variant = {
 	.revision = 4,
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x30,
+	.submit_queue_max_offset = 0x34,
+	.submit_queue_status_offset = 0x5c,
 };
 
 static const struct avd_variant avd_t8122_variant = {
@@ -517,6 +528,8 @@ static const struct avd_variant avd_t8122_variant = {
 	.revision = 4,
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x40,
+	.submit_queue_max_offset = 0x44,
+	.submit_queue_status_offset = 0x78, /* v4 and never have fixed offsets */
 };
 
 static const struct avd_variant avd_t8140_variant = {
@@ -537,6 +550,8 @@ static const struct avd_variant avd_t8140_variant = {
 	.revision = 4,
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x40,
+	.submit_queue_max_offset = 0x44,
+	.submit_queue_status_offset = 0x78,
 };
 
 static const struct avd_variant avd_t8132_variant = {
@@ -556,6 +571,8 @@ static const struct avd_variant avd_t8132_variant = {
 	.revision = 4,
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x40,
+	.submit_queue_max_offset = 0x44,
+	.submit_queue_status_offset = 0x78,
 };
 
 /* can also be derived from a version register */
@@ -674,8 +691,6 @@ err_disable_runtime_pm:
 	pm_runtime_disable(&pdev->dev);
 	return ret;
 }
-
-const struct avd_coded_fmt_ops avd_hevc_fmt_ops;
 
 static void avd_remove(struct platform_device *pdev)
 {
