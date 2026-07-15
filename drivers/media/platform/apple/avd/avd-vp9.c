@@ -154,24 +154,6 @@ struct avd_vp9_ctx {
 	u8 submit_num;
 };
 
-static struct avd_decoded_buffer *
-get_ref_buf(struct avd_ctx *ctx, struct vb2_v4l2_buffer *dst, u64 timestamp)
-{
-	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
-	struct vb2_queue *cap_q = &m2m_ctx->cap_q_ctx.q;
-	struct vb2_buffer *buf;
-
-	/*
-	 * If a ref is unused or invalid, address of current destination
-	 * buffer is returned.
-	 */
-	buf = vb2_find_buffer(cap_q, timestamp);
-	if (!buf)
-		buf = &dst->vb2_buf;
-
-	return vb2_to_avd_decoded_buf(buf);
-}
-
 static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
@@ -181,9 +163,9 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
-	ref_buf[0] = get_ref_buf(ctx, &dst->base.vb, frame->last_frame_ts);
-	ref_buf[1] = get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
-	ref_buf[2] = get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
+	ref_buf[0] = avd_get_ref_buf(ctx, &dst->base.vb, frame->last_frame_ts);
+	ref_buf[1] = avd_get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
+	ref_buf[2] = avd_get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
 
 	push(INST_DMA3, "cm3_dma_config_7");
 	push(INST_DMA3, "cm3_dma_config_8");
