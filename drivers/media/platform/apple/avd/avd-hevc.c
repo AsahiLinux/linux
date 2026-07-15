@@ -310,7 +310,9 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	push_rvra(avd, ctx, run->addresses.rvra, ctx->rvra.offsets);
 
 	push(0, "cm3_mark_end_section");
-	push(0, "cm3_mark_end_section");
+
+	if (avd->variant->revision != 3)
+		push(0, "cm3_mark_end_section");
 
 	bytesperline = ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
