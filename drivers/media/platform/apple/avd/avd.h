@@ -93,6 +93,8 @@ vb2_to_avd_decoded_buf(struct vb2_buffer *buf)
 {
 	return container_of(buf, struct avd_decoded_buffer, base.vb.vb2_buf);
 }
+struct avd_decoded_buffer *
+get_ref_buf(struct avd_ctx *ctx, struct vb2_v4l2_buffer *dst, u64 timestamp);
 
 struct avd_coded_fmt_ops {
 	void (*adjust_decoded_fmt)(struct avd_ctx *ctx,

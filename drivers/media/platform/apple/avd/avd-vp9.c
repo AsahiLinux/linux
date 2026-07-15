@@ -154,24 +154,6 @@ struct avd_vp9_ctx {
 	u8 submit_num;
 };
 
-static struct avd_decoded_buffer *
-get_ref_buf(struct avd_ctx *ctx, struct vb2_v4l2_buffer *dst, u64 timestamp)
-{
-	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
-	struct vb2_queue *cap_q = &m2m_ctx->cap_q_ctx.q;
-	struct vb2_buffer *buf;
-
-	/*
-	 * If a ref is unused or invalid, address of current destination
-	 * buffer is returned.
-	 */
-	buf = vb2_find_buffer(cap_q, timestamp);
-	if (!buf)
-		buf = &dst->vb2_buf;
-
-	return vb2_to_avd_decoded_buf(buf);
-}
-
 static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
