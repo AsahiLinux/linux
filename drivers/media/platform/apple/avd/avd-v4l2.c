@@ -173,15 +173,21 @@ static const struct avd_ctrl_desc avd_hevc_ctrl_descs[] = {
 	},
 	{
 		.cfg.id = V4L2_CID_STATELESS_HEVC_DECODE_MODE,
-		.cfg.min = V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED,
-		.cfg.max = V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED,
-		.cfg.def = V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED,
+		.cfg.min = V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED,
+		.cfg.max = V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED,
+		.cfg.def = V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED,
 	},
 	{
 		.cfg.id = V4L2_CID_STATELESS_HEVC_START_CODE,
 		.cfg.min = V4L2_STATELESS_HEVC_START_CODE_NONE,
 		.cfg.def = V4L2_STATELESS_HEVC_START_CODE_NONE,
 		.cfg.max = V4L2_STATELESS_HEVC_START_CODE_NONE,
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_ENTRY_POINT_OFFSETS,
+		.cfg.dims = { 256 },
+		.cfg.max = 0xffffffff,
+		.cfg.step = 1,
 	},
 	{
 		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
@@ -207,8 +213,17 @@ static const struct avd_decoded_fmt_desc avd_hevc_decoded_fmts[] = {
 		.image_fmt = AVD_IMG_FMT_420_8BIT,
 	},
 	{
-		.fourcc = V4L2_PIX_FMT_NV15,
+		.fourcc = V4L2_PIX_FMT_P010,
 		.image_fmt = AVD_IMG_FMT_420_10BIT,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV16,
+		.image_fmt = AVD_IMG_FMT_422_8BIT,
+	},
+	{
+		/* TODO: missing P210 */
+		.fourcc = V4L2_PIX_FMT_P010,
+		.image_fmt = AVD_IMG_FMT_422_10BIT,
 	},
 };
 
@@ -335,10 +350,10 @@ static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
 		.fourcc = V4L2_PIX_FMT_HEVC_SLICE,
 		.frmsize = {
 			.min_width = 64,
-			.max_width = 4096,
-			.step_width = 16,
+			.max_width = 16384,
+			.step_width = 64,
 			.min_height = 64,
-			.max_height = 4096,
+			.max_height = 16384,
 			.step_height = 16,
 		},
 		.ctrls = &avd_hevc_ctrls,
@@ -385,8 +400,7 @@ static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
 
 static bool avd_is_capable(struct avd_ctx *ctx, unsigned int capability)
 {
-	return capability & (AVD_CAPABILITY_H264 | AVD_CAPABILITY_VP9);
-	/* return (ctx->dev->variant->capabilities & capability) == capability; */
+	return (ctx->dev->variant->capabilities & capability) == capability;
 }
 
 static const struct avd_coded_fmt_desc *

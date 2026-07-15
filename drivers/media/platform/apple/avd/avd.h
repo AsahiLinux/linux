@@ -70,6 +70,12 @@ struct avd_vp9_decoded_buffer_info {
 	unsigned int bit_depth : 4;
 };
 
+struct avd_hevc_decoded_buffer_info {
+	/* Info needed when the decoded frame serves as a reference frame. */
+	bool is_intra;
+};
+
+
 struct avd_rvra {
 	u32 offsets[4]; /* sizes or offsets */
 	u32 size;
@@ -84,6 +90,7 @@ struct avd_decoded_buffer {
 
 	union {
 		struct avd_vp9_decoded_buffer_info vp9;
+		struct avd_hevc_decoded_buffer_info hevc;
 	};
 
 };
@@ -146,6 +153,8 @@ struct avd_variant {
 	/* just for convenience */
 	u32 vp_slot_offset;
 	u32 submit_offset;
+	u32 submit_queue_max_offset;
+	u32 submit_queue_status_offset;
 	unsigned int quirks;
 };
 
