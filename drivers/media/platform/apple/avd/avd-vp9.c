@@ -340,16 +340,16 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	if (!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
 		pusha(vp9_ctx->bufs.pipe_state.addr, "pipe_state", 0);
 
-	pusha(vp9_ctx->bufs.color[0].addr, "hdr_e8_sps0_tile_addr_lsb8", i);
-	pusha(vp9_ctx->bufs.color[1].addr, "hdr_e8_sps0_tile_addr_lsb8", i);
+	pusha(vp9_ctx->bufs.color[0].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
+	pusha(vp9_ctx->bufs.color[1].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
 
-	pusha((u64)0, "hdr_e8_sps0_tile_addr_lsb8", i);
+	pusha((u64)0, "hdr_e8_sps0_tile_addr_lsb8", 0);
 
 	/* not fatal */
-	pusha(vp9_ctx->bufs.tiles[0].addr, "hdr_e8_sps0_tile_addr_lsb8", i);
-	pusha(vp9_ctx->bufs.tiles[1].addr, "hdr_e8_sps0_tile_addr_lsb8", i);
+	pusha(vp9_ctx->bufs.tiles[0].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
+	pusha(vp9_ctx->bufs.tiles[1].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
 	/* fatal if missing / wrong */
-	pusha(vp9_ctx->bufs.tiles[2].addr, "hdr_e8_sps0_tile_addr_lsb8", i);
+	pusha(vp9_ctx->bufs.tiles[2].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
 
 	push(INST_DMA3, "cm3_dma_config_7");
 
