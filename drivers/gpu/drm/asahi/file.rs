@@ -87,6 +87,8 @@ impl Drop for Vm {
         {
             pr_err!("Vm::Drop: vm.unmap_range() failed\n");
         }
+
+        self.vm.bo_deferred_cleanup();
     }
 }
 
