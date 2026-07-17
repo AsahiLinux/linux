@@ -295,13 +295,11 @@
 	};
 };
 
-#ifndef NO_ISP_YET
 &isp {
 	apple,platform-id = <9>;
 };
 
 #include "isp-imx558-cfg0.dtsi"
-#endif
 
 #include "spi1-nvram.dtsi"
 #include "hwmon-common.dtsi"

@@ -77,3 +77,7 @@
 	compatible = "apple,j516-macaudio", "apple,j316-macaudio", "apple,macaudio";
 	model = "MacBook Pro J516";
 };
+
+&isp {
+	apple,platform-id = <16>;
+};
