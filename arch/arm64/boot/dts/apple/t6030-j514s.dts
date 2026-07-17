@@ -77,3 +77,7 @@
 	compatible = "apple,j514-macaudio", "apple,j314-macaudio", "apple,macaudio";
 	model = "MacBook Pro J514";
 };
+
+&isp {
+	apple,platform-id = <16>;
+};
