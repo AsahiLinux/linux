@@ -91,7 +91,7 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	for (int i = 0; i < decode->num_active_dpb_entries; i++) {
 		dpb = &decode->dpb[i];
 
-		ref_buf = get_ref_buf(ctx, &dst->base.vb, dpb->timestamp);
+		ref_buf = avd_get_ref_buf(ctx, &dst->base.vb, dpb->timestamp);
 
 		dma_addr_t rvra_addr =
 			vb2_dma_contig_plane_dma_addr(&ref_buf->base.vb.vb2_buf, 0)
@@ -503,7 +503,7 @@ static void stream_slice_mv(struct avd_ctx *ctx, struct avd_hevc_run *run,
 			? sl->ref_idx_l0 : sl->ref_idx_l1;
 
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
-	ref = get_ref_buf(ctx, &dst->base.vb,
+	ref = avd_get_ref_buf(ctx, &dst->base.vb,
 			decode->dpb[ref_list[sl->collocated_ref_idx]].timestamp);
 
 	ref_valid =

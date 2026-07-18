@@ -163,9 +163,9 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
-	ref_buf[0] = get_ref_buf(ctx, &dst->base.vb, frame->last_frame_ts);
-	ref_buf[1] = get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
-	ref_buf[2] = get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
+	ref_buf[0] = avd_get_ref_buf(ctx, &dst->base.vb, frame->last_frame_ts);
+	ref_buf[1] = avd_get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
+	ref_buf[2] = avd_get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
 
 	push(INST_DMA3, "cm3_dma_config_7");
 	push(INST_DMA3, "cm3_dma_config_8");
