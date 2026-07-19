@@ -67,12 +67,31 @@ struct dcp_plane_info {
 	u16 tile_size;
 	u8 tile_w;
 	u8 tile_h;
-	u32 unk[13];
+	u8 unk[0xd];
+	u8 unk2;
+	u8 unk3[0x26];
 } __packed;
 
 struct dcp_component_types {
 	u8 count;
 	u8 types[7];
+} __packed;
+
+struct dcp_compression_info {
+	u32 tile_w;
+	u32 tile_h;
+	u32 metadata_offset;
+	u32 data_offset;
+	u32 meta_bytes;
+	u32 tiles_w;
+	u32 tiles_h;
+	u32 unk_1;
+	u32 compression_type;
+	u32 unk3;
+	u8 padding[3];
+	u32 tile_bytes;
+	u32 row_stride;
+	u8 pad2;
 } __packed;
 
 /* Information describing a surface */
@@ -100,7 +119,7 @@ struct dcp_surface {
 	u64 has_comp;
 	struct dcp_plane_info planes[DCP_SURF_MAX_PLANES];
 	u64 has_planes;
-	u32 compression_info[DCP_SURF_MAX_PLANES][13];
+	struct dcp_compression_info compression_info[DCP_SURF_MAX_PLANES];
 	u64 has_compr_info;
 	u32 unk_num;
 	u32 unk_denom;
