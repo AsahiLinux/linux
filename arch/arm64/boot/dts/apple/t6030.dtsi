@@ -879,6 +879,8 @@
 			reg = <0x3 0x64714000 0x0 0x100>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 485 IRQ_TYPE_LEVEL_HIGH>;
 
 			pmic1: pmic@b {
 				compatible = "apple,chapel-pmic", "apple,spmi-nvmem";
@@ -929,6 +931,30 @@
 					};
 				};
 			};
+		};
+
+		nub_spmi_a0: spmi@364908000 {
+			compatible = "apple,t6030-spmi", "apple,t8103-spmi";
+			reg = <0x3 0x64908000 0x0 0x100>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 509 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_nub_spmi_a0>;
+		};
+
+		nub_spmi_a1: spmi@364a08000 {
+			compatible = "apple,t6030-spmi", "apple,t8103-spmi";
+			reg = <0x3 0x64a08000 0x0 0x100>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 511 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_nub_spmi_a1>;
 		};
 
 		smc_mbox: mbox@36c408000 {
