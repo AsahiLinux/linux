@@ -876,8 +876,9 @@
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_IRQ 0 1198 IRQ_TYPE_LEVEL_HIGH>;
 		/*
-		 * TODO: figure out the clocking properly, there may
-		 * be a third selectable clock.
+		 * Both clocks use the 24 MHz reference clock.
+		 * The UART has an internal 16x divider for
+		 * baud rate generation.
 		 */
 		clocks = <&clkref>, <&clkref>;
 		clock-names = "uart", "clk_uart_baud0";
