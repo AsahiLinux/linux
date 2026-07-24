@@ -16,6 +16,7 @@
 	chassis-type = "laptop";
 
 	aliases {
+		keyboard = &keyboard;
 		serial0 = &serial0;
 	};
 
@@ -58,6 +59,35 @@
 
 &fpwm0 {
 	status = "okay";
+};
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	//apple,afe-reset-gpios = <&smc_gpio_low 25 GPIO_ACTIVE_LOW>;
+	//apple,stm-reset-gpios = <&smc_gpio_low 26 GPIO_ACTIVE_LOW>;
+
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
 };
 
 &serial0 {
