@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/apple.h>
+#include <dt-bindings/phy/phy.h>
 #include <dt-bindings/spmi/spmi.h>
 
 #include "multi-die-cpp.h"
@@ -43,6 +44,7 @@
 #include "t6031-gpio-pins.dtsi"
 #include "t6031-nvme.dtsi"
 #include "t6031-pmgr.dtsi"
+#include "t6031-usb-atc.dtsi"
 
 #undef DIE
 #undef DIE_NO
