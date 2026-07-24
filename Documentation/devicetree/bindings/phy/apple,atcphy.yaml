@@ -55,7 +55,12 @@ properties:
               - apple,t8112-atcphy
           - const: apple,t8103-atcphy
       - const: apple,t8103-atcphy
-
+      - const: apple,t8122-atcphy
+      - items:
+          - enum:
+              - apple,t6030-atcphy
+              - apple,t6031-atcphy
+          - const: apple,t8122-atcphy
   reg:
     items:
       - description: Common controls for all PHYs (USB2/3/4, DisplayPort, TBT)
