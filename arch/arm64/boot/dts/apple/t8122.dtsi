@@ -838,6 +838,20 @@
 			};
 		};
 
+		nub_spmi_a0: spmi@2e4908000 {
+			compatible = "apple,t8122-spmi", "apple,t8103-spmi";
+			reg = <0x2 0xe4908000 0x0 0x100>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 461 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_nub_spmi_a0>;
+
+			status = "disabled";
+		};
+
 		smc_mbox: mbox@2ec408000 {
 			compatible = "apple,t8122-asc-mailbox", "apple,asc-mailbox-v4";
 			reg = <0x2 0xec408000 0x0 0x4000>;
@@ -1271,6 +1285,112 @@
 			power-domains = <&ps_apcie_gp>;
 
 			status = "disabled";
+		};
+
+		dwc3_0: usb@702280000 {
+			compatible = "apple,t8122-dwc3", "apple,t8103-dwc3";
+			reg = <0x7 0x02280000 0x0 0xcd00>, <0x7 0x0228cd00 0x0 0x3200>;
+			reg-names = "dwc3-core", "dwc3-apple";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 972 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "otg";
+			usb-role-switch;
+			role-switch-default-mode = "host";
+			iommus = <&dwc3_0_dart_0 0>,
+				 <&dwc3_0_dart_1 1>;
+			power-domains = <&ps_atc0_usb>;
+			resets = <&atcphy0>;
+			phys = <&atcphy0 PHY_TYPE_USB2>, <&atcphy0 PHY_TYPE_USB3>;
+			phy-names = "usb2-phy", "usb3-phy";
+		};
+
+		dwc3_0_dart_0: iommu@702f00000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x7 0x02f00000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 976 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc0_usb>;
+			#iommu-cells = <1>;
+		};
+
+		dwc3_0_dart_1: iommu@702f80000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x7 0x02f80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 976 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc0_usb>;
+			#iommu-cells = <1>;
+		};
+
+		atcphy0: phy@703000000 {
+			compatible = "apple,t8122-atcphy";
+			reg = <0x7 0x03000000 0x0 0x4c000>,
+				<0x7 0x03050000 0x0 0x8000>,
+				<0x7 0x00000000 0x0 0x8000>,
+				<0x7 0x02a90000 0x0 0x4000>,
+				<0x7 0x02a84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+				"pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc0_usb>;
+		};
+
+		dwc3_1: usb@b02280000 {
+			compatible = "apple,t8122-dwc3", "apple,t8103-dwc3";
+			reg = <0xb 0x02280000 0x0 0xcd00>, <0xb 0x0228cd00 0x0 0x3200>;
+			reg-names = "dwc3-core", "dwc3-apple";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1030 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "otg";
+			usb-role-switch;
+			role-switch-default-mode = "host";
+			iommus = <&dwc3_1_dart_0 0>,
+				 <&dwc3_1_dart_1 1>;
+			power-domains = <&ps_atc1_usb>;
+			resets = <&atcphy1>;
+			phys = <&atcphy1 PHY_TYPE_USB2>, <&atcphy1 PHY_TYPE_USB3>;
+			phy-names = "usb2-phy", "usb3-phy";
+		};
+
+		dwc3_1_dart_0: iommu@b02f00000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0xb 0x02f00000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1034 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc1_usb>;
+			#iommu-cells = <1>;
+		};
+
+		dwc3_1_dart_1: iommu@b02f80000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0xb 0x02f80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1034 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc1_usb>;
+			#iommu-cells = <1>;
+		};
+
+		atcphy1: phy@b03000000 {
+			compatible = "apple,t8122-atcphy";
+			reg = <0xb 0x03000000 0x0 0x4c000>,
+				<0xb 0x03050000 0x0 0x8000>,
+				<0xb 0x00000000 0x0 0x8000>,
+				<0xb 0x02a90000 0x0 0x4000>,
+				<0xb 0x02a84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+				"pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc1_usb>;
 		};
 	};
 
