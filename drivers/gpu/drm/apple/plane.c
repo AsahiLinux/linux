@@ -249,7 +249,7 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 		.width = fb->width,
 		.height = fb->height,
 		.buf_size = fb->height * fb->pitches[0],
-		// .surface_id = req->swap.surf_ids[l],
+		.surface_id = plane->base.id,
 
 		/* Only used for compressed or multiplanar surfaces */
 		.pix_size = 1,
