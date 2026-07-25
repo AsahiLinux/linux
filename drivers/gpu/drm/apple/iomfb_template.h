@@ -73,10 +73,12 @@ struct DCP_FW_NAME(dcp_swap) {
 	u8  bl_power; // constant 0x40 for on
 	u8 unk_2f3[0x2d];
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
-	u8 unk_320[0x147];
+	u8 unk_320[0x13f];
 #if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
 	u8 unk_14_7_2[0x30];
 #endif
+	u32 unk_flags;
+	u32 unk_flags2;
 #endif
 } __packed;
 
