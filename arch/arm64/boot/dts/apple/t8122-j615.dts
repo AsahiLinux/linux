@@ -10,6 +10,7 @@
 /dts-v1/;
 
 #include "t8122.dtsi"
+#include "t8122-usbpd-spmi.dtsi"
 #include "t8122-jxxx.dtsi"
 #include <dt-bindings/leds/common.h>
 
