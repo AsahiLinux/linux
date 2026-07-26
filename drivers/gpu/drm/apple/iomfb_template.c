@@ -739,6 +739,8 @@ static void dcp_swap_cleared(struct apple_dcp *dcp, void *data, void *cookie)
 		return;
 	}
 
+	/* TODO: Figure out how to clear surfaces for 14.x */
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7, 0)
 	while (!list_empty(&dcp->swapped_out_fbs)) {
 		struct dcp_fb_reference *entry;
 		entry = list_first_entry(&dcp->swapped_out_fbs,
@@ -750,6 +752,7 @@ static void dcp_swap_cleared(struct apple_dcp *dcp, void *data, void *cookie)
 		list_del(&entry->head);
 		kfree(entry);
 	}
+#endif
 }
 
 static void dcp_swap_clear_started(struct apple_dcp *dcp, void *data,
@@ -1150,6 +1153,8 @@ static void dcp_swapped(struct apple_dcp *dcp, void *data, void *cookie)
 	}
 	dcp->swap_start = ktime_get();
 
+	/* TODO: Figure out how to clear surfaces on 14.x */
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7, 0)
 	while (!list_empty(&dcp->swapped_out_fbs)) {
 		struct dcp_fb_reference *entry;
 		entry = list_first_entry(&dcp->swapped_out_fbs,
@@ -1161,6 +1166,7 @@ static void dcp_swapped(struct apple_dcp *dcp, void *data, void *cookie)
 		list_del(&entry->head);
 		kfree(entry);
 	}
+#endif
 }
 
 static void dcp_swap_started(struct apple_dcp *dcp, void *data, void *cookie)
