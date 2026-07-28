@@ -20,6 +20,7 @@
 
 	aliases {
 		sep = &sep;
+		sio = &sio;
 	};
 
 	led-controller {
@@ -157,6 +158,14 @@
 };
 
 &aop {
+	status = "okay";
+};
+
+/*
+ * DP/HDMI audio is transported by the SIO coprocessor. m1n1 fills the
+ * device-specific firmware regions and parameters before booting Linux.
+ */
+&sio {
 	status = "okay";
 };
 

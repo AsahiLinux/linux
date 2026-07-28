@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/wait.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -32,6 +33,7 @@
 
 #define DCPAUD_ELEMENTS_MAXSIZE		16384
 #define DCPAUD_PRODUCTATTRS_MAXSIZE	1024
+#define DCPAUD_RECONFIG_TIMEOUT_MS	12000
 
 struct dcp_audio {
 	struct device *dev;
@@ -43,11 +45,20 @@ struct dcp_audio {
 	struct snd_jack *jack;
 	struct snd_pcm_substream *substream;
 	unsigned int open_cookie;
+	struct snd_pcm_hw_params selected_params;
+	bool selected_params_valid;
+	snd_pcm_format_t prepared_format;
+	unsigned int prepared_rate;
+	unsigned int prepared_channels;
+	unsigned int prepared_connection_cookie;
+	bool prepared_params_valid;
 
 	struct mutex data_lock;
+	wait_queue_head_t connection_waitq;
 	bool dcp_connected; /// dcp status keep for delayed initialization
 	bool connected;
 	unsigned int connection_cookie;
+	bool prepare_needs_reconnect;
 
 	struct snd_pcm_chmap_elem selected_chmap;
 	struct dcp_sound_cookie selected_cookie;
@@ -251,8 +262,10 @@ static int dcp_pcm_open(struct snd_pcm_substream *substream)
 
 	mutex_lock(&dcpaud->data_lock);
 	ret = dcpaud_init_dma(dcpaud);
-	if (ret < 0)
+	if (ret < 0) {
+		mutex_unlock(&dcpaud->data_lock);
 		return ret;
+	}
 
 	if (!dcpaud->connected) {
 		mutex_unlock(&dcpaud->data_lock);
@@ -296,7 +309,16 @@ static int dcp_pcm_open(struct snd_pcm_substream *substream)
 static int dcp_pcm_close(struct snd_pcm_substream *substream)
 {
 	struct dcp_audio *dcpaud = substream->pcm->private_data;
+
+	mutex_lock(&dcpaud->data_lock);
 	dcpaud->selected_chmap.channels = 0;
+	dcpaud->selected_params_valid = false;
+	/* A prepared DPA mode is only reusable by this PCM open. */
+	dcpaud->prepared_params_valid = false;
+	dcpaud->prepare_needs_reconnect = false;
+	mutex_unlock(&dcpaud->data_lock);
+	dev_info(dcpaud->dev,
+		 "HDMI audio prepared cache invalidated on PCM close\n");
 
 	return snd_dmaengine_pcm_close(substream);
 }
@@ -343,34 +365,133 @@ static int dcp_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	ret = dmaengine_slave_config(chan, &slave_config);
 	dev_info(dcpaud->dev, "dmaengine_slave_config: %d\n", ret);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&dcpaud->data_lock);
+	dcpaud->selected_params = *params;
+	dcpaud->selected_params_valid = true;
+	dcpaud->prepare_needs_reconnect =
+		!dcpaud->prepared_params_valid ||
+		dcpaud->prepared_connection_cookie != dcpaud->connection_cookie ||
+		dcpaud->prepared_format != params_format(params) ||
+		dcpaud->prepared_rate != params_rate(params) ||
+		dcpaud->prepared_channels != params_channels(params);
+	mutex_unlock(&dcpaud->data_lock);
+
 	return ret;
 }
 
 static int dcp_pcm_hw_free(struct snd_pcm_substream *substream)
 {
 	struct dcp_audio *dcpaud = substream->pcm->private_data;
+	int ret;
 
 	if (!dcpaud_connection_up(dcpaud))
 		return 0;
 
-	return dcp_audiosrv_unprepare(dcpaud->dcp_dev);
+	ret = dcp_audiosrv_unprepare(dcpaud->dcp_dev);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&dcpaud->data_lock);
+	dcpaud->prepared_params_valid = false;
+	dcpaud->prepare_needs_reconnect = true;
+	mutex_unlock(&dcpaud->data_lock);
+	dev_info(dcpaud->dev,
+		 "HDMI audio DCP mode unprepared on hw_free\n");
+
+	return 0;
 }
 
 static int dcp_pcm_prepare(struct snd_pcm_substream *substream)
 {
 	struct dcp_audio *dcpaud = substream->pcm->private_data;
+	unsigned int connection_cookie;
+	bool wait_for_reconnect;
+	long waited;
+	int ret;
 
 	if (!dcpaud_connection_up(dcpaud))
 		return -ENXIO;
 
-	return dcp_audiosrv_prepare(dcpaud->dcp_dev,
-				    &dcpaud->selected_cookie);
+	mutex_lock(&dcpaud->data_lock);
+	connection_cookie = dcpaud->connection_cookie;
+	wait_for_reconnect = dcpaud->prepare_needs_reconnect;
+	mutex_unlock(&dcpaud->data_lock);
+
+	ret = dcp_audiosrv_prepare(dcpaud->dcp_dev,
+				   &dcpaud->selected_cookie);
+	if (ret < 0)
+		return ret;
+
+	if (!wait_for_reconnect) {
+		/*
+		 * A freshly republished AV service accepts prepare immediately, but
+		 * its DPA shim does not consume SIO descriptors until the same
+		 * stabilization interval used by a full mode prepare has elapsed.
+		 * Starting the link immediately leaves the PCM permanently at hw_ptr
+		 * zero.  Keep the cached mode, but wait before arming DMA.
+		 */
+		waited = wait_event_timeout(dcpaud->connection_waitq,
+					    READ_ONCE(dcpaud->connection_cookie) !=
+						connection_cookie,
+					    msecs_to_jiffies(DCPAUD_RECONFIG_TIMEOUT_MS));
+		if (!dcpaud_connection_up(dcpaud))
+			return -ENXIO;
+		if (waited)
+			return -EPIPE;
+
+		dev_info(dcpaud->dev,
+			 "HDMI audio cached mode re-armed after stabilization delay\n");
+		return 0;
+	}
+
+	/*
+	 * Selecting a new HDMI audio format makes DCP republish its AV
+	 * interfaces roughly five seconds later.  Do not start SIO DMA while
+	 * that transition is pending: when the old DPA shim disappears, SIO
+	 * firmware treats an active transfer as fatal ("Shim DMA unavailable").
+	 *
+	 * The reconnect callback refreshes selected_cookie and open_cookie,
+	 * then wakes this waiter.  The newly published audio service is already
+	 * open, so do not call prepare again after reconnect: that would schedule
+	 * another interface teardown.  Some sinks do not republish when the
+	 * format is already active; in that case the timeout is a stabilization
+	 * delay.
+	 */
+	waited = wait_event_timeout(dcpaud->connection_waitq,
+				    READ_ONCE(dcpaud->connection_cookie) !=
+					connection_cookie,
+				    msecs_to_jiffies(DCPAUD_RECONFIG_TIMEOUT_MS));
+
+	if (!dcpaud_connection_up(dcpaud))
+		return -ENXIO;
+
+	if (waited) {
+		dev_info(dcpaud->dev,
+			 "HDMI audio prepare resumed after AV reconnect\n");
+	} else {
+		dev_info(dcpaud->dev,
+			 "HDMI audio prepare completed without AV reconnect\n");
+	}
+
+	mutex_lock(&dcpaud->data_lock);
+	dcpaud->prepared_format = params_format(&dcpaud->selected_params);
+	dcpaud->prepared_rate = params_rate(&dcpaud->selected_params);
+	dcpaud->prepared_channels = params_channels(&dcpaud->selected_params);
+	dcpaud->prepared_connection_cookie = dcpaud->connection_cookie;
+	dcpaud->prepared_params_valid = true;
+	dcpaud->prepare_needs_reconnect = false;
+	mutex_unlock(&dcpaud->data_lock);
+
+	return 0;
 }
 
 static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct dcp_audio *dcpaud = substream->pcm->private_data;
-	int ret;
+	int dma_ret, ret;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -379,11 +500,34 @@ static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			return -ENXIO;
 
 		WARN_ON(pm_runtime_get_sync(dcpaud->dev) < 0);
+
+		/*
+		 * Arm SIO before asking DCP to start the audio link.  Starting the
+		 * link first leaves the DPA shim idle: SIO accepts its descriptors,
+		 * but does not report any completion until the stream is terminated.
+		 * The preceding prepare callback has already ensured that the DCP AV
+		 * interface is stable, so it is safe to queue the cyclic DMA here.
+		 */
+		ret = snd_dmaengine_pcm_trigger(substream, cmd);
+		if (ret < 0)
+			goto start_error_put;
+
 		ret = dcp_audiosrv_startlink(dcpaud->dcp_dev,
 					     &dcpaud->selected_cookie);
-		if (ret < 0)
-			return ret;
-		break;
+		if (ret < 0) {
+			dma_ret = snd_dmaengine_pcm_trigger(substream,
+							SNDRV_PCM_TRIGGER_STOP);
+			snd_dmaengine_pcm_sync_stop(substream);
+			if (dma_ret < 0)
+				dev_warn(dcpaud->dev,
+					 "failed to stop HDMI DMA after link error: %d\n",
+					 dma_ret);
+			goto start_error_put;
+		}
+
+		dev_info(dcpaud->dev,
+			 "HDMI audio DMA armed before DCP link start\n");
+		return 0;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -397,22 +541,21 @@ static int dcp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	if (ret < 0)
 		return ret;
 
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-		break;
-
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
+	if (dcpaud_connection_up(dcpaud))
 		ret = dcp_audiosrv_stoplink(dcpaud->dcp_dev);
-		pm_runtime_mark_last_busy(dcpaud->dev);
-		__pm_runtime_put_autosuspend(dcpaud->dev);
-		if (ret < 0)
-			return ret;
-		break;
-	}
+	else
+		ret = 0;
+	pm_runtime_mark_last_busy(dcpaud->dev);
+	__pm_runtime_put_autosuspend(dcpaud->dev);
+	if (ret < 0)
+		return ret;
 
 	return 0;
+
+start_error_put:
+	pm_runtime_mark_last_busy(dcpaud->dev);
+	__pm_runtime_put_autosuspend(dcpaud->dev);
+	return ret;
 }
 
 struct snd_pcm_ops dcp_playback_ops = {
@@ -422,7 +565,14 @@ struct snd_pcm_ops dcp_playback_ops = {
 	.hw_free = dcp_pcm_hw_free,
 	.prepare = dcp_pcm_prepare,
 	.trigger = dcp_pcm_trigger,
-	.pointer = snd_dmaengine_pcm_pointer,
+	.sync_stop = snd_dmaengine_pcm_sync_stop,
+	/*
+	 * Apple SIO reports a completion for every cyclic period, but does not
+	 * expose a reliable byte-level residue.  Use the position maintained by
+	 * those completion callbacks; querying SIO residue can pin hw_ptr at the
+	 * ring boundary even while the coprocessor is consuming descriptors.
+	 */
+	.pointer = snd_dmaengine_pcm_pointer_no_residue,
 };
 
 // Transitional workaround: for the chmap control TLV, advertise options
@@ -489,6 +639,10 @@ static int dcpaud_create_pcm(struct dcp_audio *dcpaud)
 static void dcpaud_report_hotplug(struct dcp_audio *dcpaud, bool connected)
 {
 	struct snd_pcm_substream *substream = dcpaud->substream;
+	struct snd_pcm_hw_params params;
+	unsigned int connection_cookie = 0;
+	bool recover_stream = false;
+	int ret;
 
 	if (!dcpaud->card || dcpaud->connected == connected) {
 		mutex_unlock(&dcpaud->data_lock);
@@ -496,18 +650,62 @@ static void dcpaud_report_hotplug(struct dcp_audio *dcpaud, bool connected)
 	}
 
 	dcpaud->connected = connected;
-	if (connected)
+	if (connected) {
 		dcpaud->connection_cookie++;
+		connection_cookie = dcpaud->connection_cookie;
+		if (substream->runtime && dcpaud->selected_params_valid) {
+			params = dcpaud->selected_params;
+			recover_stream = true;
+		}
+	} else {
+		/* A new AV service must prove its prepared mode before reuse. */
+		dcpaud->prepared_params_valid = false;
+	}
 	mutex_unlock(&dcpaud->data_lock);
+
+	/*
+	 * DCP briefly tears down and republishes its AV interfaces when HDMI
+	 * capabilities change.  The old driver marked the PCM DISCONNECTED,
+	 * which is terminal for the file descriptor; PipeWire would then keep
+	 * retrying that dead descriptor and stall the whole audio/video graph.
+	 *
+	 * Keep the ALSA file recoverable with XRUN and, once the new DCP audio
+	 * service is live, refresh the mode cookie selected by hw_params.  The
+	 * existing stream can then recover with snd_pcm_prepare() without a
+	 * PipeWire restart.
+	 */
+	if (recover_stream) {
+		ret = dcpaud_read_remote_info(dcpaud);
+		if (!ret)
+			ret = dcpaud_select_cookie(dcpaud, &params);
+
+		mutex_lock(&dcpaud->data_lock);
+		if (ret > 0 && dcpaud->connected &&
+		    dcpaud->connection_cookie == connection_cookie)
+			dcpaud->open_cookie = connection_cookie;
+		mutex_unlock(&dcpaud->data_lock);
+
+		if (ret <= 0)
+			dev_warn(dcpaud->dev,
+				 "failed to refresh HDMI audio mode after reconnect: %d\n",
+				 ret ?: -EINVAL);
+		else
+			dev_info(dcpaud->dev,
+				 "HDMI audio stream is ready for reconnect recovery\n");
+	}
 
 	snd_jack_report(dcpaud->jack, connected ? SND_JACK_AVOUT : 0);
 
 	if (!connected) {
-		snd_pcm_stream_lock(substream);
-		if (substream->runtime)
-			snd_pcm_stop(substream, SNDRV_PCM_STATE_DISCONNECTED);
-		snd_pcm_stream_unlock(substream);
+		/*
+		 * Unlike SNDRV_PCM_STATE_DISCONNECTED, XRUN is recoverable.  The
+		 * dmaengine sync_stop callback also waits for Apple SIO's asynchronous
+		 * termination before ALSA prepares a replacement cyclic descriptor.
+		 */
+		snd_pcm_stop_xrun(substream);
 	}
+
+	wake_up_all(&dcpaud->connection_waitq);
 }
 
 static int dcpaud_create_jack(struct dcp_audio *dcpaud)
@@ -716,6 +914,7 @@ static int dcpaud_probe(struct platform_device *pdev)
 
 	dcpaud->dev = &pdev->dev;
 	mutex_init(&dcpaud->data_lock);
+	init_waitqueue_head(&dcpaud->connection_waitq);
 	platform_set_drvdata(pdev, dcpaud);
 
 	return component_add(&pdev->dev, &dcpaud_comp_ops);
@@ -773,4 +972,3 @@ void __exit dcp_audio_unregister(void)
 {
         platform_driver_unregister(&dcpaud_driver);
 }
-

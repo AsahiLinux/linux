@@ -919,6 +919,7 @@ static void atcphy_apply_tunables(struct apple_atcphy *atcphy, enum atcphy_mode 
 
 static int atcphy_pipehandler_lock(struct apple_atcphy *atcphy)
 {
+	unsigned int attempt;
 	int ret;
 	u32 reg;
 
@@ -927,15 +928,29 @@ static int atcphy_pipehandler_lock(struct apple_atcphy *atcphy)
 		return 0;
 	}
 
-	set32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ, PIPEHANDLER_LOCK_EN);
+	for (attempt = 0; attempt < 3; attempt++) {
+		set32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ,
+		      PIPEHANDLER_LOCK_EN);
 
-	ret = readl_poll_timeout(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_ACK, reg,
-				 reg & PIPEHANDLER_LOCK_EN, 10, PIPEHANDLER_LOCK_ACK_TIMEOUT_US);
-	if (ret) {
-		clear32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ, 1);
-		dev_warn(atcphy->dev, "Pipehandler lock not acked.\n");
+		ret = readl_poll_timeout(atcphy->regs.pipehandler +
+					 PIPEHANDLER_LOCK_ACK, reg,
+					 reg & PIPEHANDLER_LOCK_EN, 10,
+					 PIPEHANDLER_LOCK_ACK_TIMEOUT_US);
+		if (!ret) {
+			if (attempt)
+				dev_info(atcphy->dev,
+					 "Pipehandler lock retry succeeded on attempt %u\n",
+					 attempt + 1);
+			return 0;
+		}
+
+		clear32(atcphy->regs.pipehandler + PIPEHANDLER_LOCK_REQ,
+			PIPEHANDLER_LOCK_EN);
+		if (attempt < 2)
+			usleep_range(1000, 2000);
 	}
 
+	dev_warn(atcphy->dev, "Pipehandler lock not acked after 3 attempts.\n");
 	return ret;
 }
 
@@ -1128,7 +1143,7 @@ static int atcphy_configure_pipehandler(struct apple_atcphy *atcphy, bool host)
 	switch (atcphy_modes[atcphy->mode].pipehandler_state) {
 	case ATCPHY_PIPEHANDLER_STATE_USB3:
 		ret = atcphy_configure_pipehandler_usb3(atcphy, host);
-		atcphy->pipehandler_up = true;
+		atcphy->pipehandler_up = !ret;
 		break;
 	case ATCPHY_PIPEHANDLER_STATE_USB4:
 		dev_warn(atcphy->dev,

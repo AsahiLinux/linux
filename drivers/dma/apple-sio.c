@@ -140,6 +140,7 @@ struct sio_tx {
 	int nperiods;
 	int ninflight;
 	int next;
+	int completed;
 
 	struct sio_coproc_desc *siodesc[];
 };
@@ -300,7 +301,6 @@ static enum dma_status sio_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 	struct sio_tx *siotx;
 	enum dma_status ret;
 	unsigned long flags;
-	int periods_residue;
 	size_t residue;
 
 	ret = dma_cookie_status(chan, cookie, txstate);
@@ -312,10 +312,16 @@ static enum dma_status sio_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 
 	if (siotx && siotx->vd.tx.cookie == cookie) {
 		ret = DMA_IN_PROGRESS;
-		periods_residue = siotx->next - siotx->ninflight;
-		while (periods_residue < 0)
-			periods_residue += siotx->nperiods;
-		residue = (siotx->nperiods - periods_residue) * siotx->period_len;
+		/*
+		 * next tracks descriptors submitted to SIO, not descriptors the
+		 * peripheral has consumed.  Inferring the hardware position from
+		 * next - ninflight races the immediate ISSUE acknowledgements and can
+		 * repeatedly report position zero to ALSA even while REPORT messages
+		 * arrive continuously.  completed is advanced only by MSG_REPORT, so
+		 * it is the stable cyclic DMA position expected by dmaengine clients.
+		 */
+		residue = (siotx->nperiods - siotx->completed) *
+			  siotx->period_len;
 	} else {
 		ret = DMA_IN_PROGRESS;
 		residue = 0;
@@ -499,6 +505,7 @@ static void sio_process_report(struct sio_chan *siochan)
 
 		if (tx->ninflight)
 			tx->ninflight--;
+		tx->completed = (tx->completed + 1) % tx->nperiods;
 		vchan_cyclic_callback(&tx->vd);
 		if (!sio_fill_in_locked(siochan) && !tx->ninflight)
 			complete(&tx->done);
