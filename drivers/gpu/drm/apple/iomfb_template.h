@@ -125,7 +125,10 @@ struct DCP_FW_NAME(dcp_swap_submit_req) {
 #endif
 	u8 padding[1];
 #if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
-	u8 padding_14_7[0x234];
+	u8 padding_14_7[0x1e9];
+	u8 unk_14_7_zero[0x46];
+	u32 unk_14_7_u32;
+	u8 unk_bool;
 #endif
 } __packed;
 
