@@ -295,6 +295,7 @@ static int macsmc_battery_get_charge_behaviour(struct macsmc_power *power)
 	int ret;
 	u8 val8;
 	u8 chte_buf[4];
+	u16 vu16;
 
 	if (power->has_ch0i) {
 		ret = apple_smc_read_u8(power->smc, SMC_KEY(CH0I), &val8);
@@ -319,6 +320,14 @@ static int macsmc_battery_get_charge_behaviour(struct macsmc_power *power)
 			return POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE;
 	}
 
+	if (power->has_chls) {
+		ret = apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16);
+		if (ret)
+			return ret;
+		if (vu16 & CHLS_FORCE_DISCHARGE)
+			return POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO_DISCHARGE;
+	}
+
 	return POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
 }
 
@@ -327,6 +336,10 @@ static int macsmc_battery_set_charge_behaviour(struct macsmc_power *power, int v
 	int ret;
 
 	switch (val) {
+	case POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO_DISCHARGE:
+		if (!power->has_chls)
+			return -EOPNOTSUPP;
+		fallthrough;
 	case POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO:
 		/* Reset all inhibitors to a known-good 'auto' state */
 		if (power->has_ch0i) {
@@ -343,6 +356,20 @@ static int macsmc_battery_set_charge_behaviour(struct macsmc_power *power, int v
 			ret = apple_smc_write_u8(power->smc, SMC_KEY(CH0C), 0);
 			if (ret)
 				return ret;
+		}
+
+		/* Set or clear force-discharge to the CHLS charge limit */
+		if (power->has_chls) {
+			u16 vu16;
+
+			ret = apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16);
+			if (ret)
+				return ret;
+			if (val == POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO_DISCHARGE)
+				vu16 |= CHLS_FORCE_DISCHARGE;
+			else
+				vu16 &= ~CHLS_FORCE_DISCHARGE;
+			return apple_smc_write_u16(power->smc, SMC_KEY(CHLS), vu16);
 		}
 		return 0;
 
@@ -606,12 +633,18 @@ static int macsmc_battery_set_property(struct power_supply *psy,
 		return 0;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
 		if (power->has_chls) {
-			u16 kval = 0;
-			/* TODO: Make CHLS_FORCE_DISCHARGE configurable */
+			u16 kval;
+			int ret;
+
+			/* Preserve the force-discharge (auto-discharge) charge_behaviour */
+			ret = apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &kval);
+			if (ret)
+				return ret;
+			kval &= CHLS_FORCE_DISCHARGE;
 			if (val->intval < CHLS_MIN_END_THRESHOLD)
-				kval = CHLS_FORCE_DISCHARGE | CHLS_MIN_END_THRESHOLD;
+				kval |= CHLS_MIN_END_THRESHOLD;
 			else if (val->intval < 100)
-				kval = CHLS_FORCE_DISCHARGE | (val->intval & 0xff);
+				kval |= val->intval & 0xff;
 			return apple_smc_write_u16(power->smc, SMC_KEY(CHLS), kval);
 		} else if (power->has_chwa) {
 			return apple_smc_write_flag(power->smc, SMC_KEY(CHWA),
@@ -945,10 +978,13 @@ static int macsmc_power_probe(struct platform_device *pdev)
 		}
 
 		/* Detect charge limit method (CHWA vs CHLS) */
-		if (apple_smc_read_flag(power->smc, SMC_KEY(CHWA), &flag) == 0)
+		if (apple_smc_read_flag(power->smc, SMC_KEY(CHWA), &flag) == 0) {
 			power->has_chwa = true;
-		else if (apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16) >= 0)
+		} else if (apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16) >= 0) {
 			power->has_chls = true;
+			power->batt_desc.charge_behaviours |=
+				BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO_DISCHARGE);
+		}
 
 		if (power->has_chwa || power->has_chls) {
 			props[nprops++] = POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD;

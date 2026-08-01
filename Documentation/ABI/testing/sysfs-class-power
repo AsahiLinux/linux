@@ -513,6 +513,8 @@ Description:
 			inhibit-charge:       Do not charge while AC is attached
 			inhibit-charge-awake: inhibit-charge only when device is awake
 			force-discharge:      Force discharge while AC is attached
+			auto-discharge:       auto, but actively discharge down to
+			                      the charge control end threshold
 			===================== ========================================
 
 What:		/sys/class/power_supply/<supply_name>/technology
