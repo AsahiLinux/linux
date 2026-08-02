@@ -152,7 +152,7 @@
 
 		typec0: connector {
 			compatible = "usb-c-connector";
-			label = "USB-C Left Rear";
+			label = "USB-C Left Back";
 			power-role = "dual";
 			data-role = "dual";
 
