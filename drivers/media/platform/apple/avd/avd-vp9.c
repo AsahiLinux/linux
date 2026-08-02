@@ -24,6 +24,23 @@
 #include "avd.h"
 #include "avd-inst.h"
 
+#define VP9_Q_IDX(v)		FIELD_PREP(GENMASK(31, 15), v)
+#define VP9_Q_DC_Y(v)		FIELD_PREP(GENMASK(14, 10), v)
+#define VP9_Q_DC_UV(v)		FIELD_PREP(GENMASK(9, 5), v)
+#define VP9_Q_AC_UV(v)		FIELD_PREP(GENMASK(4, 0), v)
+
+#define VP9_LF_SHARPNESS(v)	FIELD_PREP(GENMASK(31, 28), v)
+#define VP9_LF_REF0(v)		FIELD_PREP(GENMASK(27, 21), v)
+#define VP9_LF_REF1(v)		FIELD_PREP(GENMASK(20, 14), v)
+#define VP9_LF_REF2(v)		FIELD_PREP(GENMASK(13, 7), v)
+#define VP9_LF_REF3(v)		FIELD_PREP(GENMASK(6, 0), v)
+
+#define VP9_LF_LV(v)		FIELD_PREP(GENMASK(31, 14), v)
+#define VP9_LF_MODE0(v)		FIELD_PREP(GENMASK(13, 7), v)
+#define VP9_LF_MODE1(v)		FIELD_PREP(GENMASK(6, 0), v)
+
+#define VP9_FEAT_LVL_ALT_Q(v)		FIELD_PREP(GENMASK(21, 12), v)
+
 struct avd_vp9_seg_probs {
 	u8 tree_probs[7];
 	u8 pred_probs[3];
@@ -177,8 +194,9 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 			+ (ref_buf[i]->base.vb.planes[0].length - ref_buf[i]->rvra.size);
 
 		/* TODO */
-		push(0x1000000, "hdr_9c_ref_100");
-		push((ref_buf[i]->vp9.height - 1) << 16 | (ref_buf[i]->vp9.width - 1),
+		push(AVD_REF_FLAG_CONST, "hdr_9c_ref_100");
+		push(AVD_HDR_HEIGHT(ref_buf[i]->vp9.height - 1) |
+				AVD_HDR_WIDTH(ref_buf[i]->vp9.width - 1),
 				"hdr_70_ref_height_width");
 		push(0x40004000, "hdr_7c_ref_align");
 
@@ -186,6 +204,7 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	}
 }
 
+/* TODO */
 static u32 make_flags1(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
@@ -244,7 +263,7 @@ static u32 seg_features(struct avd_ctx *ctx, struct avd_vp9_run *run,
 	if (v4l2_vp9_seg_feat_enabled(seg->feature_enabled, feature_id, segid))
 		enabled |= 1;
 
-	return (feature_val & 0x3ff) << 12 | enabled;
+	return VP9_FEAT_LVL_ALT_Q(feature_val) | enabled;
 }
 
 static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
@@ -259,33 +278,36 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 			(V4L2_VP9_FRAME_FLAG_KEY_FRAME |
 			 V4L2_VP9_FRAME_FLAG_INTRA_ONLY));
 
-	push(0x2b000000
-			| (avd->variant->revision == 3 ? 0xfff100 : 0x200)
-			| (ctx->fifo_idx << 4),
+	push(AVD_OP_EXEC
+			| AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3)
+			| AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4)
+			| (avd->variant->revision == 3 ? AVD_OP_EXEC_REV3_VP9_MASK : 0)
+			| AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx),
 			"inst_fifo_start");
 
-	push(0x2db00000
-			| 0x1000
-			| ((intra_only) ? 0x2000 : 0)
-			| 0x2e0
-			| (avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE ? 0 : 0x80000)
+	push(AVD_OP_HDR
+			| AVD_OP_HDR_FLAG0
+			| AVD_OP_HDR_FLAG_INTRA(intra_only)
+			| AVD_OP_HDR_CONST
+			| AVD_OP_HDR_FLAG_PIPE_STATE(!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
 			, "hdr_34_start_hdr");
 
-	push(AVD_CODEC_VP9 << 24, "hdr_38_mode");
+	push(AVD_HDR_CODEC_MODE(AVD_CODEC_VP9), "hdr_38_mode");
 
-	push(((frame->frame_height_minus_1) << 16) | (frame->frame_width_minus_1),
+	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
+			AVD_HDR_WIDTH(frame->frame_width_minus_1),
 			"hdr_28_height_width_shift3");
 	push(0, "cm3_dma_config_0");
-	push(((frame->frame_height_minus_1) << 16) | (frame->frame_width_minus_1),
+	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
+			AVD_HDR_WIDTH(frame->frame_width_minus_1),
 			"hdr_38_height_width_shift3");
 
-	push(0x1000000 /* (sps->chroma_format_idc & 3) << 25 ? */
-			| frame->profile << 19
-			| (frame->bit_depth - 8) << 15
-			| 0x1000 /* colorspace? */
-			| 0x800
-			| (min(prob_updates->tx_mode, 3) << 7)
-			| boolify(prob_updates->tx_mode & V4L2_VP9_TX_MODE_SELECT)
+	push(AVD_HDR_COMMON_CHROMA_FORMAT(1)
+			| AVD_HDR_COMMON_BIT_DEPTH_C(frame->profile)
+			| AVD_HDR_COMMON_BIT_DEPTH_L(frame->bit_depth - 8)
+			| AVD_HDR_COMMON_LUMA_CBS(3)
+			| AVD_HDR_COMMON_LUMA_TBS(min(prob_updates->tx_mode, 3))
+			| AVD_HDR_COMMON_FLAG0(prob_updates->tx_mode & V4L2_VP9_TX_MODE_SELECT)
 			,"hdr_2c_txfm_mode");
 
 	push(make_flags1(ctx, run), "hdr_40_flags1_pt1");
@@ -294,7 +316,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 		push(seg_features(ctx, run, i), "seg");
 
 	/* some kind of feature enable? h26{2,5} has 3 instread */
-	push(0x20000, "unk_const");
+	push(AVD_HDR_FEAT_VP9, "unk_const");
 	push(INST_DMA2, "cm3_dma_config_2");
 	push(INST_DMA1, "cm3_dma_config_3");
 
@@ -311,24 +333,24 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	pusha(vp9_ctx->bufs.above_info.addr, "hdr_110_pps2_tile_addr_lsb8", 3);
 	pusha(vp9_ctx->bufs.above_info.addr, "hdr_110_pps2_tile_addr_lsb8", 4);
 
-	push(frame->quant.base_q_idx << 15
-			| (frame->quant.delta_q_y_dc & 0x1f) << 10
-			| (frame->quant.delta_q_uv_dc & 0x1f) << 5
-			| (frame->quant.delta_q_uv_ac & 0x1f)
+	push(VP9_Q_IDX(frame->quant.base_q_idx)
+			| VP9_Q_DC_Y(frame->quant.delta_q_y_dc)
+			| VP9_Q_DC_UV(frame->quant.delta_q_uv_dc)
+			| VP9_Q_AC_UV(frame->quant.delta_q_uv_ac)
 			, "hdr_4c_base_q_idx");
 	/* filter related flags? */
-	push(frame->lf.sharpness << 28
+	push(VP9_LF_SHARPNESS(frame->lf.sharpness)
 			| (frame->lf.flags & V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED ?
-				(frame->lf.ref_deltas[0] & 0x7f) << 21
-				| (frame->lf.ref_deltas[1] & 0x7f) << 14
-				| (frame->lf.ref_deltas[2] & 0x7f) << 7
-				| (frame->lf.ref_deltas[3] & 0x7f)
+				VP9_LF_REF0(frame->lf.ref_deltas[0])
+				| VP9_LF_REF1(frame->lf.ref_deltas[1])
+				| VP9_LF_REF2(frame->lf.ref_deltas[2])
+				| VP9_LF_REF3(frame->lf.ref_deltas[3])
 				: 0), "hdr_44_flags1_pt2");
 
-	push(frame->lf.level << 14
+	push(VP9_LF_LV(frame->lf.level)
 			| (frame->lf.flags & V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED ?
-			(frame->lf.mode_deltas[0] & 0x7f) << 7
-			| (frame->lf.mode_deltas[1] & 0x7f)
+			VP9_LF_MODE0(frame->lf.mode_deltas[0])
+			| VP9_LF_MODE1(frame->lf.mode_deltas[1])
 			: 0),
 			"hdr_48_loop_filter_level");
 
@@ -367,7 +389,8 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	pusha(run->addresses.uv, "hdr_16c_uv_addr_lsb8", 0);
 	push(bytesperline, "hdr_174_width_align");
 	push(0, "");
-	push(((frame->frame_height_minus_1) << 16) | (frame->frame_width_minus_1),
+	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
+			AVD_HDR_WIDTH(frame->frame_width_minus_1),
 			"cm3_height_width");
 
 	if (!(intra_only))
@@ -408,22 +431,24 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 				offset += 4;
 				size -= 4;
 			}
-			push(0x2d800000 | (u32)(run->addresses.sl >> 32),
+			push(AVD_OP_CODED_DATA |
+					AVD_OP_CODED_DATA_ADDR(run->addresses.sl >> 32),
 					"cm3_cmd_set_slice_data");
 			push((u32)((run->addresses.sl + offset) & 0xffffffff),
 					"til_ab4_tile_addr_low");
 			push(tile_size, "til_ab8_tile_size");
-			push(0x2a000000
-					| ((row * sb_64_rows) / num_tile_rows) << 12
-					| (col * sb_64_cols) / num_tile_cols, "i");
+			push(AVD_OP_SL_DIM_START
+					| AVD_OP_SL_DIM_START_Y((row * sb_64_rows) / num_tile_rows)
+					| AVD_OP_SL_DIM_START_X((col * sb_64_cols) / num_tile_cols), "i");
 
-			push(col << 24
-					| (((row + 1) * sb_64_rows) / num_tile_rows - 1) << 12
-					| (((col + 1) * sb_64_cols) / num_tile_cols - 1)
+			push(AVD_SL_DIM_END_COL(col)
+					| AVD_SL_DIM_END_Y(((row + 1) * sb_64_rows) / num_tile_rows - 1)
+					| AVD_SL_DIM_END_X(((col + 1) * sb_64_cols) / num_tile_cols - 1)
 					, "til_ac0_tile_dims");
-			push(0x2b000000
-					| (is_last ? 0x400 : 0)
-					| (avd->variant->revision == 3 ? 0xfff000 : 0)
+			push(AVD_OP_EXEC
+					| AVD_OP_EXEC_FLAG_END(is_last)
+					| (avd->variant->revision == 3 ?
+						AVD_OP_EXEC_REV3_VP9_MASK : 0)
 					, "cm3_cmd_inst_fifo_end");
 			offset += tile_size;
 			size -= tile_size;
@@ -630,6 +655,20 @@ static int avd_vp9_alloc_bufs(struct avd_ctx *ctx)
 	if (ret)
 		return ret;
 
+#ifdef AVD_DEBUG
+#define DBG_BUF(name, buf) pr_info("   %10s %12llx %8lx", \
+		name, vp9_ctx->bufs.buf.addr, vp9_ctx->bufs.buf.size)
+	pr_info("buffers:");
+	DBG_BUF("state", state);
+	DBG_BUF("above_info", above_info);
+	DBG_BUF("seg", seg);
+	DBG_BUF("tiles[0]", tiles[0]);
+	DBG_BUF("tiles[1]", tiles[1]);
+	DBG_BUF("tiles[2]", tiles[2]);
+	DBG_BUF("color[0]", color[0]);
+	DBG_BUF("color[1]", color[1]);
+	pr_info("\n");
+#endif
 	return 0;
 }
 
@@ -746,6 +785,7 @@ static void avd_vp9_done(struct avd_ctx *ctx,
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	unsigned int fctx_idx;
+	avd_status(ctx->dev, 8);
 
 	/* v4l2-specific stuff */
 	if (result == VB2_BUF_STATE_ERROR)

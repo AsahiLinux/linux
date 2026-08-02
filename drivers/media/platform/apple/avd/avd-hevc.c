@@ -13,6 +13,7 @@
  *	Tomasz Figa <tfiga@chromium.org>
  */
 
+#include "asm-generic/errno-base.h"
 #include "linux/dev_printk.h"
 #include <linux/v4l2-controls.h>
 #include <linux/delay.h>
@@ -27,6 +28,29 @@
 
 #define NEW_TILE_ID BIT(0)
 #define NEW_SLICE BIT(1)
+
+#define HEVC_PCM_EN(v)		FIELD_PREP(BIT(12), !!(v))
+#define HEVC_PCM_BD_LUMA(v)	FIELD_PREP(GENMASK(11, 8), v)
+#define HEVC_PCM_BD_CHROMA(v)	FIELD_PREP(GENMASK(7, 4), v)
+#define HEVC_PCM_CB_MIN_LUMA(v)	FIELD_PREP(GENMASK(3, 2), v)
+#define HEVC_PCM_CB_LUMA(v)	FIELD_PREP(GENMASK(1, 0), v)
+
+#define HEVC_UNK_ISM_EN(v)	FIELD_PREP(BIT(9), !!(v))
+#define HEVC_UNK_FLAG		FIELD_PREP(BIT(3), 1)
+
+#define HEVC_CTB_SIZE(v)	FIELD_PREP(GENMASK(8, 3), v)
+#define HEVC_MERGE_LV(v)	FIELD_PREP(GENMASK(11, 9), v)
+#define HEVC_FLAG_ENTROPY_EN(v)	FIELD_PREP(BIT(12), !!(v))
+#define HEVC_FLAG_TILES_EN(v)	FIELD_PREP(BIT(13), !!(v))
+#define HEVC_FLAG_TQB_EN(v)	FIELD_PREP(BIT(14), !!(v))
+#define HEVC_CU_QP_DD(v)	FIELD_PREP(GENMASK(16, 15), v)
+#define HEVC_FLAG_CU_QP_EN(v)	FIELD_PREP(BIT(17), !!(v))
+#define HEVC_FLAG_TSKIP_EN(v)	FIELD_PREP(BIT(18), !!(v))
+#define HEVC_FLAG_CI_PRED(v)	FIELD_PREP(BIT(19), !!(v))
+#define HEVC_FLAG_SDH_EN(v)	FIELD_PREP(BIT(20), !!(v))
+#define HEVC_FLAG_TMVP_EN(v)	FIELD_PREP(BIT(21), !!(v))
+
+#define HEVC_SCL_DIMS 0x127ffff
 
 static inline u32 sps_size(u32 w, u32 h)
 {
@@ -43,6 +67,7 @@ struct avd_hevc_run {
 	const struct v4l2_ctrl_hevc_scaling_matrix *scaling_matrix;
 	const u32 *entry_point_offsets;
 
+	int num_entry_point_offsets;
 	int num_slices;
 
 	struct run_addr {
@@ -97,10 +122,10 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 			vb2_dma_contig_plane_dma_addr(&ref_buf->base.vb.vb2_buf, 0)
 				+ (ref_buf->base.vb.planes[0].length - sps_size(fmt_width(ctx), fmt_height(ctx)) - ref_buf->rvra.size);
 
-		push((decode->num_active_dpb_entries - 1) << 28
-				| 0x1000000
-				| (!!(dpb->flags & V4L2_HEVC_DPB_ENTRY_LONG_TERM_REFERENCE) << 17)
-				| (((sl->slice_pic_order_cnt - dpb->pic_order_cnt_val) & 0x1ffff)),
+		push(AVD_REF_NUM(decode->num_active_dpb_entries - 1)
+				| AVD_REF_FLAG_CONST
+				| AVD_REF_FLAG_LONG(dpb->flags & V4L2_HEVC_DPB_ENTRY_LONG_TERM_REFERENCE)
+				| AVD_REF_DELTA_POC(sl->slice_pic_order_cnt - dpb->pic_order_cnt_val),
 				"hdr_d0_ref_hdr");
 
 		push_rvra(avd, ctx, rvra_addr, ref_buf->rvra.offsets);
@@ -123,48 +148,48 @@ static void set_scaling_lists(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	 * this should presumably be how many of each are enabled?
 	 * or some other scaling related thing
 	 */
-	push(0x127ffff, "hdr_7c_pps_scl_dims");
+	push(HEVC_SCL_DIMS, "hdr_7c_pps_scl_dims");
 
 	for (i = 0; i < 2; i++)
-		push(dc_16x16[i][0] << 16
-				| dc_16x16[i][1] << 8
-				| dc_16x16[i][2] << 0, "dc_16x16");
+		push(AVD_SCALING_I2(dc_16x16[i][0])
+				| AVD_SCALING_I1(dc_16x16[i][1])
+				| AVD_SCALING_I0(dc_16x16[i][2]), "dc_16x16");
 
 	for (i = 0; i < 2; i++)
-		push(s->scaling_list_dc_coef_32x32[i] << 16, "dc_32x32");
+		push(AVD_SCALING_I2(s->scaling_list_dc_coef_32x32[i]), "dc_32x32");
 
 	/* transposed in stride 4 */
 	for (i = 0; i < 6; i++)
 		for (j = 0; j < 4; j++)
-			push(sc_4x4[i][0][j] << 24
-					| sc_4x4[i][1][j] << 16
-					| sc_4x4[i][2][j] << 8
-					| sc_4x4[i][3][j], "scaling_4x4");
+			push(AVD_SCALING_I3(sc_4x4[i][0][j])
+					| AVD_SCALING_I2(sc_4x4[i][1][j])
+					| AVD_SCALING_I1(sc_4x4[i][2][j])
+					| AVD_SCALING_I0(sc_4x4[i][3][j]), "scaling_4x4");
 
 	/* transposed in stride 8 */
 	for (i = 0; i < 6; i++)
 		for (j = 0; j < 2; j++)
 			for (k = 0; k < 8; k++)
-			push(sc_8x8[i][j][0][k] << 24
-					| sc_8x8[i][j][1][k] << 16
-					| sc_8x8[i][j][2][k] << 8
-					| sc_8x8[i][j][3][k], "scaling_8x8");
+			push(AVD_SCALING_I3(sc_8x8[i][j][0][k])
+					| AVD_SCALING_I2(sc_8x8[i][j][1][k])
+					| AVD_SCALING_I1(sc_8x8[i][j][2][k])
+					| AVD_SCALING_I0(sc_8x8[i][j][3][k]), "scaling_8x8");
 
 	for (i = 0; i < 6; i++)
 		for (j = 0; j < 2; j++)
 			for (k = 0; k < 8; k++)
-			push(sc_16x16[i][j][0][k] << 24
-					| sc_16x16[i][j][1][k] << 16
-					| sc_16x16[i][j][2][k] << 8
-					| sc_16x16[i][j][3][k], "scaling_16x16");
+			push(AVD_SCALING_I3(sc_16x16[i][j][0][k])
+					| AVD_SCALING_I2(sc_16x16[i][j][1][k])
+					| AVD_SCALING_I1(sc_16x16[i][j][2][k])
+					| AVD_SCALING_I0(sc_16x16[i][j][3][k]), "scaling_16x16");
 
 	for (i = 0; i < 2; i++)
 		for (j = 0; j < 2; j++)
 			for (k = 0; k < 8; k++)
-				push(sc_32x32[i][j][0][k] << 24
-						| sc_32x32[i][j][1][k] << 16
-						| sc_32x32[i][j][2][k] << 8
-						| sc_32x32[i][j][3][k], "scaling_32x32");
+				push(AVD_SCALING_I3(sc_32x32[i][j][0][k])
+						| AVD_SCALING_I2(sc_32x32[i][j][1][k])
+						| AVD_SCALING_I1(sc_32x32[i][j][2][k])
+						| AVD_SCALING_I0(sc_32x32[i][j][3][k]), "scaling_32x32");
 
 }
 
@@ -175,43 +200,40 @@ static void hevc_set_flags(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	const struct v4l2_ctrl_hevc_pps *pps = run->pps;
 	struct avd_dev *avd = ctx->dev;
 
-	u32 log2_ctb_size = ((sps->log2_min_luma_coding_block_size_minus3 + 3) +
+	u32 log2_ctb_size = ((sps->log2_min_luma_coding_block_size_minus3) +
 				sps->log2_diff_max_min_luma_coding_block_size);
 
-	if (sps->flags & V4L2_HEVC_SPS_FLAG_PCM_ENABLED)
-		push(0x1000
-			| sps->pcm_sample_bit_depth_luma_minus1 << 8
-			| sps->pcm_sample_bit_depth_chroma_minus1 << 4
-			| sps->log2_min_pcm_luma_coding_block_size_minus3 << 2
-			| (sps->log2_diff_max_min_pcm_luma_coding_block_size
-			  + sps->log2_min_pcm_luma_coding_block_size_minus3)
+	push(HEVC_PCM_EN(sps->flags & V4L2_HEVC_SPS_FLAG_PCM_ENABLED)
+			| HEVC_PCM_BD_LUMA(sps->pcm_sample_bit_depth_luma_minus1)
+			| HEVC_PCM_BD_CHROMA(sps->pcm_sample_bit_depth_chroma_minus1)
+			| HEVC_PCM_CB_MIN_LUMA(sps->log2_min_pcm_luma_coding_block_size_minus3)
+			| HEVC_PCM_CB_LUMA(sps->log2_diff_max_min_pcm_luma_coding_block_size
+				+ sps->log2_min_pcm_luma_coding_block_size_minus3)
 			, "hdr_30_sps_pcm");
-	else
-		push(0, "hdr_30_sps_pcm");
 
 	/*
 	 * RExt sets a few new flags here
 	 */
-	push((u32)BIT(3)
-		| !!(sps->flags & V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED) << 9,
+	push(HEVC_UNK_FLAG
+		| HEVC_UNK_ISM_EN(sps->flags & V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED),
 			"hdr_34_sps_flags");
 
-	push((log2_ctb_size - 3) << 3
-		| pps->log2_parallel_merge_level_minus2 << 9
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED) << 12
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED) << 13
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED) << 14
-		| ((log2_ctb_size - pps->diff_cu_qp_delta_depth - 3) & 3) << 15
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_CU_QP_DELTA_ENABLED) << 17
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_TRANSFORM_SKIP_ENABLED) << 18
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_CONSTRAINED_INTRA_PRED) << 19
-		| !!(pps->flags & V4L2_HEVC_PPS_FLAG_SIGN_DATA_HIDING_ENABLED) << 20
-		| !!(!(decode->flags & V4L2_HEVC_DECODE_PARAM_FLAG_IDR_PIC)
-			&& sps->flags & V4L2_HEVC_SPS_FLAG_SPS_TEMPORAL_MVP_ENABLED) << 21
+	push(HEVC_CTB_SIZE(log2_ctb_size)
+		| HEVC_MERGE_LV(pps->log2_parallel_merge_level_minus2)
+		| HEVC_FLAG_ENTROPY_EN(pps->flags & V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED)
+		| HEVC_FLAG_TILES_EN(pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED)
+		| HEVC_FLAG_TQB_EN(pps->flags & V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED)
+		| HEVC_CU_QP_DD(log2_ctb_size - pps->diff_cu_qp_delta_depth)
+		| HEVC_FLAG_CU_QP_EN(pps->flags & V4L2_HEVC_PPS_FLAG_CU_QP_DELTA_ENABLED)
+		| HEVC_FLAG_TSKIP_EN(pps->flags & V4L2_HEVC_PPS_FLAG_TRANSFORM_SKIP_ENABLED)
+		| HEVC_FLAG_CI_PRED(pps->flags & V4L2_HEVC_PPS_FLAG_CONSTRAINED_INTRA_PRED)
+		| HEVC_FLAG_SDH_EN(pps->flags & V4L2_HEVC_PPS_FLAG_SIGN_DATA_HIDING_ENABLED)
+		| HEVC_FLAG_TMVP_EN(!(decode->flags & V4L2_HEVC_DECODE_PARAM_FLAG_IDR_PIC)
+			&& sps->flags & V4L2_HEVC_SPS_FLAG_SPS_TEMPORAL_MVP_ENABLED)
 		, "hdr_5c_pps_flags");
 
-	push(swrap(pps->pps_cb_qp_offset, 1 << 5) << 5
-			| swrap(pps->pps_cr_qp_offset, 1 << 5),
+	push(AVD_HDR_H26X_QP_OFFSET_CB(pps->pps_cb_qp_offset)
+			| AVD_HDR_H26X_QP_OFFSET_CR(pps->pps_cr_qp_offset),
 			"hdr_60_pps_qp");
 
 	/*
@@ -237,42 +259,47 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 	bool is_intra = run->sl[0].slice_type == V4L2_HEVC_SLICE_TYPE_I;
 
-	push(0x2b000000
-		| ctx->fifo_idx << 4
-		| (avd->variant->revision == 3 ? 0x100 : 0x200),
+	push(AVD_OP_EXEC
+		| AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx)
+		| AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3)
+		| AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4),
 		"inst_fifo_start");
 
-	push(0x2db00000
-		| 0x1000
-		| (is_intra ? 0x2000 : 0)
-		| 0x2e0
-		| (avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE ? 0 : 0x80000),
+	push(AVD_OP_HDR
+		| AVD_OP_HDR_FLAG0
+		| AVD_OP_HDR_FLAG_INTRA(is_intra)
+		| AVD_OP_HDR_CONST
+		| AVD_OP_HDR_FLAG_PIPE_STATE(!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE)),
 		"hdr_34_start_hdr");
 
-	push(AVD_CODEC_HEVC, "hdr_50_mode");
-	push(((height - 1) << 16) | (width - 1), "hdr_54_height_width");
+	push(AVD_HDR_CODEC_MODE(AVD_CODEC_HEVC), "hdr_50_mode");
+	push(AVD_HDR_HEIGHT(height - 1) | AVD_HDR_WIDTH(width - 1),
+			"hdr_54_height_width");
 	push(0, "hdr_58_pixfmt_zero");
 
-	push((((height - 1) >> 3) << 16) | ((width - 1) >> 3),
+	push(AVD_HDR_HEIGHT((height - 1) >> 3) |
+			AVD_HDR_WIDTH((width - 1) >> 3),
 			"hdr_28_height_width_shift3");
 
-	push(sps->chroma_format_idc << 24
-		| sps->bit_depth_chroma_minus8 << 19
-		| sps->bit_depth_luma_minus8 << 15
-		| sps->log2_min_luma_coding_block_size_minus3 << 13
-		| (sps->log2_diff_max_min_luma_coding_block_size +
-			sps->log2_min_luma_coding_block_size_minus3) << 11
-		| sps->log2_min_luma_transform_block_size_minus2 << 9
-		| (sps->log2_diff_max_min_luma_transform_block_size +
-			+ sps->log2_min_luma_transform_block_size_minus2) << 7
-		| sps->max_transform_hierarchy_depth_inter << 4
-		| sps->max_transform_hierarchy_depth_intra << 1
-		| !!(sps->flags & V4L2_HEVC_SPS_FLAG_AMP_ENABLED),
+	push(AVD_HDR_COMMON_CHROMA_FORMAT(sps->chroma_format_idc)
+		| AVD_HDR_COMMON_BIT_DEPTH_C(sps->bit_depth_chroma_minus8)
+		| AVD_HDR_COMMON_BIT_DEPTH_L(sps->bit_depth_luma_minus8)
+		| AVD_HDR_COMMON_MIN_LUMA_CBS(sps->log2_min_luma_coding_block_size_minus3)
+		| AVD_HDR_COMMON_LUMA_CBS(sps->log2_diff_max_min_luma_coding_block_size +
+			sps->log2_min_luma_coding_block_size_minus3)
+		| AVD_HDR_COMMON_MIN_LUMA_TBS(sps->log2_min_luma_transform_block_size_minus2)
+		| AVD_HDR_COMMON_LUMA_TBS(sps->log2_diff_max_min_luma_transform_block_size +
+			+ sps->log2_min_luma_transform_block_size_minus2)
+		| AVD_HDR_COMMON_TR_INTER(sps->max_transform_hierarchy_depth_inter)
+		| AVD_HDR_COMMON_TR_INTRA(sps->max_transform_hierarchy_depth_intra)
+		| AVD_HDR_COMMON_FLAG0(sps->flags & V4L2_HEVC_SPS_FLAG_AMP_ENABLED),
 		 "hdr_2c_sps_txfm");
 
 	hevc_set_flags(ctx, run);
-	push(0x300000
-			| (avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE ? 0 : 0x30),
+
+	push(AVD_HDR_FEAT_H26X | AVD_HDR_FEAT_COMMON |
+			AVD_HDR_FEAT_PIPE_STATE_EN(!(avd->variant->quirks &
+					AVD_QUIRK_NO_PIPE_STATE)),
 			"hdr_98_const_30");
 
 	push(INST_DMA2, "cm3_dma_config_1");
@@ -323,7 +350,8 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	pusha(run->addresses.uv, "hdr_1b8_uv_addr_lsb8", 0);
 	push(bytesperline, "hdr_1c0_width_align");
 	push(0, "");
-	push(((height - 1) << 16) | (width - 1), "hdr_54_height_width");
+	push(AVD_HDR_HEIGHT(height - 1) | AVD_HDR_WIDTH(width - 1),
+			"hdr_54_height_width");
 
 	if (!is_intra)
 		stream_refs(ctx, run);
@@ -354,22 +382,18 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_hevc_run *run,
 	const s8 *luma_offsets;
 
 	if (!has_luma_weights) {
-		push(0x2dd00000, "slc_76c_cmd_weights_denom");
+		push(AVD_OP_WEIGHTS_HDR, "slc_76c_cmd_weights_denom");
 		return;
 	}
 
 	chroma_log2_weight_denom = pred->luma_log2_weight_denom +
 		pred->delta_chroma_log2_weight_denom;
 
-	/*
-	 * TODO: this looks weird
-	 */
-	push(0x2dd00000
-			| (!has_luma_weights << 7)
-			| (has_luma_weights << 6)
-			| (!has_luma_weights << 5)
-			| (pred->luma_log2_weight_denom << 3)
-			| (chroma_log2_weight_denom & 7)
+	push(AVD_OP_WEIGHTS_HDR |
+			AVD_OP_WEIGHTS_HDR_FLAG1(!has_luma_weights) |
+			AVD_OP_WEIGHTS_HDR_FLAG0(has_luma_weights) |
+			AVD_OP_WEIGHTS_HDR_LUMA(pred->luma_log2_weight_denom) |
+			AVD_OP_WEIGHTS_HDR_CHROMA(chroma_log2_weight_denom)
 			,"slc_76c_cmd_weights_denom");
 
 	luma_weight_denom = 1 << pred->luma_log2_weight_denom;
@@ -394,14 +418,14 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_hevc_run *run,
 			/* Avd only expects offsets/weights if they are not the default
 			 * ones, otherwise we get artifacts */
 			if((delta_luma_weights[i]  != 0) || (luma_offsets[i] != 0)) {
-				push(0x2de00000
-						| 1 << 14
-						| y << 13
-						| i << 9
-						| ((delta_luma_weights[i] + luma_weight_denom) & 0x1ff),
+				push(AVD_OP_WEIGHTS
+						| AVD_OP_WEIGHTS_IDENT(1)
+						| AVD_OP_WEIGHTS_LIST_IDX(y)
+						| AVD_OP_WEIGHTS_INDEX(i)
+						| AVD_OP_WEIGHTS_WEIGHT(delta_luma_weights[i] + luma_weight_denom),
 						"slc_luma_weights");
-				push(0x2df00000
-						| swrap(luma_offsets[i], 0x10000),
+				push(AVD_OP_OFFSETS
+						| AVD_OP_OFFSETS_OFFSET(luma_offsets[i]),
 						"slc_luma_offsets");
 			}
 
@@ -409,23 +433,23 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_hevc_run *run,
 					|| (chroma_offsets[i][0] != 0)
 					|| (delta_chroma_weights[i][1] != 0)
 					|| (chroma_offsets[i][1] != 0)) {
-				push(0x2de00000
-						| 2 << 14
-						| y << 13
-						| i << 9
-						| ((delta_chroma_weights[i][0] + chroma_weight_denom) & 0x1ff),
+				push(AVD_OP_WEIGHTS
+						| AVD_OP_WEIGHTS_IDENT(2)
+						| AVD_OP_WEIGHTS_LIST_IDX(y)
+						| AVD_OP_WEIGHTS_INDEX(i)
+						| AVD_OP_WEIGHTS_WEIGHT(delta_chroma_weights[i][0] + chroma_weight_denom),
 						"slc_chroma_weights[0]");
-				push(0x2df00000
-						| swrap(chroma_offsets[i][0], 0x10000),
+				push(AVD_OP_OFFSETS
+						| AVD_OP_OFFSETS_OFFSET(chroma_offsets[i][0]),
 						"slc_chroma_offsets[0]");
-				push(0x2de00000
-						| 3 << 14
-						| y << 13
-						| i << 9
-						| ((delta_chroma_weights[i][1] + chroma_weight_denom) & 0x1ff),
+				push(AVD_OP_WEIGHTS
+						| AVD_OP_WEIGHTS_IDENT(3)
+						| AVD_OP_WEIGHTS_LIST_IDX(y)
+						| AVD_OP_WEIGHTS_INDEX(i)
+						| AVD_OP_WEIGHTS_WEIGHT(delta_chroma_weights[i][1] + chroma_weight_denom),
 						"slc_chroma_weights[1]");
-				push(0x2df00000
-						| swrap(chroma_offsets[i][1], 0x10000),
+				push(AVD_OP_OFFSETS
+						| AVD_OP_OFFSETS_OFFSET(chroma_offsets[i][1]),
 						"slc_chroma_offsets[1]");
 			}
 		}
@@ -439,43 +463,43 @@ static void stream_slice_dqtblk(struct avd_ctx *ctx, struct avd_hevc_run *run,
 	const struct v4l2_ctrl_hevc_sps *sps = run->sps;
 	struct avd_dev *avd = ctx->dev;
 
-	push(0x2d900000
-			| (((pps->init_qp_minus26 + 26 +  sl->slice_qp_delta) << 10) & 0x1fc00)
-			| swrap(pps->pps_cb_qp_offset + sl->slice_cb_qp_offset, 32) << 5
-			| swrap(pps->pps_cr_qp_offset + sl->slice_cr_qp_offset, 32)
+	push(AVD_OP_QP |
+			AVD_OP_QP_VAL(pps->init_qp_minus26 + 26 +  sl->slice_qp_delta) |
+			AVD_OP_QP_CB_OFF(pps->pps_cb_qp_offset + sl->slice_cb_qp_offset) |
+			AVD_OP_QP_CR_OFF(pps->pps_cr_qp_offset + sl->slice_cr_qp_offset)
 			,"slc_bcc_cmd_quantization");
 
-	push(0x2da00000
-			| !!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_CHROMA) << 6
-		    | !!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA) << 7
-			| swrap(sl->slice_tc_offset_div2, 16) << 8
-			| swrap(sl->slice_beta_offset_div2, 16) << 12
+	push(AVD_OP_DBLK |
+			AVD_OP_DBLK_FLAG_SAO_CHROMA(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_CHROMA) |
+			AVD_OP_DBLK_FLAG_SAO_LUMA(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA) |
+			AVD_OP_DBLK_OFF0(sl->slice_tc_offset_div2) |
+			AVD_OP_DBLK_OFF1(sl->slice_beta_offset_div2) |
 			/* i wonder what this should actually be */
-			| !!(!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_DEBLOCKING_FILTER_DISABLED)
+			AVD_OP_DBLK_FLAG_EN(!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_DEBLOCKING_FILTER_DISABLED)
 				&& (sps->flags & V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED
 				|| sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA
-				|| pps->flags & (V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_OVERRIDE_ENABLED | V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_CONTROL_PRESENT))) << 16
-			| !!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED) << 17
-			| !!(!(pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED)
-				|| (pps->flags & V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED)) << 18
-			| !!((sps->flags & V4L2_HEVC_SPS_FLAG_PCM_ENABLED)
-				&& ! (sps->flags & V4L2_HEVC_SPS_FLAG_PCM_LOOP_FILTER_DISABLED)) << 19
+				|| pps->flags & (V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_OVERRIDE_ENABLED | V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_CONTROL_PRESENT))) |
+			AVD_OP_DBLK_FLAG_FULL_EN(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED) |
+			AVD_OP_DBLK_FLAG_TILES_EN(!(pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED)
+				|| (pps->flags & V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED)) |
+			AVD_OP_DBLK_FLAG_PCM_EN((sps->flags & V4L2_HEVC_SPS_FLAG_PCM_ENABLED)
+				&& ! (sps->flags & V4L2_HEVC_SPS_FLAG_PCM_LOOP_FILTER_DISABLED))
 			, "slc_bd0_cmd_deblocking_filter");
 
 	if (sl->slice_type == V4L2_HEVC_SLICE_TYPE_B
 			|| sl->slice_type == V4L2_HEVC_SLICE_TYPE_P) {
 		for (int i = 0; i < sl->num_ref_idx_l0_active_minus1 + 1; i++)
-			push(0x2dc00000
-					| (0 << 8)
-					| ((i & 0xf) << 4)
-					| (sl->ref_idx_l0[i] & 0xf),
+			push(AVD_OP_REF |
+					AVD_OP_REF_LIST_IDX(0) |
+					AVD_OP_REF_LOOP_IDX(i) |
+					AVD_OP_REF_DBP_IDX(sl->ref_idx_l0[i]),
 					"reference_frames_l0");
 		if (sl->slice_type == V4L2_HEVC_SLICE_TYPE_B)
 			for (int i = 0; i < sl->num_ref_idx_l1_active_minus1 + 1; i++)
-				push(0x2dc00000
-						| (1 << 8)
-						| ((i & 0xf) << 4)
-						| (sl->ref_idx_l1[i] & 0xf),
+				push(AVD_OP_REF |
+						AVD_OP_REF_LIST_IDX(1) |
+						AVD_OP_REF_LOOP_IDX(i) |
+						AVD_OP_REF_DBP_IDX(sl->ref_idx_l1[i]),
 						"reference_frames_l1");
 
 		stream_weights(ctx, run, sl);
@@ -491,8 +515,8 @@ static void stream_slice_mv(struct avd_ctx *ctx, struct avd_hevc_run *run,
 	const u8 *ref_list;
 
 	if (sl->slice_type == V4L2_HEVC_SLICE_TYPE_I) {
-		push(0x2d000000
-				| !!(sl->slice_type == V4L2_HEVC_SLICE_TYPE_I) << 17
+		push(AVD_OP_SL_REF |
+				AVD_OP_SL_REF_SLICE_I(sl->slice_type == V4L2_HEVC_SLICE_TYPE_I)
 				, "slc_a8c_cmd_ref_type");
 		return;
 	}
@@ -512,25 +536,18 @@ static void stream_slice_mv(struct avd_ctx *ctx, struct avd_hevc_run *run,
 		&& is_first
 		&& !ref->hevc.is_intra;
 
-	u32 x = 0;
-
-	x |= (5 - sl->five_minus_max_num_merge_cand) << 1;
-	x |= !!((sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED)
-			&& !(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_COLLOCATED_FROM_L0)) << 4;
-	x |= !!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_CABAC_INIT) << 5;
-	if (sl->slice_type == V4L2_HEVC_SLICE_TYPE_B) {
-		x |= !!!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_MVD_L1_ZERO) << 6;
-		x |= sl->num_ref_idx_l1_active_minus1 << 7;
-	}
-	x |= sl->num_ref_idx_l0_active_minus1 << 11;
-
-	x |= !!((sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED)
-			|| (sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT)) << 15;
-
-	push(0x2d000000
-			| x
-			| !!(sl->slice_type == V4L2_HEVC_SLICE_TYPE_P) << 16
-			| ref_valid << 18
+	push(AVD_OP_SL_REF |
+			AVD_OP_SL_REF_MAX_MERGE(5 - sl->five_minus_max_num_merge_cand) |
+			AVD_OP_SL_REF_FLAG_CABAC(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_CABAC_INIT) |
+			AVD_OP_SL_REF_FLAG0((sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED)
+			&& !(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_COLLOCATED_FROM_L0)) |
+			AVD_OP_SL_REF_FLAG1(!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_MVD_L1_ZERO)) |
+			AVD_OP_SL_REF_FLAG2((sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED)
+			|| (sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT)) |
+			AVD_OP_SL_REF_NUM_L0(sl->num_ref_idx_l0_active_minus1) |
+			AVD_OP_SL_REF_NUM_L1(sl->num_ref_idx_l1_active_minus1) |
+			AVD_OP_SL_REF_SLICE_P(sl->slice_type == V4L2_HEVC_SLICE_TYPE_P) |
+			AVD_OP_SL_REF_SLICE_B(ref_valid)
 			, "slc_a8c_cmd_ref_type");
 
 	if (ref_valid) {
@@ -547,9 +564,10 @@ static void set_slice(struct avd_ctx *ctx, struct avd_hevc_run *run,
 {
 	struct avd_dev *avd = ctx->dev;
 	dma_addr_t slc_addr = run->addresses.sl + offset + sl->data_byte_offset;
-	push(0x2d800000
+	push(AVD_OP_CODED_DATA
 			| flags
-			| (u32)(slc_addr >> 32), "cm3_cmd_set_coded_slice");
+			| AVD_OP_CODED_DATA_ADDR(slc_addr >> 32),
+			"cm3_cmd_set_coded_slice");
 	push((u32)(slc_addr & 0xffffffff), "slc_bd8_slice_addr");
 	push(size, "slc_bdc_slice_size");
 }
@@ -570,7 +588,7 @@ static int submit_slice_segment(struct avd_ctx *ctx, struct avd_hevc_run *run,
 		tb_x = sl->slice_segment_addr % pic_in_cts_width;
 		tb_y = sl->slice_segment_addr / pic_in_cts_width;
 
-		tile_block = tb_y << 12 | tb_x;
+		tile_block = AVD_OP_SL_LOC_Y(tb_y) | AVD_OP_SL_LOC_X(tb_x);
 
 		if (!(sl->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT))
 			last_tile_block = tile_block;
@@ -579,28 +597,29 @@ static int submit_slice_segment(struct avd_ctx *ctx, struct avd_hevc_run *run,
 		 * tile block start
 		 * CABAC window
 		 */
-		push(0x2c000000 | last_tile_block, "cm3_cmd_set_cabac_xy");
+		push(AVD_OP_SL_LOC | last_tile_block, "cm3_cmd_set_cabac_xy");
 
 		stream_slice_dqtblk(ctx, run, sl);
 	} else {
-		tile_boundary = row_bd[row] << 12 | col_bd[col];
+		tile_boundary = AVD_OP_SL_LOC_Y(row_bd[row]) |
+			        AVD_OP_SL_LOC_X(col_bd[col]);
 	}
 
 	if (coded_flags & NEW_TILE_ID) {
-		push(0x2a000000 |
-				(coded_flags & NEW_SLICE ? tile_block : tile_boundary),
+		push(AVD_OP_SL_DIM_START |
+			(coded_flags & NEW_SLICE ? tile_block : tile_boundary),
 				"cm3_cmd_set_ctb_xy");
 
 		/* tile boundary end */
 		if (pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED)
-			push(((hflip ? 4 : 0) | (vflip ? 8 : 0)) << 28
-					| col << 24
-					| (row_bd[row + 1] - 1) << 12
-					| (col_bd[col + 1] - 1),
+			push(AVD_SL_DIM_END_ROW((hflip ? 4 : 0) | (vflip ? 8 : 0)) |
+					AVD_SL_DIM_END_COL(col) |
+					AVD_SL_DIM_END_Y(row_bd[row + 1] - 1) |
+					AVD_SL_DIM_END_X(col_bd[col + 1] - 1),
 					"cm3_set_ctb_xy");
 		else /* first slice, one CTB */
-			push((pic_in_cts_height - 1) << 12
-					| (pic_in_cts_width - 1),
+			push(AVD_SL_DIM_END_Y(pic_in_cts_height - 1) |
+					AVD_SL_DIM_END_X(pic_in_cts_width - 1),
 					"cm3_set_ctb_xy");
 	}
 
@@ -609,10 +628,12 @@ static int submit_slice_segment(struct avd_ctx *ctx, struct avd_hevc_run *run,
 
 	/* current tile block / boundary ?? */
 	/* Unlike entropy, motion vector window resets every time */
-	push(1 << 24 | (coded_flags & NEW_SLICE ? tile_block : tile_boundary),
+	push(AVD_SL_DIM_END_COL(1) |
+			(coded_flags & NEW_SLICE ? tile_block : tile_boundary),
 			"cm3_set_mv_xy");
 
-	push(0x2b000000 | is_last << 10, "cm3_cmd_inst_fifo_end");
+	push(AVD_OP_EXEC | AVD_OP_EXEC_FLAG_END(is_last),
+			"cm3_cmd_inst_fifo_end");
 
 	return last_tile_block;
 }
@@ -729,8 +750,10 @@ static int avd_wait_submission_queue(struct avd_ctx *ctx)
 				avd->variant->submit_queue_status_offset +
 				(ctx->vp_slot) * 4);
 
+	/* pr_info("%d/%d\n", cur, max); */
+
 	if (cur == max) {
-		dev_err_ratelimited(avd->dev, "instruction que full! %d/%d",
+		dev_err(avd->dev, "instruction que full! %d/%d",
 				    cur, max);
 		return 1;
 	}
@@ -791,12 +814,16 @@ static void stream_slices(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 	ctb_addr_rs_to_ts = kzalloc(
 		sizeof(*ctb_addr_rs_to_ts) * pic_in_ctbs_size, GFP_KERNEL);
-	if (!ctb_addr_rs_to_ts)
+	if (!ctb_addr_rs_to_ts) {
+		pr_err("alloc: ctb_addr_rs_to_ts\n");
 		goto done;
+	}
 
 	tile_ids = kzalloc(sizeof(*tile_ids) * pic_in_ctbs_size, GFP_KERNEL);
-	if (!tile_ids)
+	if (!tile_ids) {
+		pr_err("alloc: tile_ids\n");
 		goto done;
+	}
 
 	if (tiles_enabled) {
 		if (pps->flags & V4L2_HEVC_PPS_FLAG_UNIFORM_SPACING) {
@@ -830,7 +857,11 @@ static void stream_slices(struct avd_ctx *ctx, struct avd_hevc_run *run)
 		sl = &run->sl[s];
 		slice_segment_offset = 0;
 		to = tiles_enabled ? sl->num_entry_point_offsets + 1 : 1;
-
+		if (tiles_enabled && sl->num_entry_point_offsets + entry_point_idx > run->num_entry_point_offsets + 1) {
+			dev_err(ctx->dev->dev, "to few entry points! has: %d, needs > %d",
+					run->num_entry_point_offsets, sl->num_entry_point_offsets + entry_point_idx);
+			goto done;
+		}
 		for (i = 0; i < to; i++) {
 			is_last = i == to - 1 && s == run->num_slices - 1;
 			first_segment = i == 0;
@@ -924,11 +955,9 @@ static void stream_slices(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	hevc_ctx->submit_num = pos;
 
 done:
-	if (ctb_addr_rs_to_ts)
-		kfree(ctb_addr_rs_to_ts);
+	kfree(ctb_addr_rs_to_ts);
 
-	if (tile_ids)
-		kfree(tile_ids);
+	kfree(tile_ids);
 }
 
 static void update_dec_buf_info(struct avd_decoded_buffer *buf,
@@ -1049,7 +1078,7 @@ static void avd_hevc_stop(struct avd_ctx *ctx)
 	kfree(hevc_ctx);
 }
 
-static void avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
+static int avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 {
 	struct v4l2_ctrl *ctrl;
 	u32 dst_len, sps_len;
@@ -1072,6 +1101,9 @@ static void avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	ctrl = v4l2_ctrl_find(&ctx->ctrl_hdl,
 			      V4L2_CID_STATELESS_HEVC_ENTRY_POINT_OFFSETS);
 	run->entry_point_offsets = ctrl ? ctrl->p_cur.p : NULL;
+	if (!run->entry_point_offsets)
+		return -EINVAL;
+	run->num_entry_point_offsets = ctrl ? ctrl->new_elems : 0;
 
 	avd_run_preamble(ctx, &run->base);
 
@@ -1094,6 +1126,7 @@ static void avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 		run->addresses.y + (dst_len - sps_len - ctx->rvra.size);
 
 	run->addresses.sps = run->addresses.y + (dst_len - sps_len);
+	return 0;
 }
 
 static int avd_hevc_run(struct avd_ctx *ctx)
@@ -1104,9 +1137,12 @@ static int avd_hevc_run(struct avd_ctx *ctx)
 	struct avd_decoded_buffer *dst;
 	int ret;
 
-	avd_hevc_run_preamble(ctx, &run);
+	ret = avd_hevc_run_preamble(ctx, &run);
+	if (ret) {
+		dev_err(avd->dev, "avd_hevc_run_preamble: failed %d", ret);
+		return ret;
+	}
 
-	avd_run_postamble(ctx, &run.base);
 	hevc_ctx = ctx->priv;
 	dst = vb2_to_avd_decoded_buf(&run.base.bufs.dst->vb2_buf);
 	update_dec_buf_info(dst, &run.sl[0]);
@@ -1116,12 +1152,16 @@ static int avd_hevc_run(struct avd_ctx *ctx)
 		dev_err(avd->dev, "no free slots: %d", ret);
 		return ret;
 	}
+	/* pr_info("VP%d: start\n", ctx->vp_slot); */
 	avd->variant->configure_stream(avd, hevc_ctx->bufs.inst.addr,
 				       ctx->fifo_idx, ctx->vp_slot);
+	/* avd_status(avd, ctx->vp_slot); */
 	set_header(ctx, &run);
 
 	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
 	stream_slices(ctx, &run);
+	/* avd_status(avd, ctx->vp_slot); */
+	avd_run_postamble(ctx, &run.base);
 
 	return 0;
 }

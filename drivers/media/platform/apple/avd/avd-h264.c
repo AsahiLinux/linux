@@ -23,6 +23,13 @@
 #include "avd.h"
 #include "avd-inst.h"
 
+#define H264_SCL_DIMS (0x1000000 | ((64 / 4) << 5) | (((16 / 4) << 5) - 1))
+
+#define h264_FLAG_CI_PRED(v)			FIELD_PREP(BIT(19), !!(v))
+#define H264_FLAG_ENTROPY_CODING_MODE(v)	FIELD_PREP(BIT(20), !!(v))
+#define H264_FLAG_NOT_IDR(v)			FIELD_PREP(BIT(21), !!(v))
+
+
 struct avd_h264_run {
 	struct avd_run base;
 
@@ -117,10 +124,10 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_h264_run *run)
 						- ctx->rvra.size)
 			: run->addresses.rvra; /* safe fallback */
 
-		push(((run->num_valid - 1) & 0xf) << 28
-				| 0x1000000
-				| (boolify(dpb[i].flags & V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM) << 17)
-				| (swrap(run->cur_poc - dpb[i].top_field_order_cnt, 1 << 17)),
+		push(AVD_REF_NUM(run->num_valid - 1)
+				| AVD_REF_FLAG_CONST
+				| AVD_REF_FLAG_LONG(dpb[i].flags & V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM)
+				| AVD_REF_DELTA_POC(run->cur_poc - dpb[i].top_field_order_cnt),
 				"hdr_d0_ref_hdr");
 
 		push_rvra(avd, ctx, rvra_addr, ctx->rvra.offsets);
@@ -133,15 +140,14 @@ static void stream_scaling(struct avd_ctx *ctx, struct avd_h264_run *run)
 	const struct v4l2_ctrl_h264_scaling_matrix *scaling = run->scaling_matrix;
 	struct avd_dev *avd = ctx->dev;
 
-	push(0x1000000 | ((64 / 4) << 5)
-		| (((16 / 4) << 5) - 1), "hdr_4c_pic_scaling_list_dims");
+	push(H264_SCL_DIMS, "hdr_4c_pic_scaling_list_dims");
 
 	for (int i = 0; i < 6; i++)
 		for (int j = 0; j < 16; j+=4)
-			push((scaling->scaling_list_4x4[i][j + 0] << 24)
-					| (scaling->scaling_list_4x4[i][j + 1] << 16)
-					| (scaling->scaling_list_4x4[i][j + 2] << 8)
-					| (scaling->scaling_list_4x4[i][j + 3]),
+			push(AVD_SCALING_I3(scaling->scaling_list_4x4[i][j + 0])
+					| AVD_SCALING_I2(scaling->scaling_list_4x4[i][j + 1])
+					| AVD_SCALING_I1(scaling->scaling_list_4x4[i][j + 2])
+					| AVD_SCALING_I0(scaling->scaling_list_4x4[i][j + 3]),
 					"scl_46c_pic_scaling_matrix_4x4");
 
 	/* Instead of 8x8 raster scan order avd expects 4 4x4 subblocks */
@@ -156,10 +162,10 @@ static void stream_scaling(struct avd_ctx *ctx, struct avd_h264_run *run)
 	if (pps->flags & V4L2_H264_PPS_FLAG_TRANSFORM_8X8_MODE) {
 		for (int i = 0; i < 2; i++)
 			for (int j = 0; j < 16; j++)
-				push((scaling->scaling_list_8x8[i][map[j] + 0] << 24)
-						| (scaling->scaling_list_8x8[i][map[j] + 1] << 16)
-						| (scaling->scaling_list_8x8[i][map[j] + 2] << 8)
-						| (scaling->scaling_list_8x8[i][map[j] + 3]),
+				push(AVD_SCALING_I3(scaling->scaling_list_8x8[i][map[j] + 0])
+						| AVD_SCALING_I2(scaling->scaling_list_8x8[i][map[j] + 1])
+						| AVD_SCALING_I1(scaling->scaling_list_8x8[i][map[j] + 2])
+						| AVD_SCALING_I0(scaling->scaling_list_8x8[i][map[j] + 3]),
 						"scl_4cc_pic_scaling_matrix_8x8");
 
 	} else {
@@ -181,47 +187,53 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	u32 width = (sps->pic_width_in_mbs_minus1 + 1) * 16;
 	u32 height = (sps->pic_height_in_map_units_minus1 + 1) * 16;
 
-	push(0x2b000000
-			| (ctx->fifo_idx << 4)
-			| (avd->variant->revision == 3 ? 0x100 : 0x200),
+	push(AVD_OP_EXEC
+			| AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx)
+			| AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3)
+			| AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4),
 			"inst_fifo_start");
 
-	push(0x2db00000
-			| 0x1000
-			| ((decode->flags & V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC) ? 0x2000 : 0)
-			| 0x2e0
-			| (avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE ? 0 : 0x80000)
+	push(AVD_OP_HDR
+			| AVD_OP_HDR_FLAG0
+			| AVD_OP_HDR_FLAG_INTRA(decode->flags & V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC)
+			| AVD_OP_HDR_CONST
+			| AVD_OP_HDR_FLAG_PIPE_STATE(!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
 			, "hdr_34_start_hdr");
 
-	push(AVD_CODEC_H264 << 24, "hdr_38_mode");
+	push(AVD_HDR_CODEC_MODE(AVD_CODEC_H264), "hdr_38_mode");
 
-	push(((height - 1) << 16) | (width - 1), "hdr_3c_height_width");
+	push(AVD_HDR_HEIGHT(height - 1) | AVD_HDR_WIDTH(width - 1),
+			"hdr_3c_height_width");
 
 	push(0, "hdr_40_zero");
 
-	push((((height - 1) >> 3) << 16) | ((width - 1) >> 3),
+	push(AVD_HDR_HEIGHT((height - 1) >> 3) | AVD_HDR_WIDTH((width - 1) >> 3),
 			"hdr_28_height_width_shift3");
 
-	push((sps->chroma_format_idc & 3) << 24
-		| (sps->bit_depth_luma_minus8 & 15) << 19
-		| (sps->bit_depth_chroma_minus8 & 15) << 15
-		| 0x2800
-		| boolify(pps->flags & V4L2_H264_PPS_FLAG_TRANSFORM_8X8_MODE) << 7
-		| boolify(sps->flags & V4L2_H264_SPS_FLAG_DIRECT_8X8_INFERENCE),
+	/* TODO: did i mix up luma/chroma in hevc or here? */
+	push(AVD_HDR_COMMON_CHROMA_FORMAT(sps->chroma_format_idc)
+		| AVD_HDR_COMMON_BIT_DEPTH_L(sps->bit_depth_luma_minus8)
+		| AVD_HDR_COMMON_BIT_DEPTH_C(sps->bit_depth_chroma_minus8)
+		| AVD_HDR_COMMON_MIN_LUMA_CBS(1)
+		| AVD_HDR_COMMON_LUMA_CBS(1)
+		| AVD_HDR_COMMON_LUMA_TBS(pps->flags & V4L2_H264_PPS_FLAG_TRANSFORM_8X8_MODE)
+		| AVD_HDR_COMMON_FLAG0(sps->flags & V4L2_H264_SPS_FLAG_DIRECT_8X8_INFERENCE),
 		"hdr_2c_sps_param");
 
-	push(boolify(pps->flags & V4L2_H264_PPS_FLAG_ENTROPY_CODING_MODE) << 20
-		| !boolify(decode->flags & V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC) << 21
-		| boolify(pps->flags & V4L2_H264_PPS_FLAG_CONSTRAINED_INTRA_PRED) << 19,
+	push(H264_FLAG_ENTROPY_CODING_MODE(pps->flags & V4L2_H264_PPS_FLAG_ENTROPY_CODING_MODE)
+		| H264_FLAG_NOT_IDR(!(decode->flags & V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC))
+		| h264_FLAG_CI_PRED(pps->flags & V4L2_H264_PPS_FLAG_CONSTRAINED_INTRA_PRED),
 		"hdr_44_flags");
 
 
-	push(swrap(pps->chroma_qp_index_offset, 32) << 5
-		| swrap(pps->second_chroma_qp_index_offset, 32)
+	push(AVD_HDR_H26X_QP_OFFSET_CB(pps->chroma_qp_index_offset)
+		| AVD_HDR_H26X_QP_OFFSET_CR(pps->second_chroma_qp_index_offset)
 		, "hdr_48_chroma_qp_index_offset");
 
-    push(0x30000a
-			| (avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE ? 0 : 0x30),
+	push(AVD_HDR_FEAT_H26X |
+			AVD_HDR_FEAT_COMMON |
+			AVD_HDR_FEAT_H264 |
+			AVD_HDR_FEAT_PIPE_STATE_EN(!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE)),
 			"hdr_58_const_3a");
 
 	push(INST_DMA2, "cm3_dma_config_1");
@@ -256,7 +268,7 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	pusha(run->addresses.uv,"hdr_214_uv_addr_lsb8", 0);
 	push(bytesperline, "hdr_21c_width_align");
 
-	push(0x0, "cm3_mark_end_section");
+	push(0, "cm3_mark_end_section");
 	push(((height - 1) << 16) | (width - 1), "hdr_54_height_width");
 
 	if (!(decode->flags & V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC))
@@ -265,12 +277,14 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	if (pps->flags & V4L2_H264_PPS_FLAG_SCALING_MATRIX_PRESENT)
 		stream_scaling(ctx, run);
 	else
-		push(0x0, "cm3_mark_end_section_scl");
+		push(0, "cm3_mark_end_section_scl");
 }
+
+#define DEFAULT_WEIGHT_DENOM (AVD_OP_WEIGHTS_HDR_LUMA(5) | AVD_OP_WEIGHTS_HDR_CHROMA(5))
 
 static void stream_weights(struct avd_ctx *ctx, struct avd_h264_run *run)
 {
-	int default_luma_weight, default_chroma_weight;
+	int luma_denom, chroma_denom;
 	struct v4l2_h264_weight_factors factors;
 	const struct v4l2_ctrl_h264_pred_weights *weights = run->pred_weights;
 	const struct v4l2_ctrl_h264_pps *pps = run->pps;
@@ -281,20 +295,20 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 	/* TODO: is there a better flag or something for the
 	 * pps->weighted_bipred_idc == 2 checks? */
-	push(0x2dd00000
-		| ((pps->weighted_bipred_idc == 2) << 7)
-		| (pred_weight << 6)
-		| (weights->luma_log2_weight_denom << 3)
-		| (weights->chroma_log2_weight_denom)
+	push(AVD_OP_WEIGHTS_HDR
+		| AVD_OP_WEIGHTS_HDR_FLAG1(pps->weighted_bipred_idc == 2)
+		| AVD_OP_WEIGHTS_HDR_FLAG0(pred_weight)
+		| AVD_OP_WEIGHTS_HDR_LUMA(weights->luma_log2_weight_denom)
+		| AVD_OP_WEIGHTS_HDR_CHROMA(weights->chroma_log2_weight_denom)
 		/* default luma and chroma denom */
-		| (pps->weighted_bipred_idc == 2 ? 0x5 | 0x5 << 3 : 0),
+		| (pps->weighted_bipred_idc == 2 ? DEFAULT_WEIGHT_DENOM : 0),
 		"slc_76c_cmd_weights_denom");
 
 	if (!pred_weight)
 		return;
 
-	default_luma_weight = 1 << weights->luma_log2_weight_denom;
-	default_chroma_weight = 1 << weights->chroma_log2_weight_denom;
+	luma_denom = 1 << weights->luma_log2_weight_denom;
+	chroma_denom = 1 << weights->chroma_log2_weight_denom;
 
 
 	for (int y = 0; y < 2; y++) {
@@ -307,40 +321,40 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_h264_run *run)
 		for (int i = 0; i < to + 1; i++) {
 			/* Avd only expects offsets/weights if they are not the default
 			 * ones, otherwise we get artifacts */
-			if((factors.luma_weight[i] != default_luma_weight)
+			if((factors.luma_weight[i] != luma_denom)
 					|| (factors.luma_offset[i] != 0)) {
-				push(0x2de00000
-						| 1 << 14
-						| y << 13
-						| i << 9
-						| ((factors.luma_weight[i] & 0x1ff)),
+				push(AVD_OP_WEIGHTS
+						| AVD_OP_WEIGHTS_IDENT(1)
+						| AVD_OP_WEIGHTS_LIST_IDX(y)
+						| AVD_OP_WEIGHTS_INDEX(i)
+						| AVD_OP_WEIGHTS_WEIGHT(factors.luma_weight[i]),
 					"slc_luma_weights");
-				push(0x2df00000
-						| swrap(factors.luma_offset[i], 0x10000),
+				push(AVD_OP_OFFSETS
+						| AVD_OP_OFFSETS_OFFSET(factors.luma_offset[i]),
 						"slc_luma_offsets");
 			}
 
-			if ((factors.chroma_weight[i][0] != default_chroma_weight)
+			if ((factors.chroma_weight[i][0] != chroma_denom)
 					|| (factors.chroma_offset[i][0] != 0)
-					|| (factors.chroma_weight[i][1] != default_chroma_weight)
+					|| (factors.chroma_weight[i][1] != chroma_denom)
 					|| (factors.chroma_offset[i][1] != 0)) {
-				push(0x2de00000
-						| 2 << 14
-						| y << 13
-						| i << 9
-						| (factors.chroma_weight[i][0] & 0x1ff),
+				push(AVD_OP_WEIGHTS
+						| AVD_OP_WEIGHTS_IDENT(2)
+						| AVD_OP_WEIGHTS_LIST_IDX(y)
+						| AVD_OP_WEIGHTS_INDEX(i)
+						| AVD_OP_WEIGHTS_WEIGHT(factors.chroma_weight[i][0]),
 						"slc_chroma_weights[0]");
-				push(0x2df00000
-						| swrap(factors.chroma_offset[i][0], 0x10000),
+				push(AVD_OP_OFFSETS
+						| AVD_OP_OFFSETS_OFFSET(factors.chroma_offset[i][0]),
 						"slc_chroma_offsets[0]");
-				push(0x2de00000
-						| 3 << 14
-						| y << 13
-						| i << 9
-						| (factors.chroma_weight[i][1] & 0x1ff),
+				push(AVD_OP_WEIGHTS
+						| AVD_OP_WEIGHTS_IDENT(3)
+						| AVD_OP_WEIGHTS_LIST_IDX(y)
+						| AVD_OP_WEIGHTS_INDEX(i)
+						| AVD_OP_WEIGHTS_WEIGHT(factors.chroma_weight[i][1]),
 						"slc_chroma_weights[1]");
-				push(0x2df00000
-						| swrap(factors.chroma_offset[i][1], 0x10000),
+				push(AVD_OP_OFFSETS
+						| AVD_OP_OFFSETS_OFFSET(factors.chroma_offset[i][1]),
 						"slc_chroma_offsets[1]");
 			}
 		}
@@ -359,7 +373,6 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 	bool en_mode = (pps->flags & V4L2_H264_PPS_FLAG_ENTROPY_CODING_MODE) ==
 		       0;
 	const u8 *data = vb2_plane_vaddr(&src->vb2_buf, 0);
-	u32 x;
 
 	u32 min_off = (sl->header_bit_size + (en_mode ? 0 : 7)) / 8;
 
@@ -378,32 +391,29 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 	dma_addr_t slc_a84 = run->addresses.sl + off;
 
-	push(0x2d800000
-			| ((en_mode ? (sl->header_bit_size % 8) : 0) << 15)
-			| (u32)(slc_a84 >> 32), "slc_a7c_cmd_set_coded_slice");
+	push(AVD_OP_CODED_DATA
+			| AVD_OP_CODED_DATA_BIT_OFF(en_mode ?
+				(sl->header_bit_size % 8) : 0)
+			| AVD_OP_CODED_DATA_ADDR(slc_a84 >> 32), "slc_a7c_cmd_set_coded_slice");
 	push((u32)(slc_a84 & 0xffffffff), "slc_a84_slice_addr_low");
 
 	/* should not include trailing 0? */
 	push(payload_len - off, "slc_a88_slice_hdr_size");
 
-	push(0x2c000000
-			| (sl->first_mb_in_slice / (sps->pic_width_in_mbs_minus1 + 1) << 12)
-			|  sl->first_mb_in_slice % (sps->pic_width_in_mbs_minus1 + 1),
+	push(AVD_OP_SL_LOC
+			| AVD_OP_SL_LOC_Y(sl->first_mb_in_slice / (sps->pic_width_in_mbs_minus1 + 1))
+			| AVD_OP_SL_LOC_X(sl->first_mb_in_slice % (sps->pic_width_in_mbs_minus1 + 1)),
 			"cm3_cmd_exec_mb_vp");
 
-	push(0x2d900000
-		| ( ((26 + pps->pic_init_qp_minus26 + sl->slice_qp_delta) * 0x400)
-				& 0x1fc00),
+	push(AVD_OP_QP
+		| AVD_OP_QP_VAL(26 + pps->pic_init_qp_minus26 + sl->slice_qp_delta),
 			"slc_a70_cmd_quant_param");
 
-	push(0x2da00000
-			| (u32)(sl->disable_deblocking_filter_idc == 0
-				? BIT(17) : 0)
-			| (u32)(sl->disable_deblocking_filter_idc != 1
-				? BIT(16)
-				| swrap(sl->slice_beta_offset_div2, 16) << 12
-				| swrap(sl->slice_alpha_c0_offset_div2, 16) << 8
-				: 0),
+	push(AVD_OP_DBLK
+			| AVD_OP_DBLK_FLAG_FULL_EN(sl->disable_deblocking_filter_idc == 0)
+			| AVD_OP_DBLK_FLAG_EN(sl->disable_deblocking_filter_idc != 1)
+			| AVD_OP_DBLK_OFF1(sl->slice_beta_offset_div2)
+			| AVD_OP_DBLK_OFF0(sl->slice_alpha_c0_offset_div2),
 			"slc_a74_cmd_deblocking_filter");
 
 	if (sl->slice_type == V4L2_H264_SLICE_TYPE_P
@@ -411,52 +421,42 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 		u32 num_ref_idx_active = sl->num_ref_idx_l0_active_minus1 + 1;
 		for (u32 i = 0; i < num_ref_idx_active; i++)
-			push(0x2dc00000
-			   | (0 << 8)
-			   | ((i & 0xf) << 4)
-			   | (sl->ref_pic_list0[i].index & 0xf),
+			push(AVD_OP_REF
+			   | AVD_OP_REF_LIST_IDX(0)
+			   | AVD_OP_REF_LOOP_IDX(i)
+			   | AVD_OP_REF_DBP_IDX(sl->ref_pic_list0[i].index),
 			   "slc_6e8_cmd_ref_list_0");
 
 		if (sl->slice_type == V4L2_H264_SLICE_TYPE_B) {
 			u32 num_ref_idx_active = sl->num_ref_idx_l1_active_minus1 + 1;
 			for (u32 i = 0; i < num_ref_idx_active; i++)
-				push(0x2dc00000
-						| (1 << 8)
-						| ((i & 0xf) << 4)
-						| (sl->ref_pic_list1[i].index & 0xf),
+				push(AVD_OP_REF
+						| AVD_OP_REF_LIST_IDX(1)
+						| AVD_OP_REF_LOOP_IDX(i)
+						| AVD_OP_REF_DBP_IDX(sl->ref_pic_list1[i].index),
 						"slc_6e8_cmd_ref_list_0");
 		}
 		stream_weights(ctx, run);
 	}
 
 	if (sl->first_mb_in_slice == 0) {
-		push(0x2a000000, "cm3_cmd_set_mb_dims");
-		push(((sps->pic_height_in_map_units_minus1) << 12)
-				| (sps->pic_width_in_mbs_minus1), "cm3_set_mb_dims");
+		push(AVD_OP_SL_DIM_START, "cm3_cmd_set_mb_dims");
+		push(AVD_SL_DIM_END_Y(sps->pic_height_in_map_units_minus1)
+				| AVD_SL_DIM_END_X(sps->pic_width_in_mbs_minus1), "cm3_set_mb_dims");
 	}
 
-	x = 0;
-	if (sl->slice_type == V4L2_H264_SLICE_TYPE_I)
-		x |= 0x20000;
-	else if (sl->slice_type == V4L2_H264_SLICE_TYPE_P)
-		x |= 0x10000;
-	else if (sl->slice_type == V4L2_H264_SLICE_TYPE_B)
-		x |= 0x40000;
+	push(AVD_OP_SL_REF |
+			AVD_OP_SL_REF_FLAG_CABAC(sl->cabac_init_idc == 1) |
+			AVD_OP_SL_REF_FLAG1(sl->cabac_init_idc == 2) |
+			AVD_OP_SL_REF_FLAG2(!(sl->flags &
+			      V4L2_H264_SLICE_FLAG_DIRECT_SPATIAL_MV_PRED)) |
+			AVD_OP_SL_REF_NUM_L0(sl->num_ref_idx_l0_active_minus1) |
+			AVD_OP_SL_REF_NUM_L1(sl->num_ref_idx_l1_active_minus1) |
+			AVD_OP_SL_REF_SLICE_P(sl->slice_type == V4L2_H264_SLICE_TYPE_P) |
+			AVD_OP_SL_REF_SLICE_I(sl->slice_type == V4L2_H264_SLICE_TYPE_I) |
+			AVD_OP_SL_REF_SLICE_B(sl->slice_type == V4L2_H264_SLICE_TYPE_B)
 
-	if ((sl->slice_type == V4L2_H264_SLICE_TYPE_P) ||
-	    (sl->slice_type == V4L2_H264_SLICE_TYPE_B)) {
-		if (pps->flags & V4L2_H264_PPS_FLAG_ENTROPY_CODING_MODE)
-			x |= sl->cabac_init_idc << 5;
-
-		if (sl->slice_type == V4L2_H264_SLICE_TYPE_B) {
-			x |= sl->num_ref_idx_l1_active_minus1 << 7;
-			if (!(sl->flags &
-			      V4L2_H264_SLICE_FLAG_DIRECT_SPATIAL_MV_PRED))
-				x |= BIT(15);
-		}
-		x |= sl->num_ref_idx_l0_active_minus1 << 11;
-	}
-	push(0x2d000000 | x, "slc_6e4_cmd_ref_type");
+			, "slc_6e4_cmd_ref_type");
 
 	if (sl->slice_type == V4L2_H264_SLICE_TYPE_B) {
 		/* bidirectional reference of previous mv */
@@ -473,8 +473,8 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 	}
 
 	/* only submit if this is the last slice */
-	push(0x2b000000
-			| !(src->flags & V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF) << 10,
+	push(AVD_OP_EXEC
+			| AVD_OP_EXEC_FLAG_END(!(src->flags & V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF)),
 			"cm3_cmd_inst_fifo_end");
 
 	return payload_len - off;
