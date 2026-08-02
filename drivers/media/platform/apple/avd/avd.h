@@ -27,6 +27,7 @@
 #define AVD_CAPABILITY_HEVC	BIT(0)
 #define AVD_CAPABILITY_H264	BIT(1)
 #define AVD_CAPABILITY_VP9	BIT(2)
+#define AVD_CAPABILITY_AV1	BIT(3)
 
 /* Shifts addreses right and bytesperline?? */
 #define AVD_QUIRK_LSR	BIT(0)
@@ -70,6 +71,15 @@ struct avd_vp9_decoded_buffer_info {
 	unsigned int bit_depth : 4;
 };
 
+struct avd_av1_decoded_buffer_info {
+	/* Info needed when the decoded frame serves as a reference frame. */
+	unsigned short width;
+	unsigned short height;
+	unsigned int bit_depth : 4;
+	u32 order_hints[V4L2_AV1_TOTAL_REFS_PER_FRAME];
+	u8 ref_frame_idx[V4L2_AV1_REFS_PER_FRAME];
+};
+
 struct avd_hevc_decoded_buffer_info {
 	/* Info needed when the decoded frame serves as a reference frame. */
 	bool is_intra;
@@ -91,6 +101,7 @@ struct avd_decoded_buffer {
 	union {
 		struct avd_vp9_decoded_buffer_info vp9;
 		struct avd_hevc_decoded_buffer_info hevc;
+		struct avd_av1_decoded_buffer_info av1;
 	};
 
 };
@@ -229,6 +240,7 @@ void avd_run_postamble(struct avd_ctx *ctx, struct avd_run *run);
 extern const struct avd_coded_fmt_ops avd_h264_fmt_ops;
 extern const struct avd_coded_fmt_ops avd_hevc_fmt_ops;
 extern const struct avd_coded_fmt_ops avd_vp9_fmt_ops;
+extern const struct avd_coded_fmt_ops avd_av1_fmt_ops;
 
 extern const struct v4l2_ctrl_ops avd_ctrl_ops;
 extern const struct v4l2_ioctl_ops avd_ioctl_ops;

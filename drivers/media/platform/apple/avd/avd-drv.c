@@ -523,7 +523,7 @@ static const struct avd_variant avd_t8122_variant = {
 	.capabilities = AVD_CAPABILITY_HEVC |
 			AVD_CAPABILITY_H264 |
 			AVD_CAPABILITY_VP9 |
-			AVD_CODEC_AV1,
+			AVD_CAPABILITY_AV1,
 	.fw_name = "apple/avd-fw-v4-t0.bin",
 	.revision = 4,
 	.vp_slot_offset = 0xc,
@@ -545,7 +545,7 @@ static const struct avd_variant avd_t8140_variant = {
 	.capabilities = AVD_CAPABILITY_HEVC |
 			AVD_CAPABILITY_H264 |
 			AVD_CAPABILITY_VP9 |
-			AVD_CODEC_AV1,
+			AVD_CAPABILITY_AV1,
 	.fw_name = "apple/avd-fw-v5-t0.bin",
 	.revision = 4,
 	.vp_slot_offset = 0xc,
@@ -566,7 +566,7 @@ static const struct avd_variant avd_t8132_variant = {
 	.capabilities = AVD_CAPABILITY_HEVC |
 			AVD_CAPABILITY_H264 |
 			AVD_CAPABILITY_VP9 |
-			AVD_CODEC_AV1,
+			AVD_CAPABILITY_AV1,
 	.fw_name = "apple/avd-fw-v5-t1.bin",
 	.revision = 4,
 	.vp_slot_offset = 0xc,
