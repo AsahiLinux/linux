@@ -305,6 +305,7 @@ static const struct avd_decoded_fmt_desc avd_h264_decoded_fmts[] = {
 static const struct avd_ctrl_desc avd_vp9_ctrl_descs[] = {
 	{
 		.cfg.id = V4L2_CID_STATELESS_VP9_FRAME,
+		.cfg.ops = &avd_ctrl_ops,
 	},
 	{
 		.cfg.id = V4L2_CID_STATELESS_VP9_COMPRESSED_HDR,
@@ -327,9 +328,6 @@ static const struct avd_decoded_fmt_desc avd_vp9_decoded_fmts[] = {
 		.fourcc = V4L2_PIX_FMT_NV12,
 		.image_fmt = AVD_IMG_FMT_420_8BIT,
 	},
-	/*
-	 * TODO: it looks like gstreamer uses h264 to decide what format to use
-	 * ffmpeg handles it fine
 	{
 		.fourcc = V4L2_PIX_FMT_P010,
 		.image_fmt = AVD_IMG_FMT_420_10BIT,
@@ -342,7 +340,6 @@ static const struct avd_decoded_fmt_desc avd_vp9_decoded_fmts[] = {
 		.fourcc = V4L2_PIX_FMT_P010,
 		.image_fmt = AVD_IMG_FMT_422_10BIT,
 	},
-	*/
 };
 
 static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
