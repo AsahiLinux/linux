@@ -24,10 +24,10 @@
 #include "avd.h"
 #include "avd-inst.h"
 
-#define VP9_Q_IDX(v)		FIELD_PREP(GENMASK(31, 15), v)
-#define VP9_Q_DC_Y(v)		FIELD_PREP(GENMASK(14, 10), v)
-#define VP9_Q_DC_UV(v)		FIELD_PREP(GENMASK(9, 5), v)
-#define VP9_Q_AC_UV(v)		FIELD_PREP(GENMASK(4, 0), v)
+#define VP9_Q_IDX(v)	FIELD_PREP(GENMASK(31, 15), v)
+#define VP9_Q_DC_Y(v)	FIELD_PREP(GENMASK(14, 10), v)
+#define VP9_Q_DC_UV(v)	FIELD_PREP(GENMASK(9, 5), v)
+#define VP9_Q_AC_UV(v)	FIELD_PREP(GENMASK(4, 0), v)
 
 #define VP9_LF_SHARPNESS(v)	FIELD_PREP(GENMASK(31, 28), v)
 #define VP9_LF_REF0(v)		FIELD_PREP(GENMASK(27, 21), v)
@@ -35,11 +35,11 @@
 #define VP9_LF_REF2(v)		FIELD_PREP(GENMASK(13, 7), v)
 #define VP9_LF_REF3(v)		FIELD_PREP(GENMASK(6, 0), v)
 
-#define VP9_LF_LV(v)		FIELD_PREP(GENMASK(31, 14), v)
-#define VP9_LF_MODE0(v)		FIELD_PREP(GENMASK(13, 7), v)
-#define VP9_LF_MODE1(v)		FIELD_PREP(GENMASK(6, 0), v)
+#define VP9_LF_LV(v)	FIELD_PREP(GENMASK(31, 14), v)
+#define VP9_LF_MODE0(v)	FIELD_PREP(GENMASK(13, 7), v)
+#define VP9_LF_MODE1(v)	FIELD_PREP(GENMASK(6, 0), v)
 
-#define VP9_FEAT_LVL_ALT_Q(v)		FIELD_PREP(GENMASK(21, 12), v)
+#define VP9_FEAT_LVL_ALT_Q(v)	FIELD_PREP(GENMASK(21, 12), v)
 
 struct avd_vp9_seg_probs {
 	u8 tree_probs[7];
@@ -181,7 +181,8 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
 	ref_buf[0] = avd_get_ref_buf(ctx, &dst->base.vb, frame->last_frame_ts);
-	ref_buf[1] = avd_get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
+	ref_buf[1] =
+		avd_get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
 	ref_buf[2] = avd_get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
 
 	push(INST_DMA3, "cm3_dma_config_7");
@@ -189,15 +190,16 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	push(INST_DMA3, "cm3_dma_config_9");
 
 	for (int i = 0; i < V4L2_VP9_NUM_FRAME_CTX - 1; i++) {
-
-		addr = vb2_dma_contig_plane_dma_addr(&ref_buf[i]->base.vb.vb2_buf, 0)
-			+ (ref_buf[i]->base.vb.planes[0].length - ref_buf[i]->rvra.size);
+		addr = vb2_dma_contig_plane_dma_addr(
+			       &ref_buf[i]->base.vb.vb2_buf, 0) +
+		       (ref_buf[i]->base.vb.planes[0].length -
+			ref_buf[i]->rvra.size);
 
 		/* TODO */
 		push(AVD_REF_FLAG_CONST, "hdr_9c_ref_100");
 		push(AVD_HDR_HEIGHT(ref_buf[i]->vp9.height - 1) |
-				AVD_HDR_WIDTH(ref_buf[i]->vp9.width - 1),
-				"hdr_70_ref_height_width");
+			     AVD_HDR_WIDTH(ref_buf[i]->vp9.width - 1),
+		     "hdr_70_ref_height_width");
 		push(0x40004000, "hdr_7c_ref_align");
 
 		push_rvra(avd, ctx, addr, ref_buf[i]->rvra.offsets);
@@ -209,14 +211,19 @@ static u32 make_flags1(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
-	bool has_ref = boolify(vp9_ctx->last.valid &&
-				!(vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME)
-				&& vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_SHOW_FRAME);
+	bool has_ref = boolify(
+		vp9_ctx->last.valid &&
+		!(vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME) &&
+		vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_SHOW_FRAME);
 
-	u32 flags = BIT(0)
-		| boolify(frame->flags & V4L2_VP9_FRAME_FLAG_PARALLEL_DEC_MODE) << 14
-		| !boolify(frame->flags & V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT) << 15
-		| boolify(frame->flags & V4L2_VP9_FRAME_FLAG_ALLOW_HIGH_PREC_MV) << 19;
+	u32 flags =
+		BIT(0) |
+		boolify(frame->flags & V4L2_VP9_FRAME_FLAG_PARALLEL_DEC_MODE)
+			<< 14 |
+		!boolify(frame->flags & V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT)
+			<< 15 |
+		boolify(frame->flags & V4L2_VP9_FRAME_FLAG_ALLOW_HIGH_PREC_MV)
+			<< 19;
 
 	if (!(frame->flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME)) {
 		flags |= frame->interpolation_filter << 16;
@@ -233,12 +240,14 @@ static u32 make_flags1(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	flags |= frame->reference_mode << 12;
 
-	flags |=
-		!!(frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_UPDATE_MAP) << 24
-		| !!(frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_ENABLED) << 25;
+	flags |= !!(frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_UPDATE_MAP)
+			 << 24 |
+		 !!(frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_ENABLED)
+			 << 25;
 	/* what?? */
 	if (frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_UPDATE_DATA) {
-		if (frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_TEMPORAL_UPDATE)
+		if (frame->seg.flags &
+		    V4L2_VP9_SEGMENTATION_FLAG_TEMPORAL_UPDATE)
 			flags |= BIT(23);
 		else if (!vp9_ctx->last.valid)
 			flags |= BIT(26);
@@ -247,7 +256,7 @@ static u32 make_flags1(struct avd_ctx *ctx, struct avd_vp9_run *run)
 }
 
 static u32 seg_features(struct avd_ctx *ctx, struct avd_vp9_run *run,
-		unsigned int segid)
+			unsigned int segid)
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	const struct v4l2_vp9_segmentation *seg = &vp9_ctx->cur.seg;
@@ -269,46 +278,47 @@ static u32 seg_features(struct avd_ctx *ctx, struct avd_vp9_run *run,
 static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
-	const struct v4l2_ctrl_vp9_compressed_hdr *prob_updates = run->prob_updates;
+	const struct v4l2_ctrl_vp9_compressed_hdr *prob_updates =
+		run->prob_updates;
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
 	struct avd_dev *avd = ctx->dev;
 	u32 bytesperline;
 
-	bool intra_only = !!(frame->flags &
-			(V4L2_VP9_FRAME_FLAG_KEY_FRAME |
-			 V4L2_VP9_FRAME_FLAG_INTRA_ONLY));
+	bool intra_only = !!(frame->flags & (V4L2_VP9_FRAME_FLAG_KEY_FRAME |
+					     V4L2_VP9_FRAME_FLAG_INTRA_ONLY));
 
-	push(AVD_OP_EXEC
-			| AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3)
-			| AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4)
-			| (avd->variant->revision == 3 ? AVD_OP_EXEC_REV3_VP9_MASK : 0)
-			| AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx),
-			"inst_fifo_start");
+	push(AVD_OP_EXEC |
+		     AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3) |
+		     AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4) |
+		     (avd->variant->revision == 3 ? AVD_OP_EXEC_REV3_VP9_MASK :
+						    0) |
+		     AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx),
+	     "inst_fifo_start");
 
-	push(AVD_OP_HDR
-			| AVD_OP_HDR_FLAG0
-			| AVD_OP_HDR_FLAG_INTRA(intra_only)
-			| AVD_OP_HDR_CONST
-			| AVD_OP_HDR_FLAG_PIPE_STATE(!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
-			, "hdr_34_start_hdr");
+	push(AVD_OP_HDR | AVD_OP_HDR_FLAG0 | AVD_OP_HDR_FLAG_INTRA(intra_only) |
+		     AVD_OP_HDR_CONST |
+		     AVD_OP_HDR_FLAG_PIPE_STATE(
+			     !(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE)),
+	     "hdr_34_start_hdr");
 
 	push(AVD_HDR_CODEC_MODE(AVD_CODEC_VP9), "hdr_38_mode");
 
 	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
-			AVD_HDR_WIDTH(frame->frame_width_minus_1),
-			"hdr_28_height_width_shift3");
+		     AVD_HDR_WIDTH(frame->frame_width_minus_1),
+	     "hdr_28_height_width_shift3");
 	push(0, "cm3_dma_config_0");
 	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
-			AVD_HDR_WIDTH(frame->frame_width_minus_1),
-			"hdr_38_height_width_shift3");
+		     AVD_HDR_WIDTH(frame->frame_width_minus_1),
+	     "hdr_38_height_width_shift3");
 
-	push(AVD_HDR_COMMON_CHROMA_FORMAT(1)
-			| AVD_HDR_COMMON_BIT_DEPTH_C(frame->profile)
-			| AVD_HDR_COMMON_BIT_DEPTH_L(frame->bit_depth - 8)
-			| AVD_HDR_COMMON_LUMA_CBS(3)
-			| AVD_HDR_COMMON_LUMA_TBS(min(prob_updates->tx_mode, 3))
-			| AVD_HDR_COMMON_FLAG0(prob_updates->tx_mode & V4L2_VP9_TX_MODE_SELECT)
-			,"hdr_2c_txfm_mode");
+	push(AVD_HDR_COMMON_CHROMA_FORMAT(1) |
+		     AVD_HDR_COMMON_BIT_DEPTH_C(frame->profile) |
+		     AVD_HDR_COMMON_BIT_DEPTH_L(frame->bit_depth - 8) |
+		     AVD_HDR_COMMON_LUMA_CBS(3) |
+		     AVD_HDR_COMMON_LUMA_TBS(min(prob_updates->tx_mode, 3)) |
+		     AVD_HDR_COMMON_FLAG0(prob_updates->tx_mode &
+					  V4L2_VP9_TX_MODE_SELECT),
+	     "hdr_2c_txfm_mode");
 
 	push(make_flags1(ctx, run), "hdr_40_flags1_pt1");
 
@@ -326,33 +336,36 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	/* always used */
 	pusha(vp9_ctx->bufs.state.addr, "hdr_118_pps0_tile_addr_lsb8", 0);
 
-	 /* read / write segment buffers */
+	/* read / write segment buffers */
 	pusha(vp9_ctx->bufs.seg.addr, "hdr_108_pps1_tile_addr_lsb8", 1);
 	pusha(vp9_ctx->bufs.seg.addr, "hdr_108_pps1_tile_addr_lsb8", 2);
 	/* ping pong buffers, not on intra frames (how apple uses them) */
 	pusha(vp9_ctx->bufs.above_info.addr, "hdr_110_pps2_tile_addr_lsb8", 3);
 	pusha(vp9_ctx->bufs.above_info.addr, "hdr_110_pps2_tile_addr_lsb8", 4);
 
-	push(VP9_Q_IDX(frame->quant.base_q_idx)
-			| VP9_Q_DC_Y(frame->quant.delta_q_y_dc)
-			| VP9_Q_DC_UV(frame->quant.delta_q_uv_dc)
-			| VP9_Q_AC_UV(frame->quant.delta_q_uv_ac)
-			, "hdr_4c_base_q_idx");
+	push(VP9_Q_IDX(frame->quant.base_q_idx) |
+		     VP9_Q_DC_Y(frame->quant.delta_q_y_dc) |
+		     VP9_Q_DC_UV(frame->quant.delta_q_uv_dc) |
+		     VP9_Q_AC_UV(frame->quant.delta_q_uv_ac),
+	     "hdr_4c_base_q_idx");
 	/* filter related flags? */
-	push(VP9_LF_SHARPNESS(frame->lf.sharpness)
-			| (frame->lf.flags & V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED ?
-				VP9_LF_REF0(frame->lf.ref_deltas[0])
-				| VP9_LF_REF1(frame->lf.ref_deltas[1])
-				| VP9_LF_REF2(frame->lf.ref_deltas[2])
-				| VP9_LF_REF3(frame->lf.ref_deltas[3])
-				: 0), "hdr_44_flags1_pt2");
+	push(VP9_LF_SHARPNESS(frame->lf.sharpness) |
+		     (frame->lf.flags &
+				      V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED ?
+			      VP9_LF_REF0(frame->lf.ref_deltas[0]) |
+				      VP9_LF_REF1(frame->lf.ref_deltas[1]) |
+				      VP9_LF_REF2(frame->lf.ref_deltas[2]) |
+				      VP9_LF_REF3(frame->lf.ref_deltas[3]) :
+			      0),
+	     "hdr_44_flags1_pt2");
 
-	push(VP9_LF_LV(frame->lf.level)
-			| (frame->lf.flags & V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED ?
-			VP9_LF_MODE0(frame->lf.mode_deltas[0])
-			| VP9_LF_MODE1(frame->lf.mode_deltas[1])
-			: 0),
-			"hdr_48_loop_filter_level");
+	push(VP9_LF_LV(frame->lf.level) |
+		     (frame->lf.flags &
+				      V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED ?
+			      VP9_LF_MODE0(frame->lf.mode_deltas[0]) |
+				      VP9_LF_MODE1(frame->lf.mode_deltas[1]) :
+			      0),
+	     "hdr_48_loop_filter_level");
 
 	push(INST_DMA2, "cm3_dma_config_4");
 	push(INST_DMA2, "cm3_dma_config_5");
@@ -390,13 +403,12 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	push(bytesperline, "hdr_174_width_align");
 	push(0, "");
 	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
-			AVD_HDR_WIDTH(frame->frame_width_minus_1),
-			"cm3_height_width");
+		     AVD_HDR_WIDTH(frame->frame_width_minus_1),
+	     "cm3_height_width");
 
 	if (!(intra_only))
 		set_refs(ctx, run);
 }
-
 
 static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
@@ -420,8 +432,10 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	for (int row = 0; row < num_tile_rows; row++)
 		for (int col = 0; col < num_tile_cols; col++) {
-			is_last = row == num_tile_rows - 1 && col == num_tile_cols - 1;
-			if (row == num_tile_rows - 1 && col == num_tile_cols - 1) {
+			is_last = row == num_tile_rows - 1 &&
+				  col == num_tile_cols - 1;
+			if (row == num_tile_rows - 1 &&
+			    col == num_tile_cols - 1) {
 				tile_size = size;
 			} else {
 				tile_size = get_unaligned_be32(&data[offset]);
@@ -432,30 +446,35 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 				size -= 4;
 			}
 			push(AVD_OP_CODED_DATA |
-					AVD_OP_CODED_DATA_ADDR(run->addresses.sl >> 32),
-					"cm3_cmd_set_slice_data");
+				     AVD_OP_CODED_DATA_ADDR(run->addresses.sl >>
+							    32),
+			     "cm3_cmd_set_slice_data");
 			push((u32)((run->addresses.sl + offset) & 0xffffffff),
-					"til_ab4_tile_addr_low");
+			     "til_ab4_tile_addr_low");
 			push(tile_size, "til_ab8_tile_size");
-			push(AVD_OP_SL_DIM_START
-					| AVD_OP_SL_DIM_START_Y((row * sb_64_rows) / num_tile_rows)
-					| AVD_OP_SL_DIM_START_X((col * sb_64_cols) / num_tile_cols), "i");
+			push(AVD_OP_SL_DIM_START |
+				     AVD_OP_SL_DIM_START_Y((row * sb_64_rows) /
+							   num_tile_rows) |
+				     AVD_OP_SL_DIM_START_X((col * sb_64_cols) /
+							   num_tile_cols),
+			     "i");
 
-			push(AVD_SL_DIM_END_COL(col)
-					| AVD_SL_DIM_END_Y(((row + 1) * sb_64_rows) / num_tile_rows - 1)
-					| AVD_SL_DIM_END_X(((col + 1) * sb_64_cols) / num_tile_cols - 1)
-					, "til_ac0_tile_dims");
-			push(AVD_OP_EXEC
-					| AVD_OP_EXEC_FLAG_END(is_last)
-					| (avd->variant->revision == 3 ?
-						AVD_OP_EXEC_REV3_VP9_MASK : 0)
-					, "cm3_cmd_inst_fifo_end");
+			push(AVD_SL_DIM_END_COL(col) |
+				     AVD_SL_DIM_END_Y(((row + 1) * sb_64_rows) /
+							      num_tile_rows - 1) |
+				     AVD_SL_DIM_END_X(((col + 1) * sb_64_cols) /
+							      num_tile_cols - 1),
+			     "til_ac0_tile_dims");
+			push(AVD_OP_EXEC | AVD_OP_EXEC_FLAG_END(is_last) |
+				     (avd->variant->revision == 3 ?
+					      AVD_OP_EXEC_REV3_VP9_MASK :
+					      0),
+			     "cm3_cmd_inst_fifo_end");
 			offset += tile_size;
 			size -= tile_size;
 			vp9_ctx->submit_num++;
 		}
 }
-
 
 static void update_dec_buf_info(struct avd_decoded_buffer *buf,
 				const struct v4l2_ctrl_vp9_frame *dec_params)
@@ -484,29 +503,28 @@ static void update_ctx_last_info(struct avd_vp9_ctx *vp9_ctx)
 }
 
 static void copy_vp9_frame_mv(struct avd_vp9_probs *avd_probs,
-		const struct v4l2_vp9_frame_context *probs)
+			      const struct v4l2_vp9_frame_context *probs)
 {
 	memcpy(avd_probs->joint, probs->mv.joint, sizeof(avd_probs->joint));
 	for (int i = 0; i < 2; i++) {
 		avd_probs->mv_comp[i].sign = probs->mv.sign[i];
 		memcpy(avd_probs->mv_comp[i].bits, probs->mv.bits[i],
-				sizeof(avd_probs->mv_comp[i].bits));
+		       sizeof(avd_probs->mv_comp[i].bits));
 		avd_probs->mv_comp[i].class0_bit = probs->mv.class0_bit[i];
 		memcpy(avd_probs->mv_comp[i].classes, probs->mv.classes[i],
-				sizeof(avd_probs->mv_comp[i].bits));
+		       sizeof(avd_probs->mv_comp[i].bits));
 
 		memcpy(avd_probs->mv_fr[i].class0_fr, probs->mv.class0_fr[i],
-				sizeof(avd_probs->mv_fr[i].class0_fr));
+		       sizeof(avd_probs->mv_fr[i].class0_fr));
 		memcpy(avd_probs->mv_fr[i].fr, probs->mv.fr[i],
-				sizeof(avd_probs->mv_fr[i].fr));
+		       sizeof(avd_probs->mv_fr[i].fr));
 
 		avd_probs->mv_hp[i].class0_hp = probs->mv.class0_hp[i];
 		avd_probs->mv_hp[i].hp = probs->mv.hp[i];
 	}
 }
 
-static void init_probs(struct avd_ctx *ctx,
-		       const struct avd_vp9_run *run)
+static void init_probs(struct avd_ctx *ctx, const struct avd_vp9_run *run)
 {
 	const struct v4l2_ctrl_vp9_frame *dec_params;
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
@@ -522,31 +540,33 @@ static void init_probs(struct avd_ctx *ctx,
 
 	memset(avd_probs, 0, sizeof(*avd_probs));
 
-	intra_only = !!(dec_params->flags &
-			(V4L2_VP9_FRAME_FLAG_KEY_FRAME | V4L2_VP9_FRAME_FLAG_INTRA_ONLY));
+	intra_only = !!(dec_params->flags & (V4L2_VP9_FRAME_FLAG_KEY_FRAME |
+					     V4L2_VP9_FRAME_FLAG_INTRA_ONLY));
 
 	memcpy(avd_probs->tx8, probs->tx8, sizeof(avd_probs->tx8));
 	memcpy(avd_probs->tx16, probs->tx16, sizeof(avd_probs->tx16));
 	memcpy(avd_probs->tx32, probs->tx32, sizeof(avd_probs->tx32));
 	memcpy(avd_probs->skip, probs->skip, sizeof(avd_probs->skip));
 	memcpy(avd_probs->inter_mode, probs->inter_mode,
-			sizeof(avd_probs->inter_mode));
+	       sizeof(avd_probs->inter_mode));
 	memcpy(avd_probs->interp_filter, probs->interp_filter,
-			sizeof(avd_probs->interp_filter));
-	memcpy(avd_probs->is_inter, probs->is_inter, sizeof(avd_probs->is_inter));
+	       sizeof(avd_probs->interp_filter));
+	memcpy(avd_probs->is_inter, probs->is_inter,
+	       sizeof(avd_probs->is_inter));
 	memcpy(avd_probs->comp_mode, probs->comp_mode,
-			sizeof(avd_probs->comp_mode));
+	       sizeof(avd_probs->comp_mode));
 	memcpy(avd_probs->single_ref, probs->single_ref,
-			sizeof(avd_probs->single_ref));
-	memcpy(avd_probs->comp_ref, probs->comp_ref, sizeof(avd_probs->comp_ref));
+	       sizeof(avd_probs->single_ref));
+	memcpy(avd_probs->comp_ref, probs->comp_ref,
+	       sizeof(avd_probs->comp_ref));
 	memcpy(avd_probs->y_mode, probs->y_mode, sizeof(avd_probs->y_mode));
 
 	memcpy(avd_probs->partition,
 	       intra_only ? v4l2_vp9_kf_partition_probs : probs->partition,
 	       sizeof(avd_probs->partition));
 	memcpy(avd_probs->uv_mode,
-			intra_only ? v4l2_vp9_kf_uv_mode_prob : probs->uv_mode,
-			sizeof(avd_probs->uv_mode));
+	       intra_only ? v4l2_vp9_kf_uv_mode_prob : probs->uv_mode,
+	       sizeof(avd_probs->uv_mode));
 
 	copy_vp9_frame_mv(avd_probs, probs);
 
@@ -564,9 +584,9 @@ static void init_probs(struct avd_ctx *ctx,
 				}
 
 	memcpy(avd_probs->seg.pred_probs, seg->pred_probs,
-			sizeof(avd_probs->seg.pred_probs));
+	       sizeof(avd_probs->seg.pred_probs));
 	memcpy(avd_probs->seg.tree_probs, seg->tree_probs,
-			sizeof(avd_probs->seg.tree_probs));
+	       sizeof(avd_probs->seg.tree_probs));
 }
 
 static int validate_dec_params(struct avd_ctx *ctx,
@@ -575,7 +595,7 @@ static int validate_dec_params(struct avd_ctx *ctx,
 	unsigned int aligned_width, aligned_height;
 
 	if (dec_params->frame_height_minus_1 + 1 < 64 ||
-			dec_params->frame_width_minus_1 + 1 < 64)
+	    dec_params->frame_width_minus_1 + 1 < 64)
 		return -EINVAL;
 
 	aligned_width = round_up(dec_params->frame_width_minus_1 + 1, 64);
@@ -587,7 +607,8 @@ static int validate_dec_params(struct avd_ctx *ctx,
 	 */
 	if (aligned_width != ctx->decoded_fmt.fmt.pix_mp.width ||
 	    aligned_height != ctx->decoded_fmt.fmt.pix_mp.height) {
-		dev_err(ctx->dev->dev, "unexpected bitstream resolution %dx%d\n",
+		dev_err(ctx->dev->dev,
+			"unexpected bitstream resolution %dx%d\n",
 			aligned_width, aligned_height);
 		return -EINVAL;
 	}
@@ -621,15 +642,16 @@ static int avd_vp9_alloc_bufs(struct avd_ctx *ctx)
 		return ret;
 
 	/* TODO */
-	size = (((ctx->decoded_fmt.fmt.pix_mp.height - 1)
-		  * (ctx->decoded_fmt.fmt.pix_mp.height - 1) / 0x10000) + 2) * 0x4000;
+	size = (((ctx->decoded_fmt.fmt.pix_mp.height - 1) *
+		 (ctx->decoded_fmt.fmt.pix_mp.height - 1) / 0x10000) +
+		2) *
+	       0x4000;
 	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.tiles[0], size);
 	if (ret)
 		return ret;
 	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.tiles[2], size);
 	if (ret)
 		return ret;
-
 
 	for (int i = 0; i < 2; i++) {
 		ret = avd_buf_alloc(avd, &vp9_ctx->bufs.color[i], size);
@@ -646,18 +668,19 @@ static int avd_vp9_alloc_bufs(struct avd_ctx *ctx)
 		return ret;
 
 	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.probs,
-			sizeof(struct avd_vp9_probs));
+			    sizeof(struct avd_vp9_probs));
 	if (ret)
 		return ret;
 
 	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.counts,
-			sizeof(struct avd_vp9_frame_symbol_counts));
+			    sizeof(struct avd_vp9_frame_symbol_counts));
 	if (ret)
 		return ret;
 
 #ifdef AVD_DEBUG
-#define DBG_BUF(name, buf) pr_info("   %10s %12llx %8lx", \
-		name, vp9_ctx->bufs.buf.addr, vp9_ctx->bufs.buf.size)
+#define DBG_BUF(name, buf)                                           \
+	pr_info("   %10s %12llx %8lx", name, vp9_ctx->bufs.buf.addr, \
+		vp9_ctx->bufs.buf.size)
 	pr_info("buffers:");
 	DBG_BUF("state", state);
 	DBG_BUF("above_info", above_info);
@@ -672,8 +695,7 @@ static int avd_vp9_alloc_bufs(struct avd_ctx *ctx)
 	return 0;
 }
 
-static int avd_vp9_run_preamble(struct avd_ctx *ctx,
-				     struct avd_vp9_run *run)
+static int avd_vp9_run_preamble(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	struct v4l2_ctrl *ctrl;
 	const struct v4l2_ctrl_vp9_frame *dec_params;
@@ -685,13 +707,12 @@ static int avd_vp9_run_preamble(struct avd_ctx *ctx,
 	avd_run_preamble(ctx, &run->base);
 
 	ctrl = v4l2_ctrl_find(&ctx->ctrl_hdl,
-			V4L2_CID_STATELESS_VP9_COMPRESSED_HDR);
+			      V4L2_CID_STATELESS_VP9_COMPRESSED_HDR);
 	if (WARN_ON(!ctrl))
 		return -EINVAL;
 	run->prob_updates = ctrl->p_cur.p;
 
-	ctrl = v4l2_ctrl_find(&ctx->ctrl_hdl,
-			V4L2_CID_STATELESS_VP9_FRAME);
+	ctrl = v4l2_ctrl_find(&ctx->ctrl_hdl, V4L2_CID_STATELESS_VP9_FRAME);
 	if (WARN_ON(!ctrl))
 		return -EINVAL;
 	dec_params = ctrl->p_cur.p;
@@ -708,8 +729,8 @@ static int avd_vp9_run_preamble(struct avd_ctx *ctx,
 	vp9_ctx->cur.frame_context_idx = fctx_idx;
 
 	vp9_ctx->probability_tables = vp9_ctx->frame_context[fctx_idx];
-	v4l2_vp9_fw_update_probs(&vp9_ctx->probability_tables, run->prob_updates,
-			dec_params);
+	v4l2_vp9_fw_update_probs(&vp9_ctx->probability_tables,
+				 run->prob_updates, dec_params);
 
 	run->addresses.sl =
 		vb2_dma_contig_plane_dma_addr(&run->base.bufs.src->vb2_buf, 0);
@@ -719,7 +740,8 @@ static int avd_vp9_run_preamble(struct avd_ctx *ctx,
 	run->addresses.y =
 		vb2_dma_contig_plane_dma_addr(&run->base.bufs.dst->vb2_buf, 0);
 
-	run->addresses.uv = run->addresses.y +
+	run->addresses.uv =
+		run->addresses.y +
 		ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
 			ALIGN(ctx->decoded_fmt.fmt.pix_mp.height, 16);
 
@@ -758,7 +780,7 @@ static int avd_vp9_run(struct avd_ctx *ctx)
 	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
 
 	avd->variant->configure_stream(avd, vp9_ctx->bufs.inst.addr,
-			ctx->fifo_idx, ctx->vp_slot);
+				       ctx->fifo_idx, ctx->vp_slot);
 
 	set_header(ctx, &run);
 
@@ -769,19 +791,17 @@ static int avd_vp9_run(struct avd_ctx *ctx)
 	return 0;
 }
 
-#define copy_tx_and_skip(p1, p2)				\
-do {								\
-	memcpy((p1)->tx8, (p2)->tx8, sizeof((p1)->tx8));	\
-	memcpy((p1)->tx16, (p2)->tx16, sizeof((p1)->tx16));	\
-	memcpy((p1)->tx32, (p2)->tx32, sizeof((p1)->tx32));	\
-	memcpy((p1)->skip, (p2)->skip, sizeof((p1)->skip));	\
-} while (0)
+#define copy_tx_and_skip(p1, p2)                                    \
+	do {                                                        \
+		memcpy((p1)->tx8, (p2)->tx8, sizeof((p1)->tx8));    \
+		memcpy((p1)->tx16, (p2)->tx16, sizeof((p1)->tx16)); \
+		memcpy((p1)->tx32, (p2)->tx32, sizeof((p1)->tx32)); \
+		memcpy((p1)->skip, (p2)->skip, sizeof((p1)->skip)); \
+	} while (0)
 
-
-static void avd_vp9_done(struct avd_ctx *ctx,
-			    struct vb2_v4l2_buffer *src_buf,
-			    struct vb2_v4l2_buffer *dst_buf,
-			    enum vb2_buffer_state result)
+static void avd_vp9_done(struct avd_ctx *ctx, struct vb2_v4l2_buffer *src_buf,
+			 struct vb2_v4l2_buffer *dst_buf,
+			 enum vb2_buffer_state result)
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	unsigned int fctx_idx;
@@ -810,9 +830,11 @@ static void avd_vp9_done(struct avd_ctx *ctx,
 
 	if (!(vp9_ctx->cur.flags & V4L2_VP9_FRAME_FLAG_PARALLEL_DEC_MODE)) {
 		/* error_resilient_mode == 0 && frame_parallel_decoding_mode == 0 */
-		struct v4l2_vp9_frame_context *probs = &vp9_ctx->probability_tables;
+		struct v4l2_vp9_frame_context *probs =
+			&vp9_ctx->probability_tables;
 		bool frame_is_intra = vp9_ctx->cur.flags &
-		    (V4L2_VP9_FRAME_FLAG_KEY_FRAME | V4L2_VP9_FRAME_FLAG_INTRA_ONLY);
+				      (V4L2_VP9_FRAME_FLAG_KEY_FRAME |
+				       V4L2_VP9_FRAME_FLAG_INTRA_ONLY);
 		struct tx_and_skip {
 			u8 tx8[2][1];
 			u8 tx16[2][2];
@@ -834,10 +856,12 @@ static void avd_vp9_done(struct avd_ctx *ctx,
 
 		counts = &vp9_ctx->cnts;
 
-		v4l2_vp9_adapt_coef_probs(probs, counts,
-					  !vp9_ctx->last.valid ||
-					  vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME,
-					  frame_is_intra);
+		v4l2_vp9_adapt_coef_probs(
+			probs, counts,
+			!vp9_ctx->last.valid ||
+				vp9_ctx->last.flags &
+					V4L2_VP9_FRAME_FLAG_KEY_FRAME,
+			frame_is_intra);
 		if (!frame_is_intra) {
 			const struct avd_vp9_frame_symbol_counts *cnts;
 			int i;
@@ -854,18 +878,23 @@ static void avd_vp9_done(struct avd_ctx *ctx,
 			cnts = vp9_ctx->bufs.counts.cpu;
 
 			for (i = 0; i < ARRAY_SIZE(cnts->tx16p); ++i)
-				memcpy(tx16p[i], cnts->tx16p[i], sizeof(tx16p[0]));
+				memcpy(tx16p[i], cnts->tx16p[i],
+				       sizeof(tx16p[0]));
 
 			for (i = 0; i < 2; i++) {
-				memcpy(sign[i], cnts->mv_comp[i].sign, sizeof(sign[0]));
-				memcpy(classes[i], cnts->mv_comp[i].classes, sizeof(classes[0]));
-				memcpy(class0[i], cnts->mv_comp[i].class0, sizeof(class0[0]));
-				memcpy(bits[i], cnts->mv_comp[i].bits, sizeof(bits[0]));
+				memcpy(sign[i], cnts->mv_comp[i].sign,
+				       sizeof(sign[0]));
+				memcpy(classes[i], cnts->mv_comp[i].classes,
+				       sizeof(classes[0]));
+				memcpy(class0[i], cnts->mv_comp[i].class0,
+				       sizeof(class0[0]));
+				memcpy(bits[i], cnts->mv_comp[i].bits,
+				       sizeof(bits[0]));
 				memcpy(class0_fp[i], cnts->mv_fr[i].class0_fr,
-						sizeof(class0_fp[0]));
+				       sizeof(class0_fp[0]));
 				memcpy(fp[i], cnts->mv_fr[i].fr, sizeof(fp[0]));
 				memcpy(class0_hp[i], cnts->mv_hp[i].class0_hp,
-						sizeof(class0_hp[0]));
+				       sizeof(class0_hp[0]));
 				memcpy(hp[i], cnts->mv_hp[i].hp, sizeof(hp[0]));
 			}
 
@@ -880,10 +909,11 @@ static void avd_vp9_done(struct avd_ctx *ctx,
 			counts->hp = &hp;
 
 			/* load_probs2() already done */
-			v4l2_vp9_adapt_noncoef_probs(&vp9_ctx->probability_tables, counts,
-						     vp9_ctx->cur.reference_mode,
-						     vp9_ctx->cur.interpolation_filter,
-						     vp9_ctx->cur.tx_mode, vp9_ctx->cur.flags);
+			v4l2_vp9_adapt_noncoef_probs(
+				&vp9_ctx->probability_tables, counts,
+				vp9_ctx->cur.reference_mode,
+				vp9_ctx->cur.interpolation_filter,
+				vp9_ctx->cur.tx_mode, vp9_ctx->cur.flags);
 		}
 	}
 
@@ -984,11 +1014,11 @@ static void avd_vp9_stop(struct avd_ctx *ctx)
 }
 
 static enum avd_image_fmt avd_vp9_get_image_fmt(struct avd_ctx *ctx,
-						 struct v4l2_ctrl *ctrl)
+						struct v4l2_ctrl *ctrl)
 {
-#define BIT_DEPTH(chroma) \
-	(frame->bit_depth == 8 ? AVD_IMG_FMT_##chroma##_8BIT :  \
-	 AVD_IMG_FMT_##chroma##_10BIT )
+#define BIT_DEPTH(chroma)                                      \
+	(frame->bit_depth == 8 ? AVD_IMG_FMT_##chroma##_8BIT : \
+				 AVD_IMG_FMT_##chroma##_10BIT)
 	const struct v4l2_ctrl_vp9_frame *frame = ctrl->p_new.p_vp9_frame;
 
 	if (ctrl->id != V4L2_CID_STATELESS_VP9_FRAME)
@@ -1012,18 +1042,14 @@ static void avd_vp9_submit(struct avd_ctx *ctx)
 	struct avd_dev *avd = ctx->dev;
 	u32 submit_mask = ctx->dev->variant->revision == 3 ? 0xfff000 : 0;
 
-	writel(0x2b000000
-			| submit_mask
-			| (avd->variant->revision == 3 ? 0x100 : 0x200)
-			| (ctx->fifo_idx << 4)
-			| avd->variant->fifo_slots,
-			avd->ctrl + avd->variant->submit_offset);
+	writel(0x2b000000 | submit_mask |
+		       (avd->variant->revision == 3 ? 0x100 : 0x200) |
+		       (ctx->fifo_idx << 4) | avd->variant->fifo_slots,
+	       avd->ctrl + avd->variant->submit_offset);
 	for (int i = 0; i < vp9_ctx->submit_num - 1; i++)
-		writel(0x2b000000
-				| submit_mask
-				| (ctx->fifo_idx << 4)
-				| avd->variant->fifo_slots,
-				avd->ctrl + avd->variant->submit_offset);
+		writel(0x2b000000 | submit_mask | (ctx->fifo_idx << 4) |
+			       avd->variant->fifo_slots,
+		       avd->ctrl + avd->variant->submit_offset);
 }
 
 const struct avd_coded_fmt_ops avd_vp9_fmt_ops = {
