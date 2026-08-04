@@ -205,4 +205,11 @@
 	};
 };
 
+#include "isp-imx558-cfg0.dtsi"
+
+&isp {
+	apple,platform-id = <18>;
+	apple,temporal-filter = <1>;
+};
+
 #include "hwmon-laptop.dtsi"

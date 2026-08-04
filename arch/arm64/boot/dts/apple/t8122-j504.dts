@@ -263,5 +263,11 @@
 	};
 };
 
+#include "isp-imx558-cfg0.dtsi"
+
+&isp {
+	apple,platform-id = <4>;
+};
+
 #include "hwmon-fan-dual.dtsi"
 #include "hwmon-laptop.dtsi"

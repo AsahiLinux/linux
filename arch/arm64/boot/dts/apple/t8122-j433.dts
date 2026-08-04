@@ -75,4 +75,10 @@
 	};
 };
 
+#include "isp-imx364.dtsi"
+
+&isp {
+	apple,platform-id = <10>;
+};
+
 #include "hwmon-fan-dual.dtsi"

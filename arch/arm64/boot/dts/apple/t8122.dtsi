@@ -570,6 +570,58 @@
 			#sound-dai-cells = <1>;
 		};
 
+		isp: isp@2a4000000 {
+			compatible = "apple,t8122-isp";
+			iommus = <&isp_dart0 0>, <&isp_dart1 0>, <&isp_dart2 0>;
+			reg-names = "coproc", "mbox", "gpio", "mbox2";
+			reg = <0x2 0xa4000000 0x0 0x2000000>,
+				<0x2 0xa64c4000 0x0 0x100>,
+				<0x2 0xa64c41d0 0x0 0x100>,
+				<0x2 0xa64c4454 0x0 0x100>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 311 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>, <&ps_isp_set0>, <&ps_isp_set1>,
+					<&ps_isp_set2>, <&ps_isp_fe>, <&ps_isp_set4>,
+					<&ps_isp_set5>, <&ps_isp_set6>, <&ps_isp_set7>,
+					<&ps_isp_set8>, <&ps_isp_set9>, <&ps_isp_set10>,
+					<&ps_isp_set11>, <&ps_isp_set12>;
+			apple,dart-vm-size = <0x0 0xa0000000>;
+			status = "disabled";
+		};
+
+		isp_dart0: iommu@2a64a8000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x2 0xa64a8000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 316 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>;
+			apple,dma-range = <0x100 0x0 0x1 0x0>;
+			status = "disabled";
+		};
+
+		isp_dart1: iommu@2a64b4000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x2 0xa64b4000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 316 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>;
+			apple,dma-range = <0x100 0x0 0x1 0x0>;
+			status = "disabled";
+		};
+
+		isp_dart2: iommu@2a64bc000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x2 0xa64bc000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 316 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_isp_sys>;
+			apple,dma-range = <0x100 0x0 0x1 0x0>;
+			status = "disabled";
+		};
+
 		nco: clock-controller@2d0044000 {
 			compatible = "apple,t8122-nco", "apple,t8103-nco";
 			reg = <0x2 0xd0044000 0x0 0x14000>;
