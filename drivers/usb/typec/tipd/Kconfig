@@ -1,9 +1,13 @@
+config TYPEC_TPS6598X_CORE
+	tristate
+	select USB_ROLE_SWITCH
+	select POWER_SUPPLY
+
 config TYPEC_TPS6598X
 	tristate "TI TPS6598x USB Power Delivery controller driver"
 	depends on I2C
-	select POWER_SUPPLY
 	select REGMAP_I2C
-	select USB_ROLE_SWITCH
+	select TYPEC_TPS6598X_CORE
 	help
 	  Say Y or M here if your system has TI TPS65982 or TPS65983 USB Power
 	  Delivery controller.
