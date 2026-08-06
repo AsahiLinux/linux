@@ -1996,11 +1996,31 @@ static const struct tipd_data tipd_tps25750_data = {
 	.connect = tps6598x_connect,
 };
 
+static const struct tipd_data tipd_sn201202x_data = {
+	.irq_handler = cd321x_interrupt,
+	.irq_mask1 = APPLE_CD_REG_INT_POWER_STATUS_UPDATE |
+		     APPLE_CD_REG_INT_DATA_STATUS_UPDATE |
+		     APPLE_CD_REG_INT_PLUG_EVENT,
+	.tps_struct_size = sizeof(struct sn201202x),
+	.remove = cd321x_remove,
+	.register_port = cd321x_register_port,
+	.unregister_port = cd321x_unregister_port,
+	.trace_data_status = trace_cd321x_data_status,
+	.trace_power_status = trace_tps6598x_power_status,
+	.trace_status = trace_tps6598x_status,
+	.init = cd321x_init,
+	.read_data_status = cd321x_read_data_status,
+	.reset = cd321x_reset,
+	.switch_power_state = cd321x_switch_power_state,
+	.connect = cd321x_connect,
+};
+
 const struct tipd_data *tipd_hw_variants[] = {
 	[TIPD_VARIANT_CD321X] = &tipd_cd321x_data,
 	[TIPD_VARIANT_TPS6598X] = &tipd_tps6598x_data,
 	[TIPD_VARIANT_TPS66993] = &tipd_tps66993_data,
 	[TIPD_VARIANT_TPS25750] = &tipd_tps25750_data,
+	[TIPD_VARIANT_SN201202X] = &tipd_sn201202x_data,
 };
 EXPORT_SYMBOL_GPL(tipd_hw_variants);
 

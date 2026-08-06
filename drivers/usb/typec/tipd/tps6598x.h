@@ -282,6 +282,7 @@ enum tipd_hw_variant {
 	TIPD_VARIANT_CD321X,
 	TIPD_VARIANT_TPS6598X,
 	TIPD_VARIANT_TPS25750,
+	TIPD_VARIANT_SN201202X,
 	TIPD_VARIANT_MAX,
 };
 
@@ -386,6 +387,14 @@ struct cd321x {
 	struct cd321x_status update_status;
 	struct delayed_work update_work;
 	struct usb_pd_identity cur_partner_identity;
+};
+
+struct sn201202x {
+	struct cd321x cd;
+	struct completion select_completion;
+	struct completion sleep_completion;
+	struct completion wake_completion;
+	struct spmi_device *sdev;
 };
 
 extern const struct tipd_data *tipd_hw_variants[];
