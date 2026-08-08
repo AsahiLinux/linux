@@ -805,7 +805,6 @@ static void avd_vp9_done(struct avd_ctx *ctx, struct vb2_v4l2_buffer *src_buf,
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	unsigned int fctx_idx;
-	avd_status(ctx->dev, 8);
 
 	/* v4l2-specific stuff */
 	if (result == VB2_BUF_STATE_ERROR)
