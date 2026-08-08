@@ -49,6 +49,8 @@ void fill_rvra(struct avd_rvra *rvra, enum avd_image_fmt image_fmt,
 	/* TODO */
 	rvra->size +=
 		(height < 1000 ? 0 : height < 1800 ? 2 : height < 3800 ? 3 : 9) * 0x4000;
+	/* TODO */
+	rvra->size += 0x10000;
 
 	rvra->offsets[1] = 0;
 	rvra->offsets[0] = size0;
@@ -266,7 +268,7 @@ static int avd_queue_init(void *priv, struct vb2_queue *src_vq,
 
 	dst_vq->bidirectional = true;
 	dst_vq->mem_ops = &vb2_dma_contig_memops;
-	dst_vq->dma_attrs = DMA_ATTR_NO_KERNEL_MAPPING;
+	dst_vq->dma_attrs = 0;
 	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	dst_vq->drv_priv = ctx;
