@@ -75,9 +75,12 @@ struct avd_av1_decoded_buffer_info {
 	/* Info needed when the decoded frame serves as a reference frame. */
 	unsigned short width;
 	unsigned short height;
+	unsigned short upscaled_width;
 	unsigned int bit_depth : 4;
+	enum v4l2_av1_frame_type frame_type;
 	u32 order_hints[V4L2_AV1_TOTAL_REFS_PER_FRAME];
 	u8 ref_frame_idx[V4L2_AV1_REFS_PER_FRAME];
+	bool intrabc;
 };
 
 struct avd_hevc_decoded_buffer_info {

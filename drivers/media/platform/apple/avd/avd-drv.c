@@ -49,6 +49,8 @@ void fill_rvra(struct avd_rvra *rvra, enum avd_image_fmt image_fmt,
 	/* TODO */
 	rvra->size +=
 		(height < 1000 ? 0 : height < 1800 ? 2 : height < 3800 ? 3 : 9) * 0x4000;
+	/* TODO */
+	rvra->size += 0x10000;
 
 	rvra->offsets[1] = 0;
 	rvra->offsets[0] = size0;
