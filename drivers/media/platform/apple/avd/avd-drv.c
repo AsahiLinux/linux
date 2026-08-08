@@ -529,7 +529,7 @@ static const struct avd_variant avd_t8122_variant = {
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x40,
 	.submit_queue_max_offset = 0x44,
-	.submit_queue_status_offset = 0x78, /* v4 and never have fixed offsets */
+	.submit_queue_status_offset = 0x7c, /* v4 and newer have fixed offsets */
 };
 
 static const struct avd_variant avd_t8140_variant = {
@@ -551,7 +551,7 @@ static const struct avd_variant avd_t8140_variant = {
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x40,
 	.submit_queue_max_offset = 0x44,
-	.submit_queue_status_offset = 0x78,
+	.submit_queue_status_offset = 0x7c,
 };
 
 static const struct avd_variant avd_t8132_variant = {
@@ -572,7 +572,7 @@ static const struct avd_variant avd_t8132_variant = {
 	.vp_slot_offset = 0xc,
 	.submit_offset = 0x40,
 	.submit_queue_max_offset = 0x44,
-	.submit_queue_status_offset = 0x78,
+	.submit_queue_status_offset = 0x7c,
 };
 
 /* can also be derived from a version register */
