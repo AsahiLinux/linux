@@ -493,6 +493,13 @@ bool dcp_fw_compat_is_12_x(struct platform_device *pdev)
 	return dcp->fw_compat == DCP_FIRMWARE_V_12_3;
 }
 
+unsigned long* dcp_get_iomfb_surfaces(struct platform_device *pdev)
+{
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
+	return dcp->iomfb_surfaces;
+}
+
 int dcp_start(struct platform_device *pdev)
 {
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
@@ -1149,6 +1156,8 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	enum dcp_firmware_version fw_compat;
 	struct device *dev = &pdev->dev;
 	struct apple_dcp *dcp;
+	int surf, num_surfs;
+	u32 surf_en;
 	u32 mux_index;
 
 	fw_compat = dcp_check_firmware_version(dev);
@@ -1179,9 +1188,27 @@ static int dcp_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(dcp->phy);
 	}
 
-	if (of_property_read_u32_array(dev->of_node, "apple,iomfb-surfaces",
-				       dcp->iomfb_surfaces, DCP_MAX_PLANES))
-		dcp->iomfb_surfaces[0] = 1;
+	bitmap_zero(dcp->iomfb_surfaces, DCP_MAX_PLANES);
+	num_surfs = of_property_count_elems_of_size(dev->of_node,
+						    "apple,iomfb-surfaces",
+						    sizeof(u32));
+	if (num_surfs == -ENODATA) {
+		set_bit(0, dcp->iomfb_surfaces);
+		set_bit(1, dcp->iomfb_surfaces);
+	} else if (num_surfs < 0) {
+		return num_surfs;
+	} else if (num_surfs > DCP_MAX_PLANES) {
+		dev_err(dev, "Number of iomfb-surfaces (%d) exceeds DCP_MAX_PLANES\n",
+			num_surfs);
+		return -EINVAL;
+	}
+
+	surf = 0;
+	of_property_for_each_u32(dev->of_node, "apple,iomfb-surfaces", surf_en) {
+		if (surf_en)
+			set_bit(surf, dcp->iomfb_surfaces);
+		surf++;
+	}
 
 	if (dcp->phy) {
 		int ret;

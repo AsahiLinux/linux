@@ -1317,7 +1317,8 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		if (old_state->crtc != crtc && new_state->crtc != crtc)
 			continue;
 
-		req->swap.swap_enabled |= BIT(apl_plane->iomfb_surf);
+		l = apl_plane->iomfb_surf;
+		req->swap.swap_enabled |= BIT(l);
 
 		if (old_state->fb && new_state->fb != old_state->fb) {
 			/*
@@ -1343,17 +1344,17 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		if (!new_state->fb || !new_state->visible) {
 			continue;
 		}
-		req->surf_null[apl_plane->iomfb_surf] = false;
+		req->surf_null[l] = false;
 		has_surface = 1;
 
-		req->swap.src_rect[apl_plane->iomfb_surf] = apple_state->src_rect;
-		req->swap.dst_rect[apl_plane->iomfb_surf] = apple_state->dst_rect;
+		req->swap.src_rect[l] = apple_state->src_rect;
+		req->swap.dst_rect[l] = apple_state->dst_rect;
 
 		if (dcp->notch_height > 0)
-			req->swap.dst_rect[apl_plane->iomfb_surf].y += dcp->notch_height;
+			req->swap.dst_rect[l].y += dcp->notch_height;
 
-		req->surf_iova[apl_plane->iomfb_surf] = apple_state->iova;
-		req->surf[apl_plane->iomfb_surf].base = apple_state->surf;
+		req->surf_iova[l] = apple_state->iova;
+		req->surf[l].base = apple_state->surf;
 
 		/* Use sRGB colorspace only for internal panels. External
 		 * displays are expected to have EDID and user space can use
@@ -1361,8 +1362,8 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 		 * colors.
 		 */
 		if (dcp->connector_type == DRM_MODE_CONNECTOR_eDP &&
-		    req->surf[apl_plane->iomfb_surf].base.colorspace == DCP_COLORSPACE_BG_SRGB)
-			req->surf[apl_plane->iomfb_surf].base.colorspace = DCP_COLORSPACE_NATIVE;
+		    req->surf[l].base.colorspace == DCP_COLORSPACE_BG_SRGB)
+			req->surf[l].base.colorspace = DCP_COLORSPACE_NATIVE;
 	}
 
 	if (!has_surface && !crtc_state->color_mgmt_changed) {
