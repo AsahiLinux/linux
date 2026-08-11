@@ -133,12 +133,12 @@ struct apple_dcp {
 	/* DCP has crashed */
 	bool crashed;
 
+	DECLARE_BITMAP(iomfb_surfaces, DCP_MAX_PLANES);
+
 	/************* IOMFB **************************************************
 	 * everything below is mostly used inside IOMFB but it could make     *
 	 * sense to keep some of the members in apple_dcp.                    *
 	 **********************************************************************/
-
-	u32 iomfb_surfaces[DCP_MAX_PLANES];
 
 	/* clock rate request by dcp in */
 	struct clk *clk;
