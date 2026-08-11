@@ -103,6 +103,15 @@ description: |
   - MacBook Pro (14-inch, M3, 2023)
   - iMac (24-inch, M3, 2023)
 
+  Devices based on the "M4" SoC:
+
+  - MacBook Pro (14-inch, M4, 2024)
+  - iMac (24-inch, 2x USB-C, M4, 2024)
+  - iMac (24-inch, 4x USB-C, M4, 2024)
+  - MacBook Air (13-inch, M4, 2025)
+  - MacBook Air (15-inch, M4, 2025)
+  - Mac mini (M4, 2024)
+
   Devices based on the "M1 Pro", "M1 Max" and "M1 Ultra" SoCs:
 
   - MacBook Pro (14-inch, M1 Pro, 2021)
@@ -321,6 +330,18 @@ properties:
               - apple,j613 # MacBook Air (13-inch, M3, 2024)
               - apple,j615 # MacBook Air (15-inch, M3, 2024)
           - const: apple,t8122
+          - const: apple,arm-platform
+
+      - description: Apple M4 SoC based platforms
+        items:
+          - enum:
+              - apple,j604  # MacBook Pro (14-inch, M4, 2024)
+              - apple,j623  # iMac (24-inch, 2x USB-C, M4, 2024)
+              - apple,j624  # iMac (24-inch, 4x USB-C, M4, 2024)
+              - apple,j713  # MacBook Air (13-inch, M4, 2025)
+              - apple,j715  # MacBook Air (15-inch, M4, 2025)
+              - apple,j773g # Mac mini (M4, 2024)
+          - const: apple,t8132
           - const: apple,arm-platform
 
       - description: Apple M1 Pro SoC based platforms
