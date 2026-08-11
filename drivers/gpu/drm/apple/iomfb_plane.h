@@ -49,6 +49,24 @@ enum dcp_xfer_func {
 	DCP_XFER_FUNC_HDR = 16,
 };
 
+enum dcp_addr_fmt {
+	DCP_ADDR_FMT_LINEAR = 0,
+	/* Twiddled layout supported by AGX */
+	DCP_ADDR_FMT_GPU_TWIDDLED = 2,
+	/* Tiled layout supported by AGX */
+	DCP_ADDR_FMT_GPU_TILED = 3,
+	/* Tiled layout used for buffers shared between hardware blocks */
+	DCP_ADDR_FMT_INTERCHANGE_TILED = 5,
+};
+
+enum dcp_compression_type {
+	DCP_COMPRESSION_NONE = 0,
+	/* Optional for GPU_TWIDDLED and GPU_TILED */
+	DCP_COMPRESSION_AGX = 2,
+	/* Always required for INTERCHANGE_TILED */
+	DCP_COMPRESSION_INTERCHANGE = 3,
+};
+
 struct dcp_rect {
 	u32 x;
 	u32 y;
@@ -68,7 +86,7 @@ struct dcp_plane_info {
 	u8 tile_w;
 	u8 tile_h;
 	u8 unk[0xd];
-	u8 unk2;
+	u8 address_fmt;
 	u8 unk3[0x26];
 } __packed;
 
