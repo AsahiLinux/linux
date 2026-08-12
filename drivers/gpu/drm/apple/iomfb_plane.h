@@ -112,6 +112,18 @@ struct dcp_compression_info {
 	u8 pad2;
 } __packed;
 
+struct dcp_image_layout {
+	u32 tile_w;
+	u32 tile_h;
+	u32 width_tiles;
+	u32 height_tiles;
+	u32 tile_bytes;
+	/* For compressed layouts */
+	u32 meta_offset;
+	u32 meta_size;
+	u32 meta_tile_bytes;
+};
+
 /* Information describing a surface */
 struct dcp_surface {
 	u8 is_tiled;
