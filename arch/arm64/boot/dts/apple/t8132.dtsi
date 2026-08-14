@@ -372,6 +372,86 @@
 			};
 		};
 
+		mtp: mtp@394600000 {
+			compatible = "apple,t8132-mtp",
+						 "apple,t8132-rtk-helper-asc4",
+						 "apple,mtp",
+						 "apple,rtk-helper-asc4";
+			reg = <0x3 0x94600000 0x0 0x4000>,
+				<0x3 0x946c0000 0x0 0x100000>;
+			reg-names = "asc", "sram";
+
+			mboxes = <&mtp_mbox>;
+			iommus = <&mtp_dart 0>;
+			#helper-cells = <0>;
+
+			status = "disabled";
+		};
+
+		mtp_mbox: mbox@394608000 {
+			compatible = "apple,t8132-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x3 0x94608000 0x0 0x4000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1113 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1114 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1115 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1116 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+			    "recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			status = "disabled";
+		};
+
+		mtp_dart: iommu@394800000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x3 0x94800000 0x0 0x4000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1091 IRQ_TYPE_LEVEL_HIGH>;
+
+			#iommu-cells = <1>;
+
+			status = "disabled";
+		};
+
+		mtp_dockchannel: fifo@394b30000 {
+			compatible = "apple,t8132-dockchannel", "apple,dockchannel";
+			reg = <0x3 0x94b14000 0x0 0x4000>;
+			reg-names = "irq";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1093 IRQ_TYPE_LEVEL_HIGH>;
+
+			ranges = <0 0x3 0x94b28000 0x20000>;
+			nonposted-mmio;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+
+			status = "disabled";
+
+			mtp_hid: input@0 {
+				compatible = "apple,dockchannel-hid";
+				reg = <0x0000 0x1000>,
+				      <0x4000 0x1000>,
+				      <0x8000 0x1000>,
+				      <0xc000 0x1000>;
+				reg-names = "rmt-config", "rmt-data", "config", "data";
+
+				iommus = <&mtp_dart 0>;
+
+				interrupt-parent = <&mtp_dockchannel>;
+				interrupts = <2 IRQ_TYPE_LEVEL_HIGH>,
+					<3 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "tx", "rx";
+
+				apple,fifo-size = <0x800>;
+				apple,helper-cpu = <&mtp>;
+			};
+		};
+
 		i2c0: i2c@3ad010000 {
 			compatible = "apple,t8132-i2c", "apple,t8103-i2c";
 			reg = <0x3 0xad010000 0x0 0x4000>;
