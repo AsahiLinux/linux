@@ -18,6 +18,7 @@
 	compatible = "apple,j604", "apple,t8132", "apple,arm-platform";
 
 	aliases {
+		keyboard = &keyboard;
 		atcphy3 = &atcphy3;
 	};
 
@@ -164,3 +165,29 @@
 
 /delete-node/ &atcphy2;
 /delete-node/ &dwc3_2;
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+};
