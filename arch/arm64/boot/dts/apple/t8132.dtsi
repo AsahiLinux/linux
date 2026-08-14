@@ -5,6 +5,7 @@
  * Copyright The Asahi Linux Contributors
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/apple.h>
@@ -254,6 +255,33 @@
 			             <AIC_IRQ 504 IRQ_TYPE_LEVEL_HIGH>,
 			             <AIC_IRQ 505 IRQ_TYPE_LEVEL_HIGH>;
 		};
+
+		smc_mbox: mbox@38c608000 {
+			compatible = "apple,t8132-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x3 0x8c608000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 561 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 562 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 563 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 564 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
+		smc: smc@38c600000 {
+			compatible = "apple,t8132-smc", "apple,t8103-smc";
+			reg = <0x3 0x8c600000 0x0 0x4000>,
+				<0x3 0x8de00000 0x0 0x100000>;
+			reg-names = "smc", "sram";
+			mboxes = <&smc_mbox>;
+
+			smc_gpio: gpio {
+				compatible = "apple,smc-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+			};
 
 		pinctrl_smc: pinctrl@38c820000 {
 			compatible = "apple,t8132-pinctrl", "apple,t8103-pinctrl";
