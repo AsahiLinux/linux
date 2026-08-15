@@ -274,16 +274,30 @@ static int apple_probe_per_dcp(struct device *dev,
 	struct apple_encoder *enc;
 	struct drm_plane *planes[DCP_MAX_PLANES];
 	unsigned long *iomfb_surfaces = dcp_get_iomfb_surfaces(dcp);
+	unsigned long top_surf = find_last_bit(iomfb_surfaces, DCP_MAX_PLANES);
 	int ret;
 	u32 surf;
 	int zpos = 0;
 	bool supports_l10r = !dcp_fw_compat_is_12_x(dcp);
 	enum drm_plane_type plane_type;
+	bool interchange;
 
+	/*
+	 * BUG:
+	 * Some DCPs support more than two surfaces. For some reason, these
+	 * will crash if the topmost layer is Interchange *and* the surface
+	 * is cleared *while content is being scanned out on the middle one*.
+	 * They do not do this with linear framebuffers, nor do they do this
+	 * when the middle surface is not in use. We therefore hide Interchange
+	 * from the surface.
+	 */
 	for_each_set_bit(surf, iomfb_surfaces, DCP_MAX_PLANES) {
 		plane_type = (zpos == 0) ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
-		planes[zpos] = apple_plane_init(drm, 1U << num, surf,
-						supports_l10r, plane_type);
+		interchange = (zpos <= 1 || surf != top_surf);
+
+		planes[zpos] = apple_plane_init(drm, 1U << num, surf, supports_l10r,
+						plane_type, interchange);
+
 		if (IS_ERR(planes[zpos]))
 			return PTR_ERR(planes[zpos]);
 
