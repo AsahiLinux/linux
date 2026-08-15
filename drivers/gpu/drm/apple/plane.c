@@ -539,8 +539,13 @@ static const u32 dcp_overlay_formats_12_x[] = {
 #endif
 };
 
-u64 apple_format_modifiers[] = {
+static u64 format_modifiers[] = {
 	DRM_FORMAT_MOD_APPLE_INTERCHANGE,
+	DRM_FORMAT_MOD_LINEAR,
+	DRM_FORMAT_MOD_INVALID
+};
+
+static u64 format_modifiers_no_ix[] = {
 	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID
 };
@@ -549,7 +554,8 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 				   unsigned long possible_crtcs,
 				   u32 iomfb_surf,
 				   bool supports_l10r,
-				   enum drm_plane_type type)
+				   enum drm_plane_type type,
+				   bool interchange)
 {
 	struct apple_plane *plane;
 	const u32 *fmts;
@@ -566,7 +572,7 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 		}
 		plane = drmm_universal_plane_alloc(dev, struct apple_plane, base, possible_crtcs,
 				       &apple_plane_funcs, fmts, num_fmts,
-				       apple_format_modifiers, type, NULL);
+				       format_modifiers, type, NULL);
 		break;
 	case DRM_PLANE_TYPE_OVERLAY:
 	case DRM_PLANE_TYPE_CURSOR:
@@ -579,7 +585,8 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 		}
 		plane = drmm_universal_plane_alloc(dev, struct apple_plane, base, possible_crtcs,
 				       &apple_plane_funcs, fmts, num_fmts,
-				       apple_format_modifiers, type, NULL);
+				       interchange ? format_modifiers : format_modifiers_no_ix,
+				       type, NULL);
 		break;
 	default:
 		return ERR_PTR(-EINVAL);
