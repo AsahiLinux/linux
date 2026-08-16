@@ -100,14 +100,14 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_h264_run *run)
 	struct avd_h264_ctx *h264_ctx = ctx->priv;
 	struct avd_dev *avd = ctx->dev;
 
-	push(INST_DMA2, "cm3_dma_config_6");
+	push(0, "");
 	pusha(h264_ctx->bufs.pps_tile[4].addr, "hdr_9c_pps_tile_addr_lsb8", 7);
 	pusha(run->addresses.sps, "hdr_bc_sps_tile_addr_lsb8", 0);
 
-	push(INST_DMA3, "cm3_dma_config_7");
-	push(INST_DMA3, "cm3_dma_config_8");
-	push(INST_DMA3, "cm3_dma_config_9");
-	push(INST_DMA3, "cm3_dma_config_a");
+	push(0, "");
+	push(0, "");
+	push(0, "");
+	push(0, "");
 
 	for (int i = 0; i < ARRAY_SIZE(decode->dpb); i++) {
 		if (!(dpb[i].flags & V4L2_H264_DPB_ENTRY_FLAG_VALID))
@@ -261,16 +261,16 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 			     !(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE)),
 	     "hdr_58_const_3a");
 
-	push(INST_DMA2, "cm3_dma_config_1");
-	push(INST_DMA1, "cm3_dma_config_2");
+	push(0, "");
+	push(0, "");
 
 	if (avd->variant->revision == 3)
 		push(0, "zero");
 
 	pusha(h264_ctx->bufs.pps_tile[0].addr, "hdr_9c_pps_tile_addr_lsb8", 0);
 
-	push(INST_DMA2, "cm3_dma_config_3");
-	push(INST_DMA2, "cm3_dma_config_4");
+	push(0, "");
+	push(0, "");
 
 	if (avd->variant->revision == 3)
 		push(0, "zero");
@@ -280,7 +280,7 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	pusha(h264_ctx->bufs.pps_tile[1].addr, "hdr_9c_pps_tile_addr_lsb8", 1);
 	pusha(h264_ctx->bufs.pps_tile[2].addr, "hdr_9c_pps_tile_addr_lsb8", 2);
 	pusha(h264_ctx->bufs.pps_tile[3].addr, "hdr_9c_pps_tile_addr_lsb8", 3);
-	push(INST_DMA3, "cm3_dma_config_5");
+	push(0, "");
 
 	push_rvra(avd, ctx, run->addresses.rvra, ctx->rvra.offsets);
 

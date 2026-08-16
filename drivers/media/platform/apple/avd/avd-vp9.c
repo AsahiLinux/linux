@@ -185,9 +185,9 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 		avd_get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
 	ref_buf[2] = avd_get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
 
-	push(INST_DMA3, "cm3_dma_config_7");
-	push(INST_DMA3, "cm3_dma_config_8");
-	push(INST_DMA3, "cm3_dma_config_9");
+	push(0, "");
+	push(0, "");
+	push(0, "");
 
 	for (int i = 0; i < V4L2_VP9_NUM_FRAME_CTX - 1; i++) {
 		addr = vb2_dma_contig_plane_dma_addr(
@@ -306,7 +306,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
 		     AVD_HDR_WIDTH(frame->frame_width_minus_1),
 	     "hdr_28_height_width_shift3");
-	push(0, "cm3_dma_config_0");
+	push(0, "");
 	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
 		     AVD_HDR_WIDTH(frame->frame_width_minus_1),
 	     "hdr_38_height_width_shift3");
@@ -327,8 +327,8 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	/* some kind of feature enable? h26{2,5} has 3 instread */
 	push(AVD_HDR_FEAT_VP9, "unk_const");
-	push(INST_DMA2, "cm3_dma_config_2");
-	push(INST_DMA1, "cm3_dma_config_3");
+	push(0, "");
+	push(0, "");
 
 	pusha(vp9_ctx->bufs.counts.addr, "frame_counts_addr", 0);
 	pusha(vp9_ctx->bufs.probs.addr, "hdr_104_probs_addr_lsb8", 0);
@@ -367,8 +367,8 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 			      0),
 	     "hdr_48_loop_filter_level");
 
-	push(INST_DMA2, "cm3_dma_config_4");
-	push(INST_DMA2, "cm3_dma_config_5");
+	push(0, "");
+	push(0, "");
 
 	if (avd->variant->revision == 3)
 		push(0, "");
@@ -386,7 +386,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	/* fatal if missing / wrong */
 	pusha(vp9_ctx->bufs.tiles[2].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
 
-	push(INST_DMA3, "cm3_dma_config_7");
+	push(0, "");
 
 	push_rvra(avd, ctx, run->addresses.rvra, ctx->rvra.offsets);
 
