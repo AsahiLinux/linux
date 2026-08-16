@@ -12,7 +12,6 @@
 #include <linux/pm.h>
 #include <linux/i2c.h>
 #include <linux/gpio/consumer.h>
-#include <linux/regulator/consumer.h>
 #include <linux/regmap.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -34,7 +33,6 @@ struct tas2764_priv {
 	struct snd_soc_component *component;
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *sdz_gpio;
-	struct regulator *sdz_reg;
 	struct regmap *regmap;
 	struct device *dev;
 	int irq;
@@ -158,8 +156,6 @@ static int tas2764_codec_suspend(struct snd_soc_component *component)
 	if (tas2764->sdz_gpio)
 		gpiod_set_value_cansleep(tas2764->sdz_gpio, 0);
 
-	regulator_disable(tas2764->sdz_reg);
-
 	regcache_cache_only(tas2764->regmap, true);
 	regcache_mark_dirty(tas2764->regmap);
 
@@ -172,13 +168,6 @@ static int tas2764_codec_resume(struct snd_soc_component *component)
 {
 	struct tas2764_priv *tas2764 = snd_soc_component_get_drvdata(component);
 	int ret;
-
-	ret = regulator_enable(tas2764->sdz_reg);
-
-	if (ret) {
-		dev_err(tas2764->dev, "Failed to enable regulator\n");
-		return ret;
-	}
 
 	if (tas2764->sdz_gpio) {
 		gpiod_set_value_cansleep(tas2764->sdz_gpio, 1);
@@ -770,12 +759,6 @@ static int tas2764_codec_probe(struct snd_soc_component *component)
 
 	tas2764->component = component;
 
-	ret = regulator_enable(tas2764->sdz_reg);
-	if (ret != 0) {
-		dev_err(tas2764->dev, "Failed to enable regulator: %d\n", ret);
-		return ret;
-	}
-
 	if (tas2764->sdz_gpio) {
 		gpiod_set_value_cansleep(tas2764->sdz_gpio, 1);
 	}
@@ -852,13 +835,6 @@ static int tas2764_codec_probe(struct snd_soc_component *component)
 	return 0;
 }
 
-static void tas2764_codec_remove(struct snd_soc_component *component)
-{
-	struct tas2764_priv *tas2764 = snd_soc_component_get_drvdata(component);
-
-	regulator_disable(tas2764->sdz_reg);
-}
-
 static DECLARE_TLV_DB_SCALE(tas2764_digital_tlv, 1100, 50, 0);
 static DECLARE_TLV_DB_SCALE(tas2764_playback_volume, -10050, 50, 1);
 
@@ -890,7 +866,6 @@ static const struct snd_kcontrol_new tas2764_snd_controls[] = {
 
 static const struct snd_soc_component_driver soc_component_driver_tas2764 = {
 	.probe			= tas2764_codec_probe,
-	.remove			= tas2764_codec_remove,
 	.suspend		= tas2764_codec_suspend,
 	.resume			= tas2764_codec_resume,
 	.controls		= tas2764_snd_controls,
@@ -960,11 +935,6 @@ static const struct regmap_config tas2764_i2c_regmap = {
 static int tas2764_parse_dt(struct device *dev, struct tas2764_priv *tas2764)
 {
 	int ret = 0;
-
-	tas2764->sdz_reg = devm_regulator_get(dev, "SDZ");
-	if (IS_ERR(tas2764->sdz_reg))
-		return dev_err_probe(dev, PTR_ERR(tas2764->sdz_reg),
-				"Failed to get SDZ supply\n");
 
 	tas2764->reset_gpio = devm_gpiod_get_optional(tas2764->dev, "reset",
 						      GPIOD_OUT_HIGH);
