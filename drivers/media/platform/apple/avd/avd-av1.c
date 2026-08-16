@@ -1320,11 +1320,30 @@ static void avd_av1_adjust_decoded_fmt(struct avd_ctx *ctx,
 		avd_priv_tlb_size(pix_mp->width, pix_mp->height), AVD_ALIGN);
 }
 
+static int avd_av1_validate_sequence(struct avd_ctx *ctx,
+				     struct v4l2_ctrl_av1_sequence *seq)
+{
+	if (seq->flags & V4L2_AV1_SEQUENCE_FLAG_MONO_CHROME)
+		return -EINVAL; /* 4:0:0 (not supported?) */
+
+	return 0;
+}
+
+static int avd_av1_try_ctrl(struct avd_ctx *ctx, struct v4l2_ctrl *ctrl)
+{
+	if (ctrl->id == V4L2_CID_STATELESS_AV1_SEQUENCE)
+		return avd_av1_validate_sequence(ctx,
+						 ctrl->p_new.p_av1_sequence);
+	/* width should also be > 8 */
+	return 0;
+}
+
 const struct avd_coded_fmt_ops avd_av1_fmt_ops = {
 	.adjust_decoded_fmt = avd_av1_adjust_decoded_fmt,
 	.start = avd_av1_start,
 	.stop = avd_av1_stop,
 	.run = avd_av1_run,
 	.submit = avd_av1_submit,
+	.try_ctrl = avd_av1_try_ctrl,
 	.get_image_fmt = avd_av1_get_image_fmt,
 };
