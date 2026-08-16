@@ -7,11 +7,6 @@
 
 #include "avd.h"
 
-/* i have no clue what this is */
-#define INST_DMA1 0 /* (0x14 << 16 | 0x14) */
-#define INST_DMA2 0 /* (0x4000000 | INST_DMA1) */
-#define INST_DMA3 0 /* (0x07 << 16 | 0x07) */
-
 #define AVD_OP_EXEC			FIELD_PREP(GENMASK(31, 24), 0x2b)
 #define AVD_OP_EXEC_FIFO_MASK(v)	FIELD_PREP(GENMASK(3, 0), v)
 #define AVD_OP_EXEC_FIFO_IDX(v)		FIELD_PREP(GENMASK(7, 4), v)
