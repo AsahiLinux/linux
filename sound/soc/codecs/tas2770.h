@@ -150,7 +150,6 @@ struct tas2770_priv {
 	struct snd_soc_component *component;
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *sdz_gpio;
-	struct regulator *sdz_reg;
 	struct regmap *regmap;
 	struct device *dev;
 	int v_sense_slot;
