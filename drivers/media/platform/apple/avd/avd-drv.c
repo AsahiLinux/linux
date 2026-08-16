@@ -746,3 +746,9 @@ module_platform_driver(avd_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Apple avd v4l2 sl m2m");
+MODULE_FIRMWARE("apple/avd-fw-v2-t0.bin");
+MODULE_FIRMWARE("apple/avd-fw-v3-t0.bin");
+MODULE_FIRMWARE("apple/avd-fw-v3-t1.bin");
+MODULE_FIRMWARE("apple/avd-fw-v4-t0.bin");
+MODULE_FIRMWARE("apple/avd-fw-v5-t0.bin");
+MODULE_FIRMWARE("apple/avd-fw-v5-t1.bin");
