@@ -912,7 +912,7 @@ static int tas2770_parse_dt(struct device *dev, struct tas2770_priv *tas2770)
 		return dev_err_probe(dev, PTR_ERR(tas2770->sdz_reg),
 				     "Failed to get SDZ supply\n");
 
-	tas2770->sdz_gpio = devm_gpiod_get_optional(dev, "shutdown", GPIOD_OUT_HIGH);
+	tas2770->sdz_gpio = devm_gpiod_get_optional(dev, "shutdown", GPIOD_OUT_LOW);
 	if (IS_ERR(tas2770->sdz_gpio)) {
 		if (PTR_ERR(tas2770->sdz_gpio) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
