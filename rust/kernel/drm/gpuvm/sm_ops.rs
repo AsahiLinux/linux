@@ -44,7 +44,9 @@ impl<'a, 'ctx, T: DriverGpuVm> OpMapRequest<'a, 'ctx, T> {
                 gem: bindings::drm_gpuva_op_map__bindgen_ty_2 {
                     offset: self.gem_offset,
                     obj: self.vm_bo.obj().as_raw(),
+                    range: 0, // FIXME
                 },
+                flags: 0,
             },
         }
     }
