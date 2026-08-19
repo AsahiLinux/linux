@@ -709,7 +709,7 @@ static void avd_remove(struct platform_device *pdev)
 	pm_runtime_dont_use_autosuspend(avd->dev);
 }
 
-static int avd_runtime_resume(struct device *dev)
+static __maybe_unused int avd_runtime_resume(struct device *dev)
 {
 	int ret;
 	struct avd_dev *avd = platform_get_drvdata(to_platform_device(dev));
@@ -720,7 +720,7 @@ static int avd_runtime_resume(struct device *dev)
 	return ret;
 }
 
-static int avd_runtime_suspend(struct device *dev)
+static __maybe_unused int avd_runtime_suspend(struct device *dev)
 {
 	struct avd_dev *avd = platform_get_drvdata(to_platform_device(dev));
 
