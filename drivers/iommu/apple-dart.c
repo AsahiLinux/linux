@@ -225,6 +225,9 @@ struct apple_dart {
 	u32 supports_bypass : 1;
 	u32 four_level : 1;
 
+	dma_addr_t dma_min;
+	dma_addr_t dma_max;
+
 	struct iommu_group *sid2group[DART_MAX_STREAMS];
 	struct iommu_device iommu;
 
@@ -836,8 +839,8 @@ static int apple_dart_of_xlate(struct device *dev,
 	struct platform_device *iommu_pdev = of_find_device_by_node(args->np);
 	struct apple_dart *dart = platform_get_drvdata(iommu_pdev);
 	struct apple_dart *cfg_dart;
-	dma_addr_t dma_max = DMA_BIT_MASK(dart->ias);
-	dma_addr_t dma_min = 0;
+	dma_addr_t dma_max = dart->dma_max;
+	dma_addr_t dma_min = dart->dma_min;
 	int i, sid;
 
 	put_device(&iommu_pdev->dev);
@@ -852,6 +855,9 @@ static int apple_dart_of_xlate(struct device *dev,
 
 		if (!length)
 			return -EINVAL;
+
+		if (dma_min != 0 || dma_max != DMA_BIT_MASK(dart->ias))
+			dev_err(dev, "still using legacy \"apple,dma-range\" property\n");
 
 		dma_min = ((dma_addr_t)args->args[1] << 32) | args->args[2];
 
@@ -1198,6 +1204,7 @@ static int apple_dart_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct apple_dart *dart;
 	struct device *dev = &pdev->dev;
+	u64 dma_range[2];
 
 	dart = devm_kzalloc(dev, sizeof(*dart), GFP_KERNEL);
 	if (!dart)
@@ -1258,6 +1265,27 @@ static int apple_dart_probe(struct platform_device *pdev)
 		dart->num_streams = FIELD_GET(DART_T8110_PARAMS4_NUM_SIDS, dart_params[3]);
 		dart->four_level = dart->ias > 36;
 		break;
+	}
+
+	dart->dma_min = 0;
+	dart->dma_max = DMA_BIT_MASK(dart->ias);
+
+	ret = of_property_read_u64_array(dev->of_node, "apple,dma-range", dma_range, 2);
+	if (ret == -EINVAL) {
+		ret = 0;
+	} else if (ret) {
+		goto err_clk_disable;
+	} else {
+		dart->dma_min = dma_range[0];
+		dart->dma_max = dma_range[0] + dma_range[1] - 1;
+		if ((dart->dma_min ^ dart->dma_max) & ~DMA_BIT_MASK(dart->ias)) {
+			dev_err(&pdev->dev, "Invalid DMA range for ias=%d\n",
+				dart->ias);
+			ret = -EINVAL;
+			goto err_clk_disable;
+		}
+		dev_info(&pdev->dev, "Limiting DMA range to %pad..%pad\n",
+				&dart->dma_min, &dart->dma_max);
 	}
 
 	if (dart->num_streams > DART_MAX_STREAMS) {
