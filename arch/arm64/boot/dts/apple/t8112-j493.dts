@@ -27,6 +27,7 @@
 	aliases {
 		bluetooth0 = &bluetooth0;
 		keyboard = &keyboard;
+		sio = &sio;
 		touchbar0 = &touchbar0;
 		wifi0 = &wifi0;
 	};
@@ -330,6 +331,11 @@
 };
 
 &pmp_report_isp_sys {
+	status = "okay";
+};
+
+/* remove once m1n1 enables sio nodes after setup */
+&sio {
 	status = "okay";
 };
 
