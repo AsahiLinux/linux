@@ -18,6 +18,10 @@
 	aliases {
 		atcphy4 = &atcphy0_die1;
 		atcphy5 = &atcphy1_die1;
+		usb4-4-acio = &usb4_0_acio_die1;
+		usb4-4-nhi = &usb4_0_nhi_die1;
+		usb4-5-acio = &usb4_1_acio_die1;
+		usb4-5-nhi = &usb4_1_nhi_die1;
 	};
 };
 
@@ -61,6 +65,13 @@
 						remote-endpoint = <&atcphy4_typec_lanes>;
 					};
 				};
+
+				port@2 {
+					reg = <2>;
+					typec4_con_tbt: endpoint {
+						remote-endpoint = <&usb4_4_acio_tbt>;
+					};
+				};
 			};
 		};
 	};
@@ -92,6 +103,13 @@
 					reg = <1>;
 					typec5_connector_ss: endpoint {
 						remote-endpoint = <&atcphy5_typec_lanes>;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+					typec5_con_tbt: endpoint {
+						remote-endpoint = <&usb4_5_acio_tbt>;
 					};
 				};
 			};
@@ -193,9 +211,56 @@
 	};
 };
 
-#include "hwmon-fan-dual.dtsi"
+/* USB4 on die 1 */
+&usb4_0_acio_die1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_4_acio_tbt: endpoint {
+				remote-endpoint = <&typec4_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_1_acio_die1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_5_acio_tbt: endpoint {
+				remote-endpoint = <&typec5_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
 
 /* delete unused USB nodes on die 1 */
+
+/delete-node/ &usb4_2_acio_die1;
+/delete-node/ &usb4_2_mbox_die1;
+
+/delete-node/ &usb4_3_acio_die1;
+/delete-node/ &usb4_3_mbox_die1;
 
 /delete-node/ &dwc3_2_dart_0_die1;
 /delete-node/ &dwc3_2_dart_1_die1;
@@ -228,3 +293,5 @@
 	apple,ppm-ki = <5.8>;
 	apple,ppm-kp = <0.355>;
 };
+
+#include "hwmon-fan-dual.dtsi"
