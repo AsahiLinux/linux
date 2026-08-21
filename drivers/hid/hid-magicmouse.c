@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/soc/apple/actuator.h>
 
 #include "hid-ids.h"
 
@@ -1356,6 +1357,9 @@ static int magicmouse_probe(struct hid_device *hdev,
 		ret = -ENOMEM;
 		goto err_stop_hw;
 	}
+
+	if (apple_actuator_init_haptics(msc->input, hdev))
+		dev_err(&msc->hdev->dev, "Failed to allocate haptics for %s\n", msc->hdev->name);
 
 	switch (id->product) {
 	case USB_DEVICE_ID_APPLE_MAGICMOUSE:
