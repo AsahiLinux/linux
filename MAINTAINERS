@@ -1953,6 +1953,14 @@ S:	Maintained
 T:	git git://anongit.freedesktop.org/drm/drm-misc
 F:	drivers/gpu/drm/apple/
 
+APPLE MTP HAPTIC ACTUATOR DRIVER
+M:	Yicong Hui <yicong@ycstuff.net>
+L:	linux-input@vger.kernel.org
+L:	asahi@lists.linux.dev
+S:	Maintained
+F:	drivers/hid/hid-apple-haptic.c
+F:	include/linux/soc/apple/actuator.h
+
 APPLE PCIE CONTROLLER DRIVER
 M:	Marc Zyngier <maz@kernel.org>
 L:	linux-pci@vger.kernel.org

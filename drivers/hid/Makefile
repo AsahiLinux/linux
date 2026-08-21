@@ -29,6 +29,7 @@ obj-$(CONFIG_HID_ACCUTOUCH)	+= hid-accutouch.o
 obj-$(CONFIG_HID_ALPS)		+= hid-alps.o
 obj-$(CONFIG_HID_ACRUX)		+= hid-axff.o
 obj-$(CONFIG_HID_APPLE)		+= hid-apple.o
+obj-$(CONFIG_HID_APPLE_HAPTIC)	+= hid-apple-haptic.o
 obj-$(CONFIG_HID_APPLEIR)	+= hid-appleir.o
 obj-$(CONFIG_HID_APPLETB_BL)	+= hid-appletb-bl.o
 obj-$(CONFIG_HID_APPLETB_KBD)	+= hid-appletb-kbd.o
