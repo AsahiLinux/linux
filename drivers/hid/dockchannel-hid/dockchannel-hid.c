@@ -593,12 +593,6 @@ static int dchid_get_report_cmd(struct dchid_iface *iface, u8 reportnum, void *b
 	return ret <= 0 ? ret : ret - 1;
 }
 
-/* Note: buf includes report number! */
-static int dchid_set_report(struct dchid_iface *iface, void *buf, size_t len)
-{
-	return dchid_cmd(iface, HID_OUTPUT_REPORT, REQ_SET_REPORT, buf, len, NULL, 0);
-}
-
 static int dchid_raw_request(struct hid_device *hdev,
 				unsigned char reportnum, __u8 *buf, size_t len,
 				unsigned char rtype, int reqtype)
@@ -610,7 +604,7 @@ static int dchid_raw_request(struct hid_device *hdev,
 		buf[0] = reportnum;
 		return dchid_cmd(iface, rtype, REQ_GET_REPORT, &reportnum, 1, buf + 1, len - 1);
 	case HID_REQ_SET_REPORT:
-		return dchid_set_report(iface, buf, len);
+		return dchid_cmd(iface, rtype, REQ_SET_REPORT, buf, len, NULL, 0);
 	default:
 		return -EIO;
 	}
