@@ -1042,6 +1042,7 @@ static int magicmouse_setup_input_mtp(struct input_dev *input,
 	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
 
 	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
+	__set_bit(INPUT_PROP_PRESSUREPAD, input->propbit);
 	__clear_bit(BTN_0, input->keybit);
 	__clear_bit(BTN_RIGHT, input->keybit);
 	__clear_bit(BTN_MIDDLE, input->keybit);
@@ -1049,7 +1050,7 @@ static int magicmouse_setup_input_mtp(struct input_dev *input,
 	__clear_bit(REL_X, input->relbit);
 	__clear_bit(REL_Y, input->relbit);
 
-	mt_flags = INPUT_MT_POINTER | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK;
+	mt_flags = INPUT_MT_POINTER | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK | INPUT_MT_TOTAL_FORCE;
 
 	/* finger touch area */
 	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 5000, 0, 0);
