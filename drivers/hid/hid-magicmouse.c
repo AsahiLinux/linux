@@ -17,6 +17,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include "hid-haptic.h"
+#include <linux/soc/apple/actuator.h>
 
 #include "hid-ids.h"
 
@@ -138,6 +140,14 @@ struct magicmouse_input_ops {
 	int (*setup_input)(struct input_dev *input, struct hid_device *hdev);
 };
 
+struct effect_job {
+	struct work_struct work;
+	struct hid_device *taptic_hdev;
+	u16 effect_type;
+	u8 strength;
+	u8 softness;
+};
+
 /**
  * struct magicmouse_sc - Tracks Magic Mouse-specific data.
  * @input: Input device through which we report events.
@@ -174,6 +184,10 @@ struct magicmouse_sc {
 		bool scroll_y_active;
 	} touches[MAX_CONTACTS];
 	int tracking_ids[MAX_CONTACTS];
+
+	struct hid_haptic_device *haptics;
+	struct hid_device *taptic_hdev;
+	struct effect_job *haptic_effects;
 
 	struct hid_device *hdev;
 	struct delayed_work work;
@@ -1042,6 +1056,7 @@ static int magicmouse_setup_input_mtp(struct input_dev *input,
 	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
 
 	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
+	__set_bit(INPUT_PROP_PRESSUREPAD, input->propbit);
 	__clear_bit(BTN_0, input->keybit);
 	__clear_bit(BTN_RIGHT, input->keybit);
 	__clear_bit(BTN_MIDDLE, input->keybit);
@@ -1049,7 +1064,7 @@ static int magicmouse_setup_input_mtp(struct input_dev *input,
 	__clear_bit(REL_X, input->relbit);
 	__clear_bit(REL_Y, input->relbit);
 
-	mt_flags = INPUT_MT_POINTER | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK;
+	mt_flags = INPUT_MT_POINTER | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK | INPUT_MT_TOTAL_FORCE;
 
 	/* finger touch area */
 	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 5000, 0, 0);
@@ -1148,6 +1163,29 @@ static int magicmouse_input_mapping(struct hid_device *hdev,
 		return -1;
 
 	return 0;
+}
+
+static int match_actuator(struct device *dev, const void *data)
+{
+	if (dev->bus != &hid_bus_type)
+		return 0;
+
+	struct hid_device *hdev = to_hid_device(dev);
+
+	return hdev && !strcmp(hdev->name, "Apple MTP actuator");
+}
+
+static int magicmouse_switch_mode(struct input_dev *trackpad_idev, int mode)
+{
+	struct hid_device *trackpad_hdev = input_get_drvdata(trackpad_idev);
+	struct magicmouse_sc *msc = hid_get_drvdata(trackpad_hdev);
+	int ret;
+
+	hid_info(trackpad_hdev, "Switching modes to %i\n", mode);
+
+	ret = apple_taptic_switch_modes(msc->taptic_hdev, mode);
+
+	return ret;
 }
 
 static int magicmouse_input_configured(struct hid_device *hdev,
@@ -1288,6 +1326,208 @@ static void magicmouse_battery_timer_tick(struct timer_list *t)
 	}
 }
 
+static int apple_upload_effects(struct input_dev *trackpad_idev,
+				struct ff_effect *effect, struct ff_effect *old)
+{
+	struct hid_device *trackpad_hdev = input_get_drvdata(trackpad_idev);
+	struct magicmouse_sc *msc = hid_get_drvdata(trackpad_hdev);
+	struct hid_haptic_device *haptics = msc->haptics;
+	int ret;
+
+	switch (effect->u.haptic.hid_usage) {
+	case (HID_HP_WAVEFORMPRESS & HID_USAGE):
+	case (HID_HP_WAVEFORMRELEASE & HID_USAGE):
+	case (APPLE_HP_WAVEFORMDEEPCLICK & HID_USAGE):
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	msc->haptic_effects[effect->id].taptic_hdev = msc->taptic_hdev;
+	msc->haptic_effects[effect->id].effect_type = (effect->u.haptic.hid_usage) & HID_USAGE;
+	msc->haptic_effects[effect->id].strength =
+		(min(100, (effect->u.haptic.intensity)) * 255) / 100;
+	msc->haptic_effects[effect->id].softness = 0x90;
+	/* A future extension could add configurability to softness. */
+
+	if (haptics->mode == HID_HAPTIC_MODE_DEVICE) {
+		ret = magicmouse_switch_mode(trackpad_idev, HID_HAPTIC_MODE_HOST);
+
+		if (ret) {
+			dev_err(&msc->hdev->dev, "Error: Unable to switch mouse to host-controlled mode.");
+			msc->haptic_effects[effect->id].effect_type = 0;
+			return ret;
+		}
+
+		haptics->mode =  HID_HAPTIC_MODE_HOST;
+	}
+
+	hid_info(trackpad_hdev, "Successfully uploaded effects!!\n");
+	return 0;
+}
+
+static void haptic_playback_worker(struct work_struct *ws)
+{
+	struct effect_job *job = container_of(ws, struct effect_job, work);
+
+	struct hid_device *taptic_hdev = job->taptic_hdev;
+
+	if (job->effect_type && apple_taptic_send(taptic_hdev, job->effect_type,
+						  job->strength, job->softness))
+		pr_err("apple-haptic: unable to send haptic event.\n");
+}
+
+static int apple_taptic_playback(struct input_dev *trackpad_idev, int effect_id, int value)
+{
+	struct hid_device *trackpad_hdev = input_get_drvdata(trackpad_idev);
+	struct magicmouse_sc *msc = hid_get_drvdata(trackpad_hdev);
+
+	if (value)
+		queue_work(msc->haptics->wq, &msc->haptic_effects[effect_id].work);
+
+	return 0;
+}
+
+static int apple_taptic_erase(struct input_dev *trackpad_idev, int effect_id)
+{
+	struct hid_device *trackpad_hdev = input_get_drvdata(trackpad_idev);
+	struct magicmouse_sc *msc = hid_get_drvdata(trackpad_hdev);
+	int i, ret = 0;
+
+	msc->haptic_effects[effect_id].effect_type = 0;
+
+	for (i = 0; i < FF_MAX_EFFECTS; i++) {
+		if (msc->haptic_effects[i].effect_type != 0)
+			return 0;
+	}
+
+	/* Return to device-controlled mode if there are no effects left */
+	if (msc->haptics->mode == HID_HAPTIC_MODE_HOST) {
+		flush_workqueue(msc->haptics->wq);
+		ret = magicmouse_switch_mode(trackpad_idev, HID_HAPTIC_MODE_DEVICE);
+
+		if (ret) {
+			dev_err(&msc->hdev->dev, "Error: Unable to switch mouse back to device-controlled mode.");
+			return ret;
+		}
+
+		msc->haptics->mode =  HID_HAPTIC_MODE_DEVICE;
+	}
+
+	return 0;
+}
+
+static void apple_taptic_destroy(struct ff_device *ff)
+{
+	struct hid_haptic_device *haptic_dev = ff->private;
+	struct magicmouse_sc *msc = hid_get_drvdata(haptic_dev->hdev);
+	int ret;
+
+	if (msc->haptics && msc->haptics->mode == HID_HAPTIC_MODE_HOST) {
+		flush_workqueue(msc->haptics->wq);
+		ret = magicmouse_switch_mode(msc->input, HID_HAPTIC_MODE_DEVICE);
+		if (ret)
+			hid_err(msc->hdev, "Failed to switch back to device-controlled mode.\n");
+
+		msc->haptics->mode =  HID_HAPTIC_MODE_DEVICE;
+	}
+
+	destroy_workqueue(haptic_dev->wq);
+	haptic_dev->wq = NULL;
+
+	kfree(msc->haptic_effects);
+	msc->haptic_effects = NULL;
+}
+
+static int apple_taptic_init_mtp(struct magicmouse_sc *msc,
+				 struct hid_haptic_device *haptic_dev)
+{
+	struct hid_device *trackpad_hdev = msc->hdev;
+	struct ff_device *ff;
+	int ret, i;
+
+	haptic_dev->hdev = trackpad_hdev;
+
+	msc->haptic_effects = kzalloc_objs(struct effect_job, FF_MAX_EFFECTS);
+	if (!msc->haptic_effects) {
+		dev_err(&trackpad_hdev->dev, "Cannot allocate haptic effects\n");
+		return -ENOMEM;
+	}
+
+	haptic_dev->wq = create_singlethread_workqueue("Apple trackpad haptics workqueue");
+	if (!haptic_dev->wq) {
+		dev_err(&trackpad_hdev->dev, "Cannot allocate haptic workqueue\n");
+		kfree(msc->haptic_effects);
+		msc->haptic_effects = NULL;
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < FF_MAX_EFFECTS; i++)
+		INIT_WORK(&msc->haptic_effects[i].work, haptic_playback_worker);
+
+	ret = input_ff_create(msc->input, FF_MAX_EFFECTS);
+	if (ret) {
+		kfree(msc->haptic_effects);
+		msc->haptic_effects = NULL;
+
+		destroy_workqueue(haptic_dev->wq);
+		haptic_dev->wq = NULL;
+
+		dev_err(&trackpad_hdev->dev, "Failed to create force-feedback device.\n");
+		return ret;
+	}
+
+	ff = msc->input->ff;
+	ff->private = haptic_dev;
+	ff->upload = apple_upload_effects;
+	ff->playback = apple_taptic_playback;
+	ff->erase = apple_taptic_erase;
+	ff->destroy = apple_taptic_destroy;
+
+	input_set_capability(msc->input, EV_FF, FF_HAPTIC);
+
+	hid_info(trackpad_hdev, "Successfully init'd the haptics\n");
+	return 0;
+}
+
+static int magicmouse_init_haptics(struct magicmouse_sc *msc, struct hid_device *trackpad_hdev)
+{
+#ifdef CONFIG_HID_APPLE_MTP_HAPTIC
+	struct device *taptic_dev;
+
+	/* Check if actuator is allocated */
+	taptic_dev = device_find_child(trackpad_hdev->dev.parent, NULL, match_actuator);
+	if (taptic_dev)
+		msc->taptic_hdev = to_hid_device(taptic_dev);
+
+	if (msc->taptic_hdev) {
+		hid_info(trackpad_hdev, "Successfully bound trackpad drivers to the actuator\n");
+
+		msc->haptics = devm_kzalloc(&trackpad_hdev->dev, sizeof(*msc->haptics), GFP_KERNEL);
+
+		if (!msc->haptics) {
+			dev_warn(&trackpad_hdev->dev, "Cannot allocate haptics for %s\n", trackpad_hdev->name);
+			put_device(taptic_dev);
+			msc->taptic_hdev = NULL;
+
+			return -ENOMEM;
+		}
+
+		msc->haptics->hdev = trackpad_hdev;
+
+		if (apple_taptic_init_mtp(msc, msc->haptics)) {
+			put_device(taptic_dev);
+			msc->taptic_hdev = NULL;
+
+			devm_kfree(&trackpad_hdev->dev, msc->haptics);
+			msc->haptics = NULL;
+		}
+	}
+#endif
+
+	return 0;
+}
+
 static int magicmouse_probe(struct hid_device *hdev,
 	const struct hid_device_id *id)
 {
@@ -1356,6 +1596,11 @@ static int magicmouse_probe(struct hid_device *hdev,
 		goto err_stop_hw;
 	}
 
+	ret = magicmouse_init_haptics(msc, hdev);
+
+	if (ret)
+		goto err_stop_hw;
+
 	switch (id->product) {
 	case USB_DEVICE_ID_APPLE_MAGICMOUSE:
 		report = hid_register_report(hdev, HID_INPUT_REPORT, MOUSE_REPORT_ID, 0);
@@ -1416,6 +1661,12 @@ err_stop_hw:
 		timer_delete_sync(&msc->battery_timer);
 
 	hid_hw_stop(hdev);
+
+	if (msc->taptic_hdev) {
+		put_device(&msc->taptic_hdev->dev);
+		msc->taptic_hdev = NULL;
+	}
+
 	return ret;
 }
 
@@ -1431,6 +1682,12 @@ static void magicmouse_remove(struct hid_device *hdev)
 	}
 
 	hid_hw_stop(hdev);
+
+	if (msc && msc->taptic_hdev) {
+		put_device(&msc->taptic_hdev->dev);
+		msc->taptic_hdev = NULL;
+	}
+
 }
 
 static const __u8 *magicmouse_report_fixup(struct hid_device *hdev, __u8 *rdesc,
