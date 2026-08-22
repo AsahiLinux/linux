@@ -44,6 +44,12 @@
 						remote-endpoint = <&atcphy0_typec_lanes>;
 					};
 				};
+				port@2 {
+					reg = <2>;
+					typec0_con_tbt: endpoint {
+						remote-endpoint = <&usb4_0_acio_tbt>;
+					};
+				};
 			};
 		};
 	};
@@ -76,6 +82,12 @@
 					reg = <1>;
 					typec1_connector_ss: endpoint {
 						remote-endpoint = <&atcphy1_typec_lanes>;
+					};
+				};
+				port@2 {
+					reg = <2>;
+					typec1_con_tbt: endpoint {
+						remote-endpoint = <&usb4_1_acio_tbt>;
 					};
 				};
 			};
