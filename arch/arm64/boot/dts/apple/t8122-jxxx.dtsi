@@ -16,6 +16,11 @@
 		bluetooth0 = &bluetooth0;
 		serial0 = &serial0;
 		wifi0 = &wifi0;
+
+		usb4-0-acio = &usb4_0_acio;
+		usb4-0-nhi = &usb4_0_nhi;
+		usb4-1-acio = &usb4_1_acio;
+		usb4-1-nhi = &usb4_1_nhi;
 	};
 
 	chosen {
@@ -75,6 +80,48 @@
 		reg = <0x10100 0x0 0x0 0x0 0x0>;
 		/* To be filled by the loader */
 		local-bd-address = [00 00 00 00 00 00];
+	};
+};
+
+&usb4_0_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_0_acio_tbt: endpoint {
+				remote-endpoint = <&typec0_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_1_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_1_acio_tbt: endpoint {
+				remote-endpoint = <&typec1_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
 	};
 };
 
