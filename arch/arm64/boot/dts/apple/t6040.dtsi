@@ -1,0 +1,453 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple T6040 "M4 Pro" SoC
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include <dt-bindings/interrupt-controller/apple-aic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/apple.h>
+
+/ {
+	compatible = "apple,t6040", "apple,arm-platform";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_e0>;
+				};
+				core1 {
+					cpu = <&cpu_e1>;
+				};
+				core2 {
+					cpu = <&cpu_e2>;
+				};
+				core3 {
+					cpu = <&cpu_e3>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu_p0>;
+				};
+				core1 {
+					cpu = <&cpu_p1>;
+				};
+				core2 {
+					cpu = <&cpu_p2>;
+				};
+				core3 {
+					cpu = <&cpu_p3>;
+				};
+			};
+
+			cluster2 {
+				core0 {
+					cpu = <&cpu_p4>;
+				};
+				core1 {
+					cpu = <&cpu_p5>;
+				};
+				core2 {
+					cpu = <&cpu_p6>;
+				};
+				core3 {
+					cpu = <&cpu_p7>;
+				};
+			};
+		};
+
+		cpu_e0: cpu@0 {
+			compatible = "apple,brava-e";
+			device_type = "cpu";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+		};
+
+		cpu_e1: cpu@1 {
+			compatible = "apple,brava-e";
+			device_type = "cpu";
+			reg = <0x0 0x1>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+		};
+
+		cpu_e2: cpu@2 {
+			compatible = "apple,brava-e";
+			device_type = "cpu";
+			reg = <0x0 0x2>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+		};
+
+		cpu_e3: cpu@3 {
+			compatible = "apple,brava-e";
+			device_type = "cpu";
+			reg = <0x0 0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+		};
+
+		cpu_p0: cpu@10100 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+		};
+
+		cpu_p1: cpu@10101 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+		};
+
+		cpu_p2: cpu@10102 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+		};
+
+		cpu_p3: cpu@10103 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10103>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+		};
+
+		cpu_p4: cpu@10200 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10200>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_2>;
+		};
+
+		cpu_p5: cpu@10201 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10201>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_2>;
+		};
+
+		cpu_p6: cpu@10202 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10202>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_2>;
+		};
+
+		cpu_p7: cpu@10203 {
+			compatible = "apple,brava-p";
+			device_type = "cpu";
+			reg = <0x0 0x10203>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_2>;
+		};
+
+		l2_cache_0: l2-cache-0 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+		};
+
+		l2_cache_1: l2-cache-1 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+		};
+
+		l2_cache_2: l2-cache-2 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+		};
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupt-parent = <&aic>;
+		interrupt-names = "phys", "virt", "hyp-phys", "hyp-virt";
+		interrupts = <AIC_FIQ AIC_TMR_GUEST_PHYS IRQ_TYPE_LEVEL_HIGH>,
+		             <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
+		             <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
+		             <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	clkref: clock-ref {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "clkref";
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ranges;
+		nonposted-mmio;
+
+		pmgr: power-management@502800000 {
+			compatible = "apple,t6040-pmgr", "apple,t8132-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x5 0x02800000 0 0x14000>;
+			/* child nodes to be added after dumping the full PMGR state via m1n1 */
+		};
+
+		aic: interrupt-controller@502400000 {
+			compatible = "apple,t6040-aic3", "apple,t8122-aic3";
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			reg = <0x00000005 0x02400000 0x00000000 0x1cc000>,
+			      <0x00000005 0x02440000 0x00000000 0x4000>;
+			reg-names = "core", "event";
+
+			affinities {
+				e-core-pmu-affinity {
+					apple,fiq-index = <AIC_CPU_PMU_E>;
+					cpus = <&cpu_e0 &cpu_e1 &cpu_e2 &cpu_e3>;
+				};
+
+				p-core-pmu-affinity {
+					apple,fiq-index = <AIC_CPU_PMU_P>;
+					cpus = <&cpu_p0 &cpu_p1 &cpu_p2 &cpu_p3 &cpu_p4 &cpu_p5 &cpu_p6 &cpu_p7>;
+				};
+			};
+		};
+
+		wdt: watchdog@50836c000 {
+			compatible = "apple,t6040-wdt", "apple,t8103-wdt";
+			reg = <0x5 0x0836c000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 827 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_nub: pinctrl@5081e4000 {
+			compatible = "apple,t6040-pinctrl", "apple,t8103-pinctrl";
+			reg = <0x5 0x081e4000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_nub 0 0 32>;
+			apple,npins = <32>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 819 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 820 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 821 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 822 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 823 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 824 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 825 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_smc: pinctrl@50c824000 {
+			compatible = "apple,t6040-pinctrl", "apple,t8103-pinctrl";
+			reg = <0x5 0x0c824000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_smc 0 0 18>;
+			apple,npins = <18>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 985 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 986 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 987 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 988 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 989 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 990 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 991 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_aop: pinctrl@510824000 {
+			compatible = "apple,t6040-pinctrl", "apple,t8103-pinctrl";
+			reg = <0x5 0x10824000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_aop 0 0 57>;
+			apple,npins = <57>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 700 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 701 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 702 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 703 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 704 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 705 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 706 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_ap: pinctrl@51c000000 {
+			compatible = "apple,t6040-pinctrl", "apple,t8103-pinctrl";
+			reg = <0x5 0x1c000000 0x0 0x100000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_ap 0 0 224>;
+			apple,npins = <224>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 478 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 479 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 480 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 481 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 482 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 483 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 484 IRQ_TYPE_LEVEL_HIGH>;
+
+			/* Pinmux assignments not yet known for T6040; to be filled
+			 * in after bring-up experiments.
+			 */
+		};
+
+		i2c0: i2c@429014000 {
+			compatible = "apple,t6040-i2c", "apple,t8103-i2c";
+			reg = <0x4 0x29014000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1576 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@429018000 {
+			compatible = "apple,t6040-i2c", "apple,t8103-i2c";
+			reg = <0x4 0x29018000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1577 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@42901c000 {
+			compatible = "apple,t6040-i2c", "apple,t8103-i2c";
+			reg = <0x4 0x2901c000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1578 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c3: i2c@429020000 {
+			compatible = "apple,t6040-i2c", "apple,t8103-i2c";
+			reg = <0x4 0x29020000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1579 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@429028000 {
+			compatible = "apple,t6040-i2c", "apple,t8103-i2c";
+			reg = <0x4 0x29028000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1581 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		i2c5: i2c@429030000 {
+			compatible = "apple,t6040-i2c", "apple,t8103-i2c";
+			reg = <0x4 0x29030000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1583 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		spi0: spi@429108000 {
+			compatible = "apple,t6040-spi", "apple,t8103-spi";
+			reg = <0x4 0x29108000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1569 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		spi1: spi@429110000 {
+			compatible = "apple,t6040-spi", "apple,t8103-spi";
+			reg = <0x4 0x29110000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1571 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			status = "disabled";
+		};
+
+		fpwm0: pwm@429040000 {
+			compatible = "apple,t6040-fpwm", "apple,s5l-fpwm";
+			reg = <0x4 0x29040000 0x0 0x4000>;
+			clocks = <&clkref>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		serial0: serial@429200000 {
+			compatible = "apple,s5l-uart";
+			reg = <0x4 0x29200000 0x0 0x1000>;
+			reg-io-width = <4>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1559 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkref>, <&clkref>;
+			clock-names = "uart", "clk_uart_baud0";
+			status = "disabled";
+		};
+	};
+};
