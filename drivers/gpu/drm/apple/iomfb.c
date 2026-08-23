@@ -486,7 +486,7 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_commit *commit)
 		iomfb_flush_v12_3(dcp, crtc, commit);
 		break;
 	case DCP_FIRMWARE_V_13_5:
-		iomfb_flush_v13_3(dcp, crtc, state);
+		iomfb_flush_v13_3(dcp, crtc, commit);
 		break;
 	case DCP_FIRMWARE_V_14_7:
 		iomfb_flush_v14_7_0(dcp, crtc, commit);
