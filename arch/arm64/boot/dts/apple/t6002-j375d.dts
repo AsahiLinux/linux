@@ -22,6 +22,11 @@
 		usb4-4-nhi = &usb4_0_nhi_die1;
 		usb4-5-acio = &usb4_1_acio_die1;
 		usb4-5-nhi = &usb4_1_nhi_die1;
+
+		usb4_4_rc = &usb4_0_acio_die1;
+		usb4_4_nhi = &usb4_0_nhi_die1;
+		usb4_5_rc = &usb4_1_acio_die1;
+		usb4_5_nhi = &usb4_1_nhi_die1;
 	};
 };
 
