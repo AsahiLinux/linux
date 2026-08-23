@@ -19,6 +19,7 @@ use kernel::{
     device::property::FwNode,
     device::Core,
     error::from_err_ptr,
+    module,
     module_platform_driver,
     of,
     platform,
@@ -559,7 +560,8 @@ impl SndSocAopData {
             mic_settle_time_valid: U32(1),
             mic_settle_time_ms: U32(50),
             ..Zeroable::init_zeroed()
-        }).chain(|raw| {
+        })
+        .chain(|raw| {
             if !self.hwdata.hf_decimator {
                 self.build_decimator_config(&mut raw.decim);
             }
@@ -604,7 +606,8 @@ impl SndSocAopData {
             filter_lengths: FILTER_LENGTHS_HF,
             coeff_bulk: DECIM_NUM_COEFFS_HF as u32,
             ..Zeroable::init_zeroed()
-        }).chain(|raw| {
+        })
+        .chain(|raw| {
             raw.coeffs[..COEFFICIENTS_HF.len()].copy_from_slice(&COEFFICIENTS_HF);
             Ok(())
         });
@@ -857,7 +860,7 @@ impl SndSocAopDriver {
                 data.dev.as_raw(),
                 -1,
                 ptr::null(),
-                THIS_MODULE.as_ptr(),
+                module::this_module::<crate::LocalModule>().as_ptr(),
                 0,
                 &mut this.0,
             )
@@ -951,23 +954,26 @@ const HW_CFG_T6030: SndSocAopHwConfig = SndSocAopHwConfig {
 
 kernel::of_device_table!(
     OF_TABLE,
-    MODULE_OF_TABLE,
     <SndSocAopDriver as platform::Driver>::IdInfo,
     [
         (of::DeviceId::new(c_str!("apple,aop-audio")), &HW_CFG_T8013),
-        (of::DeviceId::new(c_str!("apple,t6030-aop-audio")), &HW_CFG_T6030),
+        (
+            of::DeviceId::new(c_str!("apple,t6030-aop-audio")),
+            &HW_CFG_T6030
+        ),
     ]
 );
 
 impl platform::Driver for SndSocAopDriver {
     type IdInfo = &'static SndSocAopHwConfig;
+    type Data<'bound> = SndSocAopDriver;
 
     const OF_ID_TABLE: Option<of::IdTable<Self::IdInfo>> = Some(&OF_TABLE);
 
-    fn probe(
-        pdev: &platform::Device<Core>,
-        info: Option<&Self::IdInfo>
-    ) -> impl PinInit<Self, Error> {
+    fn probe<'bound>(
+        pdev: &'bound platform::Device<Core<'_>>,
+        info: Option<&'bound Self::IdInfo>,
+    ) -> impl PinInit<Self::Data<'bound>, Error> + 'bound {
         let info = info.ok_or(ENODEV)?;
         let dev = ARef::<device::Device>::from(pdev.as_ref());
         let parent = pdev.as_ref().parent().unwrap();
