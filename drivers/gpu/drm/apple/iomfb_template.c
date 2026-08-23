@@ -1288,7 +1288,7 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 	return 0;
 }
 
-void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, struct drm_atomic_state *state)
+void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, struct drm_atomic_commit *commit)
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *new_state, *old_state;
@@ -1297,7 +1297,7 @@ void DCP_FW_NAME(iomfb_flush)(struct apple_dcp *dcp, struct drm_crtc *crtc, stru
 	int plane_idx, l;
 	int has_surface = 0;
 
-	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	crtc_state = drm_atomic_get_new_crtc_state(commit, crtc);
 
 	/* Reset all surfaces to defaults */
 	memset(req, 0, sizeof(*req));
