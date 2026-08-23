@@ -162,8 +162,8 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 		goto done;
 	}
 
-	state->acquire_ctx = &ctx;
-	crtc_state = drm_atomic_get_crtc_state(state, crtc);
+	commit->acquire_ctx = &ctx;
+	crtc_state = drm_atomic_get_crtc_state(commit, crtc);
 	if (IS_ERR(crtc_state)) {
 		ret = PTR_ERR(crtc_state);
 		goto fail;
@@ -174,7 +174,7 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 	ret = drm_atomic_commit(commit);
 
 fail:
-	drm_atomic_state_put(state);
+	drm_atomic_commit_put(commit);
 done:
 	drm_modeset_drop_locks(&ctx);
 
