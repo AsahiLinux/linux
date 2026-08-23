@@ -13,6 +13,7 @@ use crate::{
         to_result, //
     },
     io::{
+        register,
         Io,
         IoSysMap,
         Region, //
@@ -28,6 +29,14 @@ use crate::{
 use core::marker::PhantomData;
 use core::ptr;
 use macros::vtable;
+
+register! {
+    /// ASC CPU control register
+    pub ASC_CPU_CONTROL(u32) @ 0x44 {
+        /// CPU run bit.
+        4:4 cpu_run;
+    }
+}
 
 /// Trait to represent allocatable buffers for the RTKit core.
 ///
