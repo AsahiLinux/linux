@@ -461,7 +461,7 @@ bool dcp_crtc_mode_fixup(struct drm_crtc *crtc,
 }
 
 
-void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
+void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_commit *commit)
 {
 	struct platform_device *pdev = to_apple_crtc(crtc)->dcp;
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);

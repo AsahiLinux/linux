@@ -101,10 +101,10 @@ static void apple_connector_oob_hotplug(struct drm_connector *connector,
 }
 
 static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
-				     struct drm_atomic_state *state)
+				     struct drm_atomic_commit *commit)
 {
 	struct drm_crtc_state *crtc_state;
-	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	crtc_state = drm_atomic_get_new_crtc_state(commit, crtc);
 
 	if (crtc_state->active_changed && crtc_state->active) {
 		struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
@@ -118,10 +118,10 @@ static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void apple_crtc_atomic_disable(struct drm_crtc *crtc,
-				      struct drm_atomic_state *state)
+				      struct drm_atomic_commit *commit)
 {
 	struct drm_crtc_state *crtc_state;
-	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	crtc_state = drm_atomic_get_new_crtc_state(commit, crtc);
 
 	if (crtc_state->active_changed && !crtc_state->active) {
 		struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
@@ -138,7 +138,7 @@ static void apple_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 static void apple_crtc_atomic_begin(struct drm_crtc *crtc,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *commit)
 {
 	struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
 	unsigned long flags;

@@ -138,7 +138,7 @@ static u32 calculate_dac(struct apple_dcp *dcp, int val)
 
 static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 {
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *commit;
 	struct drm_crtc_state *crtc_state;
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_crtc *crtc = &dcp->crtc->base;
@@ -171,7 +171,7 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 
 	crtc_state->color_mgmt_changed |= true;
 
-	ret = drm_atomic_commit(state);
+	ret = drm_atomic_commit(commit);
 
 fail:
 	drm_atomic_state_put(state);
