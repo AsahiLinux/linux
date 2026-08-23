@@ -416,7 +416,7 @@ int dcp_crtc_atomic_modeset(struct drm_crtc *crtc,
 	int ret = -EIO;
 	bool modeset;
 
-	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	crtc_state = drm_atomic_get_new_crtc_state(commit, crtc);
 	if (!crtc_state)
 		return 0;
 
