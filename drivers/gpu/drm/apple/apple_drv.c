@@ -114,7 +114,7 @@ static void apple_crtc_atomic_enable(struct drm_crtc *crtc,
 	}
 
 	if (crtc_state->active)
-		dcp_crtc_atomic_modeset(crtc, state);
+		dcp_crtc_atomic_modeset(crtc, commit);
 }
 
 static void apple_crtc_atomic_disable(struct drm_crtc *crtc,
