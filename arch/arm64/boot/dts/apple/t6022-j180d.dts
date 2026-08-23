@@ -50,6 +50,23 @@
 		usb4-7-acio = &usb4_3_acio_die1;
 		usb4-7-nhi = &usb4_3_nhi_die1;
 		wifi0 = &wifi0;
+
+		usb4_0_rc = &usb4_0_acio;
+		usb4_0_nhi = &usb4_0_nhi;
+		usb4_1_rc = &usb4_1_acio;
+		usb4_1_nhi = &usb4_1_nhi;
+		usb4_2_rc = &usb4_2_acio;
+		usb4_2_nhi = &usb4_2_nhi;
+		usb4_3_rc = &usb4_3_acio;
+		usb4_3_nhi = &usb4_3_nhi;
+		usb4_4_rc = &usb4_0_acio_die1;
+		usb4_4_nhi = &usb4_0_nhi_die1;
+		usb4_5_rc = &usb4_1_acio_die1;
+		usb4_5_nhi = &usb4_1_nhi_die1;
+		usb4_6_rc = &usb4_2_acio_die1;
+		usb4_6_nhi = &usb4_2_nhi_die1;
+		usb4_7_rc = &usb4_3_acio_die1;
+		usb4_7_nhi = &usb4_3_nhi_die1;
 	};
 
 	chosen {

@@ -36,6 +36,15 @@
 		usb4-3-acio = &usb4_3_acio;
 		usb4-3-nhi = &usb4_3_nhi;
 		wifi0 = &wifi0;
+
+		usb4_0_rc = &usb4_0_acio;
+		usb4_0_nhi = &usb4_0_nhi;
+		usb4_1_rc = &usb4_1_acio;
+		usb4_1_nhi = &usb4_1_nhi;
+		usb4_2_rc = &usb4_2_acio;
+		usb4_2_nhi = &usb4_2_nhi;
+		usb4_3_rc = &usb4_3_acio;
+		usb4_3_nhi = &usb4_3_nhi;
 	};
 
 	chosen {
