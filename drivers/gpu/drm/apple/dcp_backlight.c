@@ -156,8 +156,8 @@ static int drm_crtc_set_brightness(struct apple_dcp *dcp)
 	if (!dcp->brightness.update)
 		goto done;
 
-	state = drm_atomic_state_alloc(crtc->dev);
-	if (!state) {
+	commit = drm_atomic_commit_alloc(crtc->dev);
+	if (!commit) {
 		ret = -ENOMEM;
 		goto done;
 	}
