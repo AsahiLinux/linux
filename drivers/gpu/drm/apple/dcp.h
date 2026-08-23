@@ -40,7 +40,7 @@ void dcp_link(struct platform_device *pdev, struct apple_crtc *apple,
 	      struct apple_connector *connector);
 int dcp_start(struct platform_device *pdev);
 int dcp_wait_ready(struct platform_device *pdev, u64 timeout);
-void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state);
+void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_commit *commit);
 bool dcp_is_initialized(struct platform_device *pdev);
 void apple_crtc_vblank(struct apple_crtc *apple);
 void dcp_drm_crtc_vblank(struct apple_crtc *crtc);

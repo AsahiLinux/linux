@@ -327,7 +327,7 @@ void dcp_send_message(struct apple_dcp *dcp, u8 endpoint, u64 message)
 				 true);
 }
 
-int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
+int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_commit *commit)
 {
 	struct platform_device *pdev = to_apple_crtc(crtc)->dcp;
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
@@ -337,7 +337,7 @@ int dcp_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 	if (dcp->crashed)
 		return -EINVAL;
 
-	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	crtc_state = drm_atomic_get_new_crtc_state(commit, crtc);
 
 	needs_modeset = drm_atomic_crtc_needs_modeset(crtc_state) || !dcp->valid_mode;
 	if (!needs_modeset && !dcp->connector->connected) {
