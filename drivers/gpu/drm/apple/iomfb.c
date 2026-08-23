@@ -408,7 +408,7 @@ enum drm_mode_status dcp_mode_valid(struct drm_connector *connector,
 }
 
 int dcp_crtc_atomic_modeset(struct drm_crtc *crtc,
-			    struct drm_atomic_state *state)
+			    struct drm_atomic_commit *commit)
 {
 	struct apple_crtc *apple_crtc = to_apple_crtc(crtc);
 	struct apple_dcp *dcp = platform_get_drvdata(apple_crtc->dcp);
