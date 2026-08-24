@@ -208,10 +208,14 @@ struct avd_av1_ctx {
 	struct {
 		struct avd_buf inst;
 		struct avd_buf pipe_state;
-		struct avd_buf const_unk[12];
-		struct avd_buf ref;
+		struct avd_buf unk[2];
 		struct avd_buf probs;
 	} bufs;
+	struct {
+		struct avd_buf tile_col[4];
+		struct avd_buf tile_row[4];
+		struct avd_buf ref;
+	} scratch;
 };
 
 /*
@@ -324,7 +328,7 @@ static void set_refs(struct avd_ctx *ctx, struct avd_av1_run *run)
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
 	push(0, "ref_cnst0");
-	pusha(av1_ctx->bufs.ref.addr, "unk_ref_buf", 0);
+	pusha(av1_ctx->scratch.ref.addr, "unk_ref_buf", 0);
 
 	for (i = 0; i < 4; i++)
 		push(0, "ref_cnst1");
@@ -785,7 +789,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 	pusha(run->addresses.probs_out, "probs_out", 0);
 	pusha(av1_ctx->bufs.probs.addr, "probs", 1);
 
-	pusha(av1_ctx->bufs.const_unk[0].addr, "const_buf", 0);
+	pusha(av1_ctx->scratch.tile_col[0].addr, "col", 0);
 
 	/* TODO */
 	pusha((dma_addr_t)0, "", 0);
@@ -911,8 +915,17 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 	push(0, "");
 	push(0, "");
 	pusha(av1_ctx->bufs.pipe_state.addr, "pipe_state", 0);
-	for (i = 0; i < 10; i++)
-		pusha(av1_ctx->bufs.const_unk[i + 2].addr, "const_unk", i + 2);
+	pusha(av1_ctx->scratch.tile_col[1].addr, "col", 1);
+	pusha(av1_ctx->scratch.tile_col[2].addr, "col", 2);
+	pusha(av1_ctx->scratch.tile_col[3].addr, "col", 3);
+
+	pusha(av1_ctx->scratch.tile_row[0].addr, "row", 0);
+	pusha(av1_ctx->scratch.tile_row[1].addr, "row", 1);
+	pusha(0, "unk", 0);
+	pusha(av1_ctx->bufs.unk[0].addr, "unk", 0);
+	pusha(av1_ctx->scratch.tile_row[2].addr, "row", 2);
+	pusha(av1_ctx->bufs.unk[1].addr, "unk", 1);
+	pusha(av1_ctx->scratch.tile_row[3].addr, "row", 3);
 
 	push(0, "mark_section");
 
@@ -1119,6 +1132,104 @@ static int avd_av1_run_preamble(struct avd_ctx *ctx, struct avd_av1_run *run)
 
 	run->addresses.probs_out =
 		run->base.y_out + AVD_AV1_CDFS_OFFSET(dst_len, tlb_len);
+	return 0;
+}
+
+static int avd_av1_alloc_scratch(struct avd_ctx *ctx, struct avd_av1_run *run)
+{
+	struct avd_dev *avd = ctx->dev;
+	struct avd_av1_ctx *av1_ctx = ctx->priv;
+	const struct v4l2_ctrl_av1_frame *frame = run->frame;
+	const struct v4l2_ctrl_av1_sequence *seq = run->seq;
+	const struct v4l2_av1_tile_info *tile_info = &frame->tile_info;
+	int ret, max_sb_col = 0, max_sb_row = 0, i, sb_cols = 0, sb;
+	int sb_shift =
+		seq->flags & V4L2_AV1_SEQUENCE_FLAG_USE_128X128_SUPERBLOCK ? 1 :
+									     0;
+	int w = frame->frame_width_minus_1 + 1;
+	int bit_depth = seq->bit_depth;
+
+	for (i = 0; i < tile_info->tile_cols; i++) {
+		sb = tile_info->width_in_sbs_minus_1[i] + 1;
+		max_sb_col = sb > max_sb_col ? sb : max_sb_col;
+		sb_cols += ALIGN((sb << sb_shift) * 44, 128);
+	}
+
+	max_sb_col <<= sb_shift;
+
+	ret = avd_buf_alloc(avd, &av1_ctx->scratch.ref, max_sb_col * 80);
+	if (ret)
+		return ret;
+
+	/* first frame this is always much smaller */
+	ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_col[0],
+			    (max_sb_col * 400));
+	if (ret)
+		return ret;
+
+	/* first frame this is always 0 */
+	ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_col[3], sb_cols);
+	if (ret)
+		return ret;
+
+	/* i think this is the metadata buffer to the one below */
+	ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_col[1],
+			    (max_sb_col * bit_depth * 22));
+	if (ret)
+		return ret;
+
+	ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_col[2],
+			    ALIGN(ALIGN(w, 8) * bit_depth * 2 +
+					  tile_info->tile_cols * bit_depth * 16,
+				  128));
+	if (ret)
+		return ret;
+
+	/* this is not a mistake, but im not sure why */
+	if (tile_info->tile_cols > 1) {
+		for (i = 0; i < tile_info->tile_rows; i++) {
+			sb = tile_info->height_in_sbs_minus_1[i] + 1;
+			max_sb_row = sb > max_sb_row ? sb : max_sb_row;
+		}
+
+		max_sb_row = max_sb_row << sb_shift;
+
+		/*
+		 * metadata buffer maybe? At least for row[0], they all seem to have
+		 * some kinda alignment to 24 so could be for them all
+		 */
+		ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_row[1],
+				    (max_sb_row * 72));
+		if (ret)
+			return ret;
+
+		/*
+		 * they all share the pattern of max_sb_row * something where
+		 * something is a block of luma and chroma aligned to
+		 * something. Depending on the height, the last
+		 * (or second last??) block has a different size from the
+		 * rest.
+		 *
+		 * I counted blocks as luma or chroma with padding until it
+		 * changes to the other
+		 */
+		ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_row[0],
+				    (max_sb_row * 72 + 1) * 2 * bit_depth);
+		if (ret)
+			return ret;
+
+		ret = avd_buf_alloc(avd, &av1_ctx->scratch.tile_row[2],
+				    max_sb_row * bit_depth * (53 + 52));
+		if (ret)
+			return ret;
+
+		ret = avd_buf_alloc(
+			avd, &av1_ctx->scratch.tile_row[3],
+			max_sb_row * bit_depth *
+				(192 + 96 + (bit_depth > 8 ? 12 : 0)));
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -1154,6 +1265,7 @@ static int avd_av1_run(struct avd_ctx *ctx)
 				       ctx->fifo_idx, ctx->vp_slot);
 
 	avd_av1_set_prob(ctx, &run);
+	avd_av1_alloc_scratch(ctx, &run);
 
 	set_header(ctx, &run);
 	set_tiles(ctx, &run);
@@ -1163,11 +1275,26 @@ static int avd_av1_run(struct avd_ctx *ctx)
 	return 0;
 }
 
+static void avd_av1_dealloc_scratch(struct avd_ctx *ctx)
+{
+	struct avd_dev *avd = ctx->dev;
+	struct avd_av1_ctx *av1_ctx = ctx->priv;
+	int i;
+
+	for (i = 0; i < 4; i++)
+		avd_buf_free(avd, &av1_ctx->scratch.tile_col[i]);
+
+	for (i = 0; i < 4; i++)
+		avd_buf_free(avd, &av1_ctx->scratch.tile_row[i]);
+
+	avd_buf_free(avd, &av1_ctx->scratch.ref);
+}
+
 static int avd_av1_alloc_bufs(struct avd_ctx *ctx)
 {
 	struct avd_dev *avd = ctx->dev;
 	struct avd_av1_ctx *av1_ctx = ctx->priv;
-	int ret, i;
+	int ret;
 
 	ret = avd_buf_alloc(avd, &av1_ctx->bufs.inst, fifo_size());
 	if (ret)
@@ -1178,21 +1305,18 @@ static int avd_av1_alloc_bufs(struct avd_ctx *ctx)
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &av1_ctx->bufs.ref, 0x10000);
-	if (ret)
-		return ret;
-
 	ret = avd_buf_alloc(avd, &av1_ctx->bufs.probs,
 			    sizeof(struct avd_av1_cdfs));
 	if (ret)
 		return ret;
 
-	for (i = 0; i < 12; i++) {
-		ret = avd_buf_alloc(avd, &av1_ctx->bufs.const_unk[i],
-				    0x10000 * 4);
-		if (ret)
-			return ret;
-	}
+	ret = avd_buf_alloc(avd, &av1_ctx->bufs.unk[0], 1024);
+	if (ret)
+		return ret;
+
+	ret = avd_buf_alloc(avd, &av1_ctx->bufs.unk[1], 1024);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -1224,13 +1348,14 @@ static void avd_av1_stop(struct avd_ctx *ctx)
 	struct avd_av1_ctx *av1_ctx = ctx->priv;
 	struct avd_dev *avd = ctx->dev;
 
+	avd_av1_dealloc_scratch(ctx);
+
 	avd_buf_free(avd, &av1_ctx->bufs.pipe_state);
 	avd_buf_free(avd, &av1_ctx->bufs.inst);
-	avd_buf_free(avd, &av1_ctx->bufs.ref);
 	avd_buf_free(avd, &av1_ctx->bufs.probs);
 
-	for (int i = 0; i < 12; i++)
-		avd_buf_free(avd, &av1_ctx->bufs.const_unk[i]);
+	for (int i = 0; i < 2; i++)
+		avd_buf_free(avd, &av1_ctx->bufs.unk[i]);
 
 	kfree(av1_ctx);
 }
