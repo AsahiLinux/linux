@@ -77,10 +77,16 @@
 
 #define DART_T8020_STREAMS_ENABLE 0xfc
 
+#define DART_T8020_REMAP       	0x80
+
+#define DART_REMAP_MASK(sid)  GENMASK(7 + (8 * (sid % 4)), 8 * (sid % 4))
+#define DART_REMAP(dart, sid) ((dart)->regs + DART_T8020_REMAP + ((sid) & ~0x3))
+
 #define DART_T8020_TCR                  0x100
 #define DART_T8020_TCR_TRANSLATE_ENABLE BIT(7)
 #define DART_T8020_TCR_BYPASS_DART      BIT(8)
 #define DART_T8020_TCR_BYPASS_DAPF      BIT(12)
+#define DART_T8020_TCR_REMAP_ENABLE     BIT(24)
 
 #define DART_T8020_TTBR       0x200
 #define DART_T8020_USB4_TTBR  0x400
@@ -136,7 +142,7 @@
 
 #define DART_T8110_TCR                  0x1000
 #define DART_T8110_TCR_REMAP            GENMASK(11, 8)
-#define DART_T8110_TCR_REMAP_EN         BIT(7)
+#define DART_T8110_TCR_REMAP_ENABLE     BIT(7)
 #define DART_T8110_TCR_FOUR_LEVEL       BIT(3)
 #define DART_T8110_TCR_BYPASS_DAPF      BIT(2)
 #define DART_T8110_TCR_BYPASS_DART      BIT(1)
@@ -161,10 +167,13 @@ enum dart_type {
 	DART_T8110,
 };
 
+struct apple_dart;
+
 struct apple_dart_hw {
 	enum dart_type type;
 	irqreturn_t (*irq_handler)(int irq, void *dev);
 	int (*invalidate_tlb)(struct apple_dart_stream_map *stream_map);
+	void (*enable_remap)(struct apple_dart *dart, int sid, int remap_to);
 
 	u32 oas;
 	enum io_pgtable_fmt fmt;
@@ -332,15 +341,24 @@ apple_dart_hw_enable_translation(struct apple_dart_stream_map *stream_map, int l
 {
 	struct apple_dart *dart = stream_map->dart;
 	u32 tcr = dart->hw->tcr_enabled;
-	int sid;
+	int sid, remap_to;
 
 	if (levels == 4)
 		tcr |= dart->hw->tcr_4level;
 
 	WARN_ON(levels != 3 && levels != 4);
 	WARN_ON(levels == 4 && !dart->four_level);
-	for_each_set_bit(sid, stream_map->sidmap, dart->num_streams)
-		writel(tcr, dart->regs + DART_TCR(dart, sid));
+
+	/* Search for first enabled sid and enable translation. */
+	sid = find_first_bit(stream_map->sidmap, dart->num_streams);
+	if (sid >= dart->num_streams)
+		return;
+	writel(tcr, dart->regs + DART_TCR(dart, sid));
+
+	/* Enable remapping for the remaining used sids. */
+	remap_to = sid++;
+	for_each_set_bit_from(sid, stream_map->sidmap, dart->num_streams)
+		dart->hw->enable_remap(dart, sid, remap_to);
 }
 
 static void apple_dart_hw_disable_dma(struct apple_dart_stream_map *stream_map)
@@ -348,6 +366,7 @@ static void apple_dart_hw_disable_dma(struct apple_dart_stream_map *stream_map)
 	struct apple_dart *dart = stream_map->dart;
 	int sid;
 
+	/* This will also disable remap enabled in apple_dart_hw_enable_translation(). */
 	for_each_set_bit(sid, stream_map->sidmap, dart->num_streams)
 		writel(dart->hw->tcr_disabled, dart->regs + DART_TCR(dart, sid));
 }
@@ -371,10 +390,17 @@ static void apple_dart_hw_set_ttbr(struct apple_dart_stream_map *stream_map,
 	int sid;
 
 	WARN_ON(paddr & ((1 << dart->hw->ttbr_shift) - 1));
-	for_each_set_bit(sid, stream_map->sidmap, dart->num_streams)
-		writel(dart->hw->ttbr_valid |
-		       (paddr >> dart->hw->ttbr_shift) << dart->hw->ttbr_addr_field_shift,
-		       dart->regs + DART_TTBR(dart, sid, idx));
+	/* Search for the first used stream and set its TTBR. All other sids
+	 * of this DART are handled via the remap feature and must not set a
+	 * valid TTBR.
+	 */
+	sid = find_first_bit(stream_map->sidmap, dart->num_streams);
+	if (sid >= dart->num_streams)
+		return;
+
+	writel(dart->hw->ttbr_valid |
+	       (paddr >> dart->hw->ttbr_shift) << dart->hw->ttbr_addr_field_shift,
+	       dart->regs + DART_TTBR(dart, sid, idx));
 }
 
 static void apple_dart_hw_clear_ttbr(struct apple_dart_stream_map *stream_map,
@@ -527,7 +553,8 @@ apple_dart_t8110_hw_tlb_command(struct apple_dart_stream_map *stream_map,
 
 		if (ret)
 			break;
-
+		/* Since remap is used only the first sid needs to be invalidated. */
+		break;
 	}
 
 	spin_unlock_irqrestore(&dart->lock, flags);
@@ -554,6 +581,27 @@ apple_dart_t8110_hw_invalidate_tlb(struct apple_dart_stream_map *stream_map)
 {
 	return apple_dart_t8110_hw_tlb_command(
 		stream_map, DART_T8110_TLB_CMD_OP_FLUSH_SID);
+}
+
+static void
+apple_dart_t8020_hw_enable_remap(struct apple_dart *dart, int sid, int remap_to)
+{
+	u32 remap = readl(DART_REMAP(dart, sid));
+	remap = (remap & ~DART_REMAP_MASK(sid)) |
+		field_prep(DART_REMAP_MASK(sid), remap_to);
+	writel(remap, DART_REMAP(dart, sid));
+
+	u32 tcr = FIELD_PREP(DART_T8020_TCR_REMAP_ENABLE, 1) |
+		  FIELD_PREP(DART_T8020_TCR_TRANSLATE_ENABLE, 1);
+	writel(tcr, dart->regs + DART_TCR(dart, sid));
+}
+
+static void
+apple_dart_t8110_hw_enable_remap(struct apple_dart *dart, int sid, int remap_to)
+{
+	u32 tcr = FIELD_PREP(DART_T8110_TCR_REMAP, remap_to) |
+		  FIELD_PREP(DART_T8110_TCR_REMAP_ENABLE, 1);
+	writel(tcr, dart->regs + DART_TCR(dart, sid));
 }
 
 static int apple_dart_hw_reset(struct apple_dart *dart)
@@ -1537,6 +1585,7 @@ static const struct apple_dart_hw apple_dart_hw_t8103 = {
 	.type = DART_T8020,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.enable_remap = apple_dart_t8020_hw_enable_remap,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 16,
@@ -1563,6 +1612,7 @@ static const struct apple_dart_hw apple_dart_hw_t8103_usb4 = {
 	.type = DART_T8020,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.enable_remap = apple_dart_t8020_hw_enable_remap,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 64,
@@ -1589,6 +1639,7 @@ static const struct apple_dart_hw apple_dart_hw_t6000 = {
 	.type = DART_T6000,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.enable_remap = apple_dart_t8020_hw_enable_remap,
 	.oas = 42,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 16,
@@ -1615,6 +1666,7 @@ static const struct apple_dart_hw apple_dart_hw_t8110 = {
 	.type = DART_T8110,
 	.irq_handler = apple_dart_t8110_irq,
 	.invalidate_tlb = apple_dart_t8110_hw_invalidate_tlb,
+	.enable_remap = apple_dart_t8110_hw_enable_remap,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 256,
 
