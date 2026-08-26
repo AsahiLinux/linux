@@ -138,9 +138,6 @@ struct avd_vp9_run {
 	struct avd_run base;
 
 	struct run_addr {
-		dma_addr_t y;
-		dma_addr_t uv;
-		dma_addr_t sl;
 		dma_addr_t rvra;
 	} addresses;
 
@@ -397,9 +394,9 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
 		bytesperline = bytesperline >> 4;
 
-	pusha(run->addresses.y, "hdr_168_y_addr_lsb8", 0);
+	pusha(run->base.y_out, "hdr_168_y_addr_lsb8", 0);
 	push(bytesperline, "hdr_170_width_align");
-	pusha(run->addresses.uv, "hdr_16c_uv_addr_lsb8", 0);
+	pusha(run->base.uv_out, "hdr_16c_uv_addr_lsb8", 0);
 	push(bytesperline, "hdr_174_width_align");
 	push(0, "");
 	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
@@ -446,10 +443,10 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 				size -= 4;
 			}
 			push(AVD_OP_CODED_DATA |
-				     AVD_OP_CODED_DATA_ADDR(run->addresses.sl >>
-							    32),
+				     AVD_OP_CODED_DATA_ADDR(
+					     run->base.coded_in >> 32),
 			     "cm3_cmd_set_slice_data");
-			push((u32)((run->addresses.sl + offset) & 0xffffffff),
+			push((u32)((run->base.coded_in + offset) & 0xffffffff),
 			     "til_ab4_tile_addr_low");
 			push(tile_size, "til_ab8_tile_size");
 			push(AVD_OP_SL_DIM_START |
@@ -701,7 +698,6 @@ static int avd_vp9_run_preamble(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	const struct v4l2_ctrl_vp9_frame *dec_params;
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	unsigned int fctx_idx;
-	u32 dst_len;
 	int ret;
 
 	avd_run_preamble(ctx, &run->base);
@@ -732,18 +728,6 @@ static int avd_vp9_run_preamble(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	v4l2_vp9_fw_update_probs(&vp9_ctx->probability_tables,
 				 run->prob_updates, dec_params);
 
-	run->addresses.sl =
-		vb2_dma_contig_plane_dma_addr(&run->base.bufs.src->vb2_buf, 0);
-
-	dst_len = run->base.bufs.dst->vb2_buf.planes[0].length;
-
-	run->addresses.y =
-		vb2_dma_contig_plane_dma_addr(&run->base.bufs.dst->vb2_buf, 0);
-
-	run->addresses.uv =
-		run->addresses.y +
-		ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
-			ALIGN(ctx->decoded_fmt.fmt.pix_mp.height, 16);
 
 	run->addresses.rvra = run->addresses.y + (dst_len - ctx->rvra.size);
 

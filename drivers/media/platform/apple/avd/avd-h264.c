@@ -43,9 +43,6 @@ struct avd_h264_run {
 	const struct v4l2_ctrl_h264_pred_weights *pred_weights;
 
 	struct run_addr {
-		dma_addr_t y;
-		dma_addr_t uv;
-		dma_addr_t sl;
 		dma_addr_t rvra;
 		dma_addr_t sps;
 	} addresses;
@@ -288,9 +285,9 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
 		bytesperline = bytesperline >> 4;
 
-	pusha(run->addresses.y, "hdr_210_y_addr_lsb8", 0);
+	pusha(run->base.y_out, "hdr_210_y_addr_lsb8", 0);
 	push(bytesperline, "hdr_218_width_align");
-	pusha(run->addresses.uv, "hdr_214_uv_addr_lsb8", 0);
+	pusha(run->base.uv_out, "hdr_214_uv_addr_lsb8", 0);
 	push(bytesperline, "hdr_21c_width_align");
 
 	push(0, "cm3_mark_end_section");
@@ -418,7 +415,7 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 		off++;
 	}
 
-	dma_addr_t slc_a84 = run->addresses.sl + off;
+	dma_addr_t slc_a84 = run->base.coded_in + off;
 
 	push(AVD_OP_CODED_DATA |
 		     AVD_OP_CODED_DATA_BIT_OFF(
@@ -678,22 +675,12 @@ static void avd_h264_run_preamble(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 	dst_len = run->base.bufs.dst->vb2_buf.planes[0].length;
 
-	run->addresses.y =
-		vb2_dma_contig_plane_dma_addr(&run->base.bufs.dst->vb2_buf, 0);
-
-	run->addresses.uv =
-		run->addresses.y +
-		ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
-			ALIGN(ctx->decoded_fmt.fmt.pix_mp.height, 16);
-
-	run->addresses.sl =
-		vb2_dma_contig_plane_dma_addr(&run->base.bufs.src->vb2_buf, 0);
 	sps_len = sps_size(fmt_width(ctx), fmt_height(ctx));
 
 	run->addresses.rvra =
 		run->addresses.y + (dst_len - sps_len - ctx->rvra.size);
 
-	run->addresses.sps = run->addresses.y + (dst_len - sps_len);
+	run->addresses.sps = run->base.y_out + (dst_len - sps_len);
 }
 
 static int avd_h264_run(struct avd_ctx *ctx)
