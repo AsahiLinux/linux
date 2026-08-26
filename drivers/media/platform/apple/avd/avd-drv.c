@@ -85,19 +85,24 @@ int alloc_slots(struct avd_dev *avd, struct avd_ctx *ctx, enum avd_codec codec) 
 	ctx->vp_slot = free;
 
 	ctx->fifo_idx = find_first_zero_bit(&avd->inst_fifo_slots,
-			avd->variant->fifo_slots);
+					    avd->variant->fifo_slots);
 
 	if (WARN_ON(ctx->fifo_idx >= avd->variant->fifo_slots)) {
 		clear_bit(free, &avd->vp_slots);
 		return -ENOMEM;
 	}
-	set_bit(ctx->fifo_idx,  &avd->inst_fifo_slots);
+	set_bit(ctx->fifo_idx, &avd->inst_fifo_slots);
 
 	return 0;
 }
 
 int avd_buf_alloc(struct avd_dev *avd, struct avd_buf *buf, size_t size)
 {
+	if (!buf->cpu && size < buf->size)
+		return 0;
+	else if (buf->cpu)
+		avd_buf_free(avd, buf);
+
 	buf->size = size;
 	buf->cpu =
 		dma_alloc_coherent(avd->dev, buf->size, &buf->addr, GFP_KERNEL);
