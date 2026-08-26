@@ -1201,10 +1201,14 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	}
 
 	bitmap_zero(dcp->iomfb_surfaces, DCP_MAX_PLANES);
-	num_surfs = of_property_count_elems_of_size(dev->of_node,
+	if (!of_property_present(dev->of_node, "apple,iomfb-surfaces"))
+		num_surfs = 0;
+	else
+		num_surfs = of_property_count_elems_of_size(dev->of_node,
 						    "apple,iomfb-surfaces",
 						    sizeof(u32));
-	if (num_surfs == -ENODATA) {
+
+	if (num_surfs == 0 || num_surfs == -ENODATA) {
 		set_bit(0, dcp->iomfb_surfaces);
 		set_bit(1, dcp->iomfb_surfaces);
 	} else if (num_surfs < 0) {
