@@ -60,6 +60,7 @@ struct avd_run {
 	dma_addr_t coded_in;
 	dma_addr_t y_out;
 	dma_addr_t uv_out;
+	dma_addr_t comp_out;
 };
 
 struct avd_ctrl_desc {
@@ -97,16 +98,19 @@ struct avd_hevc_decoded_buffer_info {
 };
 
 
-struct avd_rvra {
-	u32 offsets[4]; /* sizes or offsets */
+struct avd_comp {
 	u32 size;
+	/* offset to start of compressed data */
+	size_t start_offset;
+	/* relative offsets to start */
+	u32 offsets[4];
 };
 
 struct avd_decoded_buffer {
 	/* Must be the first field in this struct. */
 	struct v4l2_m2m_buffer base;
 
-	struct avd_rvra rvra;
+	struct avd_comp comp;
 
 	union {
 		struct avd_vp9_decoded_buffer_info vp9;
@@ -217,13 +221,13 @@ struct avd_ctx {
 	const struct avd_coded_fmt_desc *coded_fmt_desc;
 	struct v4l2_ctrl_handler ctrl_hdl;
 	enum avd_image_fmt image_fmt;
+	bool decomp;
 
 	struct delayed_work watchdog_work;
 
 	void *priv;
 
-	/* reference VRA (video resolution adaptation) scaler buffer. */
-	struct avd_rvra rvra;
+	struct avd_comp comp;
 
 	u8 fifo_idx;
 	u8 vp_slot;
@@ -266,7 +270,7 @@ static inline u32 fmt_width(struct avd_ctx *ctx)
 	return ctx->coded_fmt.fmt.pix_mp.width;
 }
 
-void fill_rvra(struct avd_rvra *rvra, enum avd_image_fmt image_fmt,
+void fill_comp(struct avd_comp *comp, enum avd_image_fmt image_fmt,
 		u32 width, u32 height);
 int alloc_slots(struct avd_dev *avd, struct avd_ctx *ctx, enum avd_codec codec);
 
