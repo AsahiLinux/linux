@@ -21,41 +21,50 @@
 #include "avd.h"
 #include "avd-regs.h"
 
-void fill_rvra(struct avd_rvra *rvra, enum avd_image_fmt image_fmt,
-		u32 width, u32 height)
+static void calc_tile_meta(u32 w, u32 h, u32 bpb, u32 tile_dim,
+			   u32 meta_hdr_bytes, u32 *tile, u32 *meta)
 {
-	u32 size0, size1, size2;
-	u32 hs = round_up(height, 32);
+	u32 tiles_width, tiles_height, meta_tile_w, meta_tile_h, tile_bytes;
+	tiles_width = DIV_ROUND_UP(w, tile_dim);
+	tiles_height = DIV_ROUND_UP(h, tile_dim);
+	tile_bytes = tile_dim * tile_dim * DIV_ROUND_UP(bpb, 8);
+	*tile = ALIGN(tiles_width * tiles_height * tile_bytes, 16);
 
-	size0 = (width * hs) + ((width * hs) / 4);
-	size2 = size0;
+	meta_tile_w = roundup_pow_of_two(tiles_width);
+	meta_tile_h = roundup_pow_of_two(tiles_height);
+
+	*meta = ALIGN(meta_tile_w * meta_tile_h * meta_hdr_bytes, 16);
+}
+
+void fill_comp(struct avd_comp *comp, enum avd_image_fmt image_fmt, u32 width,
+	       u32 height)
+{
+	u32 y_meta, y, uv_meta, uv;
+	int bit_depth;
 
 	switch (image_fmt) {
-	case AVD_IMG_FMT_420_8BIT:
 	case AVD_IMG_FMT_420_10BIT:
-		size2 /= 2;
+	case AVD_IMG_FMT_422_10BIT:
+		bit_depth = 10;
 		break;
 	default:
+		bit_depth = 8;
 		break;
 	}
 
-	size1 = max((roundup_pow_of_two(width) * roundup_pow_of_two(height)) / 32,
-			 0x100u);
-	/* TODO: how big? */
+	/* y has 32x32 tiles and 32 bytes of metadata per tile */
+	calc_tile_meta(width, height, bit_depth, 32, 32, &y, &y_meta);
+	/* uv has 16x16 tiles and 8 bytes of metadata per tile */
+	calc_tile_meta(width / 2, height / 2, bit_depth * 2, 16, 8, &uv,
+		       &uv_meta);
 
-	rvra->size = round_up(size0 + size1 + size2, 0x4000);
-	rvra->size +=
-		(width < 1000 ? 0 : width < 1800 ? 2 : width < 3800 ? 3 : 9) * 0x4000;
-	/* TODO */
-	rvra->size +=
-		(height < 1000 ? 0 : height < 1800 ? 2 : height < 3800 ? 3 : 9) * 0x4000;
-	/* TODO */
-	rvra->size += 0x10000;
+	/* output like DCP driver expects */
+	comp->offsets[0] = y;
+	comp->offsets[1] = 0;
+	comp->offsets[2] = y + y_meta + uv;
+	comp->offsets[3] = y + y_meta;
 
-	rvra->offsets[1] = 0;
-	rvra->offsets[0] = size0;
-	rvra->offsets[3] = size0 + size1;
-	rvra->offsets[2] = size0 + size1 + size2;
+	comp->size = y_meta + y + uv_meta + uv;
 }
 
 

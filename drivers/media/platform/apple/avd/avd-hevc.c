@@ -71,7 +71,6 @@ struct avd_hevc_run {
 	int num_slices;
 
 	struct run_addr {
-		dma_addr_t rvra;
 		dma_addr_t sps;
 	} addresses;
 };
@@ -114,12 +113,9 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 		ref_buf = avd_get_ref_buf(ctx, &dst->base.vb, dpb->timestamp);
 
-		dma_addr_t rvra_addr =
-			vb2_dma_contig_plane_dma_addr(&ref_buf->base.vb.vb2_buf,
-						      0) +
-			(ref_buf->base.vb.planes[0].length -
-			 sps_size(fmt_width(ctx), fmt_height(ctx)) -
-			 ref_buf->rvra.size);
+		dma_addr_t comp_addr = vb2_dma_contig_plane_dma_addr(
+					       &ref_buf->base.vb.vb2_buf, 0) +
+				       ref_buf->comp.start_offset;
 
 		push(AVD_REF_NUM(decode->num_active_dpb_entries - 1) |
 			     AVD_REF_FLAG_CONST |
@@ -130,7 +126,7 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 					       dpb->pic_order_cnt_val),
 		     "hdr_d0_ref_hdr");
 
-		push_rvra(avd, ctx, rvra_addr, ref_buf->rvra.offsets);
+		push_comp(avd, ctx, comp_addr, ref_buf->comp.offsets);
 	}
 }
 
@@ -301,8 +297,8 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 		     AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4),
 	     "inst_fifo_start");
 
-	push(AVD_OP_HDR | AVD_OP_HDR_FLAG0 | AVD_OP_HDR_FLAG_INTRA(is_intra) |
-		     AVD_OP_HDR_CONST |
+	push(AVD_OP_HDR | AVD_OP_HDR_FLAG_DECOMP(ctx->decomp) |
+		     AVD_OP_HDR_FLAG_INTRA(is_intra) | AVD_OP_HDR_CONST |
 		     AVD_OP_HDR_FLAG_PIPE_STATE(
 			     !(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE)),
 	     "hdr_34_start_hdr");
@@ -381,7 +377,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 	push(0, "");
 
-	push_rvra(avd, ctx, run->addresses.rvra, ctx->rvra.offsets);
+	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
 
 	push(0, "cm3_mark_end_section");
 
@@ -1220,9 +1216,6 @@ static int avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	dst_len = run->base.bufs.dst->vb2_buf.planes[0].length;
 
 	sps_len = sps_size(fmt_width(ctx), fmt_height(ctx));
-
-	run->addresses.rvra =
-		run->addresses.y + (dst_len - sps_len - ctx->rvra.size);
 
 	run->addresses.sps = run->base.y_out + (dst_len - sps_len);
 	return 0;

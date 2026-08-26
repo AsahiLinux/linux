@@ -78,8 +78,10 @@ static void avd_fill_decoded_pixfmt(struct avd_ctx *ctx,
 {
 	v4l2_fill_pixfmt_mp(pix_mp, pix_mp->pixelformat, pix_mp->width,
 			    pix_mp->height);
-	fill_rvra(&ctx->rvra, ctx->image_fmt, pix_mp->width, pix_mp->height);
-	pix_mp->plane_fmt[0].sizeimage += ctx->rvra.size;
+
+	ctx->comp.start_offset = pix_mp->plane_fmt[0].sizeimage;
+	fill_comp(&ctx->comp, ctx->image_fmt, pix_mp->width, pix_mp->height);
+	pix_mp->plane_fmt[0].sizeimage += ctx->comp.size;
 	if (ctx->coded_fmt_desc->ops->adjust_decoded_fmt)
 		ctx->coded_fmt_desc->ops->adjust_decoded_fmt(ctx, pix_mp);
 }
@@ -960,8 +962,11 @@ void avd_run_preamble(struct avd_ctx *ctx, struct avd_run *run)
 		      ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
 			      ctx->decoded_fmt.fmt.pix_mp.height;
 
+	run->comp_out = run->y_out + ctx->comp.start_offset;
+	ctx->decomp = true;
+
 	dst = vb2_to_avd_decoded_buf(&run->bufs.dst->vb2_buf);
-	memcpy(&dst->rvra, &ctx->rvra, sizeof(ctx->rvra));
+	memcpy(&dst->comp, &ctx->comp, sizeof(ctx->comp));
 
 	/* Apply request(s) controls if needed. */
 	src_req = run->bufs.src->vb2_buf.req_obj.req;
