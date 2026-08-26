@@ -83,8 +83,7 @@ static const u32 default_8x8_inter[] = {
 
 static inline u32 sps_size(u32 w, u32 h)
 {
-	/* TODO: does it really need so much? */
-	return (((w - 1) * (h - 1) / 0x10000) + 2) * 0x4000;
+	return (DIV_ROUND_UP(w, 16) + 1) * (DIV_ROUND_UP(h, 16) + 1) * 64;
 }
 
 /* sorry for the formatting */
@@ -520,7 +519,12 @@ static int avd_h264_alloc_bufs(struct avd_ctx *ctx)
 {
 	struct avd_dev *dev = ctx->dev;
 	struct avd_h264_ctx *h264_ctx = ctx->priv;
-	int ret;
+	int ret, w, bit_depth, mb;
+	w = fmt_width(ctx);
+	bit_depth = (ctx->image_fmt == AVD_IMG_FMT_420_10BIT ||
+		     ctx->image_fmt == AVD_IMG_FMT_422_10BIT) ?
+			    10 :
+			    8;
 
 	ret = avd_buf_alloc(dev, &h264_ctx->bufs.inst, fifo_size());
 	if (ret) {
@@ -536,26 +540,29 @@ static int avd_h264_alloc_bufs(struct avd_ctx *ctx)
 		}
 	}
 
-	/* TODO: VERY ugly
-	 * Does it actually need this much?
-	 * */
-	for (int i = 0; i < 5; i++) {
-		u32 mul = fmt_width(ctx) / 16;
-		u32 size = i == 0 ? 0x20000 :
-			   i == 1 ? (16 + 8 + 8) * mul :
-			   i == 2 ? ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0]
-							    .bytesperline >
-						    2048 ?
-				    0xc000 :
-				    (64 + 1 * 32 + 1 * 32) * mul :
-				    32 * mul;
-		ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[i],
-				    max(size, 0x8000));
-		if (ret) {
-			dev_err(dev->dev, "pps[%d] alloc failed\n", i);
-			return ret;
-		}
-	}
+	mb = DIV_ROUND_UP(w, 16);
+
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[0], mb * 20);
+	if (ret)
+		return ret;
+
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[1],
+			    bit_depth * 4 * mb);
+	if (ret)
+		return ret;
+
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[2],
+			    bit_depth * 4 * 4 * mb);
+	if (ret)
+		return ret;
+
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[3], 32 * mb);
+	if (ret)
+		return ret;
+
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[4], 32 * mb);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -568,8 +575,7 @@ static void avd_h264_free_bufs(struct avd_ctx *ctx)
 	if (!h264_ctx)
 		return;
 
-	if (!(dev->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
-		avd_buf_free(dev, &h264_ctx->bufs.pipe_state);
+	avd_buf_free(dev, &h264_ctx->bufs.pipe_state);
 	avd_buf_free(dev, &h264_ctx->bufs.inst);
 
 	for (int i = 0; i < 5; i++)
