@@ -71,9 +71,6 @@ struct avd_hevc_run {
 	int num_slices;
 
 	struct run_addr {
-		dma_addr_t y;
-		dma_addr_t uv;
-		dma_addr_t sl;
 		dma_addr_t rvra;
 		dma_addr_t sps;
 	} addresses;
@@ -395,9 +392,9 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
 		bytesperline = bytesperline >> 4;
 
-	pusha(run->addresses.y, "hdr_1b4_y_addr_lsb8", 0);
+	pusha(run->base.y_out, "hdr_1b4_y_addr_lsb8", 0);
 	push(bytesperline, "hdr_1bc_width_align");
-	pusha(run->addresses.uv, "hdr_1b8_uv_addr_lsb8", 0);
+	pusha(run->base.uv_out, "hdr_1b8_uv_addr_lsb8", 0);
 	push(bytesperline, "hdr_1c0_width_align");
 	push(0, "");
 	push(AVD_HDR_HEIGHT(height - 1) | AVD_HDR_WIDTH(width - 1),
@@ -660,7 +657,8 @@ static void set_slice(struct avd_ctx *ctx, struct avd_hevc_run *run,
 		      u32 offset, u32 flags)
 {
 	struct avd_dev *avd = ctx->dev;
-	dma_addr_t slc_addr = run->addresses.sl + offset + sl->data_byte_offset;
+	dma_addr_t slc_addr =
+		run->base.coded_in + offset + sl->data_byte_offset;
 	push(AVD_OP_CODED_DATA | flags | AVD_OP_CODED_DATA_ADDR(slc_addr >> 32),
 	     "cm3_cmd_set_coded_slice");
 	push((u32)(slc_addr & 0xffffffff), "slc_bd8_slice_addr");
@@ -1221,23 +1219,12 @@ static int avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 	dst_len = run->base.bufs.dst->vb2_buf.planes[0].length;
 
-	run->addresses.y =
-		vb2_dma_contig_plane_dma_addr(&run->base.bufs.dst->vb2_buf, 0);
-
-	run->addresses.uv =
-		run->addresses.y +
-		ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
-			ALIGN(ctx->decoded_fmt.fmt.pix_mp.height, 16);
-
-	run->addresses.sl =
-		vb2_dma_contig_plane_dma_addr(&run->base.bufs.src->vb2_buf, 0);
-
 	sps_len = sps_size(fmt_width(ctx), fmt_height(ctx));
 
 	run->addresses.rvra =
 		run->addresses.y + (dst_len - sps_len - ctx->rvra.size);
 
-	run->addresses.sps = run->addresses.y + (dst_len - sps_len);
+	run->addresses.sps = run->base.y_out + (dst_len - sps_len);
 	return 0;
 }
 

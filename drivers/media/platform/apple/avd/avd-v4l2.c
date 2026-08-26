@@ -15,6 +15,7 @@
 
 #include <media/v4l2-event.h>
 #include <media/v4l2-mem2mem.h>
+#include <media/videobuf2-dma-contig.h>
 
 #include "avd.h"
 
@@ -259,7 +260,6 @@ static const struct avd_ctrl_desc avd_h264_ctrl_descs[] = {
 		.cfg.min = V4L2_STATELESS_H264_START_CODE_NONE,
 		.cfg.max = V4L2_STATELESS_H264_START_CODE_NONE,
 		.cfg.def = V4L2_STATELESS_H264_START_CODE_NONE,
-		/* annex b is also possibly but a bit more painfull */
 	},
 	{
 		.cfg.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
@@ -952,6 +952,13 @@ void avd_run_preamble(struct avd_ctx *ctx, struct avd_run *run)
 
 	run->bufs.src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	run->bufs.dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+
+	run->coded_in =
+		vb2_dma_contig_plane_dma_addr(&run->bufs.src->vb2_buf, 0);
+	run->y_out = vb2_dma_contig_plane_dma_addr(&run->bufs.dst->vb2_buf, 0);
+	run->uv_out = run->y_out +
+		      ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
+			      ctx->decoded_fmt.fmt.pix_mp.height;
 
 	dst = vb2_to_avd_decoded_buf(&run->bufs.dst->vb2_buf);
 	memcpy(&dst->rvra, &ctx->rvra, sizeof(ctx->rvra));

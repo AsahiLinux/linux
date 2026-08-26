@@ -56,6 +56,10 @@ struct avd_run {
 		struct vb2_v4l2_buffer *src; /* OUTPUT coded */
 		struct vb2_v4l2_buffer *dst; /* CAPTURE decoded */
 	} bufs;
+
+	dma_addr_t coded_in;
+	dma_addr_t y_out;
+	dma_addr_t uv_out;
 };
 
 struct avd_ctrl_desc {
@@ -98,7 +102,6 @@ struct avd_rvra {
 	u32 size;
 };
 
-/* TODO: change and use this */
 struct avd_decoded_buffer {
 	/* Must be the first field in this struct. */
 	struct v4l2_m2m_buffer base;
@@ -118,6 +121,7 @@ vb2_to_avd_decoded_buf(struct vb2_buffer *buf)
 {
 	return container_of(buf, struct avd_decoded_buffer, base.vb.vb2_buf);
 }
+
 struct avd_decoded_buffer *
 avd_get_ref_buf(struct avd_ctx *ctx, struct vb2_v4l2_buffer *dst, u64 timestamp);
 
