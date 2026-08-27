@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/apple,avd.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple AVD (Apple Video Decoder)
+
+description:
+  AVD is a video decode block present on all apple silicon devices.
+
+maintainers:
+  - Sofus <sofus.c@icloud.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - enum:
+              - apple,t6030-avd
+              - apple,t6031-avd
+          - const: apple,t8122-avd
+      - enum:
+          - apple,t8103-avd
+          - apple,t6000-avd
+          - apple,t8112-avd
+          - apple,t6020-avd
+          - apple,t8122-avd
+
+  reg:
+    items:
+      - description: cm3 code
+      - description: cm3 sram
+      - description: mbox registers
+      - description: decode ctrl registers
+
+  reg-names:
+    items:
+      - const: code
+      - const: sram
+      - const: mbox
+      - const: ctrl
+
+  iommus:
+    minItems: 1
+    maxItems: 3
+
+  power-domains:
+    maxItems: 1
+
+  resets:
+    maxItems: 1
+
+  interrupts:
+    minItems: 2
+    items:
+      - description: mailbox 0
+      - description: mailbox 1
+      - description: mailbox 2
+      - description: mailbox 3
+      - description: flag 0
+      - description: flag 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - reg-names
+  - iommus
+  - power-domains
+  - resets
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/apple-aic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    soc {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        avd: avd@288000000 {
+            compatible = "apple,t8122-avd";
+            interrupt-parent = <&aic>;
+            interrupts = <AIC_IRQ 679 IRQ_TYPE_LEVEL_HIGH>,
+                         <AIC_IRQ 680 IRQ_TYPE_LEVEL_HIGH>;
+            power-domains = <&ps_avd_sys>;
+            resets = <&ps_avd_sys>;
+            reg = <0x2 0x89080000 0x0 0x12000>,
+                  <0x2 0x89092000 0x0 0x12000>,
+                  <0x2 0x890a4000 0x0 0x4000>,
+                  <0x2 0x89100000 0x0 0x10000>;
+            reg-names = "code", "sram", "mbox", "ctrl";
+            iommus = <&avd_dart 0>;
+        };
+    };
