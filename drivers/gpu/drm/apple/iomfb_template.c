@@ -930,7 +930,24 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 	swap_id = cookie->swap_id;
 	kref_put(&cookie->refcount, release_swap_cookie);
 	if (ret <= 0) {
-		dcp->crashed = true;
+		/*
+		 * The DCP did not acknowledge the poweroff clear swap.
+		 *
+		 * Do not latch ->crashed here: dcp_crtc_atomic_check() bails
+		 * out on that flag, so every subsequent atomic commit for this
+		 * device is rejected with -EINVAL, permanently. Nothing ever
+		 * clears it, so the display stays dark until reboot.
+		 *
+		 * This is not a crash. The DCP keeps working afterwards: it
+		 * renegotiates the link, publishes its mode list and asserts
+		 * HPD. ->crashed belongs to dcp_rtk_crashed(), the RTKit crash
+		 * callback, which also logs.
+		 *
+		 * Warn instead, so the timeout is at least visible.
+		 */
+		dev_warn(dcp->dev,
+			 "%s: timed out waiting for the poweroff clear swap; continuing\n",
+			 __func__);
 		return;
 	}
 
