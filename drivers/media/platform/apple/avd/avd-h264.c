@@ -310,22 +310,24 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_h264_run *run)
 	const struct v4l2_ctrl_h264_slice_params *sl = run->slice_params;
 	struct avd_dev *avd = ctx->dev;
 
-	bool pred_weight = V4L2_H264_CTRL_PRED_WEIGHTS_REQUIRED(pps, sl);
+	bool pred_weight_req = V4L2_H264_CTRL_PRED_WEIGHTS_REQUIRED(pps, sl);
+	bool default_weights = pps->weighted_bipred_idc == 2 &&
+			       !pred_weight_req;
 
-	/* TODO: is there a better flag or something for the
-	 * pps->weighted_bipred_idc == 2 checks? */
-	push(AVD_OP_WEIGHTS_HDR |
-		     AVD_OP_WEIGHTS_HDR_FLAG1(pps->weighted_bipred_idc == 2) |
-		     AVD_OP_WEIGHTS_HDR_FLAG0(pred_weight) |
-		     AVD_OP_WEIGHTS_HDR_LUMA(weights->luma_log2_weight_denom) |
+	push(AVD_OP_WEIGHTS_HDR | AVD_OP_WEIGHTS_HDR_FLAG1(default_weights) |
+		     AVD_OP_WEIGHTS_HDR_FLAG0(pred_weight_req) |
+		     AVD_OP_WEIGHTS_HDR_LUMA(
+			     !default_weights ?
+				     weights->luma_log2_weight_denom :
+				     0) |
 		     AVD_OP_WEIGHTS_HDR_CHROMA(
-			     weights->chroma_log2_weight_denom)
-		     /* default luma and chroma denom */
-		     |
-		     (pps->weighted_bipred_idc == 2 ? DEFAULT_WEIGHT_DENOM : 0),
+			     !default_weights ?
+				     weights->chroma_log2_weight_denom :
+				     0) |
+		     (default_weights ? DEFAULT_WEIGHT_DENOM : 0),
 	     "slc_76c_cmd_weights_denom");
 
-	if (!pred_weight)
+	if (!pred_weight_req)
 		return;
 
 	luma_denom = 1 << weights->luma_log2_weight_denom;
