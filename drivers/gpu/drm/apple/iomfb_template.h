@@ -113,6 +113,9 @@ struct DCP_FW_NAME(dcp_swap_submit_req) {
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
 	u32 unkU32Ptr;
 #endif
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
+	u8 padding_14_7[0x234];
+#endif
 	u8 swap_null;
 	u8 surf_null[SWAP_SURFACES];
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
@@ -124,12 +127,6 @@ struct DCP_FW_NAME(dcp_swap_submit_req) {
 	u8 unkU32out_null;
 #endif
 	u8 padding[1];
-#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
-	u8 padding_14_7[0x1e9];
-	u8 unk_14_7_zero[0x46];
-	u32 unk_14_7_u32;
-	u8 unk_bool;
-#endif
 } __packed;
 
 struct DCP_FW_NAME(dcp_swap_submit_resp) {
