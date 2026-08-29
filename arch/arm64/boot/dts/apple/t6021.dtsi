@@ -49,6 +49,7 @@
 	#include "t602x-die0.dtsi"
 	#include "t602x-dieX.dtsi"
 	#include "t602x-nvme.dtsi"
+	#include "t602x-ane.dtsi"
 };
 
 #include "t602x-gpio-pins.dtsi"

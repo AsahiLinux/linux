@@ -283,3 +283,21 @@
 		/* 6: DP1 */
 	};
 };
+
+#define DIE
+#define DIE_NO 0
+&die0 {
+	#include "t602x-ane.dtsi"
+};
+
+#undef DIE
+#undef DIE_NO
+
+#define DIE _die1
+#define DIE_NO 1
+&die1 {
+	#include "t602x-ane.dtsi"
+};
+
+#undef DIE
+#undef DIE_NO
