@@ -46,10 +46,12 @@
 	#include "t600x-die0.dtsi"
 	#include "t600x-dieX.dtsi"
 	#include "t600x-nvme.dtsi"
+	#include "t600x-ane.dtsi"
 };
 
 #include "t600x-gpio-pins.dtsi"
 #include "t600x-pmgr.dtsi"
+#include "t600x-ane-pmgr.dtsi"
 
 #undef DIE
 #undef DIE_NO

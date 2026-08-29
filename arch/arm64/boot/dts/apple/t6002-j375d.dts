@@ -299,4 +299,24 @@
 	apple,ppm-kp = <0.355>;
 };
 
+#define DIE
+#define DIE_NO 0
+#include "t600x-ane-pmgr.dtsi"
+&die0 {
+	#include "t600x-ane.dtsi"
+};
+
+#undef DIE
+#undef DIE_NO
+
+#define DIE _die1
+#define DIE_NO 1
+#include "t600x-ane-pmgr.dtsi"
+&die1 {
+	#include "t600x-ane.dtsi"
+};
+
+#undef DIE
+#undef DIE_NO
+
 #include "hwmon-fan-dual.dtsi"
