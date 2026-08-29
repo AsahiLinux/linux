@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+
+&pmgr {
+	ps_ane_cpu: power-controller@c008 {
+		compatible = "apple,t8112-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc008 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_cpu";
+		power-domains = <&ps_ane_sys>;
+	};
+};
+
+&{/soc} {
+	ane_dart0: iommu@26b800000 {
+		compatible = "apple,t8110-dart";
+		reg = <0x2 0x6b800000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 521 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_ane_sys>;
+	};
+
+	ane_dart1: iommu@26b810000 {
+		compatible = "apple,t8110-dart";
+		reg = <0x2 0x6b810000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 521 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_ane_sys>;
+	};
+
+	ane_dart2: iommu@26b820000 {
+		compatible = "apple,t8110-dart";
+		reg = <0x2 0x6b820000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 521 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_ane_sys>;
+	};
+
+	ane: npu@26bc04000 {
+		compatible = "apple,t8112-ane";
+		reg = <0x2 0x6bc04000 0x0 0x24000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 520 IRQ_TYPE_LEVEL_HIGH>;
+		iommus = <&ane_dart0 0>, <&ane_dart1 0>, <&ane_dart2 0>;
+		power-domains = <&ps_ane_cpu>;
+	};
+};

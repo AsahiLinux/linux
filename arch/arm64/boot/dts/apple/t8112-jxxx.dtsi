@@ -285,6 +285,8 @@
 	clock-frequency = <900000000>;
 };
 
+#include "t8112-ane.dtsi"
+
 #include "hwmon-common.dtsi"
 
 #include "spi1-nvram.dtsi"
