@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/npu/apple,ane.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple Neural Engine
+
+maintainers:
+  - Christian Tramnitz <christian@tramnitz.com>
+
+description: |
+  Apple SoCs contain a Neural Engine accelerator. The accelerator is connected
+  through three DART IOMMU instances.
+
+properties:
+  $nodename:
+    pattern: '^npu@[0-9a-f]+$'
+
+  compatible:
+    enum:
+      - apple,t8103-ane
+      - apple,t6000-ane
+      - apple,t8112-ane
+      - apple,t6020-ane
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  iommus:
+    minItems: 3
+    maxItems: 3
+
+  power-domains:
+    minItems: 1
+    maxItems: 5
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          enum:
+            - apple,t8103-ane
+            - apple,t6000-ane
+    then:
+      properties:
+        power-domains:
+          minItems: 5
+          maxItems: 5
+    else:
+      properties:
+        power-domains:
+          maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - iommus
+  - power-domains
+
+additionalProperties: false
