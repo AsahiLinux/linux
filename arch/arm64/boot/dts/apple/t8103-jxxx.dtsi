@@ -304,6 +304,101 @@
 	clock-frequency = <900000000>;
 };
 
+&pmgr {
+	ps_ane_base: power-controller@c008 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc008 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_base";
+		power-domains = <&ps_ane_sys_cpu>;
+	};
+
+	ps_ane_set1: power-controller@c010 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc010 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set1";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set2: power-controller@c018 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc018 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set2";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set3: power-controller@c020 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc020 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set3";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set4: power-controller@c028 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc028 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set4";
+		power-domains = <&ps_ane_base>;
+	};
+
+	ps_ane_set5: power-controller@c030 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0xc030 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "ane_set5";
+		power-domains = <&ps_ane_base>;
+	};
+};
+
+&{/soc} {
+	ane_dart0: iommu@26b800000 {
+		compatible = "apple,t8103-dart";
+		reg = <0x2 0x6b800000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 417 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_ane_sys>;
+	};
+
+	ane_dart1: iommu@26b810000 {
+		compatible = "apple,t8103-dart";
+		reg = <0x2 0x6b810000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 417 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_ane_sys>;
+	};
+
+	ane_dart2: iommu@26b820000 {
+		compatible = "apple,t8103-dart";
+		reg = <0x2 0x6b820000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 417 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&ps_ane_sys>;
+	};
+
+	ane: npu@26bc04000 {
+		compatible = "apple,t8103-ane";
+		reg = <0x2 0x6bc04000 0x0 0x24000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ 416 IRQ_TYPE_LEVEL_HIGH>;
+		iommus = <&ane_dart0 0>, <&ane_dart1 0>, <&ane_dart2 0>;
+		power-domains = <&ps_ane_set1>, <&ps_ane_set2>,
+			<&ps_ane_set3>, <&ps_ane_set4>, <&ps_ane_set5>;
+	};
+};
+
 #include "hwmon-common.dtsi"
 
 #include "spi1-nvram.dtsi"
