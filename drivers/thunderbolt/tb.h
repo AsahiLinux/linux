@@ -139,6 +139,7 @@ struct tb_switch_tmu {
  * @drom: DROM of the switch (%NULL if not found)
  * @nvm: Pointer to the NVM if the switch has one (%NULL otherwise)
  * @no_nvm_upgrade: Prevent NVM upgrade of this switch
+ * @no_dma_port: Prevent adding the DMA port of this switch
  * @safe_mode: The switch is in safe-mode
  * @boot: Whether the switch was already authorized on boot or not
  * @rpm: The switch supports runtime PM
@@ -194,6 +195,7 @@ struct tb_switch {
 	u8 *drom;
 	struct tb_nvm *nvm;
 	bool no_nvm_upgrade;
+	bool no_dma_port;
 	bool safe_mode;
 	bool boot;
 	bool rpm;
