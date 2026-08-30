@@ -78,7 +78,7 @@ void t8103_configure_stream(struct avd_dev *avd, dma_addr_t addr, u8 fifo_idx,
 			  u32 vp_slot)
 {
 	w32(AVD_V3_VP_INSN_FIFO_IOVA + (fifo_idx * 4), addr >> 8);
-	w32(AVD_V3_VP_INSN_FIFO_MASK + (fifo_idx * 4), 0x100000);
+	w32(AVD_V3_VP_INSN_FIFO_MASK + (fifo_idx * 4), 0);
 	w32(AVD_V3_VP_INSN_FIFO_CACH + (fifo_idx * 4), 0);
 	w32(AVD_V3_VP_INSN_FIFO_XFER + (fifo_idx * 4), 0);
 
