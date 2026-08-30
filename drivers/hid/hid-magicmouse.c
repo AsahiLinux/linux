@@ -539,8 +539,8 @@ static int __magicmouse_raw_event_usb(struct hid_device *hdev,
 			return 0;
 		}
 
-		__magicmouse_raw_event(hdev, report, data + 2, data[1], true);
-		__magicmouse_raw_event(hdev, report, data + 2 + data[1],
+		__magicmouse_raw_event_usb(hdev, report, data + 2, data[1], true);
+		__magicmouse_raw_event_usb(hdev, report, data + 2 + data[1],
 			size - 2 - data[1], true);
 		return 0;
 	default:
