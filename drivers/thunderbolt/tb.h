@@ -140,6 +140,8 @@ struct tb_switch_tmu {
  * @nvm: Pointer to the NVM if the switch has one (%NULL otherwise)
  * @no_nvm_upgrade: Prevent NVM upgrade of this switch
  * @no_dma_port: Prevent adding the DMA port of this switch
+ * @no_usb3_bw_alloc: Host router does not implement the USB3 bandwidth
+ *		      allocation registers (ADP_USB3_CS_1..4)
  * @safe_mode: The switch is in safe-mode
  * @boot: Whether the switch was already authorized on boot or not
  * @rpm: The switch supports runtime PM
@@ -196,6 +198,7 @@ struct tb_switch {
 	struct tb_nvm *nvm;
 	bool no_nvm_upgrade;
 	bool no_dma_port;
+	bool no_usb3_bw_alloc;
 	bool safe_mode;
 	bool boot;
 	bool rpm;
