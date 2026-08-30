@@ -4,6 +4,7 @@
 #include <linux/iopoll.h>
 
 #include "avd.h"
+#include "avd-inst.h"	/* fifo_size() */
 #include "avd-regs.h"
 
 /* The plan is to move this to the cm3 */
@@ -78,7 +79,14 @@ void t8103_configure_stream(struct avd_dev *avd, dma_addr_t addr, u8 fifo_idx,
 			  u32 vp_slot)
 {
 	w32(AVD_V3_VP_INSN_FIFO_IOVA + (fifo_idx * 4), addr >> 8);
-	w32(AVD_V3_VP_INSN_FIFO_MASK + (fifo_idx * 4), 0x100000);
+	/*
+	 * The limit has to describe the buffer it points at: fifo_size()
+	 * allocates 0x100000 * 12, so 0x100000 confined the hardware to a
+	 * twelfth of it. A frame whose instruction stream exceeded 1 MiB then
+	 * wrapped and the hardware never signalled completion, leaving the
+	 * watchdog to fire. t8112 and t8122 do not set a limit here.
+	 */
+	w32(AVD_V3_VP_INSN_FIFO_MASK + (fifo_idx * 4), fifo_size());
 	w32(AVD_V3_VP_INSN_FIFO_CACH + (fifo_idx * 4), 0);
 	w32(AVD_V3_VP_INSN_FIFO_XFER + (fifo_idx * 4), 0);
 
