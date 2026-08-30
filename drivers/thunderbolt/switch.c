@@ -627,6 +627,7 @@ int tb_port_unlock(struct tb_port *port)
 		return usb4_port_unlock(port);
 	return 0;
 }
+EXPORT_SYMBOL_FOR_MODULES(tb_port_unlock, "thunderbolt_apple");
 
 static int __tb_port_enable(struct tb_port *port, bool enable)
 {
