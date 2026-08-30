@@ -177,19 +177,32 @@ void nhi_disable_interrupts(struct tb_nhi *nhi)
 
 /* ring helper methods */
 
+static const struct tb_nhi_ring_layout nhi_default_ring_layout = {
+	.tx_desc_base = REG_TX_RING_BASE,
+	.rx_desc_base = REG_RX_RING_BASE,
+	.desc_stride = 16,
+	.tx_options_base = REG_TX_OPTIONS_BASE,
+	.rx_options_base = REG_RX_OPTIONS_BASE,
+	.options_stride = 32,
+};
+
 static void __iomem *ring_desc_base(struct tb_ring *ring)
 {
+	const struct tb_nhi_ring_layout *layout = ring->nhi->ring_layout;
 	void __iomem *io = ring->nhi->iobase;
-	io += ring->is_tx ? REG_TX_RING_BASE : REG_RX_RING_BASE;
-	io += ring->hop * 16;
+
+	io += ring->is_tx ? layout->tx_desc_base : layout->rx_desc_base;
+	io += ring->hop * layout->desc_stride;
 	return io;
 }
 
 static void __iomem *ring_options_base(struct tb_ring *ring)
 {
+	const struct tb_nhi_ring_layout *layout = ring->nhi->ring_layout;
 	void __iomem *io = ring->nhi->iobase;
-	io += ring->is_tx ? REG_TX_OPTIONS_BASE : REG_RX_OPTIONS_BASE;
-	io += ring->hop * 32;
+
+	io += ring->is_tx ? layout->tx_options_base : layout->rx_options_base;
+	io += ring->hop * layout->options_stride;
 	return io;
 }
 
@@ -216,8 +229,10 @@ static void ring_iowrite32desc(struct tb_ring *ring, u32 value, u32 offset)
 
 static void ring_iowrite64desc(struct tb_ring *ring, u64 value, u32 offset)
 {
-	iowrite32(value, ring_desc_base(ring) + offset);
-	iowrite32(value >> 32, ring_desc_base(ring) + offset + 4);
+	void __iomem *base = ring_desc_base(ring);
+
+	iowrite32(value, base + offset);
+	iowrite32(value >> 32, base + offset + 4);
 }
 
 static void ring_iowrite32options(struct tb_ring *ring, u32 value, u32 offset)
@@ -1257,6 +1272,9 @@ int nhi_probe(struct tb_nhi *nhi)
 
 	if (!nhi->ops->init_interrupts)
 		return dev_err_probe(dev, -EINVAL, "missing required NHI ops\n");
+
+	if (!nhi->ring_layout)
+		nhi->ring_layout = &nhi_default_ring_layout;
 
 	nhi->hop_count = ioread32(nhi->iobase + REG_CAPS) & 0x3ff;
 	dev_dbg(dev, "total paths: %d\n", nhi->hop_count);

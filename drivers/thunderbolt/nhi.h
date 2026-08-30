@@ -41,6 +41,24 @@ void nhi_reset_interface(struct tb_nhi *nhi);
 extern const struct dev_pm_ops nhi_pm_ops;
 
 /**
+ * struct tb_nhi_ring_layout - Layout of the ring registers in the NHI MMIO space
+ * @tx_desc_base: Offset of the descriptor registers of the first TX ring
+ * @rx_desc_base: Offset of the descriptor registers of the first RX ring
+ * @desc_stride: Stride between the descriptor registers of neighboring rings
+ * @tx_options_base: Offset of the options registers of the first TX ring
+ * @rx_options_base: Offset of the options registers of the first RX ring
+ * @options_stride: Stride between the options registers of neighboring rings
+ */
+struct tb_nhi_ring_layout {
+	u32 tx_desc_base;
+	u32 rx_desc_base;
+	u32 desc_stride;
+	u32 tx_options_base;
+	u32 rx_options_base;
+	u32 options_stride;
+};
+
+/**
  * struct tb_nhi_ops - NHI specific optional operations
  * @init: NHI specific initialization
  * @suspend_noirq: NHI specific suspend_noirq hook
