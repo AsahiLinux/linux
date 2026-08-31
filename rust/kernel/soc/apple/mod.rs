@@ -13,3 +13,5 @@ pub mod mailbox;
 
 #[cfg(any(CONFIG_APPLE_PMP_V1 = "y", CONFIG_APPLE_PMP_V1 = "m"))]
 pub mod pmp_v1_bridge;
+#[cfg(CONFIG_APPLE_PMP_V1_REPORT = "y")]
+pub mod pmdomain;
