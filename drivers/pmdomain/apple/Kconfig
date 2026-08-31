@@ -20,4 +20,10 @@ config APPLE_PMP_REPORT
 	depends on PM
 	select PM_GENERIC_DOMAINS
 
+config APPLE_PMP_V1_REPORT
+	bool
+	depends on OF
+	depends on PM
+	select PM_GENERIC_DOMAINS
+
 endif
