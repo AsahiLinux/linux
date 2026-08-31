@@ -351,6 +351,19 @@ impl FwNodeReferenceArgs {
     pub fn is_empty(&self) -> bool {
         self.0.nargs == 0
     }
+
+    pub fn fwnode(&self) -> Option<&FwNode> {
+        let fwnode = self.0.fwnode;
+
+        if fwnode.is_null() {
+            return None;
+        }
+
+        // SAFETY:
+        // `fwnode` is valid for the lifetime of `self`, and `FwNode`
+        // is repr(transparent) over `struct fwnode_handle` member.
+        Some(unsafe { &*fwnode.cast::<FwNode>() })
+    }
 }
 
 impl fmt::Debug for FwNodeReferenceArgs {

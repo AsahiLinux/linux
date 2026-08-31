@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/apple,pmp-v1-report-entry.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple PMPv1 Report Entry Power Domains
+
+maintainers:
+  - Didi Nuk <dev@ydnuk.com>
+
+description:
+  Apple PMPv1 report-entry nodes expose individual PMP-managed resources as
+  generic power domains. The PMP driver requires a report-entry node for each
+  SoC-specific PMP-managed resource.
+
+properties:
+  compatible:
+    const: apple,t8103-pmp-v1-report-entry
+
+  reg:
+    maxItems: 1
+
+  "#power-domain-cells":
+    const: 0
+
+  power-domains:
+    maxItems: 1
+
+  label:
+    description:
+      Specifies the name of the SoC report entry domain. This is used to
+      name the report entry domains.
+
+  apple,always-on:
+    description:
+      Forces this power domain to always be powered up.
+    type: boolean
+
+required:
+  - compatible
+  - reg
+  - label
+  - "#power-domain-cells"
+  - power-domains
+
+additionalProperties: false

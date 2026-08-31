@@ -122,6 +122,18 @@ config APPLE_PMP
 
 	  Say 'y' here if you have an Apple SoC.
 
+config APPLE_PMP_V1
+	tristate "Apple Power Management Processor Version 1"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on RUST
+	select APPLE_PMP_V1_REPORT
+	select RUST_APPLE_RTKIT
+	help
+	  A co-processor present on Apple M1 SoC, controlling power states of
+	  fabric and other uncore components.
+
+	  Say 'y' here if you have an Apple M1 chip.
+
 endmenu
 
 endif

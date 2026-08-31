@@ -1,3 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-only
 obj-$(CONFIG_APPLE_PMGR_PWRSTATE)	+= pmgr-pwrstate.o
 obj-$(CONFIG_APPLE_PMP_REPORT)	+= pmp-report.o
+obj-$(CONFIG_APPLE_PMP_V1_REPORT)		+= pmp_v1_report.o
