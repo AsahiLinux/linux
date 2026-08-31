@@ -4,6 +4,7 @@
 
 use crate::{
     bindings,
+    container_of,
     device_id::{RawDeviceId, RawDeviceIdIndex},
     prelude::*,
 };
@@ -18,6 +19,8 @@ use core::num::NonZeroU32;
 
 use crate::error::to_result;
 use crate::io::resource::Resource;
+
+use crate::device::property::FwNode;
 
 /// IdTable type for OF drivers.
 pub type IdTable<T> = &'static dyn kernel::device_id::IdTable<DeviceId, T>;
@@ -36,6 +39,23 @@ unsafe impl RawDeviceId for DeviceId {
 // SAFETY: `DRIVER_DATA_OFFSET` is the offset to the `data` field.
 unsafe impl RawDeviceIdIndex for DeviceId {
     const DRIVER_DATA_OFFSET: usize = core::mem::offset_of!(bindings::of_device_id, data);
+}
+
+pub unsafe fn to_of_node(fwnode: &FwNode) -> *const bindings::device_node {
+    if !fwnode.is_of_node() {
+        return core::ptr::null();
+    }
+
+    let fwnode_ptr = fwnode.as_raw() as *const bindings::fwnode_handle;
+
+    // SAFETY: `fwnode` was checked it's a OF node.
+    unsafe {
+        container_of!(
+            fwnode_ptr,
+            bindings::device_node,
+            fwnode
+        )
+    }
 }
 
 impl DeviceId {

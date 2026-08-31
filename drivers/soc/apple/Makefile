@@ -25,3 +25,5 @@ obj-$(CONFIG_APPLE_AOP) += aop.o
 obj-$(CONFIG_APPLE_SEP) += sep.o
 
 obj-$(CONFIG_APPLE_PMP) += pmp.o
+
+obj-$(CONFIG_APPLE_PMP_V1)	+= pmp_v1.o
