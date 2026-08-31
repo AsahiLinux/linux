@@ -22,6 +22,9 @@
 
 	aliases {
 		gpu = &gpu;
+                #ifdef APPLE_USE_PMP_V1
+                pmp = &pmp;
+                #endif
 	};
 
 	cpus {
@@ -480,7 +483,11 @@
 				<0x2 0x4000000 0 0x1000000>;
 			reg-names = "asc", "sgx";
 			mboxes = <&agx_mbox>;
+                        #ifdef APPLE_USE_PMP_V1
+			power-domains = <&pmp_report_gfx>;
+                        #else
 			power-domains = <&ps_gfx>;
+                        #endif
 			memory-region = <&uat_ttbs>, <&uat_pagetables>, <&uat_handoff>,
 					<&gpu_hw_cal_a>, <&gpu_hw_cal_b>, <&gpu_globals>;
 			memory-region-names = "ttbs", "pagetables", "handoff",
@@ -553,7 +560,11 @@
 			reg = <0x2 0x28200000 0x0 0xc000>,
 			      <0x2 0x28400000 0x0 0x4000>;
 			reg-names = "be", "fe";
+                        #ifdef APPLE_USE_PMP_V1
+			power-domains = <&pmp_report_dispdfr>, <&ps_dispdfr_be>;
+                        #else
 			power-domains = <&ps_dispdfr_fe>, <&ps_dispdfr_be>;
+                        #endif
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 502 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 506 IRQ_TYPE_LEVEL_HIGH>;
@@ -613,7 +624,11 @@
 			#iommu-cells = <5>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 445 IRQ_TYPE_LEVEL_HIGH>;
+                        #ifdef APPLE_USE_PMP_V1
+			power-domains = <&pmp_report_disp0>;
+                        #else
 			power-domains = <&ps_disp0_cpu0>;
+                        #endif
 			status = "disabled";
 		};
 
@@ -697,7 +712,11 @@
 			#iommu-cells = <1>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 251 IRQ_TYPE_LEVEL_HIGH>;
+                        #ifdef APPLE_USE_PMP_V1
+			power-domains = <&pmp_report_isp_sys>;
+                        #else
 			power-domains = <&ps_isp_sys>;
+                        #endif
 
 			status = "disabled";
 		};
@@ -1057,6 +1076,163 @@
 			reg-names = "dcp-bw-scratch", "dcp-bw-doorbell";
 			#apple,bw-scratch-cells = <3>;
 			#apple,bw-doorbell-cells = <2>;
+		};
+
+                pmp_dart: iommu@23b300000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x3b300000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 515 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_pmp>;
+		};
+
+		pmp_mbox: mbox@23bc08000 {
+			compatible = "apple,t8103-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x3bc08000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+
+			interrupts = <AIC_IRQ 511 IRQ_TYPE_LEVEL_HIGH>,
+				       <AIC_IRQ 512 IRQ_TYPE_LEVEL_HIGH>,
+				       <AIC_IRQ 513 IRQ_TYPE_LEVEL_HIGH>,
+				       <AIC_IRQ 514 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_pmp>, <&ps_pms_sram>;
+		};
+
+		pmp: pmp@23b850000 {
+			compatible = "apple,t8103-pmp-v1";
+			reg = <0x2 0x3b850000 0x0 0x200000>,
+			    <0x2 0x3bc00000 0x0 0x60000>;
+			reg-names = "pmp", "asc";
+			power-domains = <&ps_pmp>;
+
+			mboxes = <&pmp_mbox>;
+			mbox-names = "mbox";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			iommus = <&pmp_dart 0>;
+
+                        pmp_report_gfx: report@99 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-gfx";
+				reg = <99>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_gfx>;
+			};
+
+			pmp_report_ane_sys: report@104 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-ane-sys";
+				reg = <104>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_ane_sys>;
+				status = "disabled";
+			};
+
+			pmp_report_isp_sys: report@100 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-isp-sys";
+				reg = <0x64>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_isp_sys>;
+			};
+
+			pmp_report_disp0: report@84 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-disp0";
+				reg = <84>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_disp0_cpu0>;
+				apple,always-on;
+			};
+
+			pmp_report_dispext: report@85 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-dispext";
+				reg = <0x55>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_dispext_cpu0>;
+			};
+
+			pmp_report_venc_sys: report@101 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-venc-sys";
+				reg = <101>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_venc_sys>;
+				status = "disabled";
+			};
+
+			pmp_report_avd_sys: report@102 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-avd-sys";
+				reg = <102>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_avd_sys>;
+				status = "disabled";
+			};
+
+			pmp_report_msr: report@93 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-msr";
+				reg = <0x5d>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_msr>;
+				status = "disabled";
+			};
+
+			pmp_report_jpg: report@92 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-jpg";
+				reg = <0x5c>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_jpg>;
+				status = "disabled";
+			};
+
+			pmp_report_dispdfr: report@219 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-dispdfr";
+				reg = <219>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_dispdfr_fe>;
+			};
+
+			pmp_report_atc0_pcie: report@e {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-atc0_pcie";
+				reg = <0xe>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_atc0_pcie>;
+				status = "disabled";
+			};
+
+			pmp_report_atc1_pcie: report@62 {
+				compatible = "apple,t8103-pmp-v1-report-entry";
+				label = "pmp-atc1_pcie";
+				reg = <0x3e>;
+				#power-domain-cells = <0>;
+				power-domains = <&ps_atc1_pcie>;
+				status = "disabled";
+			};
+
+			// pmp_report_atc0_pcie_v: report@10 {
+			//         compatible = "apple,t8103-pmp-v1-report-entry";
+			//         label = "pmp-atc0_pcie-v";
+			//         #power-domain-cells = <0>;
+			//         power-domains = <&ps_atc0_pcie_v>;
+			// };
+
+			// pmp_report_atc1_pcie_v: report@11 {
+			//         compatible = "apple,t8103-pmp-v1-report-entry";
+			//         label = "pmp-atc1_pcie-v";
+			//         #power-domain-cells = <0>;
+			//         power-domains = <&ps_atc1_pcie_v>;
+			// };
+
 		};
 
 		cio_reset: reset-controller@23b784000 {
