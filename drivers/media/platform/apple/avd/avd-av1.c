@@ -60,10 +60,14 @@
 })
 
 #define AV1_REF_SCALE_SHIFT	14
+#define SUPERRES_SCALE_BITS	14
+#define SUPERRES_EXTRA_BITS	8
+#define SUPERRES_SCALE_MASK	((1 << 14) - 1)
 
 #define AV1_CODEC_MODE_INTRABC(v)	FIELD_PREP(BIT(28), !!(v))
 
 #define AV1_HDR_JNT_COMP(v)		FIELD_PREP(BIT(0), !!(v))
+#define AV1_HDR_ORDER_HINT_BITS(v)	FIELD_PREP(GENMASK(3, 1), v)
 #define AV1_HDR_ORDER_HINT(v)		FIELD_PREP(BIT(4), !!(v))
 #define AV1_HDR_DUAL_FILTER(v)		FIELD_PREP(BIT(5), !!(v))
 #define AV1_HDR_MASKED_COMPOUND(v)	FIELD_PREP(BIT(6), !!(v))
@@ -124,6 +128,12 @@
 #define AV1_QP_BASE_IDX(v)	FIELD_PREP(GENMASK(28, 21), v)
 #define AV1_QP_DELTA_RES(v)	FIELD_PREP(GENMASK(30, 29), v)
 #define AV1_QP_PRESENT(v)	FIELD_PREP(BIT(31), !!(v))
+#define AV1_QP_V_DC(v)		FIELD_PREP(GENMASK(26, 20), v)
+#define AV1_QP_V_AC(v)		FIELD_PREP(GENMASK(19, 13), v)
+#define AV1_QP_QMATRIX(v)	FIELD_PREP(BIT(12), !!(v))
+#define AV1_QP_QM_Y(v)		FIELD_PREP(GENMASK(11, 8), v)
+#define AV1_QP_QM_U(v)		FIELD_PREP(GENMASK(7, 4), v)
+#define AV1_QP_QM_V(v)		FIELD_PREP(GENMASK(3, 0), v)
 
 #define AV1_GM_VALID(v)		FIELD_PREP(BIT(30), !!(v))
 #define AV1_GM_TYPE(v)		FIELD_PREP(GENMASK(31, 30), v)
@@ -154,7 +164,6 @@
 #define AV1_LF_REF2(v)		FIELD_PREP(GENMASK(13, 7), v)
 #define AV1_LF_REF3(v)		FIELD_PREP(GENMASK(6, 0), v)
 
-#define AV1_LF_LV(v)		FIELD_PREP(GENMASK(31, 14), v)
 #define AV1_LF_MODE0(v)		FIELD_PREP(GENMASK(13, 7), v)
 #define AV1_LF_MODE1(v)		FIELD_PREP(GENMASK(6, 0), v)
 
@@ -174,13 +183,21 @@
 #define AV1_LR_TYPE1(v)	FIELD_PREP(GENMASK(9, 8), v)
 #define AV1_LR_TYPE2(v)	FIELD_PREP(GENMASK(7, 6), v)
 
-#define AV1_LR_UNIT0(v)	FIELD_PREP(GENMASK(1, 0), v)
+#define AV1_LR_UNIT2(v)	FIELD_PREP(GENMASK(1, 0), v)
 #define AV1_LR_UNIT1(v)	FIELD_PREP(GENMASK(3, 2), v)
-#define AV1_LR_UNIT2(v)	FIELD_PREP(GENMASK(5, 4), v)
+#define AV1_LR_UNIT0(v)	FIELD_PREP(GENMASK(5, 4), v)
 
 #define AV1_REF_ORDER_HINT(v)	FIELD_PREP(GENMASK(23, 0), v)
 #define AV1_REF_SCALE_X(v)	FIELD_PREP(GENMASK(31, 16), v)
 #define AV1_REF_SCALE_Y(v)	FIELD_PREP(GENMASK(15, 0), v)
+
+#define AV1_SUPERRES_USE(v)	FIELD_PREP(BIT(31), !!(v))
+#define AV1_SUPERRES_DENOM(v)	FIELD_PREP(GENMASK(30, 28), v)
+/* im gonna asume 16 like the others */
+#define AV1_SUPERRES_UPSCALE(v)	FIELD_PREP(GENMASK(16, 0), v)
+
+#define AV1_UPSCALE_STEPX(v)	FIELD_PREP(GENMASK(13, 0), v)
+#define AV1_UPSCALE_UPSCX(v)	FIELD_PREP(GENMASK(31, 14), v)
 
 #define AVD_CDFS_SIZE	(sizeof(struct avd_av1_cdfs))
 
@@ -350,15 +367,17 @@ static void set_refs(struct avd_ctx *ctx, struct avd_av1_run *run)
 			int shift =
 				(gm->flags[ref_idx] &
 				 V4L2_AV1_GLOBAL_MOTION_FLAG_IS_TRANSLATION) ?
-					WARPEDMODEL_PREC_BITS - 3 :
-					10 /* why? */;
+					(WARPEDMODEL_PREC_BITS -
+					 2) - (frame->flags & V4L2_AV1_FRAME_FLAG_ALLOW_HIGH_PRECISION_MV ?
+						       1 :
+						       0) :
+					10;
 			push(AV1_GM_TYPE(gm->type[ref_idx]) |
 				     AV1_GM_PARAM0(gm->params[ref_idx][0] >>
 						   shift) |
 				     AV1_GM_PARAM1(gm->params[ref_idx][1] >>
 						   shift),
 			     "ref_gm_mv");
-			/* TODO: precison or something, does not always fit */
 			push(AV1_GM_VALID(!(V4L2_AV1_GLOBAL_MOTION_IS_INVALID(
 						    ref_idx) &
 					    gm->invalid)) |
@@ -367,12 +386,8 @@ static void set_refs(struct avd_ctx *ctx, struct avd_av1_run *run)
 				     AV1_GM_PARAM1(AV1_DIV_ROUND_UP_POW2_SIGNED(
 					     gm->params[ref_idx][3], 1)),
 			     "ref_gm_param");
-			/* TODO: this does not quite fit */
-			push(AV1_GM_PARAM1(gm->params[ref_idx][5] / 2) |
-				     AV1_GM_PARAM0(AV1_DIV_ROUND_UP_POW2_SIGNED(
-					     gm->params[ref_idx][4] -
-						     gm->params[ref_idx][3],
-					     2)),
+			push(AV1_GM_PARAM1(gm->params[ref_idx][5] >> 1) |
+				     AV1_GM_PARAM0(gm->params[ref_idx][4] >> 1),
 			     "ref_gm_unk2");
 			avd_av1_dec_get_shear_params(&gm->params[ref_idx][0],
 						     &alpha, &beta, &gamma,
@@ -588,6 +603,27 @@ static void set_ref_hdr(struct avd_ctx *ctx, struct avd_av1_run *run)
 	     "reference_select");
 }
 
+/* 7.16. Upscaling process */
+static void calc_upscale(int frame_width, int upscaled_width, int sub_x,
+			 int *step_x, int *initial_subpel_x)
+{
+	int downscaled_plane_w, upscaled_plane_w, err;
+
+	downscaled_plane_w = AV1_DIV_ROUND_UP_POW2(frame_width, sub_x);
+	upscaled_plane_w = AV1_DIV_ROUND_UP_POW2(upscaled_width, sub_x);
+	*step_x = ((downscaled_plane_w << SUPERRES_SCALE_BITS) +
+		   (upscaled_plane_w / 2)) /
+		  upscaled_plane_w;
+	err = (upscaled_plane_w * *step_x) -
+	      (downscaled_plane_w << SUPERRES_SCALE_BITS);
+	*initial_subpel_x = (-((upscaled_plane_w - downscaled_plane_w)
+			       << (SUPERRES_SCALE_BITS - 1)) +
+			     upscaled_plane_w / 2) /
+				    upscaled_plane_w +
+			    (1 << (SUPERRES_EXTRA_BITS - 1)) - err / 2;
+	*initial_subpel_x &= SUPERRES_SCALE_MASK;
+}
+
 static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 {
 	struct avd_av1_ctx *av1_ctx = ctx->priv;
@@ -599,6 +635,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 	struct avd_dev *avd = ctx->dev;
 	u32 bytesperline;
 	int i, segid, segval, ref_idx;
+	int step_x, initial_subpel_x;
 	u8 selected_refs[3] = { 0, 0, 0 };
 	bool coded_lossless = frame->tx_mode == V4L2_AV1_TX_MODE_ONLY_4X4;
 	bool intrabc = !!(frame->flags & V4L2_AV1_FRAME_FLAG_ALLOW_INTRABC);
@@ -646,6 +683,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 		     AV1_HDR_DUAL_FILTER(
 			     seq->flags &
 			     V4L2_AV1_SEQUENCE_FLAG_ENABLE_DUAL_FILTER) |
+		     AV1_HDR_ORDER_HINT_BITS((seq->order_hint_bits - 1)) |
 		     AV1_HDR_ORDER_HINT(
 			     seq->flags &
 			     V4L2_AV1_SEQUENCE_FLAG_ENABLE_ORDER_HINT) |
@@ -666,17 +704,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 			     V4L2_AV1_SEQUENCE_FLAG_USE_128X128_SUPERBLOCK) |
 		     AV1_HDR_SCREEN_CONTENT_TOOLS(
 			     frame->flags &
-			     V4L2_AV1_FRAME_FLAG_ALLOW_SCREEN_CONTENT_TOOLS) |
-
-		     /* TODO: this seems like a coincidence */
-		     !!!(seq->flags & V4L2_AV1_SEQUENCE_FLAG_ENABLE_ORDER_HINT)
-			     << 1 |
-		     !!(seq->flags &
-			V4L2_AV1_SEQUENCE_FLAG_ENABLE_WARPED_MOTION)
-			     << 2 |
-		     !!(seq->flags &
-			V4L2_AV1_SEQUENCE_FLAG_ENABLE_MASKED_COMPOUND)
-			     << 3,
+			     V4L2_AV1_FRAME_FLAG_ALLOW_SCREEN_CONTENT_TOOLS),
 	     "hdr_common");
 
 	push(AV1_FLAGS_TX_MODE_LARGEST(frame->tx_mode ==
@@ -826,10 +854,15 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 		     AV1_QP_U_AC(frame->quantization.delta_q_u_ac),
 	     "qp_base_q_idx");
 
-	/* TODO: test294 test35 */
-	push(0, "unk");
+	push(AV1_QP_V_DC(frame->quantization.delta_q_v_dc) |
+		     AV1_QP_V_AC(frame->quantization.delta_q_v_ac) |
+		     AV1_QP_QMATRIX(frame->quantization.flags &
+				    V4L2_AV1_QUANTIZATION_FLAG_USING_QMATRIX) |
+		     AV1_QP_QM_Y(frame->quantization.qm_y) |
+		     AV1_QP_QM_U(frame->quantization.qm_u) |
+		     AV1_QP_QM_V(frame->quantization.qm_v),
+	     "qp_qm");
 
-	/* TODO */
 	push(AV1_LF_DELTA_ENABLED(frame->loop_filter.flags &
 				  V4L2_AV1_LOOP_FILTER_FLAG_DELTA_ENABLED) |
 		     AV1_LF_DELTA_PRESENT(
@@ -839,14 +872,14 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 			     frame->loop_filter.flags &
 			     V4L2_AV1_LOOP_FILTER_FLAG_DELTA_LF_MULTI) |
 		     AV1_LF_DELTA_RES(frame->loop_filter.delta_lf_res) |
-
+		     AV1_LF_SHARPNESS(frame->loop_filter.sharpness) |
 		     AV1_LF_LV0(frame->loop_filter.level[0]) |
 		     AV1_LF_LV1(frame->loop_filter.level[1]) |
 		     AV1_LF_LV2(frame->loop_filter.level[2]) |
 		     AV1_LF_LV3(frame->loop_filter.level[3]),
 	     "lf_update");
-	push(AV1_LF_SHARPNESS(frame->loop_filter.sharpness) |
-		     AV1_LF_REF0(frame->loop_filter.ref_deltas[0]) |
+
+	push(AV1_LF_REF0(frame->loop_filter.ref_deltas[0]) |
 		     AV1_LF_REF1(frame->loop_filter.ref_deltas[1]) |
 		     AV1_LF_REF2(frame->loop_filter.ref_deltas[2]) |
 		     AV1_LF_REF3(frame->loop_filter.ref_deltas[3]),
@@ -857,8 +890,10 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 		     AV1_LF_REF2(frame->loop_filter.ref_deltas[6]) |
 		     AV1_LF_REF3(frame->loop_filter.ref_deltas[7]),
 	     "lf_ref_deltas");
-	/* TODO */
-	push(0, "lf_unk");
+
+	push(AV1_LF_MODE0(frame->loop_filter.mode_deltas[0]) |
+		     AV1_LF_MODE1(frame->loop_filter.mode_deltas[1]),
+	     "lf_mode");
 
 #define AVD_AV1_SEC_FIXUP(i) ((i) == 4 ? 3 : i)
 
@@ -881,16 +916,23 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 #undef AV1_CDEF_PACK_ONE
 #undef AV1_CDEF_PACK
 
-	push((frame->flags & V4L2_AV1_FRAME_FLAG_USE_SUPERRES << 31) |
-		     /* TODO: this is wrong, has something to do with superres */
-		     (frame->flags & V4L2_AV1_FRAME_FLAG_USE_SUPERRES ?
-			      (frame->superres_denom - 1) << 28 :
-			      0) |
-		     (frame->upscaled_width - 1),
-	     "upscaled_width");
-	/* something superres related? test35 */
-	push(0x200000, "flag_unk0");
-	push(0x200000, "flag_unk1");
+	push(AV1_SUPERRES_USE(frame->flags & V4L2_AV1_FRAME_FLAG_USE_SUPERRES) |
+		     AV1_SUPERRES_DENOM(
+			     frame->flags & V4L2_AV1_FRAME_FLAG_USE_SUPERRES ?
+				     (frame->superres_denom - 1) :
+				     0) |
+		     AV1_SUPERRES_UPSCALE(frame->upscaled_width - 1),
+	     "superres");
+
+	calc_upscale(frame->frame_width_minus_1 + 1, frame->upscaled_width, 0,
+		     &step_x, &initial_subpel_x);
+	push(AV1_UPSCALE_UPSCX(initial_subpel_x) | AV1_UPSCALE_STEPX(step_x),
+	     "upscale_p0");
+	calc_upscale(frame->frame_width_minus_1 + 1, frame->upscaled_width,
+		     !!(seq->flags & V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_X),
+		     &step_x, &initial_subpel_x);
+	push(AV1_UPSCALE_UPSCX(initial_subpel_x) | AV1_UPSCALE_STEPX(step_x),
+	     "upscale_p1");
 
 	u8 restoration_unit_size[V4L2_AV1_NUM_PLANES_MAX] = { 3, 3, 3 };
 
@@ -943,8 +985,8 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 
 	push(0, "mark_section");
 
-	push(AVD_HDR_HEIGHT(frame->frame_height_minus_1) |
-		     AVD_HDR_WIDTH(frame->frame_width_minus_1),
+	push(AVD_HDR_HEIGHT(frame->render_height_minus_1 + 1) |
+		     AVD_HDR_WIDTH(frame->render_width_minus_1 + 1),
 	     "height_width_3");
 	if (!intra_only || intrabc)
 		set_refs(ctx, run);
