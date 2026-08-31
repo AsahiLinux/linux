@@ -38,6 +38,7 @@ config ARCH_APPLE
 	select APPLE_AIC
 	select APPLE_PMGR_PWRSTATE if PM
 	select HAVE_SHARED_GPIOS
+        select APPLE_USE_PMP_V1 if PM
 	help
 	  This enables support for Apple's in-house ARM SoC family, such
 	  as the Apple M1.
