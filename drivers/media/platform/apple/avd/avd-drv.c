@@ -103,6 +103,9 @@ int avd_buf_alloc(struct avd_dev *avd, struct avd_buf *buf, size_t size)
 	else if (buf->cpu)
 		avd_buf_free(avd, buf);
 
+	if (size <= 0)
+		return -ENOMEM;
+
 	buf->size = size;
 	buf->cpu =
 		dma_alloc_coherent(avd->dev, buf->size, &buf->addr, GFP_KERNEL);
