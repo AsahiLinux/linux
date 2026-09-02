@@ -17,6 +17,18 @@
 
 #define AVD_OP_HDR			FIELD_PREP(GENMASK(31, 20), 0x2db)
 #define AVD_OP_HDR_CONST		FIELD_PREP(GENMASK(10, 0), 0x2e0)
+
+/*
+ * only for 10 bit.
+ * output in packed p010 / nv15 kinda format
+ * 10 bits per component. With groups of tree packed into 4 bytes (little
+ * endian order)
+ *  P  3  2  1
+ * [2:10:10:10]
+ *
+ * additionally, av1 and vp9 need an extra scratch buffer if this is set
+ */
+#define AVD_OP_HDR_FLAG_PACKED(v)	FIELD_PREP(BIT(10), !!(v))
 /* decompress pixel data */
 #define AVD_OP_HDR_FLAG_DECOMP(v)	FIELD_PREP(BIT(12), !!(v))
 #define AVD_OP_HDR_FLAG_INTRA(v)	FIELD_PREP(BIT(13), !!(v))

@@ -52,7 +52,7 @@
 
 #define HEVC_SCL_DIMS	0x127ffff
 
-static inline u32 sps_size(u32 w, u32 h)
+static inline u32 mv_color_size(u32 w, u32 h)
 {
 	/* this will waste some memory when max cu size != 64 */
 	return DIV_ROUND_UP(w, 64) * DIV_ROUND_UP(h, 64) * 256;
@@ -80,7 +80,7 @@ struct avd_hevc_run {
 	int num_slices;
 
 	struct run_addr {
-		dma_addr_t sps;
+		dma_addr_t mv_color;
 	} addresses;
 
 	struct avd_hevc_tile_info tile_info;
@@ -90,7 +90,14 @@ struct avd_hevc_ctx {
 	struct v4l2_ctrl_hevc_scaling_matrix scaling_matrix_cache;
 
 	struct avd_h264_bufs {
-		struct avd_buf pps_tile[9];
+		struct avd_buf mv_above_info;
+		struct avd_buf az_above;
+		struct avd_buf ip_above;
+		struct avd_buf lf_above;
+		struct avd_buf lf_above_info;
+		struct avd_buf lf_left;
+		struct avd_buf lf_left_info;
+		struct avd_buf sw_left;
 		struct avd_buf inst;
 		struct avd_buf pipe_state;
 	} bufs;
@@ -110,9 +117,8 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
 	push(0, "");
-	pusha(hevc_ctx->bufs.pps_tile[1].addr, "hdr_9c_pps_tile_addr_lsb8", 7);
-	pusha(run->addresses.sps, "hdr_bc_sps_tile_addr_lsb8",
-	      sl->slice_pic_order_cnt);
+	pusha(hevc_ctx->bufs.mv_above_info.addr, "mv_above_info", 7);
+	pusha(run->addresses.mv_color, "mv_color", 0);
 
 	push(0, "");
 	push(0, "");
@@ -365,35 +371,19 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	else if (!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
 		pusha(hevc_ctx->bufs.pipe_state.addr, "pipe_state", 0);
 
-	pusha(hevc_ctx->bufs.pps_tile[0].addr, "hdr_dc_pps_tile_addr_lsb8", 0);
-	pusha(hevc_ctx->bufs.pps_tile[2].addr, "hdr_dc_pps_tile_addr_lsb8", 1);
-	pusha(hevc_ctx->bufs.pps_tile[3].addr, "hdr_dc_pps_tile_addr_lsb8", 2);
-
-	if (pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED) {
-		pusha(hevc_ctx->bufs.pps_tile[4].addr,
-		      "hdr_dc_pps_tile_addr_lsb8", 3);
-		pusha(hevc_ctx->bufs.pps_tile[5].addr,
-		      "hdr_dc_pps_tile_addr_lsb8", 4);
-		pusha(hevc_ctx->bufs.pps_tile[6].addr,
-		      "hdr_dc_pps_tile_addr_lsb8", 8);
-		pusha(hevc_ctx->bufs.pps_tile[7].addr,
-		      "hdr_dc_pps_tile_addr_lsb8", 9);
-	} else {
-		pusha(0, "", 3);
-		pusha(0, "", 4);
-		pusha(hevc_ctx->bufs.pps_tile[8].addr,
-		      "hdr_dc_pps_tile_addr_lsb8", 8);
-		pusha(0, "", 9);
-	}
+	pusha(hevc_ctx->bufs.ip_above.addr, "ip_above", 0);
+	pusha(hevc_ctx->bufs.lf_above.addr, "lf_above", 1);
+	pusha(hevc_ctx->bufs.lf_above_info.addr, "lf_above_info", 2);
+	pusha(hevc_ctx->bufs.lf_left.addr, "lf_left", 3);
+	pusha(hevc_ctx->bufs.lf_left_info.addr, "lf_left_info", 4);
+	pusha(hevc_ctx->bufs.az_above.addr, "az_above", 8);
+	pusha(hevc_ctx->bufs.sw_left.addr, "sw_left", 9);
 
 	push(0, "");
 
 	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
 
-	push(0, "cm3_mark_end_section");
-
-	if (!(avd->variant->quirks & AVD_QUIRK_LSR))
-		push(0, "cm3_mark_end_section");
+	pusha((u64)0, "packed_fmt_scratch", 0);
 
 	bytesperline = ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
@@ -648,12 +638,12 @@ static void stream_slice_mv(struct avd_ctx *ctx, struct avd_hevc_run *run,
 	     "slc_a8c_cmd_ref_type");
 
 	if (ref_valid) {
-		dma_addr_t sps_tile_addr =
+		dma_addr_t mv_color_addr =
 			vb2_dma_contig_plane_dma_addr(&ref->base.vb.vb2_buf,
 						      0) +
 			(ref->base.vb.planes[0].length -
-			 sps_size(fmt_width(ctx), fmt_height(ctx)));
-		pusha(sps_tile_addr, "slc_bd4_sps_tile_addr2_lsb8",
+			 mv_color_size(fmt_width(ctx), fmt_height(ctx)));
+		pusha(mv_color_addr, "slc_bd4_sps_tile_addr2_lsb8",
 		      decode->dpb[ref_list[sl->collocated_ref_idx]]
 			      .pic_order_cnt_val);
 	}
@@ -1039,7 +1029,7 @@ static void avd_hevc_adjust_decoded_fmt(struct avd_ctx *ctx,
 					struct v4l2_pix_format_mplane *pix_mp)
 {
 	pix_mp->plane_fmt[0].sizeimage +=
-		sps_size(pix_mp->width, pix_mp->height);
+		mv_color_size(pix_mp->width, pix_mp->height);
 }
 
 static enum avd_image_fmt avd_hevc_get_image_fmt(struct avd_ctx *ctx,
@@ -1154,52 +1144,51 @@ static int avd_hevc_alloc_scratch(struct avd_ctx *ctx, struct avd_hevc_run *run)
 				  tile_info->row_height[i] :
 				  max_row;
 
-	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[0],
+	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.ip_above,
 			    ((max_col * max_cu_width) / 4) * bit_depth);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[1],
+	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.mv_above_info,
 			    ((max_col * max_cu_width) / 16) * 20);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[2],
+	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.lf_above,
 			    DIV_ROUND_UP(w, 16) * bit_depth * (10 + 6) +
 				    (cols - 1) * 256);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[3],
+	ret = avd_buf_alloc(avd, &hevc_ctx->bufs.lf_above_info,
 			    DIV_ROUND_UP(w + 7, 16) * 36 + cols * 128);
 	if (ret)
 		return ret;
 
 	if (pps->flags & V4L2_HEVC_PPS_FLAG_TILES_ENABLED) {
-		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[4],
+		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.lf_left,
 				    ((max_row * max_cu_width) / 4) * 36 +
 					    144 /* why? */);
 		if (ret)
 			return ret;
-		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[5],
+		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.lf_left_info,
 				    ((max_row * max_cu_width) / 4) * 9);
 		if (ret)
 			return ret;
 
-		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[6],
+		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.az_above,
 				    /* not sure if its cols or rows */
 				    DIV_ROUND_UP(w, 64) * 144 +
 					    (cols - 1) * 128);
 		if (ret)
 			return ret;
 
-		/* 5 or 3 is info? */
-		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[7],
+		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.sw_left,
 				    ((max_row * max_cu_width) / 4) * 216);
 		if (ret)
 			return ret;
 	} else {
-		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.pps_tile[8],
+		ret = avd_buf_alloc(avd, &hevc_ctx->bufs.az_above,
 				    DIV_ROUND_UP(w + 7, 16) * 4 * bit_depth);
 		if (ret)
 			return ret;
@@ -1285,15 +1274,6 @@ static int avd_hevc_compute_tiles(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	return 0;
 }
 
-static void avd_hevc_dealloc_scratch(struct avd_ctx *ctx)
-{
-	struct avd_hevc_ctx *hevc_ctx = ctx->priv;
-	struct avd_dev *avd = ctx->dev;
-
-	for (int i = 0; i < PPS_NUM; i++)
-		avd_buf_free(avd, &hevc_ctx->bufs.pps_tile[i]);
-}
-
 static void avd_hevc_stop(struct avd_ctx *ctx)
 {
 	struct avd_hevc_ctx *hevc_ctx = ctx->priv;
@@ -1304,8 +1284,14 @@ static void avd_hevc_stop(struct avd_ctx *ctx)
 
 	avd_buf_free(avd, &hevc_ctx->bufs.pipe_state);
 	avd_buf_free(avd, &hevc_ctx->bufs.inst);
-
-	avd_hevc_dealloc_scratch(ctx);
+	avd_buf_free(avd, &hevc_ctx->bufs.mv_above_info);
+	avd_buf_free(avd, &hevc_ctx->bufs.az_above);
+	avd_buf_free(avd, &hevc_ctx->bufs.ip_above);
+	avd_buf_free(avd, &hevc_ctx->bufs.lf_above);
+	avd_buf_free(avd, &hevc_ctx->bufs.lf_above_info);
+	avd_buf_free(avd, &hevc_ctx->bufs.lf_left);
+	avd_buf_free(avd, &hevc_ctx->bufs.lf_left_info);
+	avd_buf_free(avd, &hevc_ctx->bufs.sw_left);
 
 	free_vp_slot(avd, ctx);
 	free_inst_slot(avd, ctx);
@@ -1316,7 +1302,7 @@ static void avd_hevc_stop(struct avd_ctx *ctx)
 static int avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 {
 	struct v4l2_ctrl *ctrl;
-	u32 dst_len, sps_len;
+	u32 dst_len, mv_color_len;
 
 	ctrl = v4l2_ctrl_find(&ctx->ctrl_hdl,
 			      V4L2_CID_STATELESS_HEVC_DECODE_PARAMS);
@@ -1344,9 +1330,9 @@ static int avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 	dst_len = run->base.bufs.dst->vb2_buf.planes[0].length;
 
-	sps_len = sps_size(fmt_width(ctx), fmt_height(ctx));
+	mv_color_len = mv_color_size(fmt_width(ctx), fmt_height(ctx));
 
-	run->addresses.sps = run->base.y_out + (dst_len - sps_len);
+	run->addresses.mv_color = run->base.y_out + (dst_len - mv_color_len);
 	return 0;
 }
 

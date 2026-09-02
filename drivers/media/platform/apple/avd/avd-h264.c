@@ -43,7 +43,7 @@ struct avd_h264_run {
 	const struct v4l2_ctrl_h264_pred_weights *pred_weights;
 
 	struct run_addr {
-		dma_addr_t sps;
+		dma_addr_t mv_color;
 	} addresses;
 
 	s32 cur_poc;
@@ -59,9 +59,13 @@ struct avd_h264_ctx {
 	} reflists;
 
 	struct avd_h264_bufs {
-		struct avd_buf pps_tile[5];
 		struct avd_buf inst;
 		struct avd_buf pipe_state;
+		struct avd_buf above_info;
+		struct avd_buf lf_above_info;
+		struct avd_buf lf_above;
+		struct avd_buf ip_above;
+		struct avd_buf mv_above_info;
 	} bufs;
 };
 
@@ -81,7 +85,7 @@ static const u32 default_8x8_inter[] = {
 	0x191b1c1e, 0x1b1c1e20, 0x1c1e2021, 0x1e202123,
 };
 
-static inline u32 sps_size(u32 w, u32 h)
+static inline u32 mv_color_size(u32 w, u32 h)
 {
 	return (DIV_ROUND_UP(w, 16) + 1) * (DIV_ROUND_UP(h, 16) + 1) * 64;
 }
@@ -100,8 +104,8 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_h264_run *run)
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
 	push(0, "");
-	pusha(h264_ctx->bufs.pps_tile[4].addr, "hdr_9c_pps_tile_addr_lsb8", 7);
-	pusha(run->addresses.sps, "hdr_bc_sps_tile_addr_lsb8", 0);
+	pusha(h264_ctx->bufs.mv_above_info.addr, "mv_above_info", 7);
+	pusha(run->addresses.mv_color, "mv_color", 0);
 
 	push(0, "");
 	push(0, "");
@@ -260,7 +264,7 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	if (avd->variant->revision == 3)
 		push(0, "zero");
 
-	pusha(h264_ctx->bufs.pps_tile[0].addr, "hdr_9c_pps_tile_addr_lsb8", 0);
+	pusha(h264_ctx->bufs.above_info.addr, "hdr_9c_pps_tile_addr_lsb8", 0);
 
 	push(0, "");
 	push(0, "");
@@ -270,9 +274,9 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	else if (!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
 		pusha(h264_ctx->bufs.pipe_state.addr, "pipe_state", 0);
 
-	pusha(h264_ctx->bufs.pps_tile[1].addr, "hdr_9c_pps_tile_addr_lsb8", 1);
-	pusha(h264_ctx->bufs.pps_tile[2].addr, "hdr_9c_pps_tile_addr_lsb8", 2);
-	pusha(h264_ctx->bufs.pps_tile[3].addr, "hdr_9c_pps_tile_addr_lsb8", 3);
+	pusha(h264_ctx->bufs.ip_above.addr, "ip_above", 1);
+	pusha(h264_ctx->bufs.lf_above.addr, "lf_above", 2);
+	pusha(h264_ctx->bufs.lf_above_info.addr, "lf_above_info", 3);
 	push(0, "");
 
 	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
@@ -498,14 +502,14 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 			&ctx->fh.m2m_ctx->cap_q_ctx.q,
 			decode->dpb[sl->ref_pic_list1[0].index].reference_ts);
 
-		dma_addr_t sps_tile_addr =
+		dma_addr_t mv_color_addr =
 			vb ? vb2_dma_contig_plane_dma_addr(vb, 0) +
 					(vb->planes[0].length -
-					 sps_size(fmt_width(ctx),
-						  fmt_height(ctx))) :
-			     run->addresses.sps;
+					 mv_color_size(fmt_width(ctx),
+						       fmt_height(ctx))) :
+			     run->addresses.mv_color;
 
-		pusha(sps_tile_addr, "slc_a78_sps_tile_addr2_lsb8", 0);
+		pusha(mv_color_addr, "slc_a78_sps_tile_addr2_lsb8", 0);
 	}
 
 	/* only submit if this is the last slice */
@@ -544,25 +548,24 @@ static int avd_h264_alloc_bufs(struct avd_ctx *ctx)
 
 	mb = DIV_ROUND_UP(w, 16);
 
-	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[0], mb * 20);
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.above_info, mb * 20);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[1],
-			    bit_depth * 4 * mb);
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.ip_above, bit_depth * 4 * mb);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[2],
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.lf_above,
 			    bit_depth * 4 * 4 * mb);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[3], 32 * mb);
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.lf_above_info, 32 * mb);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(dev, &h264_ctx->bufs.pps_tile[4], 32 * mb);
+	ret = avd_buf_alloc(dev, &h264_ctx->bufs.mv_above_info, 32 * mb);
 	if (ret)
 		return ret;
 
@@ -579,9 +582,11 @@ static void avd_h264_free_bufs(struct avd_ctx *ctx)
 
 	avd_buf_free(dev, &h264_ctx->bufs.pipe_state);
 	avd_buf_free(dev, &h264_ctx->bufs.inst);
-
-	for (int i = 0; i < 5; i++)
-		avd_buf_free(dev, &h264_ctx->bufs.pps_tile[i]);
+	avd_buf_free(dev, &h264_ctx->bufs.above_info);
+	avd_buf_free(dev, &h264_ctx->bufs.lf_above_info);
+	avd_buf_free(dev, &h264_ctx->bufs.lf_above);
+	avd_buf_free(dev, &h264_ctx->bufs.ip_above);
+	avd_buf_free(dev, &h264_ctx->bufs.mv_above_info);
 
 	kfree(h264_ctx);
 }
@@ -657,7 +662,7 @@ static void avd_h264_stop(struct avd_ctx *ctx)
 static void avd_h264_run_preamble(struct avd_ctx *ctx, struct avd_h264_run *run)
 {
 	struct v4l2_ctrl *ctrl;
-	u32 dst_len, sps_len;
+	u32 dst_len, mv_color_len;
 
 	ctrl = v4l2_ctrl_find(&ctx->ctrl_hdl,
 			      V4L2_CID_STATELESS_H264_DECODE_PARAMS);
@@ -680,9 +685,9 @@ static void avd_h264_run_preamble(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 	dst_len = run->base.bufs.dst->vb2_buf.planes[0].length;
 
-	sps_len = sps_size(fmt_width(ctx), fmt_height(ctx));
+	mv_color_len = mv_color_size(fmt_width(ctx), fmt_height(ctx));
 
-	run->addresses.sps = run->base.y_out + (dst_len - sps_len);
+	run->addresses.mv_color = run->base.y_out + (dst_len - mv_color_len);
 }
 
 static int avd_h264_run(struct avd_ctx *ctx)
@@ -786,7 +791,7 @@ static void avd_h264_adjust_decoded_fmt(struct avd_ctx *ctx,
 					struct v4l2_pix_format_mplane *pix_mp)
 {
 	pix_mp->plane_fmt[0].sizeimage +=
-		sps_size(pix_mp->width, pix_mp->height);
+		mv_color_size(pix_mp->width, pix_mp->height);
 }
 
 static int avd_h264_try_ctrl(struct avd_ctx *ctx, struct v4l2_ctrl *ctrl)
