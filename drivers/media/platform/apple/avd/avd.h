@@ -89,7 +89,7 @@ struct avd_av1_decoded_buffer_info {
 	u32 order_hints[V4L2_AV1_TOTAL_REFS_PER_FRAME];
 	u8 ref_frame_idx[V4L2_AV1_REFS_PER_FRAME];
 	bool intrabc;
-	size_t priv_tlb_size;
+	size_t color_size;
 };
 
 struct avd_hevc_decoded_buffer_info {

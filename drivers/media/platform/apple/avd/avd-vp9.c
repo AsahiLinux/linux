@@ -149,13 +149,13 @@ struct avd_vp9_ctx {
 	struct v4l2_vp9_frame_context frame_context[4];
 	struct avd_vp9_bufs {
 		struct avd_buf inst;
-		/* only affect tiles */
-		struct avd_buf tiles[3];
-		/* just a guess (this name exists in tunables) */
+		struct avd_buf az_left;
 		struct avd_buf above_info;
-		/* if above is true, state and color are left */
-		struct avd_buf state;
-		struct avd_buf color[2];
+		struct avd_buf ip_above;
+		struct avd_buf lf_above;
+		struct avd_buf lf_left_info;
+		struct avd_buf lf_left;
+		struct avd_buf color;
 		struct avd_buf seg;
 		struct avd_buf pipe_state;
 		struct avd_buf counts;
@@ -324,18 +324,13 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	push(0, "");
 	push(0, "");
 
-	pusha(vp9_ctx->bufs.counts.addr, "frame_counts_addr", 0);
-	pusha(vp9_ctx->bufs.probs.addr, "hdr_104_probs_addr_lsb8", 0);
-
-	/* always used */
-	pusha(vp9_ctx->bufs.state.addr, "hdr_118_pps0_tile_addr_lsb8", 0);
-
-	/* read / write segment buffers */
-	pusha(vp9_ctx->bufs.seg.addr, "hdr_108_pps1_tile_addr_lsb8", 1);
-	pusha(vp9_ctx->bufs.seg.addr, "hdr_108_pps1_tile_addr_lsb8", 2);
-	/* ping pong buffers, not on intra frames (how apple uses them) */
-	pusha(vp9_ctx->bufs.above_info.addr, "hdr_110_pps2_tile_addr_lsb8", 3);
-	pusha(vp9_ctx->bufs.above_info.addr, "hdr_110_pps2_tile_addr_lsb8", 4);
+	pusha(vp9_ctx->bufs.counts.addr, "counts", 0);
+	pusha(vp9_ctx->bufs.probs.addr, "probs", 0);
+	pusha(vp9_ctx->bufs.above_info.addr, "above_info", 0);
+	pusha(vp9_ctx->bufs.seg.addr, "seg", 1);
+	pusha(vp9_ctx->bufs.seg.addr, "seg", 2);
+	pusha(vp9_ctx->bufs.color.addr, "color", 3);
+	pusha(vp9_ctx->bufs.color.addr, "color", 4);
 
 	push(VP9_Q_IDX(frame->quant.base_q_idx) |
 		     VP9_Q_DC_Y(frame->quant.delta_q_y_dc) |
@@ -369,23 +364,19 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	if (!(avd->variant->quirks & AVD_QUIRK_NO_PIPE_STATE))
 		pusha(vp9_ctx->bufs.pipe_state.addr, "pipe_state", 0);
 
-	pusha(vp9_ctx->bufs.color[0].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
-	pusha(vp9_ctx->bufs.color[1].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
-
+	pusha(vp9_ctx->bufs.ip_above.addr, "ip_above", 0);
+	pusha(vp9_ctx->bufs.lf_above.addr, "lf_above", 0);
+	/* no lf_above_info? */
 	pusha((u64)0, "hdr_e8_sps0_tile_addr_lsb8", 0);
-
-	/* not fatal */
-	pusha(vp9_ctx->bufs.tiles[0].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
-	pusha(vp9_ctx->bufs.tiles[1].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
-	/* fatal if missing / wrong */
-	pusha(vp9_ctx->bufs.tiles[2].addr, "hdr_e8_sps0_tile_addr_lsb8", 0);
+	pusha(vp9_ctx->bufs.lf_left.addr, "lf_left", 0);
+	pusha(vp9_ctx->bufs.lf_left_info.addr, "lf_left_info", 0);
+	pusha(vp9_ctx->bufs.az_left.addr, "az_left", 0);
 
 	push(0, "");
 
 	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
 
-	/* confusing */
-	pusha((u64)0, "hdr_f4_sps1_tile_addr_lsb8", 2);
+	pusha((u64)0, "packed_fmt_scratch", 0);
 
 	bytesperline = ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
@@ -642,46 +633,42 @@ static int avd_vp9_alloc_bufs(struct avd_ctx *ctx)
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.above_info,
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.color,
 			    DIV_ROUND_UP(w, 16) * DIV_ROUND_UP(h, 64) * 144);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.color[0],
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.ip_above,
 			    DIV_ROUND_UP(w, 16) * 4 * bit_depth +
 				    (VP9_MAX_TILE_COLS - 1) * 128);
 	if (ret)
 		return ret;
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.color[1],
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.lf_above,
 			    DIV_ROUND_UP(w, 8) * 16 * bit_depth);
 	if (ret)
 		return ret;
 
-	/*
-	 * randomly needs more space when resizing?
-	 * maybe it does not need it?
-	 */
 	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.seg, DIV_ROUND_UP(w, 8) * 24);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.tiles[0],
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.lf_left,
 			    DIV_ROUND_UP(h, 8) * 16 * bit_depth);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.tiles[1],
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.lf_left_info,
 			    DIV_ROUND_UP(h, 64) * 16);
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.tiles[2],
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.az_left,
 			    bit_depth * 36 * DIV_ROUND_UP(h, 8) +
 				    bit_depth * 18 * DIV_ROUND_UP(h, 16));
 	if (ret)
 		return ret;
 
-	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.state,
+	ret = avd_buf_alloc(avd, &vp9_ctx->bufs.above_info,
 			    DIV_ROUND_UP(w, 64) * 288 +
 				    (VP9_MAX_TILE_COLS - 1) * 128);
 	if (ret)
@@ -981,12 +968,13 @@ static void avd_vp9_stop(struct avd_ctx *ctx)
 	avd_buf_free(avd, &vp9_ctx->bufs.probs);
 	avd_buf_free(avd, &vp9_ctx->bufs.counts);
 	avd_buf_free(avd, &vp9_ctx->bufs.seg);
+	avd_buf_free(avd, &vp9_ctx->bufs.color);
+	avd_buf_free(avd, &vp9_ctx->bufs.ip_above);
+	avd_buf_free(avd, &vp9_ctx->bufs.lf_above);
 	avd_buf_free(avd, &vp9_ctx->bufs.above_info);
-	avd_buf_free(avd, &vp9_ctx->bufs.color[0]);
-	avd_buf_free(avd, &vp9_ctx->bufs.color[1]);
-	avd_buf_free(avd, &vp9_ctx->bufs.state);
-	for (int i = 0; i < 3; i++)
-		avd_buf_free(avd, &vp9_ctx->bufs.tiles[i]);
+	avd_buf_free(avd, &vp9_ctx->bufs.az_left);
+	avd_buf_free(avd, &vp9_ctx->bufs.lf_left_info);
+	avd_buf_free(avd, &vp9_ctx->bufs.lf_left);
 
 	kfree(vp9_ctx);
 }
