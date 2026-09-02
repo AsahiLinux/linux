@@ -569,10 +569,17 @@ static void afk_recv_handle(struct apple_dcp_afkep *ep, u32 channel, u32 type,
 	    subtype == EPIC_SUBTYPE_TEARDOWN)
 		return afk_recv_handle_teardown(ep, channel);
 
-	if (type == EPIC_TYPE_REPLY && eshdr->category == EPIC_CAT_REPLY)
-		return afk_recv_handle_reply(ep, channel,
-					     le16_to_cpu(eshdr->tag), payload,
-					     payload_size);
+	/* Firmware 14.7 may label standard-service replies as notifications. */
+	if (eshdr->category == EPIC_CAT_REPLY) {
+		bool fw14_7_reply = ep->dcp->fw_compat >= DCP_FIRMWARE_V_14_7 &&
+				    type == EPIC_TYPE_NOTIFY &&
+				    subtype == EPIC_SUBTYPE_STD_SERVICE;
+
+		if (type == EPIC_TYPE_REPLY || fw14_7_reply)
+			return afk_recv_handle_reply(ep, channel,
+						     le16_to_cpu(eshdr->tag),
+						     payload, payload_size);
+	}
 
 	if (subtype == EPIC_SUBTYPE_STD_SERVICE)
 		return afk_recv_handle_std_service(
