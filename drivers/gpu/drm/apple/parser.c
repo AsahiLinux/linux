@@ -452,6 +452,7 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 	s64 id = -1;
 	s64 best_color_mode = -1;
 	bool is_virtual = false;
+	bool is_preferred = false;
 	struct drm_display_mode *mode = &out->mode;
 
 	dcp_parse_foreach_in_dict(handle, it) {
@@ -475,6 +476,8 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 			ret = parse_int(it.handle, &id);
 		else if (!strcmp(key, "IsVirtual"))
 			ret = parse_bool(it.handle, &is_virtual);
+		else if (!strcmp(key, "IsPreferred"))
+			ret = parse_bool(it.handle, &is_preferred);
 		else if (!strcmp(key, "Score"))
 			ret = parse_int(it.handle, score);
 		else
@@ -536,7 +539,7 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 
 	/* From here we must succeed. Start filling out the mode. */
 	*mode = (struct drm_display_mode) {
-		.type = DRM_MODE_TYPE_DRIVER,
+		.type = DRM_MODE_TYPE_DRIVER | (is_preferred ? DRM_MODE_TYPE_PREFERRED : 0),
 		.clock = calculate_clock(&horiz, &vert),
 
 		.vdisplay = vert.active,
@@ -573,8 +576,8 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 	struct iterator it;
 	int ret;
 	struct dcp_display_mode *mode, *modes;
-	struct dcp_display_mode *best_mode = NULL;
-	s64 score, best_score = -1;
+	struct dcp_display_mode *best_mode = NULL, *best_preferred_mode = NULL;
+	s64 score, best_score = -1, best_preferred_score = -1;
 
 	ret = iterator_begin(handle, &it, false);
 
@@ -599,13 +602,26 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 		/* Process a successful mode */
 		(*count)++;
 
+		if (mode->mode.type & DRM_MODE_TYPE_PREFERRED) {
+			if (score > best_preferred_score) {
+				if (best_preferred_mode) {
+					/* Remove preferred on worse option, as we only want this flag on one mode */
+					best_preferred_mode->mode.type &= ~DRM_MODE_TYPE_PREFERRED;
+				}
+
+				best_preferred_score = score;
+				best_preferred_mode = mode;
+			}
+		}
+
 		if (score > best_score) {
 			best_score = score;
 			best_mode = mode;
 		}
 	}
 
-	if (best_mode != NULL)
+	/* Choose the best scoring mode if none are marked preferred */
+	if (best_mode != NULL && best_preferred_mode == NULL)
 		best_mode->mode.type |= DRM_MODE_TYPE_PREFERRED;
 
 	return modes;
