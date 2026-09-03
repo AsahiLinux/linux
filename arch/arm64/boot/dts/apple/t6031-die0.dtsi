@@ -6,6 +6,7 @@
  * Copyright The Asahi Linux Contributors
  */
 
+&SOC_NODE {
 	aic: interrupt-controller@292400000 {
 		compatible = "apple,t6031-aic3", "apple,t8122-aic3";
 		#interrupt-cells = <4>;
@@ -195,3 +196,4 @@
 		power-domains = <&ps_uart0>;
 		status = "disabled";
 	};
+};

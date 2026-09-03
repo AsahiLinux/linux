@@ -317,31 +317,29 @@
 
 #define DIE
 #define DIE_NO 0
+#define SOC_NODE die0
 
-&die0 {
-	#include "t6031-die0.dtsi"
-	#include "t6031-dieX.dtsi"
-};
-
+#include "t6031-die0.dtsi"
+#include "t6031-dieX.dtsi"
 #include "t6031-pmgr.dtsi"
 #include "t6031-gpio-pins.dtsi"
 
 #undef DIE
 #undef DIE_NO
+#undef SOC_NODE
 
 #define DIE _die1
 #define DIE_NO 1
+#define SOC_NODE die1
 
-&die1 {
-	#include "t6031-dieX.dtsi"
-};
-
+#include "t6031-dieX.dtsi"
 #include "t6031-pmgr.dtsi"
 
 /delete-node/ &ps_pmp_die1;
 
 #undef DIE
 #undef DIE_NO
+#undef SOC_NODE
 
 /* delete non-present DISP power-states */
 /delete-node/ &ps_disp_cpu;
