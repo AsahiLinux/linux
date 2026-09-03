@@ -765,6 +765,12 @@ impl AopData {
             b"las" => c_str!("las"),
             b"als" => c_str!("als"),
             _ => {
+                dev_info!(
+                    self.dev,
+                    "No driver for service {:?} on endpoint {}",
+                    core::str::from_utf8(name),
+                    ep.index
+                );
                 return Ok(());
             }
         };
