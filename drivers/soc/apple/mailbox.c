@@ -137,17 +137,33 @@ int apple_mbox_send(struct apple_mbox *mbox, const struct apple_mbox_msg msg,
 			writel_relaxed(mbox->hw->irq_bit_send_empty,
 				       mbox->regs + mbox->hw->irq_ack);
 		}
-		enable_irq(mbox->irq_send_empty);
+		if (!mbox->tx_irq_enabled) {
+			enable_irq(mbox->irq_send_empty);
+			mbox->tx_irq_enabled = true;
+		}
 		reinit_completion(&mbox->tx_empty);
 		spin_unlock_irqrestore(&mbox->tx_lock, flags);
 
 		t = wait_for_completion_interruptible_timeout(
 			&mbox->tx_empty,
 			msecs_to_jiffies(APPLE_MBOX_TX_TIMEOUT));
-		if (t < 0)
-			return t;
-		else if (t == 0)
-			return -ETIMEDOUT;
+		if (t <= 0) {
+			/*
+			 * The interrupt handler disables the interrupt
+			 * when it completes tx_empty. If it never ran,
+			 * undo the enable above here: otherwise the next
+			 * send that finds the FIFO full warns about an
+			 * unbalanced enable and underflows the interrupt's
+			 * disable depth.
+			 */
+			spin_lock_irqsave(&mbox->tx_lock, flags);
+			if (mbox->tx_irq_enabled) {
+				disable_irq_nosync(mbox->irq_send_empty);
+				mbox->tx_irq_enabled = false;
+			}
+			spin_unlock_irqrestore(&mbox->tx_lock, flags);
+			return t < 0 ? t : -ETIMEDOUT;
+		}
 
 		spin_lock_irqsave(&mbox->tx_lock, flags);
 		mbox_ctrl = readl_relaxed(mbox->regs + mbox->hw->a2i_control);
@@ -176,6 +192,7 @@ static irqreturn_t apple_mbox_send_empty_irq(int irq, void *data)
 	 */
 	spin_lock(&mbox->tx_lock);
 	disable_irq_nosync(mbox->irq_send_empty);
+	mbox->tx_irq_enabled = false;
 	complete(&mbox->tx_empty);
 	spin_unlock(&mbox->tx_lock);
 

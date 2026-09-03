@@ -31,6 +31,14 @@ struct apple_mbox {
 
 	struct completion tx_empty;
 
+	/*
+	 * Whether irq_send_empty is enabled at the interrupt controller.
+	 * Guarded by tx_lock. Keeps the enable in apple_mbox_send balanced
+	 * against the disable in apple_mbox_send_empty_irq when the wait for
+	 * the FIFO to drain fails.
+	 */
+	bool tx_irq_enabled;
+
 	/** Receive callback for incoming messages */
 	void (*rx)(struct apple_mbox *mbox, struct apple_mbox_msg msg, void *cookie);
 	void *cookie;
