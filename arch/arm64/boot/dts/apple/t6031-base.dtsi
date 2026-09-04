@@ -11,6 +11,12 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		#ifdef APPLE_USE_PMP
+		pmp = &pmp;
+		#endif
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;

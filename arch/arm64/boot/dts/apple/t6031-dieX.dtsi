@@ -96,7 +96,11 @@
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_IRQ DIE_NO 1185 IRQ_TYPE_LEVEL_HIGH>,
 			<AIC_IRQ DIE_NO 1186 IRQ_TYPE_LEVEL_HIGH>;
-		power-domains = <&DIE_NODE(ps_avd_sys)>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&pmp_report_avd_sys>;
+		#else
+		power-domains = <&ps_avd_sys>;
+		#endif
 		resets = <&DIE_NODE(ps_avd_sys)>;
 		reg = <0x2 0xcd080000 0x0 0x12000>,
 			<0x2 0xcd092000 0x0 0x12000>,
