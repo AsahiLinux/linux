@@ -1399,12 +1399,17 @@ static void avd_hevc_submit(struct avd_ctx *ctx)
 	struct avd_hevc_ctx *hevc_ctx = ctx->priv;
 	struct avd_dev *avd = ctx->dev;
 
-	for (int i = 0; i < hevc_ctx->submit_num; i++) {
-		writel(0x2b000000 |
-			       (i == 0 ? (avd->variant->revision == 3 ? 0x100 :
-									0x200) :
-					 0) |
-			       (ctx->fifo_idx << 4) | avd->variant->fifo_slots,
+	writel(AVD_OP_EXEC |
+		       AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision ==
+						   4) |
+		       AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision ==
+						   3) |
+		       AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
+		       AVD_OP_EXEC_FIFO_MASK(avd->variant->fifo_slots),
+	       avd->ctrl + avd->variant->submit_offset);
+	for (int i = 0; i < hevc_ctx->submit_num - 1; i++) {
+		writel(AVD_OP_EXEC | AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
+			       AVD_OP_EXEC_FIFO_MASK(avd->variant->fifo_slots),
 		       avd->ctrl + avd->variant->submit_offset);
 	}
 }
