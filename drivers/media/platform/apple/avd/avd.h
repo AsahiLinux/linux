@@ -14,7 +14,6 @@
 #ifndef AVD_H_
 #define AVD_H_
 
-#include "linux/bitmap.h"
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
 #include <linux/iommu.h>
@@ -36,9 +35,14 @@
 #define VP_SLOT_NONE		255
 #define INST_FIFO_SLOT_NONE	255
 
-/* AVD needs most addresses to be aligned to 256 */
+/*
+ * AVD needs most addresses to be aligned to 256
+ * the only exception are the compressed buffers, they are aligned to 128
+ * instead
+ */
 #define AVD_ALIGN	256
-
+/* hevc, with a b slice where all references are active and weights are sent */
+#define AVD_MAX_INST	512
 
 struct avd_ctx;
 struct avd_dev;
@@ -97,7 +101,6 @@ struct avd_hevc_decoded_buffer_info {
 	bool is_intra;
 };
 
-
 struct avd_comp {
 	u32 size;
 	/* offset to start of compressed data */
@@ -117,7 +120,6 @@ struct avd_decoded_buffer {
 		struct avd_hevc_decoded_buffer_info hevc;
 		struct avd_av1_decoded_buffer_info av1;
 	};
-
 };
 
 static inline struct avd_decoded_buffer *
@@ -205,10 +207,24 @@ struct avd_dev {
 
 	struct reset_control *rstc;
 
-	unsigned long vp_slots;
-	unsigned long inst_fifo_slots;
-
 	const struct avd_variant *variant;
+};
+
+struct avd_segment {
+	size_t num;
+	u32 instructions[AVD_MAX_INST];
+};
+
+struct avd_job {
+	enum avd_codec codec;
+	size_t num;
+	struct avd_segment *segments;
+};
+
+struct avd_buf {
+	void *cpu;
+	dma_addr_t addr;
+	size_t size;
 };
 
 struct avd_ctx {
@@ -228,16 +244,13 @@ struct avd_ctx {
 	void *priv;
 
 	struct avd_comp comp;
-
-	u8 fifo_idx;
-	u8 vp_slot;
+	int fifo_idx;
+	struct avd_job job;
+	struct avd_buf inst;
 };
 
-struct avd_buf {
-	void *cpu;
-	dma_addr_t addr;
-	size_t size;
-};
+int avd_init_job(struct avd_ctx *ctx, enum avd_codec codec, size_t segments);
+int avd_submit_job(struct avd_ctx *ctx);
 
 int avd_buf_alloc(struct avd_dev *avd, struct avd_buf *buf, size_t size);
 void avd_buf_free(struct avd_dev *avd, struct avd_buf *buf);
@@ -272,19 +285,6 @@ static inline u32 fmt_width(struct avd_ctx *ctx)
 
 void fill_comp(struct avd_comp *comp, enum avd_image_fmt image_fmt,
 		u32 width, u32 height);
-int alloc_slots(struct avd_dev *avd, struct avd_ctx *ctx, enum avd_codec codec);
-
-static inline void free_vp_slot(struct avd_dev *avd, struct avd_ctx *ctx)
-{
-	clear_bit(ctx->vp_slot, &avd->vp_slots);
-	ctx->vp_slot = VP_SLOT_NONE;
-}
-
-static inline void free_inst_slot(struct avd_dev *avd, struct avd_ctx *ctx)
-{
-	clear_bit(ctx->fifo_idx, &avd->inst_fifo_slots);
-	ctx->fifo_idx = INST_FIFO_SLOT_NONE;
-}
 
 static inline struct avd_ctx *file_to_ctx(struct file *filp)
 {
