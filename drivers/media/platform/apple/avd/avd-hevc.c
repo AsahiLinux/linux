@@ -13,18 +13,10 @@
  *	Tomasz Figa <tfiga@chromium.org>
  */
 
-#include "asm-generic/errno-base.h"
-#include "linux/dev_printk.h"
-#include <linux/v4l2-controls.h>
-#include <linux/delay.h>
-
-#include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
 #include "avd.h"
 #include "avd-inst.h"
-
-#define PPS_NUM		9
 
 #define NEW_TILE_ID	BIT(0)
 #define NEW_SLICE	BIT(1)
@@ -111,7 +103,6 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	const struct v4l2_ctrl_hevc_slice_params *sl = &run->sl[0];
 	const struct v4l2_hevc_dpb_entry *dpb;
 	struct avd_hevc_ctx *hevc_ctx = ctx->priv;
-	struct avd_dev *avd = ctx->dev;
 	struct avd_decoded_buffer *dst, *ref_buf;
 
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
@@ -143,14 +134,13 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_hevc_run *run)
 					       dpb->pic_order_cnt_val),
 		     "hdr_d0_ref_hdr");
 
-		push_comp(avd, ctx, comp_addr, ref_buf->comp.offsets);
+		push_comp(ctx, comp_addr, ref_buf->comp.offsets);
 	}
 }
 
 static void set_scaling_lists(struct avd_ctx *ctx, struct avd_hevc_run *run)
 {
 	const struct v4l2_ctrl_hevc_scaling_matrix *s = run->scaling_matrix;
-	struct avd_dev *avd = ctx->dev;
 	int i, j, k;
 
 	u8 (*dc_16x16)[3] = (u8(*)[3])s->scaling_list_dc_coef_16x16;
@@ -226,7 +216,6 @@ static void hevc_set_flags(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	const struct v4l2_ctrl_hevc_decode_params *decode = run->decode;
 	const struct v4l2_ctrl_hevc_sps *sps = run->sps;
 	const struct v4l2_ctrl_hevc_pps *pps = run->pps;
-	struct avd_dev *avd = ctx->dev;
 
 	u32 log2_ctb_size = ((sps->log2_min_luma_coding_block_size_minus3) +
 			     sps->log2_diff_max_min_luma_coding_block_size);
@@ -300,7 +289,6 @@ static void hevc_set_flags(struct avd_ctx *ctx, struct avd_hevc_run *run)
 static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 {
 	const struct v4l2_ctrl_hevc_sps *sps = run->sps;
-	const struct v4l2_ctrl_hevc_pps *pps = run->pps;
 	struct avd_dev *avd = ctx->dev;
 	struct avd_hevc_ctx *hevc_ctx = ctx->priv;
 	u32 bytesperline;
@@ -308,11 +296,6 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	u32 height = sps->pic_height_in_luma_samples;
 
 	bool is_intra = run->sl[0].slice_type == V4L2_HEVC_SLICE_TYPE_I;
-
-	push(AVD_OP_EXEC | AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
-		     AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3) |
-		     AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4),
-	     "inst_fifo_start");
 
 	push(AVD_OP_HDR | AVD_OP_HDR_FLAG_DECOMP(ctx->decomp) |
 		     AVD_OP_HDR_FLAG_INTRA(is_intra) | AVD_OP_HDR_CONST |
@@ -381,7 +364,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 	push(0, "");
 
-	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
+	push_comp(ctx, run->base.comp_out, ctx->comp.offsets);
 
 	pusha((u64)0, "packed_fmt_scratch", 0);
 
@@ -413,7 +396,6 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_hevc_run *run,
 	u8 chroma_log2_weight_denom;
 	const struct v4l2_ctrl_hevc_pps *pps = run->pps;
 	const struct v4l2_hevc_pred_weight_table *pred = &sl->pred_weight_table;
-	struct avd_dev *avd = ctx->dev;
 	bool has_luma_weights =
 		((pps->flags & V4L2_HEVC_PPS_FLAG_WEIGHTED_PRED) &&
 		 sl->slice_type == V4L2_HEVC_SLICE_TYPE_P) ||
@@ -513,7 +495,6 @@ static void stream_slice_dqtblk(struct avd_ctx *ctx, struct avd_hevc_run *run,
 {
 	const struct v4l2_ctrl_hevc_pps *pps = run->pps;
 	const struct v4l2_ctrl_hevc_sps *sps = run->sps;
-	struct avd_dev *avd = ctx->dev;
 
 	push(AVD_OP_QP |
 		     AVD_OP_QP_VAL(pps->init_qp_minus26 + 26 +
@@ -581,7 +562,6 @@ static void stream_slice_mv(struct avd_ctx *ctx, struct avd_hevc_run *run,
 			    bool is_first)
 {
 	const struct v4l2_ctrl_hevc_decode_params *decode = run->decode;
-	struct avd_dev *avd = ctx->dev;
 	struct avd_decoded_buffer *dst, *ref;
 	bool ref_valid;
 	const u8 *ref_list;
@@ -653,7 +633,6 @@ static void set_slice(struct avd_ctx *ctx, struct avd_hevc_run *run,
 		      const struct v4l2_ctrl_hevc_slice_params *sl, u32 size,
 		      u32 offset, u32 flags)
 {
-	struct avd_dev *avd = ctx->dev;
 	dma_addr_t slc_addr =
 		run->base.coded_in + offset + sl->data_byte_offset;
 	push(AVD_OP_CODED_DATA | flags | AVD_OP_CODED_DATA_ADDR(slc_addr >> 32),
@@ -666,11 +645,10 @@ static int submit_slice_segment(struct avd_ctx *ctx, struct avd_hevc_run *run,
 				const struct v4l2_ctrl_hevc_slice_params *sl,
 				int row, int col, u32 col_bd[23],
 				u32 row_bd[23], u32 pic_in_cts_width,
-				u32 pic_in_cts_height, bool is_last,
-				bool first_slice, bool hflip, bool vflip,
-				u32 coded_flags, u32 last_tile_block)
+				u32 pic_in_cts_height, bool first_slice,
+				bool hflip, bool vflip, u32 coded_flags,
+				u32 last_tile_block)
 {
-	struct avd_dev *avd = ctx->dev;
 	const struct v4l2_ctrl_hevc_pps *pps = run->pps;
 	u32 tb_x, tb_y, tile_block, tile_boundary;
 
@@ -724,9 +702,6 @@ static int submit_slice_segment(struct avd_ctx *ctx, struct avd_hevc_run *run,
 	push(AVD_SL_DIM_END_COL(1) |
 		     (coded_flags & NEW_SLICE ? tile_block : tile_boundary),
 	     "cm3_set_mv_xy");
-
-	push(AVD_OP_EXEC | AVD_OP_EXEC_FLAG_END(is_last),
-	     "cm3_cmd_inst_fifo_end");
 
 	return last_tile_block;
 }
@@ -836,30 +811,6 @@ static void compute_tile_ids(struct avd_hevc_run *run, u32 pic_in_ctbs_width,
 							  x]] = tile_idx;
 }
 
-static int avd_wait_submission_queue(struct avd_ctx *ctx)
-{
-	struct avd_dev *avd = ctx->dev;
-	u32 max = readl_relaxed(avd->ctrl +
-				avd->variant->submit_queue_max_offset +
-				(ctx->vp_slot) * 4);
-	u32 cur = readl_relaxed(avd->ctrl +
-				avd->variant->submit_queue_status_offset +
-				(ctx->vp_slot) * 4);
-
-	/* pr_info("%d/%d\n", cur, max); */
-
-	if (cur == max) {
-		dev_err(avd->dev, "instruction que full! %d/%d", cur, max);
-		return 1;
-	}
-
-	if (cur >= max / 2) {
-		/* TODO: to high? low? Has weird side effects??? */
-		usleep_range(100, 150);
-	}
-	return 0;
-}
-
 struct sl_ctx {
 	u32 ctx_col;
 	u32 ctx_row;
@@ -875,7 +826,7 @@ static void stream_slices(struct avd_ctx *ctx, struct avd_hevc_run *run)
 	struct avd_hevc_ctx *hevc_ctx = ctx->priv;
 	const struct v4l2_ctrl_hevc_slice_params *sl;
 	struct avd_hevc_tile_info *tile_info = &run->tile_info;
-	bool tiles_enabled, is_last, first_slice, first_segment;
+	bool tiles_enabled, first_slice, first_segment;
 	bool hflip, vflip;
 	int slice_segment_offset, entry_point_idx = 0, pos = 0, offset = 0;
 	int row, col, i, s, to;
@@ -917,9 +868,10 @@ static void stream_slices(struct avd_ctx *ctx, struct avd_hevc_run *run)
 			return;
 		}
 		for (i = 0; i < to; i++) {
-			is_last = i == to - 1 && s == run->num_slices - 1;
 			first_segment = i == 0;
 			first_slice = s == 0;
+
+			ctx->job.num++;
 
 			if (tiles_enabled && to > 1) {
 				if (i < sl->num_entry_point_offsets) {
@@ -1002,16 +954,13 @@ static void stream_slices(struct avd_ctx *ctx, struct avd_hevc_run *run)
 			last_tile_block = submit_slice_segment(
 				ctx, run, sl, row, col, tile_info->col_bd,
 				tile_info->row_bd, pic_in_ctbs_width,
-				pic_in_ctbs_height, is_last, first_slice, hflip,
-				vflip, slice_flag, last_tile_block);
+				pic_in_ctbs_height, first_slice, hflip, vflip,
+				slice_flag, last_tile_block);
 
 			if (slice_flag & NEW_TILE_ID)
 				pos++;
 
 			slice_segment_offset += new_offset;
-
-			if (avd_wait_submission_queue(ctx))
-				return;
 		}
 		offset += sl->bit_size / 8;
 	}
@@ -1293,9 +1242,6 @@ static void avd_hevc_stop(struct avd_ctx *ctx)
 	avd_buf_free(avd, &hevc_ctx->bufs.lf_left_info);
 	avd_buf_free(avd, &hevc_ctx->bufs.sw_left);
 
-	free_vp_slot(avd, ctx);
-	free_inst_slot(avd, ctx);
-
 	kfree(hevc_ctx);
 }
 
@@ -1338,27 +1284,16 @@ static int avd_hevc_run_preamble(struct avd_ctx *ctx, struct avd_hevc_run *run)
 
 static int avd_hevc_run(struct avd_ctx *ctx)
 {
-	struct avd_dev *avd = ctx->dev;
 	struct avd_hevc_run run;
-	struct avd_hevc_ctx *hevc_ctx;
 	struct avd_decoded_buffer *dst;
 	int ret;
 
 	ret = avd_hevc_run_preamble(ctx, &run);
-	if (ret) {
-		dev_err(avd->dev, "avd_hevc_run_preamble: failed %d", ret);
+	if (ret)
 		return ret;
-	}
 
-	hevc_ctx = ctx->priv;
 	dst = vb2_to_avd_decoded_buf(&run.base.bufs.dst->vb2_buf);
 	update_dec_buf_info(dst, &run.sl[0]);
-
-	ret = alloc_slots(avd, ctx, AVD_CODEC_HEVC);
-	if (ret) {
-		dev_err(avd->dev, "no free slots: %d", ret);
-		return ret;
-	}
 
 	ret = avd_hevc_compute_tiles(ctx, &run);
 	if (ret)
@@ -1368,18 +1303,16 @@ static int avd_hevc_run(struct avd_ctx *ctx)
 	if (ret)
 		goto done;
 
-	/* pr_info("VP%d: start\n", ctx->vp_slot); */
-	avd->variant->configure_stream(avd, hevc_ctx->bufs.inst.addr,
-				       ctx->fifo_idx, ctx->vp_slot);
-	/* avd_status(avd, ctx->vp_slot); */
-	set_header(ctx, &run);
+	ret = avd_init_job(ctx, AVD_CODEC_HEVC,
+			   run.num_slices + run.num_entry_point_offsets + 1);
+	if (ret)
+		goto done;
 
-	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
+	set_header(ctx, &run);
 	stream_slices(ctx, &run);
-	/* avd_status(avd, ctx->vp_slot); */
 	avd_run_postamble(ctx, &run.base);
 
-	ret = 0;
+	ret = avd_submit_job(ctx);
 done:
 	kfree(run.tile_info.ctb_addr_rs_to_ts);
 	kfree(run.tile_info.tile_ids);

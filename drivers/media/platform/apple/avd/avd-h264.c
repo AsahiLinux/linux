@@ -13,9 +13,7 @@
  *	Tomasz Figa <tfiga@chromium.org>
  */
 
-#include "linux/dev_printk.h"
-#include <linux/types.h>
-#include <linux/iopoll.h>
+#include <linux/dev_printk.h>
 
 #include <media/v4l2-h264.h>
 #include <media/videobuf2-dma-contig.h>
@@ -30,6 +28,9 @@
 #define H264_FLAG_NOT_IDR(v)			FIELD_PREP(BIT(21), !!(v))
 
 #define H264_TRANSFORM_8X8_MODE(v)		FIELD_PREP(BIT(7), !!(v))
+
+/* not a hardware constraint */
+#define MAX_SLICES	4096
 
 struct avd_h264_run {
 	struct avd_run base;
@@ -57,6 +58,10 @@ struct avd_h264_ctx {
 		struct v4l2_h264_reference b0[V4L2_H264_REF_LIST_LEN];
 		struct v4l2_h264_reference b1[V4L2_H264_REF_LIST_LEN];
 	} reflists;
+
+	struct avd_buf slices[MAX_SLICES];
+	struct avd_buf *active_slice;
+	size_t slice_num;
 
 	struct avd_h264_bufs {
 		struct avd_buf inst;
@@ -97,7 +102,6 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_h264_run *run)
 	const struct v4l2_ctrl_h264_decode_params *decode = run->decode_params;
 	const struct v4l2_h264_dpb_entry *dpb = decode->dpb;
 	struct avd_h264_ctx *h264_ctx = ctx->priv;
-	struct avd_dev *avd = ctx->dev;
 	struct avd_decoded_buffer *dst, *ref;
 	dma_addr_t addr;
 
@@ -129,7 +133,7 @@ static void stream_refs(struct avd_ctx *ctx, struct avd_h264_run *run)
 					       dpb[i].top_field_order_cnt),
 		     "hdr_d0_ref_hdr");
 
-		push_comp(avd, ctx, addr, ctx->comp.offsets);
+		push_comp(ctx, addr, ctx->comp.offsets);
 	}
 }
 
@@ -138,7 +142,6 @@ static void stream_scaling(struct avd_ctx *ctx, struct avd_h264_run *run)
 	const struct v4l2_ctrl_h264_pps *pps = run->pps;
 	const struct v4l2_ctrl_h264_scaling_matrix *scaling =
 		run->scaling_matrix;
-	struct avd_dev *avd = ctx->dev;
 
 	push(H264_SCL_DIMS, "hdr_4c_pic_scaling_list_dims");
 
@@ -199,11 +202,6 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	u32 bytesperline;
 	u32 width = (sps->pic_width_in_mbs_minus1 + 1) * 16;
 	u32 height = (sps->pic_height_in_map_units_minus1 + 1) * 16;
-
-	push(AVD_OP_EXEC | AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
-		     AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3) |
-		     AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4),
-	     "inst_fifo_start");
 
 	push(AVD_OP_HDR | AVD_OP_HDR_FLAG_DECOMP(ctx->decomp) |
 		     AVD_OP_HDR_FLAG_INTRA(
@@ -279,7 +277,7 @@ static void stream_hdr(struct avd_ctx *ctx, struct avd_h264_run *run)
 	pusha(h264_ctx->bufs.lf_above_info.addr, "lf_above_info", 3);
 	push(0, "");
 
-	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
+	push_comp(ctx, run->base.comp_out, ctx->comp.offsets);
 
 	bytesperline = ctx->decoded_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 	if (avd->variant->quirks & AVD_QUIRK_LSR)
@@ -312,7 +310,6 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_h264_run *run)
 	const struct v4l2_ctrl_h264_pred_weights *weights = run->pred_weights;
 	const struct v4l2_ctrl_h264_pps *pps = run->pps;
 	const struct v4l2_ctrl_h264_slice_params *sl = run->slice_params;
-	struct avd_dev *avd = ctx->dev;
 
 	bool pred_weight_req = V4L2_H264_CTRL_PRED_WEIGHTS_REQUIRED(pps, sl);
 	bool default_weights = pps->weighted_bipred_idc == 2 &&
@@ -390,18 +387,17 @@ static void stream_weights(struct avd_ctx *ctx, struct avd_h264_run *run)
 	}
 }
 
-static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
+static void stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 {
 	const struct v4l2_ctrl_h264_decode_params *decode = run->decode_params;
 	const struct v4l2_ctrl_h264_pps *pps = run->pps;
 	const struct v4l2_ctrl_h264_sps *sps = run->sps;
 	const struct v4l2_ctrl_h264_slice_params *sl = run->slice_params;
-	struct avd_dev *avd = ctx->dev;
-	struct vb2_v4l2_buffer *src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
-	u32 payload_len = vb2_get_plane_payload(&src->vb2_buf, 0);
+	struct avd_h264_ctx *h264_ctx = ctx->priv;
+	u32 payload_len = h264_ctx->active_slice->size;
 	bool en_mode = (pps->flags & V4L2_H264_PPS_FLAG_ENTROPY_CODING_MODE) ==
 		       0;
-	const u8 *data = vb2_plane_vaddr(&src->vb2_buf, 0);
+	const u8 *data = h264_ctx->active_slice->cpu;
 
 	u32 min_off = (sl->header_bit_size + (en_mode ? 0 : 7)) / 8;
 
@@ -417,7 +413,7 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 		off++;
 	}
 
-	dma_addr_t slc_a84 = run->base.coded_in + off;
+	dma_addr_t slc_a84 = h264_ctx->active_slice->addr + off;
 
 	push(AVD_OP_CODED_DATA |
 		     AVD_OP_CODED_DATA_BIT_OFF(
@@ -511,14 +507,6 @@ static u32 stream_slice(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 		pusha(mv_color_addr, "slc_a78_sps_tile_addr2_lsb8", 0);
 	}
-
-	/* only submit if this is the last slice */
-	push(AVD_OP_EXEC |
-		     AVD_OP_EXEC_FLAG_END(!(
-			     src->flags & V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF)),
-	     "cm3_cmd_inst_fifo_end");
-
-	return payload_len - off;
 }
 
 static int avd_h264_alloc_bufs(struct avd_ctx *ctx)
@@ -534,14 +522,12 @@ static int avd_h264_alloc_bufs(struct avd_ctx *ctx)
 
 	ret = avd_buf_alloc(dev, &h264_ctx->bufs.inst, fifo_size());
 	if (ret) {
-		dev_err(dev->dev, "inst alloc failed\n");
 		return ret;
 	}
 
 	if (!(dev->variant->quirks & AVD_QUIRK_NO_PIPE_STATE)) {
 		ret = avd_buf_alloc(dev, &h264_ctx->bufs.pipe_state, 0x200);
 		if (ret) {
-			dev_err(dev->dev, "pipe state alloc failed\n");
 			return ret;
 		}
 	}
@@ -570,25 +556,6 @@ static int avd_h264_alloc_bufs(struct avd_ctx *ctx)
 		return ret;
 
 	return 0;
-}
-
-static void avd_h264_free_bufs(struct avd_ctx *ctx)
-{
-	struct avd_h264_ctx *h264_ctx = ctx->priv;
-	struct avd_dev *dev = ctx->dev;
-
-	if (!h264_ctx)
-		return;
-
-	avd_buf_free(dev, &h264_ctx->bufs.pipe_state);
-	avd_buf_free(dev, &h264_ctx->bufs.inst);
-	avd_buf_free(dev, &h264_ctx->bufs.above_info);
-	avd_buf_free(dev, &h264_ctx->bufs.lf_above_info);
-	avd_buf_free(dev, &h264_ctx->bufs.lf_above);
-	avd_buf_free(dev, &h264_ctx->bufs.ip_above);
-	avd_buf_free(dev, &h264_ctx->bufs.mv_above_info);
-
-	kfree(h264_ctx);
 }
 
 static int avd_h264_validate_pps(struct avd_ctx *ctx,
@@ -652,11 +619,25 @@ err_free_ctx:
 
 static void avd_h264_stop(struct avd_ctx *ctx)
 {
-	avd_h264_free_bufs(ctx);
+	struct avd_h264_ctx *h264_ctx = ctx->priv;
+	struct avd_dev *dev = ctx->dev;
+	int i;
 
-	/* needed for all so automatic? */
-	free_vp_slot(ctx->dev, ctx);
-	free_inst_slot(ctx->dev, ctx);
+	if (!h264_ctx)
+		return;
+
+	avd_buf_free(dev, &h264_ctx->bufs.pipe_state);
+	avd_buf_free(dev, &h264_ctx->bufs.inst);
+	avd_buf_free(dev, &h264_ctx->bufs.above_info);
+	avd_buf_free(dev, &h264_ctx->bufs.lf_above_info);
+	avd_buf_free(dev, &h264_ctx->bufs.lf_above);
+	avd_buf_free(dev, &h264_ctx->bufs.ip_above);
+	avd_buf_free(dev, &h264_ctx->bufs.mv_above_info);
+
+	for (i = 0; i < h264_ctx->slice_num; i++)
+		avd_buf_free(dev, &h264_ctx->slices[i]);
+
+	kfree(h264_ctx);
 }
 
 static void avd_h264_run_preamble(struct avd_ctx *ctx, struct avd_h264_run *run)
@@ -692,14 +673,28 @@ static void avd_h264_run_preamble(struct avd_ctx *ctx, struct avd_h264_run *run)
 
 static int avd_h264_run(struct avd_ctx *ctx)
 {
-	struct avd_dev *avd = ctx->dev;
 	struct avd_h264_ctx *h264_ctx = ctx->priv;
 	struct v4l2_h264_reflist_builder reflist_builder;
 	struct avd_h264_run run;
-	u32 slice_size, slice_parsed, reg;
 	int ret;
 
 	avd_h264_run_preamble(ctx, &run);
+	if (h264_ctx->slice_num >= MAX_SLICES) {
+		dev_err_ratelimited(ctx->dev->dev,
+				    "slice_num > %d, stream was rejected!",
+				    MAX_SLICES);
+		return -EINVAL;
+	}
+
+	struct vb2_v4l2_buffer *src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
+	u32 payload_len = vb2_get_plane_payload(&src->vb2_buf, 0);
+	const u8 *data = vb2_plane_vaddr(&src->vb2_buf, 0);
+	h264_ctx->active_slice = &h264_ctx->slices[h264_ctx->slice_num];
+	ret = avd_buf_alloc(ctx->dev, h264_ctx->active_slice, payload_len);
+	if (ret)
+		return ret;
+	memcpy(h264_ctx->active_slice->cpu, data, payload_len);
+	h264_ctx->slice_num++;
 
 	/* Build the P/B{0,1} ref lists. */
 	v4l2_h264_init_reflist_builder(&reflist_builder, run.decode_params,
@@ -715,53 +710,37 @@ static int avd_h264_run(struct avd_ctx *ctx)
 	avd_run_postamble(ctx, &run.base);
 
 	if (is_new_frame(run.slice_params)) {
-		ret = alloc_slots(avd, ctx, AVD_CODEC_H264);
-		if (ret) {
-			dev_err_ratelimited(avd->dev, "no free slots: %d", ret);
+		ret = avd_init_job(ctx, AVD_CODEC_H264, MAX_SLICES);
+		if (ret)
 			return ret;
-		}
-		avd->variant->configure_stream(ctx->dev,
-					       h264_ctx->bufs.inst.addr,
-					       ctx->fifo_idx, ctx->vp_slot);
 		stream_hdr(ctx, &run);
 	}
 
-	if (ctx->vp_slot == VP_SLOT_NONE) {
-		/* Only happens if its a multi slice frame and there was an error */
-		dev_err_ratelimited(avd->dev, "no assigned VP slots: %04lx",
-				    avd->vp_slots);
-		return -ENOMEM;
-	}
+	if (!ctx->job.segments)
+		return -EINVAL;
 
-	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
-
-	slice_size = stream_slice(ctx, &run);
+	ctx->job.num++;
+	stream_slice(ctx, &run);
 
 	if (run.base.bufs.src->flags & V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF) {
-		if (avd->variant->revision == 3)
-			reg = (0x18 | ctx->vp_slot << 12);
-		else
-			reg = (0x1018 | ctx->vp_slot << 8);
-
-		/* seems to be take ~ slice_size / 16 us */
-		ret = readl_poll_timeout(
-			avd->ctrl + reg, slice_parsed,
-			slice_parsed >= round_down(slice_size, 8), 5, 1000);
-
-		if (ret) {
-			dev_err(avd->dev,
-				"VP%d: timed out (%02d)! size: %08x parsed: %08x",
-				ctx->vp_slot, ctx->fifo_idx, slice_size,
-				slice_parsed);
-			avd_status(avd, ctx->vp_slot);
-			return 0;
-		}
-
-		if (cancel_delayed_work(&ctx->watchdog_work))
-			avd_job_finish(ctx, VB2_BUF_STATE_DONE);
+		avd_job_finish(ctx, VB2_BUF_STATE_DONE);
+		return 0;
 	}
 
-	return 0;
+	return avd_submit_job(ctx);
+}
+
+static void avd_h264_done(struct avd_ctx *ctx, struct vb2_v4l2_buffer *src_buf,
+			  struct vb2_v4l2_buffer *dst_buf,
+			  enum vb2_buffer_state result)
+{
+	struct avd_dev *avd = ctx->dev;
+	struct avd_h264_ctx *h264_ctx = ctx->priv;
+	int i;
+
+	if (!(src_buf->flags & V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF))
+		for (i = 0; i < h264_ctx->slice_num; i++)
+			avd_buf_free(avd, &h264_ctx->slices[i]);
 }
 
 static enum avd_image_fmt avd_h264_get_image_fmt(struct avd_ctx *ctx,
@@ -821,6 +800,7 @@ const struct avd_coded_fmt_ops avd_h264_fmt_ops = {
 	.adjust_decoded_fmt = avd_h264_adjust_decoded_fmt,
 	.start = avd_h264_start,
 	.stop = avd_h264_stop,
+	.done = avd_h264_done,
 	.run = avd_h264_run,
 	.submit = avd_h264_submit,
 	.try_ctrl = avd_h264_try_ctrl,

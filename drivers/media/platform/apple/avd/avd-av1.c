@@ -16,10 +16,6 @@
  *	Tomasz Figa <tfiga@chromium.org>
  */
 
-#include "linux/v4l2-controls.h"
-#include <linux/unaligned.h>
-#include <linux/delay.h>
-
 #include <media/videobuf2-dma-contig.h>
 
 #include "avd.h"
@@ -340,7 +336,6 @@ static void set_refs(struct avd_ctx *ctx, struct avd_av1_run *run)
 	struct avd_av1_ctx *av1_ctx = ctx->priv;
 	const struct v4l2_ctrl_av1_frame *frame = run->frame;
 	const struct v4l2_av1_global_motion *gm = &frame->global_motion;
-	struct avd_dev *avd = ctx->dev;
 	int i, ref_idx;
 	struct avd_decoded_buffer *dst, *ref;
 	bool intrabc = !!(frame->flags & V4L2_AV1_FRAME_FLAG_ALLOW_INTRABC);
@@ -424,7 +419,7 @@ static void set_refs(struct avd_ctx *ctx, struct avd_av1_run *run)
 		push(AV1_REF_SCALE_X(x_scale) | AV1_REF_SCALE_Y(y_scale),
 		     "ref_scale");
 
-		push_comp(avd, ctx, addr, ref->comp.offsets);
+		push_comp(ctx, addr, ref->comp.offsets);
 	}
 }
 
@@ -538,7 +533,6 @@ static void set_ref_hints(struct avd_ctx *ctx, struct avd_av1_run *run,
 			  u8 *selected_refs)
 {
 	const struct v4l2_ctrl_av1_frame *frame = run->frame;
-	struct avd_dev *avd = ctx->dev;
 	int i, ref_idx;
 	struct avd_decoded_buffer *dst, *ref;
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
@@ -576,7 +570,6 @@ static void set_ref_hints(struct avd_ctx *ctx, struct avd_av1_run *run,
 static void set_ref_hdr(struct avd_ctx *ctx, struct avd_av1_run *run)
 {
 	const struct v4l2_ctrl_av1_frame *frame = run->frame;
-	struct avd_dev *avd = ctx->dev;
 	u8 ref_slots[7] = { 1, 2, 3, 4, 5, 6, 7 };
 	int sign_bias = 0;
 	int ref_slot = 0;
@@ -639,7 +632,6 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 	const struct v4l2_av1_loop_restoration *lr = &frame->loop_restoration;
 	const struct v4l2_av1_cdef *cdef = &frame->cdef;
 	const struct v4l2_av1_segmentation *seg = &frame->segmentation;
-	struct avd_dev *avd = ctx->dev;
 	u32 bytesperline;
 	int i, segid, segval, ref_idx;
 	int step_x, initial_subpel_x;
@@ -657,10 +649,6 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 	dma_addr_t ref_addr;
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
-	push(AVD_OP_EXEC |
-		     AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4) |
-		     AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx),
-	     "vp_start");
 	push(AVD_OP_HDR | AVD_OP_HDR_FLAG_DECOMP(ctx->decomp) |
 		     AVD_OP_HDR_FLAG_INTRA(intra_only && !intrabc) |
 		     AVD_OP_HDR_CONST | AVD_OP_HDR_FLAG_PIPE_STATE(1),
@@ -974,7 +962,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_av1_run *run)
 
 	push(0, "mark_section");
 
-	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
+	push_comp(ctx, run->base.comp_out, ctx->comp.offsets);
 
 	pusha((u64)0, "packed_fmt_scratch", 0);
 
@@ -1001,9 +989,7 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_av1_run *run)
 	const struct v4l2_ctrl_av1_sequence *seq = run->seq;
 	const struct v4l2_ctrl_av1_tile_group_entry *tile_group;
 	const struct v4l2_av1_tile_info *tile_info = &frame->tile_info;
-	bool is_last;
-	struct avd_dev *avd = ctx->dev;
-	int row, col, sb_row, sb_col;
+	int row, col, sb_row, sb_col, tile_id;
 	int sb_shift =
 		seq->flags & V4L2_AV1_SEQUENCE_FLAG_USE_128X128_SUPERBLOCK ? 5 :
 									     4;
@@ -1012,9 +998,8 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_av1_run *run)
 
 	for (row = 0; row < tile_info->tile_rows; row++) {
 		for (col = 0; col < tile_info->tile_cols; col++) {
-			is_last = col == tile_info->tile_cols - 1 &&
-				  row == tile_info->tile_rows - 1;
-			int tile_id = row * tile_info->tile_cols + col;
+			ctx->job.num++;
+			tile_id = row * tile_info->tile_cols + col;
 			tile_group = &run->tile_group[tile_id];
 
 			push(AVD_OP_CODED_DATA |
@@ -1057,8 +1042,6 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_av1_run *run)
 					     tile_info->width_in_sbs_minus_1
 						     [tile_group->tile_col]),
 			     "tile_op_end");
-			push(AVD_OP_EXEC | AVD_OP_EXEC_FLAG_END(is_last),
-			     "submit");
 #ifdef DEBUG_INST
 			pr_info("\n");
 #endif
@@ -1294,9 +1277,7 @@ static int avd_av1_alloc_work_bufs(struct avd_ctx *ctx, struct avd_av1_run *run)
 
 static int avd_av1_run(struct avd_ctx *ctx)
 {
-	struct avd_dev *avd = ctx->dev;
 	struct avd_av1_run run;
-	struct avd_av1_ctx *av1_ctx;
 	struct avd_decoded_buffer *dst;
 	int ret;
 
@@ -1306,21 +1287,15 @@ static int avd_av1_run(struct avd_ctx *ctx)
 		return ret;
 	}
 
-	av1_ctx = ctx->priv;
-
-	ret = alloc_slots(avd, ctx, AVD_CODEC_AV1);
-	if (ret) {
-		dev_err(avd->dev, "no free slots: %d", ret);
+	ret = avd_init_job(ctx, AVD_CODEC_AV1,
+			   run.frame->tile_info.tile_cols *
+					   run.frame->tile_info.tile_rows +
+				   1);
+	if (ret)
 		return ret;
-	}
 
 	dst = vb2_to_avd_decoded_buf(&run.base.bufs.dst->vb2_buf);
 	update_dec_buf_info(dst, run.seq, run.frame);
-
-	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
-
-	avd->variant->configure_stream(avd, av1_ctx->bufs.inst.addr,
-				       ctx->fifo_idx, ctx->vp_slot);
 
 	avd_av1_set_prob(ctx, &run);
 	avd_av1_alloc_work_bufs(ctx, &run);
@@ -1330,7 +1305,7 @@ static int avd_av1_run(struct avd_ctx *ctx)
 
 	avd_run_postamble(ctx, &run.base);
 
-	return 0;
+	return avd_submit_job(ctx);
 }
 
 static int avd_av1_alloc_bufs(struct avd_ctx *ctx)
@@ -1437,29 +1412,11 @@ static void avd_av1_submit(struct avd_ctx *ctx)
 		       AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
 		       AVD_OP_EXEC_FIFO_MASK(avd->variant->fifo_slots),
 	       avd->ctrl + avd->variant->submit_offset);
-#ifdef DEBUG_INST
-	pr_info("%8lx | %s %2d\n",
-		AVD_OP_EXEC |
-			AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision ==
-						    4) |
-			AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
-			AVD_OP_EXEC_FIFO_MASK(avd->variant->fifo_slots),
-		"submit", 0);
-#endif
 	for (int i = 0; i < av1_ctx->submit_num - 1; i++) {
-#ifdef DEBUG_INST
-		pr_info("%8lx | %s %2d\n",
-			AVD_OP_EXEC | AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
-				AVD_OP_EXEC_FIFO_MASK(avd->variant->fifo_slots),
-			"submit", i + 1);
-#endif
 		writel(AVD_OP_EXEC | AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
 			       AVD_OP_EXEC_FIFO_MASK(avd->variant->fifo_slots),
 		       avd->ctrl + avd->variant->submit_offset);
 	}
-#ifdef DEBUG_INST
-	pr_info("\n");
-#endif
 }
 
 static void avd_av1_adjust_decoded_fmt(struct avd_ctx *ctx,
