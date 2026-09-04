@@ -807,9 +807,13 @@ static int avd_h264_try_ctrl(struct avd_ctx *ctx, struct v4l2_ctrl *ctrl)
 static void avd_h264_submit(struct avd_ctx *ctx)
 {
 	writel_relaxed(
-		0x2b000000 |
-			(ctx->dev->variant->revision == 3 ? 0x100 : 0x200) |
-			(ctx->fifo_idx << 4) | ctx->dev->variant->fifo_slots,
+		AVD_OP_EXEC |
+			AVD_OP_EXEC_FLAG_START_REV4(
+				ctx->dev->variant->revision == 4) |
+			AVD_OP_EXEC_FLAG_START_REV3(
+				ctx->dev->variant->revision == 3) |
+			AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx) |
+			AVD_OP_EXEC_FIFO_MASK(ctx->dev->variant->fifo_slots),
 		ctx->dev->ctrl + ctx->dev->variant->submit_offset);
 }
 
