@@ -182,7 +182,11 @@
 		interrupt-names = "mbox0", "mbox1", "mbox2", "mbox3",
 				  "flag0", "flag1", "piodma";
 		iommus = <&DIE_NODE(avd_dart) 0>, <&DIE_NODE(avd_dart) 1>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_avd_sys)>;
+		#else
 		power-domains = <&DIE_NODE(ps_avd_sys)>;
+		#endif
 		resets = <&DIE_NODE(ps_avd_sys)>;
 	};
 
