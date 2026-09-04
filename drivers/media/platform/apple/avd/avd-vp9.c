@@ -14,9 +14,7 @@
  *	Alpha Lin <Alpha.Lin@rock-chips.com>
  */
 
-#include "linux/v4l2-controls.h"
 #include <linux/unaligned.h>
-#include <linux/delay.h>
 
 #include <media/v4l2-vp9.h>
 #include <media/videobuf2-dma-contig.h>
@@ -169,7 +167,6 @@ struct avd_vp9_ctx {
 static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
-	struct avd_dev *avd = ctx->dev;
 	struct avd_decoded_buffer *dst, *ref_buf[4];
 	dma_addr_t addr;
 
@@ -196,7 +193,7 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 		     "hdr_70_ref_height_width");
 		push(0x40004000, "hdr_7c_ref_align");
 
-		push_comp(avd, ctx, addr, ref_buf[i]->comp.offsets);
+		push_comp(ctx, addr, ref_buf[i]->comp.offsets);
 	}
 }
 
@@ -280,14 +277,6 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	bool intra_only = !!(frame->flags & (V4L2_VP9_FRAME_FLAG_KEY_FRAME |
 					     V4L2_VP9_FRAME_FLAG_INTRA_ONLY));
-
-	push(AVD_OP_EXEC |
-		     AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3) |
-		     AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4) |
-		     (avd->variant->revision == 3 ? AVD_OP_EXEC_REV3_VP9_MASK :
-						    0) |
-		     AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx),
-	     "inst_fifo_start");
 
 	push(AVD_OP_HDR | AVD_OP_HDR_FLAG_DECOMP(ctx->decomp) |
 		     AVD_OP_HDR_FLAG_INTRA(intra_only) | AVD_OP_HDR_CONST |
@@ -374,7 +363,7 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	push(0, "");
 
-	push_comp(avd, ctx, run->base.comp_out, ctx->comp.offsets);
+	push_comp(ctx, run->base.comp_out, ctx->comp.offsets);
 
 	pusha((u64)0, "packed_fmt_scratch", 0);
 
@@ -398,11 +387,9 @@ static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
 static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
-	struct avd_dev *avd = ctx->dev;
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	struct vb2_v4l2_buffer *src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	const u8 *data = vb2_plane_vaddr(&src->vb2_buf, 0);
-	bool is_last;
 
 	u32 offset =
 		frame->uncompressed_header_size + frame->compressed_header_size;
@@ -417,8 +404,7 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 	for (int row = 0; row < num_tile_rows; row++)
 		for (int col = 0; col < num_tile_cols; col++) {
-			is_last = row == num_tile_rows - 1 &&
-				  col == num_tile_cols - 1;
+			ctx->job.num++;
 			if (row == num_tile_rows - 1 &&
 			    col == num_tile_cols - 1) {
 				tile_size = size;
@@ -450,11 +436,7 @@ static void set_tiles(struct avd_ctx *ctx, struct avd_vp9_run *run)
 				     AVD_SL_DIM_END_X(((col + 1) * sb_64_cols) /
 							      num_tile_cols - 1),
 			     "til_ac0_tile_dims");
-			push(AVD_OP_EXEC | AVD_OP_EXEC_FLAG_END(is_last) |
-				     (avd->variant->revision == 3 ?
-					      AVD_OP_EXEC_REV3_VP9_MASK :
-					      0),
-			     "cm3_cmd_inst_fifo_end");
+
 			offset += tile_size;
 			size -= tile_size;
 			vp9_ctx->submit_num++;
@@ -718,7 +700,6 @@ static int avd_vp9_run_preamble(struct avd_ctx *ctx, struct avd_vp9_run *run)
 
 static int avd_vp9_run(struct avd_ctx *ctx)
 {
-	struct avd_dev *avd = ctx->dev;
 	struct avd_vp9_run run;
 	struct avd_vp9_ctx *vp9_ctx;
 	struct avd_decoded_buffer *dst;
@@ -730,6 +711,14 @@ static int avd_vp9_run(struct avd_ctx *ctx)
 		return ret;
 	}
 
+	ret = avd_init_job(
+		ctx, AVD_CODEC_VP9,
+		(1 << run.decode_params->tile_rows_log2) *
+				(1 << run.decode_params->tile_cols_log2) +
+			1);
+	if (ret)
+		return ret;
+
 	init_probs(ctx, &run);
 
 	vp9_ctx = ctx->priv;
@@ -737,24 +726,12 @@ static int avd_vp9_run(struct avd_ctx *ctx)
 	update_dec_buf_info(dst, run.decode_params);
 	update_ctx_cur_info(vp9_ctx, dst, run.decode_params);
 
-	ret = alloc_slots(avd, ctx, AVD_CODEC_VP9);
-	if (ret) {
-		dev_err(avd->dev, "no free slots: %d", ret);
-		return ret;
-	}
-
-	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
-
-	avd->variant->configure_stream(avd, vp9_ctx->bufs.inst.addr,
-				       ctx->fifo_idx, ctx->vp_slot);
-
 	set_header(ctx, &run);
-
 	vp9_ctx->submit_num = 0;
 	set_tiles(ctx, &run);
 	avd_run_postamble(ctx, &run.base);
 
-	return 0;
+	return avd_submit_job(ctx);
 }
 
 #define copy_tx_and_skip(p1, p2)                                    \

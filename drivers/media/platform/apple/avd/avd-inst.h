@@ -165,30 +165,31 @@ static inline bool boolify(u32 v)
 	return !!(v);
 }
 
-static inline void push(struct avd_dev *avd, struct avd_ctx *ctx, u32 inst)
+static inline void push(struct avd_ctx *ctx, u32 inst)
 {
-	writel(inst, avd->ctrl + avd->variant->vp_slot_offset + ctx->vp_slot * 4);
+	struct avd_job *job = &ctx->job;
+	struct avd_segment *seg = &job->segments[job->num];
+	seg->instructions[seg->num++] = inst;
 }
 
-static inline void push_address(struct avd_dev *avd, struct avd_ctx *ctx,
-				dma_addr_t addr)
+static inline void push_address(struct avd_ctx *ctx, dma_addr_t addr)
 {
-	if (avd->variant->quirks & AVD_QUIRK_LSR) {
-		push(avd, ctx, (addr >> 8));
+	if (ctx->dev->variant->quirks & AVD_QUIRK_LSR) {
+		push(ctx, (addr >> 8));
 	} else {
-		push(avd, ctx, (u32)(addr & 0xffffffff));
-		push(avd, ctx, (u32)(addr >> 32));
+		push(ctx, (u32)(addr & 0xffffffff));
+		push(ctx, (u32)(addr >> 32));
 	}
 }
-static inline void push_comp(struct avd_dev *avd, struct avd_ctx *ctx,
-		dma_addr_t addr, u32 offsets[4])
+static inline void push_comp(struct avd_ctx *ctx, dma_addr_t addr,
+			     u32 offsets[4])
 {
-	if (avd->variant->quirks & AVD_QUIRK_LSR) {
+	if (ctx->dev->variant->quirks & AVD_QUIRK_LSR) {
 		for (int i = 0; i < 4; i++)
-			push(avd, ctx, (addr + offsets[i]) >> 7);
+			push(ctx, (addr + offsets[i]) >> 7);
 	} else {
 		for (int i = 0; i < 4; i++)
-			push_address(avd, ctx, (addr + offsets[i]));
+			push_address(ctx, (addr + offsets[i]));
 	}
 }
 
@@ -196,11 +197,11 @@ static inline void push_comp(struct avd_dev *avd, struct avd_ctx *ctx,
 #define push(inst, name)                                           \
 	do {                                                       \
 		dev_info(ctx->dev->dev, "%8x | %s", (inst), name); \
-		push(avd, ctx, inst);                              \
+		push(ctx, inst);                                   \
 	} while (0)
 
 #else
-#define push(inst, name) push(avd, ctx, inst)
+#define push(inst, name) push(ctx, inst)
 #endif
 
 #ifdef DEBUG_INST_ADDR
@@ -210,11 +211,11 @@ static inline void push_comp(struct avd_dev *avd, struct avd_ctx *ctx,
 			 name, i);                                             \
 		dev_info(ctx->dev->dev, "%8llx | %s[%d] (high)", (inst) >> 32, \
 			 name, i);                                             \
-		push_address(avd, ctx, inst);                                  \
+		push_address(ctx, inst);                                       \
 	} while (0)
 
 #else
-#define pusha(inst, name, i) push_address(avd, ctx, inst)
+#define pusha(inst, name, i) push_address(ctx, inst)
 #endif
 
 #endif /* AVD_INST_H_ */

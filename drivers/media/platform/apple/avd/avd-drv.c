@@ -14,11 +14,13 @@
 #include <linux/pm_runtime.h>
 #include <linux/iommu.h>
 #include <linux/reset.h>
+#include <linux/delay.h>
 
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-v4l2.h>
 
 #include "avd.h"
+#include "avd-inst.h"
 #include "avd-regs.h"
 
 static void calc_tile_meta(u32 w, u32 h, u32 bpb, u32 tile_dim,
@@ -67,35 +69,6 @@ void fill_comp(struct avd_comp *comp, enum avd_image_fmt image_fmt, u32 width,
 	comp->size = y_meta + y + uv_meta + uv;
 }
 
-
-int alloc_slots(struct avd_dev *avd, struct avd_ctx *ctx, enum avd_codec codec) {
-	u32 free;
-	u32 offset = 0;
-	for (int i = 0; i < codec; i++)
-		offset += avd->variant->vp_slots[i];
-
-	free = find_next_zero_bit(&avd->vp_slots,
-			offset + avd->variant->vp_slots[codec],
-			offset);
-
-	if (free >= offset + avd->variant->vp_slots[codec])
-		return -ENOMEM;
-
-	set_bit(free, &avd->vp_slots);
-	ctx->vp_slot = free;
-
-	ctx->fifo_idx = find_first_zero_bit(&avd->inst_fifo_slots,
-					    avd->variant->fifo_slots);
-
-	if (WARN_ON(ctx->fifo_idx >= avd->variant->fifo_slots)) {
-		clear_bit(free, &avd->vp_slots);
-		return -ENOMEM;
-	}
-	set_bit(ctx->fifo_idx, &avd->inst_fifo_slots);
-
-	return 0;
-}
-
 int avd_buf_alloc(struct avd_dev *avd, struct avd_buf *buf, size_t size)
 {
 	if (!buf->cpu && size < buf->size)
@@ -137,12 +110,89 @@ avd_get_ref_buf(struct avd_ctx *ctx, struct vb2_v4l2_buffer *dst, u64 timestamp)
 	return vb2_to_avd_decoded_buf(buf);
 }
 
+static int avd_wait_submission_queue(struct avd_ctx *ctx, int vp)
+{
+	struct avd_dev *avd = ctx->dev;
+	u32 max = readl_relaxed(avd->ctrl +
+				avd->variant->submit_queue_max_offset + vp * 4);
+	u32 cur = readl_relaxed(
+		avd->ctrl + avd->variant->submit_queue_status_offset + vp * 4);
+
+	if (cur == max) {
+		dev_err(avd->dev, "instruction que full! %d/%d", cur, max);
+		return 1;
+	}
+
+	if (cur >= max / 2) {
+		/* TODO: to high? low? Has weird side effects??? */
+		usleep_range(500, 650);
+	}
+	return 0;
+}
+
+int avd_init_job(struct avd_ctx *ctx, enum avd_codec codec, size_t segments)
+{
+	int ret = 0;
+	struct avd_job *job = &ctx->job;
+
+	job->codec = codec;
+	job->num = 0;
+	job->segments = kzalloc(sizeof(*job->segments) * segments, GFP_KERNEL);
+	if (!job->segments)
+		ret = -ENOMEM;
+	return ret;
+}
+
+int avd_submit_job(struct avd_ctx *ctx)
+{
+	struct avd_dev *avd = ctx->dev;
+	struct avd_job *sub = &ctx->job;
+	struct avd_segment *seg;
+	int i, idx = 0, vp = 0;
+	void __iomem *reg;
+	u32 exec_mask = sub->codec == AVD_CODEC_VP9 &&
+					avd->variant->revision == 3 ?
+				AVD_OP_EXEC_REV3_VP9_MASK :
+				0;
+	u32 exec_rev_flag =
+		AVD_OP_EXEC_FLAG_START_REV4(avd->variant->revision == 4) |
+		AVD_OP_EXEC_FLAG_START_REV3(avd->variant->revision == 3);
+
+	ctx->fifo_idx = 0;
+	for (i = 0; i < sub->codec; i++)
+		vp += avd->variant->vp_slots[i];
+
+	schedule_delayed_work(&ctx->watchdog_work, msecs_to_jiffies(2000));
+	avd->variant->configure_stream(avd, ctx->inst.addr, ctx->fifo_idx, vp);
+	reg = avd->ctrl + avd->variant->vp_slot_offset + vp * 4;
+
+	/* the first segment is always the header (needs special handling) */
+
+	writel(AVD_OP_EXEC | exec_mask | exec_rev_flag |
+		       AVD_OP_EXEC_FIFO_IDX(ctx->fifo_idx),
+	       reg);
+	seg = &sub->segments[idx++];
+	for (i = 0; i < seg->num; i++)
+		writel(seg->instructions[i], reg);
+	for (; idx <= sub->num; idx++) {
+		seg = &sub->segments[idx];
+		for (i = 0; i < seg->num; i++)
+			writel(seg->instructions[i], reg);
+		if (avd_wait_submission_queue(ctx, vp))
+			break;
+		writel(AVD_OP_EXEC | exec_mask |
+			       AVD_OP_EXEC_FLAG_END(idx == sub->num),
+		       reg);
+	}
+
+	kfree(sub->segments);
+	sub->segments = NULL;
+	return 0;
+}
 
 static int avd_reset(struct avd_dev *avd)
 {
 	int ret = 0;
-	avd->vp_slots = 0;
-	avd->inst_fifo_slots = 0;
 
 	ret = pm_runtime_resume_and_get(avd->dev);
 	if (ret < 0)
@@ -178,11 +228,7 @@ static void avd_watchdog_func(struct work_struct *work)
 
 	avd = ctx->dev;
 
-	dev_err(avd->dev, "Frame processing timed out! Vp: %d (%02d)",
-		ctx->vp_slot, ctx->fifo_idx);
-
-	free_vp_slot(avd, ctx);
-	free_inst_slot(avd, ctx);
+	dev_err(avd->dev, "Frame processing timed out!");
 
 	writel(0, avd->mbox + AVD_REG_MBOX_IRQ_ENABLE);
 	ret = avd_reset(avd);
@@ -215,17 +261,13 @@ static irqreturn_t avd_irq_handler(int irq, void *data)
 	if (status & 0x1000) {
 		/* pp is done ! we are done */
 		state = VB2_BUF_STATE_DONE;
-
-		free_inst_slot(avd, ctx);
 	} else if (status & 0x100) {
-		free_vp_slot(avd, ctx);
 		/* a vp is done, kick the pp and hope for the best */
 		if(ctx->coded_fmt_desc->ops->submit)
 			ctx->coded_fmt_desc->ops->submit(ctx);
-
 		goto done;
 	} else {
-		dev_err(avd->dev, "H%d %02d error", status, ctx->fifo_idx);
+		dev_err(avd->dev, "H%d error", status);
 		/* let watchdog handle */
 		goto done;
 	}
@@ -310,6 +352,10 @@ static int avd_open(struct file *filp)
 
 	ctx->dev = avd;
 
+	ret = avd_buf_alloc(avd, &ctx->inst, fifo_size());
+	if (ret)
+		goto err_free_ctx;
+
 	INIT_DELAYED_WORK(&ctx->watchdog_work, avd_watchdog_func);
 
 	avd_reset_coded_fmt(ctx);
@@ -335,6 +381,7 @@ err_cleanup_m2m_ctx:
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 
 err_free_ctx:
+	avd_buf_free(avd, &ctx->inst);
 	kfree(ctx);
 	return ret;
 }
@@ -347,6 +394,7 @@ static int avd_release(struct file *filp)
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 	v4l2_fh_exit(&ctx->fh);
+	avd_buf_free(ctx->dev, &ctx->inst);
 	kfree(ctx);
 
 	return 0;
