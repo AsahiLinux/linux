@@ -15,10 +15,29 @@
 / {
 	compatible = "apple,j514s", "apple,t6030", "apple,arm-platform";
 	model = "Apple MacBook Pro (14-inch, M3 Pro, Nov 2023)";
+
+	aliases {
+		dcp = &dcp;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
+		disp0-piodma = &disp0_piodma;
+	};
 };
 
 &framebuffer0 {
+	panel = <&panel>;
+	post-init-providers = <&panel>;
 	power-domains = <&ps_disp_cpu>;
+};
+
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-mini-led", "apple,panel";
+		width-mm = <302>;
+		height-mm = <196>;
+		adj-height-mm = <189>;
+		apple,max-brightness = <500>;
+	};
 };
 
 &mtp_mt {
