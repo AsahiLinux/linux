@@ -71,6 +71,18 @@ enum {
 #define APPLE_RTKIT_OSLOG_SIZE GENMASK_ULL(55, 36)
 #define APPLE_RTKIT_OSLOG_IOVA GENMASK_ULL(35, 0)
 
+#define APPLE_RTKIT_KDEBUG_TYPE GENMASK_ULL(55, 48)
+#define APPLE_RTKIT_KDEBUG_DATA GENMASK_ULL(47, 0)
+
+enum {
+	APPLE_RTKIT_KDEBUG_GET_BUFFER = 1,
+	APPLE_RTKIT_KDEBUG_SET_BUFFER0 = 1,
+	APPLE_RTKIT_KDEBUG_SET_BUFFER1 = 2,
+	APPLE_RTKIT_KDEBUG_PREALLOC_BUFFER0 = 2,
+	APPLE_RTKIT_KDEBUG_PREALLOC_BUFFER1 = 3,
+	APPLE_RTKIT_KDEBUG_START = 8,
+};
+
 #define APPLE_RTKIT_MIN_SUPPORTED_VERSION 11
 #define APPLE_RTKIT_MAX_SUPPORTED_VERSION 12
 
@@ -153,7 +165,7 @@ abort_boot:
 
 static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 {
-	int i, ep;
+	int i, ep, ret;
 	u64 reply;
 	unsigned long bitmap = FIELD_GET(APPLE_RTKIT_MGMT_EPMAP_BITMAP, msg);
 	u32 base = FIELD_GET(APPLE_RTKIT_MGMT_EPMAP_BASE, msg);
@@ -193,7 +205,18 @@ static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 		case APPLE_RTKIT_EP_OSLOG:
 			dev_dbg(rtk->dev,
 				"RTKit: Starting system endpoint 0x%02x\n", ep);
-			apple_rtkit_start_ep(rtk, ep);
+			ret = apple_rtkit_start_ep(rtk, ep);
+			if (ret)
+				goto error;
+			if (ep == APPLE_RTKIT_EP_DEBUG) {
+				ret = apple_rtkit_send_message(
+					rtk, ep,
+					FIELD_PREP(APPLE_RTKIT_KDEBUG_TYPE,
+						   APPLE_RTKIT_KDEBUG_START),
+					NULL, false);
+				if (ret)
+					goto error;
+			}
 			break;
 
 		default:
@@ -204,6 +227,11 @@ static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 	}
 
 	rtk->boot_result = 0;
+	complete_all(&rtk->epmap_completion);
+	return;
+
+error:
+	rtk->boot_result = ret;
 	complete_all(&rtk->epmap_completion);
 }
 
@@ -346,6 +374,98 @@ static void apple_rtkit_free_buffer(struct apple_rtkit *rtk,
 	bfr->iova = 0;
 	bfr->size = 0;
 	bfr->is_mapped = false;
+}
+
+static int apple_rtkit_kdebug_alloc_buffer(struct apple_rtkit *rtk,
+					   struct apple_rtkit_shmem *buffer,
+					   size_t size)
+{
+	int err;
+
+	/* Firmware may still be using buffers from an earlier request. */
+	if (buffer->size)
+		return buffer->size == size ? 0 : -EINVAL;
+
+	buffer->size = size;
+	buffer->iova = 0;
+	buffer->buffer = NULL;
+	buffer->iomem = NULL;
+	buffer->is_mapped = false;
+
+	if (rtk->ops->shmem_setup) {
+		err = rtk->ops->shmem_setup(rtk->cookie, buffer);
+		if (err)
+			goto error;
+	} else {
+		buffer->buffer = dma_alloc_coherent(rtk->dev, buffer->size,
+						    &buffer->iova, GFP_KERNEL);
+		if (!buffer->buffer) {
+			err = -ENOMEM;
+			goto error;
+		}
+	}
+
+	return 0;
+
+error:
+	buffer->size = 0;
+	return err;
+}
+
+static void apple_rtkit_kdebug_rx(struct apple_rtkit *rtk, u64 msg)
+{
+	u8 type = FIELD_GET(APPLE_RTKIT_KDEBUG_TYPE, msg);
+	u64 count, reply;
+	size_t size;
+	int err;
+
+	switch (type) {
+	case APPLE_RTKIT_KDEBUG_GET_BUFFER:
+		count = FIELD_GET(APPLE_RTKIT_KDEBUG_DATA, msg);
+		if (!count || count > (SIZE_MAX - 0x3fff) / 0x20) {
+			err = -EINVAL;
+			goto error;
+		}
+
+		size = ALIGN((size_t)count * 0x20, 0x4000);
+		err = apple_rtkit_kdebug_alloc_buffer(rtk,
+						       &rtk->kdebug_buffer0, size);
+		if (err)
+			goto error;
+
+		err = apple_rtkit_kdebug_alloc_buffer(rtk,
+						       &rtk->kdebug_buffer1, 0x2000);
+		if (err)
+			goto error;
+
+		reply = FIELD_PREP(APPLE_RTKIT_KDEBUG_TYPE,
+				   APPLE_RTKIT_KDEBUG_SET_BUFFER0) |
+			FIELD_PREP(APPLE_RTKIT_KDEBUG_DATA,
+				   rtk->kdebug_buffer0.iova);
+		err = apple_rtkit_send_message(rtk, APPLE_RTKIT_EP_DEBUG, reply,
+					       NULL, false);
+		if (err)
+			goto error;
+
+		reply = FIELD_PREP(APPLE_RTKIT_KDEBUG_TYPE,
+				   APPLE_RTKIT_KDEBUG_SET_BUFFER1) |
+			FIELD_PREP(APPLE_RTKIT_KDEBUG_DATA,
+				   rtk->kdebug_buffer1.iova);
+		err = apple_rtkit_send_message(rtk, APPLE_RTKIT_EP_DEBUG, reply,
+					       NULL, false);
+		if (err)
+			goto error;
+		break;
+	case APPLE_RTKIT_KDEBUG_PREALLOC_BUFFER0:
+	case APPLE_RTKIT_KDEBUG_PREALLOC_BUFFER1:
+		break;
+	default:
+		dev_warn_ratelimited(rtk->dev, "RTKit: Unknown kdebug message: %llx\n", msg);
+	}
+	return;
+
+error:
+	dev_err_ratelimited(rtk->dev, "RTKit: kdebug buffer request failed: %d\n", err);
 }
 
 static void apple_rtkit_memcpy(struct apple_rtkit *rtk, void *dst,
@@ -538,6 +658,9 @@ static void apple_rtkit_rx_work(struct work_struct *work)
 		break;
 	case APPLE_RTKIT_EP_SYSLOG:
 		apple_rtkit_syslog_rx(rtk, rtk_work->msg);
+		break;
+	case APPLE_RTKIT_EP_DEBUG:
+		apple_rtkit_kdebug_rx(rtk, rtk_work->msg);
 		break;
 	case APPLE_RTKIT_EP_IOREPORT:
 		apple_rtkit_ioreport_rx(rtk, rtk_work->msg);
@@ -742,6 +865,8 @@ int apple_rtkit_reinit(struct apple_rtkit *rtk)
 	apple_rtkit_free_buffer(rtk, &rtk->crashlog_buffer);
 	apple_rtkit_free_buffer(rtk, &rtk->oslog_buffer);
 	apple_rtkit_free_buffer(rtk, &rtk->syslog_buffer);
+	apple_rtkit_free_buffer(rtk, &rtk->kdebug_buffer0);
+	apple_rtkit_free_buffer(rtk, &rtk->kdebug_buffer1);
 
 	kfree(rtk->syslog_msg_buffer);
 
@@ -946,6 +1071,8 @@ void apple_rtkit_free(struct apple_rtkit *rtk)
 	apple_rtkit_free_buffer(rtk, &rtk->crashlog_buffer);
 	apple_rtkit_free_buffer(rtk, &rtk->oslog_buffer);
 	apple_rtkit_free_buffer(rtk, &rtk->syslog_buffer);
+	apple_rtkit_free_buffer(rtk, &rtk->kdebug_buffer0);
+	apple_rtkit_free_buffer(rtk, &rtk->kdebug_buffer1);
 
 	kfree(rtk->syslog_msg_buffer);
 	kfree(rtk);
