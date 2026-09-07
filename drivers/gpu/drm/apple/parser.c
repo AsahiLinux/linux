@@ -589,7 +589,7 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 		return ERR_PTR(ret);
 
 	/* Start with a worst case allocation */
-	modes = kmalloc_array(it.len, sizeof(*modes), GFP_KERNEL);
+	modes = kzalloc_objs(*modes, it.len, GFP_KERNEL);
 	*count = 0;
 
 	if (!modes)
@@ -600,8 +600,11 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 		ret = parse_mode(it.handle, mode, &score, width_mm, height_mm, notch_height);
 
 		/* Errors for a single mode are recoverable -- just skip it. */
-		if (ret)
+		if (ret) {
+			/* Clear data left by a failed parse. */
+			memset(mode, 0, sizeof(*modes));
 			continue;
+		}
 
 		/* Process a successful mode */
 		(*count)++;
