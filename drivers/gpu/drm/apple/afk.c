@@ -2,8 +2,10 @@
 /* Copyright 2022 Sven Peter <sven@svenpeter.dev> */
 
 #include <linux/bitfield.h>
+#include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/jiffies.h>
 #include <linux/kconfig.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
@@ -101,6 +103,7 @@ void afk_shutdown(struct apple_dcp_afkep *afkep)
 
 int afk_start(struct apple_dcp_afkep *ep)
 {
+	unsigned long timeout;
 	int ret;
 
 	reinit_completion(&ep->started);
@@ -109,13 +112,31 @@ int afk_start(struct apple_dcp_afkep *ep)
 		return dev_err_probe(ep->dcp->dev, ret,
 				     "Failed to start AFK endpoint %02x\n",
 				     ep->endpoint);
+
+	/* Allow firmware to instantiate the endpoint after RTKit START_ENDPOINT. */
+	usleep_range(10000, 11000);
 	afk_send(ep, FIELD_PREP(RBEP_TYPE, RBEP_INIT));
 
-	ret = wait_for_completion_timeout(&ep->started, msecs_to_jiffies(1000));
-	if (ret <= 0)
-		return -ETIMEDOUT;
-	else
-		return 0;
+	/*
+	 * Poll because ASCWrap v6 can leave messages queued without another
+	 * recv-not-empty interrupt after RTKit bootstrap.
+	 */
+	timeout = jiffies + msecs_to_jiffies(1000);
+	do {
+		ret = apple_rtkit_poll(ep->dcp->rtk);
+		if (ret < 0)
+			return ret;
+
+		ret = wait_for_completion_timeout(&ep->started,
+						  msecs_to_jiffies(10));
+		if (ret > 0)
+			return 0;
+	} while (time_before(jiffies, timeout));
+
+	dev_err(ep->dcp->dev,
+		"RTKit AFK endpoint %02x did not acknowledge init\n",
+		ep->endpoint);
+	return -ETIMEDOUT;
 }
 
 static void afk_getbuf(struct apple_dcp_afkep *ep, u64 message)
