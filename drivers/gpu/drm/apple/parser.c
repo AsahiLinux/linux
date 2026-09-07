@@ -590,6 +590,8 @@ struct dcp_display_mode *enumerate_modes(struct dcp_parse_ctx *handle,
 
 	for (; it.idx < it.len; ++it.idx) {
 		mode = &modes[*count];
+		/* Clear optional fields and data left by a failed parse. */
+		memset(mode, 0, sizeof(*mode));
 		ret = parse_mode(it.handle, mode, &score, width_mm, height_mm, notch_height);
 
 		/* Errors for a single mode are recoverable -- just skip it. */
