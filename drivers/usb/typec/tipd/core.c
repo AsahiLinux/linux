@@ -1724,7 +1724,9 @@ int tipd_init(struct tps6598x *tps)
 
 	if (!device_is_compatible(tps->dev, "ti,tps25750")) {
 		ret = tps6598x_read32(tps, TPS_REG_VID, &vid);
-		if (ret < 0 || !vid)
+		if (ret < 0)
+			return ret;
+		if (!vid)
 			return -ENODEV;
 	}
 
