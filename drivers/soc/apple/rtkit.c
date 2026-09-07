@@ -7,6 +7,7 @@
 #include "rtkit-internal.h"
 
 #include <linux/jiffies.h>
+#include <linux/of.h>
 
 enum {
 	APPLE_RTKIT_PWR_STATE_OFF = 0x00, /* power off, cannot be restarted */
@@ -703,6 +704,19 @@ static void apple_rtkit_rx(struct apple_mbox *mbox, struct apple_mbox_msg msg,
 	 */
 	dma_rmb();
 
+	if (rtk->sync_syslog_ack && ep == APPLE_RTKIT_EP_SYSLOG &&
+	    FIELD_GET(APPLE_RTKIT_SYSLOG_TYPE, msg.msg0) ==
+		APPLE_RTKIT_SYSLOG_LOG) {
+		apple_rtkit_send_message(rtk, ep, msg.msg0, NULL, true);
+		return;
+	}
+	if (rtk->sync_syslog_ack && ep == APPLE_RTKIT_EP_IOREPORT &&
+	    (FIELD_GET(APPLE_RTKIT_SYSLOG_TYPE, msg.msg0) == 0x8 ||
+	     FIELD_GET(APPLE_RTKIT_SYSLOG_TYPE, msg.msg0) == 0xc)) {
+		apple_rtkit_send_message(rtk, ep, msg.msg0, NULL, true);
+		return;
+	}
+
 	if (!test_bit(ep, rtk->endpoints))
 		dev_warn(rtk->dev,
 			 "RTKit: Message to undiscovered endpoint 0x%02x\n",
@@ -801,6 +815,8 @@ struct apple_rtkit *apple_rtkit_init(struct device *dev, void *cookie,
 	rtk->dev = dev;
 	rtk->cookie = cookie;
 	rtk->ops = ops;
+	rtk->sync_syslog_ack =
+		of_property_read_bool(dev->of_node, "apple,sync-syslog-ack");
 
 	init_completion(&rtk->epmap_completion);
 	init_completion(&rtk->iop_pwr_ack_completion);
