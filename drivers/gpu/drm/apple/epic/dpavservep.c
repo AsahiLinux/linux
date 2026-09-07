@@ -223,8 +223,8 @@ int dpavservep_init(struct apple_dcp *dcp)
 
 	ret = wait_for_completion_timeout(&dcp->dcpavserv.enable_completion,
 					  msecs_to_jiffies(1000));
-	if (ret >= 0)
-		return 0;
+	if (ret == 0)
+		return -ETIMEDOUT;
 
-	return ret;
+	return 0;
 }
