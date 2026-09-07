@@ -6,6 +6,8 @@
 
 #include "rtkit-internal.h"
 
+#include <linux/jiffies.h>
+
 enum {
 	APPLE_RTKIT_PWR_STATE_OFF = 0x00, /* power off, cannot be restarted */
 	APPLE_RTKIT_PWR_STATE_SLEEP = 0x01, /* sleeping, can be restarted */
@@ -841,18 +843,27 @@ free_rtk:
 }
 EXPORT_SYMBOL_GPL(apple_rtkit_init);
 
-static int apple_rtkit_wait_for_completion(struct completion *c)
+static int apple_rtkit_wait_for_completion(struct apple_rtkit *rtk,
+					   struct completion *c)
 {
+	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
 	long t;
+	int ret;
 
-	t = wait_for_completion_interruptible_timeout(c,
-						      msecs_to_jiffies(1000));
-	if (t < 0)
-		return t;
-	else if (t == 0)
-		return -ETIME;
-	else
-		return 0;
+	do {
+		ret = apple_rtkit_poll(rtk);
+		if (ret < 0)
+			return ret;
+
+		t = wait_for_completion_interruptible_timeout(c,
+							      msecs_to_jiffies(10));
+		if (t < 0)
+			return t;
+		if (t > 0)
+			return 0;
+	} while (time_before(jiffies, timeout));
+
+	return -ETIME;
 }
 
 int apple_rtkit_reinit(struct apple_rtkit *rtk)
@@ -903,7 +914,7 @@ static int apple_rtkit_set_ap_power_state(struct apple_rtkit *rtk,
 	if (ret)
 		return ret;
 
-	ret = apple_rtkit_wait_for_completion(&rtk->ap_pwr_ack_completion);
+	ret = apple_rtkit_wait_for_completion(rtk, &rtk->ap_pwr_ack_completion);
 	if (ret)
 		return ret;
 
@@ -926,7 +937,7 @@ static int apple_rtkit_set_iop_power_state(struct apple_rtkit *rtk,
 	if (ret)
 		return ret;
 
-	ret = apple_rtkit_wait_for_completion(&rtk->iop_pwr_ack_completion);
+	ret = apple_rtkit_wait_for_completion(rtk, &rtk->iop_pwr_ack_completion);
 	if (ret)
 		return ret;
 
@@ -945,14 +956,14 @@ int apple_rtkit_boot(struct apple_rtkit *rtk)
 		return -EINVAL;
 
 	dev_dbg(rtk->dev, "RTKit: waiting for boot to finish\n");
-	ret = apple_rtkit_wait_for_completion(&rtk->epmap_completion);
+	ret = apple_rtkit_wait_for_completion(rtk, &rtk->epmap_completion);
 	if (ret)
 		return ret;
 	if (rtk->boot_result)
 		return rtk->boot_result;
 
 	dev_dbg(rtk->dev, "RTKit: waiting for IOP power state ACK\n");
-	ret = apple_rtkit_wait_for_completion(&rtk->iop_pwr_ack_completion);
+	ret = apple_rtkit_wait_for_completion(rtk, &rtk->iop_pwr_ack_completion);
 	if (ret)
 		return ret;
 
