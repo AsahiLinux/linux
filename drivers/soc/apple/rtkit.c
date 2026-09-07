@@ -655,9 +655,7 @@ int apple_rtkit_start_ep(struct apple_rtkit *rtk, u8 endpoint)
 
 	msg = FIELD_PREP(APPLE_RTKIT_MGMT_STARTEP_EP, endpoint);
 	msg |= APPLE_RTKIT_MGMT_STARTEP_FLAG;
-	apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_STARTEP, msg);
-
-	return 0;
+	return apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_STARTEP, msg);
 }
 EXPORT_SYMBOL_GPL(apple_rtkit_start_ep);
 
