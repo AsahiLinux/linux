@@ -24,6 +24,34 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	clk_dispext0_die1: clock-dispext0_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0_die1";
+	};
+
+	clk_dispext1_die1: clock-dispext1_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1_die1";
+	};
+
+	clk_dispext2_die1: clock-dispext2_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext2_die1";
+	};
+
+	clk_dispext3_die1: clock-dispext3_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext3_die1";
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -370,6 +398,13 @@
 #undef DIE
 #undef DIE_NO
 #undef SOC_NODE
+
+/* delete non-present DCP / DISP0 nodes */
+/delete-node/ &disp0_dart;
+/delete-node/ &dcp_dart;
+/delete-node/ &dcp_mbox;
+/delete-node/ &dcp;
+/delete-node/ &display;
 
 /* delete non-present DISP power-states */
 /delete-node/ &ps_disp_cpu;
