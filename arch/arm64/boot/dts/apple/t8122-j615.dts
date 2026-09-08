@@ -61,12 +61,12 @@
 };
 
 &i2c1 {
-	speaker_left_woof: codec@38 {
+	speaker_left_woof1: codec@38 {
 		compatible = "ti,sn012776", "ti,tas2764";
 		reg = <0x38>;
 		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
 		#sound-dai-cells = <0>;
-		sound-name-prefix = "Left Woofer";
+		sound-name-prefix = "Left Woofer 1";
 		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <0>;
 		ti,vmon-slot-no = <2>;
@@ -82,6 +82,17 @@
 		ti,imon-slot-no = <8>;
 		ti,vmon-slot-no = <10>;
 	};
+
+	speaker_left_woof2: codec@3a {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3a>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Woofer 2";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <16>;
+		ti,vmon-slot-no = <18>;
+	};
 };
 
 &i2c3 {
@@ -90,7 +101,7 @@
 		reg = <0x3b>;
 		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
 		#sound-dai-cells = <0>;
-		sound-name-prefix = "Right Woofer";
+		sound-name-prefix = "Right Woofer 1";
 		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <4>;
 		ti,vmon-slot-no = <6>;
@@ -105,6 +116,17 @@
 		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
 		ti,imon-slot-no = <12>;
 		ti,vmon-slot-no = <14>;
+	};
+
+	speaker_right_woof2: codec@3d {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3d>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Woofer 2";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <20>;
+		ti,vmon-slot-no = <22>;
 	};
 
 	jack_codec: codec@4b {
@@ -126,15 +148,15 @@
 			link-name = "Speakers";
 			dai-tdm-idle-mode-0 = "zero";
 			dai-tdm-idle-mode-2 = "zero";
-			dai-tdm-slot-tx-idle-mask-0 = <0x0f0f>;
-			dai-tdm-slot-tx-idle-mask-2 = <0xf0f0>;
+			dai-tdm-slot-tx-idle-mask-0 = <0x0f0f0f>;
+			dai-tdm-slot-tx-idle-mask-2 = <0xf0f0f0>;
 
 			cpu {
 				sound-dai = <&mca 0>, <&mca 1>;
 			};
 			codec {
-				sound-dai = <&speaker_left_woof>, <&speaker_left_tweet>,
-					    <&speaker_right_woof>, <&speaker_right_tweet>;
+				sound-dai = <&speaker_left_woof1>, <&speaker_left_tweet>, <&speaker_left_woof2>,
+					    <&speaker_right_woof1>, <&speaker_right_tweet>, <&speaker_right_woof2>;
 			};
 		};
 
