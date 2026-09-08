@@ -177,6 +177,7 @@ struct SepData {
     shmem: ShMem,
     region_params: FwRegionParams,
     fw_mapped: Atomic<bool>,
+    fw_iova: Atomic<u64>,
 }
 
 impl SepData {
@@ -191,6 +192,7 @@ impl SepData {
                 mbox <- new_mutex!(None),
                 region_params,
                 fw_mapped: Atomic::new(false),
+                fw_iova: Atomic::new(0),
             }),
             GFP_KERNEL,
         )
@@ -217,6 +219,7 @@ impl SepData {
                 dev_err!(self.dev, "Failed to map firmware");
                 return Err(ENOMEM);
             }
+            self.fw_iova.store(res, Relaxed);
             self.fw_mapped.store(true, Relaxed);
             res >> IOVA_SHIFT
         };
@@ -287,7 +290,7 @@ impl SepData {
             unsafe {
                 bindings::dma_unmap_resource(
                     self.dev.as_raw(),
-                    self.region_params.addr,
+                    self.fw_iova.load(Relaxed),
                     self.region_params.size,
                     bindings::dma_data_direction_DMA_TO_DEVICE,
                     0,
