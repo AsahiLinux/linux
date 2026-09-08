@@ -617,6 +617,94 @@
 			#sound-dai-cells = <1>;
 		};
 
+		disp_dart: iommu@28d304000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x2 0x8d304000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 609 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+			power-domains = <&ps_disp_cpu>;
+			apple,dma-range = <0x100 0x0 0x10 0x0>;
+		};
+
+		dcp_dart: iommu@28d30c000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x2 0x8d30c000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 609 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_disp_cpu>;
+			apple,dma-range = <0x100 0x0 0x10 0x0>;
+		};
+
+		dcp_mbox: mbox@28ec08000 {
+			compatible = "apple,t6030-asc-mailbox", "apple,asc-mailbox-v4";
+			reg = <0x2 0x8ec08000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 589 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 590 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 591 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 592 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_disp_cpu>;
+		};
+
+		clk_disp: clock-disp {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <257142848>;
+			clock-output-names = "clk_disp";
+		};
+
+		dcp: dcp@28ec00000 {
+			compatible = "apple,t6030-dcp", "apple,dcp";
+			mboxes = <&dcp_mbox>;
+			mbox-names = "mbox";
+			iommus = <&dcp_dart 5>;
+			reg-names = "coproc", "disp-0", "disp-1", "disp-2", "disp-3", "disp-4";
+			reg = <0x2 0x8ec00000 0x0 0x4000>, // check?
+				<0x2 0xd0000000 0x0 0x690000>,
+                                <0x2 0xd0800000 0x0 0x690000>,
+                                <0x2 0xd1320000 0x0 0x4000>,
+                                <0x2 0xd1344000 0x0 0x4000>,
+                                <0x2 0xd2800000 0x0 0x800000>;
+			apple,bw-scratch = <&pmgr_dcp 0 5 0x988>;
+			apple,iomfb-surfaces = <1 1 0 1>;
+			power-domains = <&ps_disp_cpu>;
+			resets = <&ps_disp_cpu>;
+			clocks = <&clk_disp>;
+			phandle = <&dcp>;
+			// required bus properties for 'piodma' subdevice
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			disp0_piodma: piodma {
+				iommus = <&disp_dart 4>;
+				phandle = <&disp0_piodma>;
+			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					/* dcp_audio: endpoint { */
+					/* 	remote-endpoint = <&dpaudio0_dcp>; */
+					/* }; */
+				};
+			};
+		};
+
+		display: display-subsystem {
+			compatible = "apple,display-subsystem";
+			iommus = <&disp_dart 0>;
+			/* generate phandle explicitly for use in loader */
+			phandle = <&display>;
+		};
+
 		pmgr_gfx: power-management@290e80000 {
 			compatible = "apple,t6030-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
 			#address-cells = <1>;
@@ -781,6 +869,12 @@
 					 <APPLE_PINMUX(165, 1)>,
 					 <APPLE_PINMUX(166, 1)>;
 			};
+		};
+
+		pmgr_dcp: power-management@3503d0000 {
+			reg = <0x3 0x503d0000 0x0 0x4000>;
+			reg-names = "dcp-fw-pmgr";
+			#apple,bw-scratch-cells = <3>;
 		};
 
 		pmgr: power-management@350700000 {
