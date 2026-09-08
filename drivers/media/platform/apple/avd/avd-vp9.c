@@ -37,9 +37,39 @@
 #define VP9_LF_MODE0(v)	FIELD_PREP(GENMASK(13, 7), v)
 #define VP9_LF_MODE1(v)	FIELD_PREP(GENMASK(6, 0), v)
 
-#define VP9_FEAT_LVL_ALT_Q(v)	FIELD_PREP(GENMASK(21, 12), v)
+#define VP9_FEAT_LVL_ALT_Q_EN(v)	FIELD_PREP(BIT(21), !!(v))
+#define VP9_FEAT_LVL_ALT_Q(v)		FIELD_PREP(GENMASK(20, 12), v)
+#define VP9_FEAT_LVL_ALT_L_EN(v)	FIELD_PREP(BIT(11), !!(v))
+#define VP9_FEAT_LVL_ALT_L(v)		FIELD_PREP(GENMASK(10, 4), v)
+#define VP9_FEAT_LVL_REF_FRAME_EN(v)	FIELD_PREP(BIT(3), !!(v))
+#define VP9_FEAT_LVL_REF_FRAME(v)	FIELD_PREP(GENMASK(2, 1), v)
+#define VP9_FEAT_LVL_SKIP_EN(v)		FIELD_PREP(BIT(0), !!(v))
+#define VP9_FEAT_LVL_SKIP(v)
+
+#define VP9_REF_SEL_LAST(v)	FIELD_PREP(GENMASK(2, 0), v)
+#define VP9_REF_BIAS_LAST(v)	FIELD_PREP(BIT(3), !!(v))
+#define VP9_REF_SEL_GOLDEN(v)	FIELD_PREP(GENMASK(6, 4), v)
+#define VP9_REF_BIAS_GOLDEN(v)	FIELD_PREP(BIT(7), !!(v))
+#define VP9_REF_SEL_ALT(v)	FIELD_PREP(GENMASK(10, 8), v)
+#define VP9_REF_BIAS_ALT(v)	FIELD_PREP(BIT(11), !!(v))
+#define VP9_REFERENCE_MODE(v)	FIELD_PREP(GENMASK(13, 12), v)
+#define VP9_PARALLEL_DEC(v)	FIELD_PREP(BIT(14), !!(v))
+#define VP9_REFRESH_CTX(v)	FIELD_PREP(BIT(15), !!(v))
+#define VP9_INTERP_FILTER(v)	FIELD_PREP(GENMASK(18, 16), v)
+#define VP9_HIGH_PREC_MV(v)	FIELD_PREP(BIT(19), !!(v))
+#define VP9_ERR_RES(v)		FIELD_PREP(BIT(20), !!(v))
+#define VP9_HAS_REF(v)		FIELD_PREP(BIT(21), !!(v))
+#define VP9_SEG_ABS(v)		FIELD_PREP(BIT(22), !!(v))
+#define VP9_SEG_UDATA_TEMP(v)	FIELD_PREP(BIT(23), !!(v))
+#define VP9_SEG_UPDATE_MAP(v)	FIELD_PREP(BIT(24), !!(v))
+#define VP9_SEG_ENABLED(v)	FIELD_PREP(BIT(25), !!(v))
+#define VP9_SEG_RESET(v)	FIELD_PREP(BIT(26), !!(v))
 
 #define VP9_MAX_TILE_COLS	(1 << 4)
+#define VP9_REF_SCALE_SHIFT	14
+#define VP9_LAST_FRAME		1
+#define VP9_GOLDEN_FRAME	2
+#define VP9_ALTREF_FRAME	3
 
 struct avd_vp9_seg_probs {
 	u8 tree_probs[7];
@@ -169,6 +199,7 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
 	struct avd_decoded_buffer *dst, *ref_buf[4];
 	dma_addr_t addr;
+	int xscale, yscale;
 
 	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
 
@@ -186,63 +217,89 @@ static void set_refs(struct avd_ctx *ctx, struct avd_vp9_run *run)
 			       &ref_buf[i]->base.vb.vb2_buf, 0) +
 		       ref_buf[i]->comp.start_offset;
 
-		/* TODO */
 		push(AVD_REF_FLAG_CONST, "hdr_9c_ref_100");
 		push(AVD_HDR_HEIGHT(ref_buf[i]->vp9.height - 1) |
 			     AVD_HDR_WIDTH(ref_buf[i]->vp9.width - 1),
 		     "hdr_70_ref_height_width");
-		push(0x40004000, "hdr_7c_ref_align");
+
+		xscale = (ref_buf[i]->vp9.width << VP9_REF_SCALE_SHIFT) /
+			 dst->vp9.width;
+		yscale = (ref_buf[i]->vp9.height << VP9_REF_SCALE_SHIFT) /
+			 dst->vp9.height;
+		push(AVD_HDR_HEIGHT(xscale) | AVD_HDR_WIDTH(yscale),
+		     "ref_scale");
 
 		push_comp(ctx, addr, ref_buf[i]->comp.offsets);
 	}
 }
 
-/* TODO */
 static u32 make_flags1(struct avd_ctx *ctx, struct avd_vp9_run *run)
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	const struct v4l2_ctrl_vp9_frame *frame = run->decode_params;
-	bool has_ref = boolify(
+	struct avd_decoded_buffer *dst, *last, *golden, *alt;
+
+	dst = vb2_to_avd_decoded_buf(&run->base.bufs.dst->vb2_buf);
+	last = avd_get_ref_buf(ctx, &dst->base.vb, frame->last_frame_ts);
+	golden = avd_get_ref_buf(ctx, &dst->base.vb, frame->golden_frame_ts);
+	alt = avd_get_ref_buf(ctx, &dst->base.vb, frame->alt_frame_ts);
+
+	/*
+	 * i have only seen V4L2_VP9_SIGN_BIAS_ALT, im simply guessing the
+	 * same applies for last and golden
+	 */
+	u32 flags = VP9_REF_SEL_LAST(VP9_LAST_FRAME);
+	flags |= VP9_REF_BIAS_LAST(frame->ref_frame_sign_bias &
+				   V4L2_VP9_SIGN_BIAS_LAST);
+	flags |= VP9_REF_SEL_GOLDEN(golden == last ? VP9_LAST_FRAME :
+						     VP9_GOLDEN_FRAME);
+	flags |= VP9_REF_BIAS_GOLDEN(frame->ref_frame_sign_bias &
+				     V4L2_VP9_SIGN_BIAS_GOLDEN);
+	flags |= VP9_REF_SEL_ALT(alt != golden ? VP9_ALTREF_FRAME :
+				 alt != last   ? VP9_GOLDEN_FRAME :
+						 VP9_LAST_FRAME);
+	flags |= VP9_REF_BIAS_ALT(frame->ref_frame_sign_bias &
+				  V4L2_VP9_SIGN_BIAS_ALT);
+
+	flags |= VP9_REFERENCE_MODE(frame->reference_mode);
+
+	flags |= VP9_PARALLEL_DEC(frame->flags &
+				  V4L2_VP9_FRAME_FLAG_PARALLEL_DEC_MODE);
+	flags |= VP9_REFRESH_CTX(frame->flags &
+				 V4L2_VP9_FRAME_FLAG_REFRESH_FRAME_CTX);
+	flags |= VP9_INTERP_FILTER(frame->interpolation_filter);
+	flags |= VP9_HIGH_PREC_MV(frame->flags &
+				  V4L2_VP9_FRAME_FLAG_ALLOW_HIGH_PREC_MV);
+
+	flags |=
+		VP9_ERR_RES(frame->flags & V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT);
+
+	flags |= VP9_SEG_ABS(frame->seg.flags &
+			     V4L2_VP9_SEGMENTATION_FLAG_ABS_OR_DELTA_UPDATE);
+	flags |= VP9_SEG_UDATA_TEMP(
+		frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_UPDATE_DATA &&
+		frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_TEMPORAL_UPDATE);
+	flags |= VP9_SEG_UPDATE_MAP(frame->seg.flags &
+				    V4L2_VP9_SEGMENTATION_FLAG_UPDATE_MAP);
+	flags |= VP9_SEG_ENABLED(frame->seg.flags &
+				 V4L2_VP9_SEGMENTATION_FLAG_ENABLED);
+
+	flags |= VP9_HAS_REF(
+		!(frame->flags & V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT) &&
+		!(frame->flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME) &&
 		vp9_ctx->last.valid &&
-		!(vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME) &&
-		vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_SHOW_FRAME);
+		vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_SHOW_FRAME &&
+		!(vp9_ctx->last.flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME));
 
-	u32 flags =
-		BIT(0) |
-		boolify(frame->flags & V4L2_VP9_FRAME_FLAG_PARALLEL_DEC_MODE)
-			<< 14 |
-		!boolify(frame->flags & V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT)
-			<< 15 |
-		boolify(frame->flags & V4L2_VP9_FRAME_FLAG_ALLOW_HIGH_PREC_MV)
-			<< 19;
+	flags |= VP9_SEG_RESET(
+		frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_ENABLED &&
+		(frame->flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME ||
+		 (vp9_ctx->last.valid &&
+		  !(vp9_ctx->last.seg.flags &
+		    V4L2_VP9_SEGMENTATION_FLAG_ENABLED) &&
+		  vp9_ctx->last.flags & (V4L2_VP9_FRAME_FLAG_KEY_FRAME |
+					 V4L2_VP9_FRAME_FLAG_INTRA_ONLY))));
 
-	if (!(frame->flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME)) {
-		flags |= frame->interpolation_filter << 16;
-		if (!(frame->flags & V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT))
-			flags |= has_ref << 21;
-		else
-			flags |= BIT(20);
-	}
-
-	flags |= frame->ref_frame_sign_bias << 7;
-	/* this seems wrong */
-	flags |= !(frame->golden_frame_ts == 0) << 10;
-	flags |= !(frame->ref_frame_sign_bias == 0) << 11;
-
-	flags |= frame->reference_mode << 12;
-
-	flags |= !!(frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_UPDATE_MAP)
-			 << 24 |
-		 !!(frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_ENABLED)
-			 << 25;
-	/* what?? */
-	if (frame->seg.flags & V4L2_VP9_SEGMENTATION_FLAG_UPDATE_DATA) {
-		if (frame->seg.flags &
-		    V4L2_VP9_SEGMENTATION_FLAG_TEMPORAL_UPDATE)
-			flags |= BIT(23);
-		else if (!vp9_ctx->last.valid)
-			flags |= BIT(26);
-	}
 	return flags;
 }
 
@@ -251,19 +308,30 @@ static u32 seg_features(struct avd_ctx *ctx, struct avd_vp9_run *run,
 {
 	struct avd_vp9_ctx *vp9_ctx = ctx->priv;
 	const struct v4l2_vp9_segmentation *seg = &vp9_ctx->cur.seg;
-	s16 feature_val = 0;
+	u32 feature_val = 0;
 	int feature_id = 0;
-	u32 enabled = 0;
 
 	feature_id = V4L2_VP9_SEG_LVL_ALT_Q;
-	if (v4l2_vp9_seg_feat_enabled(seg->feature_enabled, feature_id, segid))
-		feature_val = seg->feature_data[segid][feature_id];
+	feature_val |= VP9_FEAT_LVL_ALT_Q_EN(v4l2_vp9_seg_feat_enabled(
+		seg->feature_enabled, feature_id, segid));
+	feature_val |= VP9_FEAT_LVL_ALT_Q(seg->feature_data[segid][feature_id]);
+
+	feature_id = V4L2_VP9_SEG_LVL_ALT_L;
+	feature_val |= VP9_FEAT_LVL_ALT_L_EN(v4l2_vp9_seg_feat_enabled(
+		seg->feature_enabled, feature_id, segid));
+	feature_val |= VP9_FEAT_LVL_ALT_L(seg->feature_data[segid][feature_id]);
+
+	feature_id = V4L2_VP9_SEG_LVL_REF_FRAME;
+	feature_val |= VP9_FEAT_LVL_REF_FRAME_EN(v4l2_vp9_seg_feat_enabled(
+		seg->feature_enabled, feature_id, segid));
+	feature_val |=
+		VP9_FEAT_LVL_REF_FRAME(seg->feature_data[segid][feature_id]);
 
 	feature_id = V4L2_VP9_SEG_LVL_SKIP;
-	if (v4l2_vp9_seg_feat_enabled(seg->feature_enabled, feature_id, segid))
-		enabled |= 1;
+	feature_val |= VP9_FEAT_LVL_SKIP_EN(v4l2_vp9_seg_feat_enabled(
+		seg->feature_enabled, feature_id, segid));
 
-	return VP9_FEAT_LVL_ALT_Q(feature_val) | enabled;
+	return feature_val;
 }
 
 static void set_header(struct avd_ctx *ctx, struct avd_vp9_run *run)
