@@ -14,6 +14,9 @@
 		atcphy0 = &atcphy0;
 		atcphy1 = &atcphy1;
 		bluetooth0 = &bluetooth0;
+		dcp = &dcp;
+		disp0 = &display;
+		disp0-piodma = &disp_piodma;
 		serial0 = &serial0;
 		wifi0 = &wifi0;
 
