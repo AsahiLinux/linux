@@ -497,6 +497,69 @@
 		clock-output-names = "nco_ref";
 	};
 
+	clk_disp0: clock-disp {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <257142848>;
+		clock-output-names = "clk_disp";
+	};
+
+	clk_dispext0: clock-dispext0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0";
+	};
+
+	clk_dispext0_die1: clock-dispext0_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext0_die1";
+	};
+
+	clk_dispext1: clock-dispext1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1";
+	};
+
+	clk_dispext1_die1: clock-dispext1_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext1_die1";
+	};
+
+	clk_dispext2: clock-dispext2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext2";
+	};
+
+	clk_dispext2_die1: clock-dispext2_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext2_die1";
+	};
+
+	clk_dispext3: clock-dispext3 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext3";
+	};
+
+	clk_dispext3_die1: clock-dispext3_die1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dispext3_die1";
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;

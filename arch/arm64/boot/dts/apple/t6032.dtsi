@@ -24,6 +24,17 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		dcpext0 = &dcpext0;
+		dcpext1 = &dcpext1;
+		dcpext2 = &dcpext2;
+		dcpext3 = &dcpext3;
+		dcpext4 = &dcpext0_die1;
+		dcpext5 = &dcpext1_die1;
+		dcpext6 = &dcpext2_die1;
+		dcpext7 = &dcpext3_die1;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
