@@ -879,6 +879,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "pmp";
+		apple,always-on;
 	};
 
 	ps_pms_sram: power-controller@4d0 {
@@ -887,6 +888,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "pms_sram";
+		apple,always-on;
 	};
 
 	ps_lw31: power-controller@4d8 {

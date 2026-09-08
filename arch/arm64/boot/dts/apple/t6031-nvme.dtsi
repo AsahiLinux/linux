@@ -15,14 +15,22 @@
 			<AIC_IRQ DIE_NO 1277 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "send-empty", "send-not-empty",
 			"recv-empty", "recv-not-empty";
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_ans)>;
+		#else
 		power-domains = <&DIE_NODE(ps_ans)>;
+		#endif
 		#mbox-cells = <0>;
 	};
 
 	DIE_NODE(sart): sart@34dc50000 {
 		compatible = "apple,t6031-sart", "apple,t6000-sart";
 		reg = <0x3 0x4dc50000 0x0 0x10000>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_ans)>;
+		#else
 		power-domains = <&DIE_NODE(ps_ans)>;
+		#endif
 	};
 
 	DIE_NODE(nvme): nvme@34dcc0000 {
@@ -35,7 +43,11 @@
 		interrupts = <AIC_IRQ 0 2366 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&DIE_NODE(ans_mbox)>;
 		apple,sart = <&DIE_NODE(sart)>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_ans)>,
+		#else
 		power-domains = <&DIE_NODE(ps_ans)>,
+		#endif
 				<&DIE_NODE(ps_apcie_sys_st)>,
 				<&DIE_NODE(ps_apcie_sys_st1)>;
 		power-domain-names = "ans", "apcie0", "apcie1";

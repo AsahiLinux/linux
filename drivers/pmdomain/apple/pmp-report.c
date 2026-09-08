@@ -67,6 +67,13 @@ static const struct apple_pmp_report_offsets apple_pmp_offsets_t602x = {
 	.status = 0x10,
 };
 
+static const struct apple_pmp_report_offsets apple_pmp_offsets_t6030 = {
+	.tgt_read = 0x1180,
+	.tgt_write = 0x108c0,
+	.actual = 0x11c0,
+	.status = 0x10,
+};
+
 static const struct apple_pmp_report_offsets apple_pmp_offsets_t8112 = {
 	.tgt_read = 0xa00,
 	.tgt_write = 0x10500,
@@ -74,10 +81,19 @@ static const struct apple_pmp_report_offsets apple_pmp_offsets_t8112 = {
 	.status = 0x10,
 };
 
+static const struct apple_pmp_report_offsets apple_pmp_offsets_t8122 = {
+	.tgt_read = 0x1000,
+	.tgt_write = 0x10800,
+	.actual = 0x1080,
+	.status = 0x10,
+};
+
 static const struct of_device_id apple_pmp_report_of_match[] = {
 	{ .compatible = "apple,t6000-pmp-v2-report", .data = &apple_pmp_offsets_t600x },
 	{ .compatible = "apple,t6020-pmp-v2-report", .data = &apple_pmp_offsets_t602x },
+	{ .compatible = "apple,t6030-pmp-v2-report", .data = &apple_pmp_offsets_t6030 },
 	{ .compatible = "apple,t8112-pmp-v2-report", .data = &apple_pmp_offsets_t8112 },
+	{ .compatible = "apple,t8122-pmp-v2-report", .data = &apple_pmp_offsets_t8122 },
 	{}
 };
 

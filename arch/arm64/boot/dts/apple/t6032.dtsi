@@ -353,6 +353,8 @@
 /delete-node/ &ps_disp_sys;
 /delete-node/ &ps_disp_sys_die1;
 
+/delete-node/ &pmp_report_disp;
+
 /* delete non-present ISP power-states */
 /delete-node/ &isp_dart0;
 /delete-node/ &isp_dart1;
@@ -372,6 +374,22 @@
 /delete-node/ &ps_isp_secure_die1;
 /delete-node/ &ps_isp_sys;
 /delete-node/ &ps_isp_sys_die1;
+
+/delete-node/ &pmp_report_isp_sys;
+
+/* Disable ANS PMP reporting */
+/delete-node/ &pmp_report_ans;
+&ans_mbox_die1 {
+	power-domains = <&ps_ans_die1>;
+};
+&sart_die1 {
+	power-domains = <&ps_ans_die1>;
+};
+&nvme_die1 {
+	power-domains = <&ps_ans_die1>,
+	                <&ps_apcie_sys_st_die1>,
+	                <&ps_apcie_sys_st1_die1>;
+};
 
 &ps_afi_d2d_0 {
 	status = "okay";
