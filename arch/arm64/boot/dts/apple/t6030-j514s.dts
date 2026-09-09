@@ -17,6 +17,13 @@
 	model = "Apple MacBook Pro (14-inch, M3 Pro, Nov 2023)";
 };
 
+&panel {
+	compatible = "apple,panel-j514s", "apple,panel-mini-led", "apple,panel";
+	width-mm = <302>;
+	height-mm = <196>;
+	adj-height-mm = <189>;
+};
+
 &framebuffer0 {
 	power-domains = <&ps_disp_cpu>;
 };

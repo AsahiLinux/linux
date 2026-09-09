@@ -17,6 +17,13 @@
 	model = "Apple MacBook Pro (16-inch, M3 Max, 14 CPU cores, Nov 2023)";
 };
 
+&panel {
+	compatible = "apple,panel-j516m", "apple,panel-mini-led", "apple,panel";
+	width-mm = <346>;
+	height-mm = <223>;
+	adj-height-mm = <216>;
+};
+
 &mtp_mt {
 	firmware-name = "apple/tpmtfw-j516m.bin";
 };

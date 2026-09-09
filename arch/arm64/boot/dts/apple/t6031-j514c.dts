@@ -17,6 +17,13 @@
 	model = "Apple MacBook Pro (14-inch, M3 Max, 16 CPU cores, Nov 2023)";
 };
 
+&panel {
+	compatible = "apple,panel-j514c", "apple,panel-mini-led", "apple,panel";
+	width-mm = <302>;
+	height-mm = <196>;
+	adj-height-mm = <189>;
+};
+
 &mtp_mt {
 	firmware-name = "apple/tpmtfw-j514c.bin";
 };
