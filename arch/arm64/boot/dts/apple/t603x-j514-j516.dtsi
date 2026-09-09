@@ -25,6 +25,9 @@
 		atcphy1 = &atcphy1;
 		atcphy2 = &atcphy2;
 		bluetooth0 = &bluetooth0;
+		dcp = &dcp;
+		disp0 = &display;
+		disp0-piodma = &disp0_piodma;
 		serial0 = &serial0;
 		wifi0 = &wifi0;
 
@@ -41,6 +44,7 @@
 		usb4_1_nhi = &usb4_1_nhi;
 		usb4_2_rc = &usb4_2_acio;
 		usb4_2_nhi = &usb4_2_nhi;
+
 	};
 
 	chosen {
@@ -55,6 +59,8 @@
 				     "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
+			panel = <&panel>;
+			post-init-providers = <&panel>;
 			power-domains = <&ps_disp_fe>;
 
 			status = "disabled";
@@ -76,6 +82,12 @@
 			max-brightness = <255>;
 			pwms = <&fpwm0 0 40000>;
 		};
+	};
+};
+
+&dcp {
+	panel: panel {
+		apple,max-brightness = <600>;
 	};
 };
 
