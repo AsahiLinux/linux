@@ -31,6 +31,13 @@
 	};
 };
 
+&panel {
+	compatible = "apple,panel-j613", "apple,panel";
+	width-mm = <290>;
+	height-mm = <189>;
+	adj-height-mm = <181>;
+};
+
 &wifi0 {
 	brcm,board-type = "apple,dnieper";
 };
