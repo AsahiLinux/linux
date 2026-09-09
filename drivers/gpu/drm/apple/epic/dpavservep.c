@@ -81,10 +81,12 @@ struct dpavserv_copy_edid_cmd {
 #define EDID_BUF_SIZE			(EDID_LEADING_DATA_SIZE + EDID_MAX_SIZE)
 
 struct dpavserv_copy_edid_resp {
-	__le64 max_size;
-	u8 _pad1[24];
-	__le64 used_size;
-	u8 _pad2[8];
+	__le32 max_size;
+	u8 _pad1[12];
+	__le32 retcode;
+	u8 _pad2[12];
+	__le32 used_size;
+	u8 _pad3[12];
 	u8 data[];
 } __packed;
 
@@ -160,7 +162,7 @@ const struct drm_edid *dcpavserv_copy_edid(struct apple_epic_service *service)
 	struct dpavserv_copy_edid_cmd cmd;
 	struct dpavserv_copy_edid_resp *resp __free(kfree) = NULL;
 	int num_blocks;
-	u64 data_size;
+	u32 data_size;
 	int ret;
 
 	memset(&cmd, 0, sizeof(cmd));
@@ -170,18 +172,17 @@ const struct drm_edid *dcpavserv_copy_edid(struct apple_epic_service *service)
 		return ERR_PTR(-ENOMEM);
 
 	ret = afk_service_call(service, 1, 7, &cmd, sizeof(cmd), EDID_BUF_SIZE, resp,
-			       sizeof(resp) + EDID_BUF_SIZE, 0);
+			       sizeof(*resp) + EDID_BUF_SIZE, 0);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	if (le64_to_cpu(resp->max_size) != EDID_BUF_SIZE)
+	if (le32_to_cpu(resp->max_size) != EDID_BUF_SIZE ||
+	    le32_to_cpu(resp->retcode))
 		return ERR_PTR(-EIO);
 
-	// print_hex_dump(KERN_DEBUG, "dpavserv EDID cmd: ", DUMP_PREFIX_NONE,
-	// 	       16, 1, resp, 192, true);
-
-	data_size = le64_to_cpu(resp->used_size);
-	if (data_size < EDID_LEADING_DATA_SIZE + EDID_BLOCK_SIZE)
+	data_size = le32_to_cpu(resp->used_size);
+	if (data_size > EDID_BUF_SIZE ||
+	    data_size < EDID_LEADING_DATA_SIZE + EDID_BLOCK_SIZE)
 		return ERR_PTR(-EIO);
 
 	num_blocks = resp->data[EDID_LEADING_DATA_SIZE + EDID_EXT_BLOCK_COUNT_OFFSET];
@@ -226,8 +227,8 @@ int dpavservep_init(struct apple_dcp *dcp)
 
 	ret = wait_for_completion_timeout(&dcp->dcpavserv.enable_completion,
 					  msecs_to_jiffies(1000));
-	if (ret >= 0)
+	if (ret > 0)
 		return 0;
 
-	return ret;
+	return -ETIMEDOUT;
 }
