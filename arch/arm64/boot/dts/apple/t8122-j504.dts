@@ -32,6 +32,16 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j504", "apple,panel-mini-led", "apple,panel";
+		width-mm = <302>;
+		height-mm = <196>;
+		adj-height-mm = <189>;
+		apple,max-brightness = <600>;
+	};
+};
+
 &wifi0 {
 	brcm,board-type = "apple,tresco";
 };
