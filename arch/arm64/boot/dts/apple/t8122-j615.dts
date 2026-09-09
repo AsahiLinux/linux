@@ -31,6 +31,13 @@
 	};
 };
 
+&panel {
+	compatible = "apple,panel-j615", "apple,panel";
+	width-mm = <290>; // TODO
+	height-mm = <189>; // TODO
+	adj-height-mm = <181>;
+};
+
 &aop_mbox {
 	status = "okay";
 };
