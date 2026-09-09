@@ -32,6 +32,16 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j613", "apple,panel";
+		width-mm = <290>;
+		height-mm = <189>;
+		adj-height-mm = <181>;
+		apple,max-brightness = <500>;
+	};
+};
+
 &wifi0 {
 	brcm,board-type = "apple,dnieper";
 };

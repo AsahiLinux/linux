@@ -32,6 +32,16 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j615", "apple,panel";
+		width-mm = <327>;
+		height-mm = <211>;
+		adj-height-mm = <204>;
+		apple,max-brightness = <500>;
+	};
+};
+
 &aop_mbox {
 	status = "okay";
 };
