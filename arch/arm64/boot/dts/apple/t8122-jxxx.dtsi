@@ -62,6 +62,13 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		apple,max-brightness = <500>;
+	};
+};
+
+
 &serial0 {
 	status = "okay";
 };
