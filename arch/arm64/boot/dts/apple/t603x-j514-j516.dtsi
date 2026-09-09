@@ -41,6 +41,10 @@
 		usb4_1_nhi = &usb4_1_nhi;
 		usb4_2_rc = &usb4_2_acio;
 		usb4_2_nhi = &usb4_2_nhi;
+
+		dcp = &dcp;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
 	};
 
 	chosen {
