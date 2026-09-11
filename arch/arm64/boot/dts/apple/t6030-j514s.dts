@@ -65,7 +65,7 @@
 
 &jack_codec {
 	reset-gpios = <&pinctrl_nub 21 GPIO_ACTIVE_HIGH>;
-	interrupts-extended = <&pinctrl_ap 100 IRQ_TYPE_LEVEL_LOW>;
+	interrupts-extended = <&pinctrl_ap 196 IRQ_TYPE_LEVEL_LOW>;
 };
 
 &aop_audio {
