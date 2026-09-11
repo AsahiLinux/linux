@@ -6563,6 +6563,13 @@ brcmf_notify_connect_status(struct brcmf_if *ifp,
 				&ifp->vif->sme_state);
 		} else
 			brcmf_bss_connect_done(cfg, ndev, e, true);
+
+		if ((profile->use_fwsup == BRCMF_PROFILE_FWSUP_SAE) ||
+		    (profile->use_fwsup == BRCMF_PROFILE_FWSUP_PSK)) {
+			cfg80211_port_authorized(ndev, profile->bssid, NULL, 0,
+						 GFP_KERNEL);
+			brcmf_dbg(CONN, "Report port authorized\n");
+		}
 		brcmf_net_setcarrier(ifp, true);
 	} else if (brcmf_is_linkdown(ifp->vif, e)) {
 		brcmf_dbg(CONN, "Linkdown\n");
