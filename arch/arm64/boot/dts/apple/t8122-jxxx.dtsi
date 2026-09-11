@@ -26,6 +26,11 @@
 		usb4_0_nhi = &usb4_0_nhi;
 		usb4_1_rc = &usb4_1_acio;
 		usb4_1_nhi = &usb4_1_nhi;
+
+		dcp = &dcp;
+		disp0 = &display;
+                dcpext0 = &dcpext;
+		disp0_piodma = &disp_piodma;
 	};
 
 	chosen {
@@ -56,6 +61,13 @@
 		reg = <0x8 0 0x2 0>; /* To be filled by loader */
 	};
 };
+
+&dcp {
+	panel: panel {
+		apple,max-brightness = <500>;
+	};
+};
+
 
 &serial0 {
 	status = "okay";

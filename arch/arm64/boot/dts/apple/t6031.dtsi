@@ -22,6 +22,13 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		dcpext0 = &dcpext0;
+		dcpext1 = &dcpext1;
+		dcpext2 = &dcpext2;
+		dcpext3 = &dcpext3;
+	};
+
 	soc: soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
