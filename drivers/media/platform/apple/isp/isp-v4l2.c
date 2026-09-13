@@ -862,6 +862,7 @@ int apple_isp_setup_video(struct apple_isp *isp)
 	vdev->device_caps = V4L2_BUF_TYPE_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	if (isp->multiplanar)
 		vdev->device_caps |= V4L2_CAP_VIDEO_CAPTURE_MPLANE;
+	vdev->entity.flags = MEDIA_ENT_FL_DEFAULT;
 	vdev->v4l2_dev = &isp->v4l2_dev;
 	vdev->vfl_type = VFL_TYPE_VIDEO;
 	vdev->vfl_dir = VFL_DIR_RX;
