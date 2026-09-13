@@ -15,6 +15,7 @@
 
 #define DCP_FORMAT_BGRA		fourcc_code('A', 'R', 'G', 'B')
 #define DCP_FORMAT_RGBA		fourcc_code('A', 'B', 'G', 'R')
+#define DCP_FORMAT_AhGR		fourcc_code('A', 'h', 'G', 'R') /* 16-bit half float ABGR */
 
 #define DCP_FORMAT_W30R		fourcc_code('r', '0', '3', 'w')	// wide gamut packed 10-bit RGB without alpha
 #define DCP_FORMAT_L10R		fourcc_code('r', '0', '1', 'l')	// full range packed 10-bit RGB with alpha

@@ -222,6 +222,9 @@ static u32 drm_format_to_dcp(u32 drm, enum drm_color_range range)
 	case DRM_FORMAT_ARGB2101010:
 		return DCP_FORMAT_L10R;
 
+	case DRM_FORMAT_ABGR16161616F:
+		return DCP_FORMAT_AhGR;
+
 	/* semi planar YCbCr formats, limited and full range */
 	case DRM_FORMAT_NV12:
 		return fr ? DCP_FORMAT_420F : DCP_FORMAT_420V;
@@ -478,6 +481,7 @@ static const struct drm_plane_funcs apple_plane_funcs = {
  * advertise formats without alpha.
  */
 static const u32 dcp_primary_formats[] = {
+	DRM_FORMAT_ABGR16161616F,
 	DRM_FORMAT_XRGB2101010,
 	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_XRGB8888,
@@ -495,6 +499,7 @@ static const u32 dcp_primary_formats[] = {
 };
 
 static const u32 dcp_overlay_formats[] = {
+	DRM_FORMAT_ABGR16161616F,
 	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_ABGR8888,
