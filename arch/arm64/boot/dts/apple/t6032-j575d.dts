@@ -26,7 +26,7 @@
 
 		stdout-path = "serial0";
 
-		framebuffer0: framebuffer@0 {
+		framebuffer@0 {
 			compatible = "apple,simple-framebuffer", "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
