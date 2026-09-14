@@ -25,9 +25,9 @@
 	};
 
 	chosen {
+		ranges;
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges;
 
 		stdout-path = "serial0";
 
@@ -50,11 +50,11 @@
 		compatible = "pwm-leds";
 
 		led-0 {
-			pwms = <&fpwm0 0 40000>;
-			function = LED_FUNCTION_KBD_BACKLIGHT;
 			color = <LED_COLOR_ID_WHITE>;
-			max-brightness = <255>;
 			default-state = "keep";
+			function = LED_FUNCTION_KBD_BACKLIGHT;
+			max-brightness = <255>;
+			pwms = <&fpwm0 0 40000>;
 		};
 	};
 };
