@@ -2264,6 +2264,7 @@ static int atcphy_mux_set(struct typec_mux_dev *mux, struct typec_mux_state *sta
 {
 	struct apple_atcphy *atcphy = typec_mux_get_drvdata(mux);
 	enum atcphy_mode target_mode;
+	int ret;
 
 	guard(mutex)(&atcphy->lock);
 
@@ -2321,11 +2322,28 @@ static int atcphy_mux_set(struct typec_mux_dev *mux, struct typec_mux_state *sta
 		return 0;
 
 	/*
-	 * If the pipehandler is still/already up here there's a bug somewhere so make sure to
-	 * complain loudly. We can still try to switch modes and hope for the best though,
-	 * in the worst case the hardware will fall back to USB2-only.
+	 * The Type-C controller reports an alt mode while the USB3 data path is
+	 * still live: the PIPE handler is only parked when dwc3 is reset, and
+	 * nothing forces a reset before the mux change. atcphy_configure() then
+	 * reprograms the lanes underneath a running PIPE handler, the hardware
+	 * falls back to USB2 and no DisplayPort link comes up at all -- which is
+	 * what happens when a DP monitor is hotplugged, while the same monitor
+	 * works when it is already attached at boot.
+	 *
+	 * Park the PIPE handler on the dummy PHY first, exactly as
+	 * atcphy_dwc3_reset_assert() does, so the lanes are quiet during the
+	 * switch. USB3 stays down until dwc3 reconfigures it; USB2 is unaffected.
 	 */
-	WARN_ON_ONCE(atcphy->pipehandler_up);
+	if (atcphy->pipehandler_up) {
+		ret = atcphy_configure_pipehandler_dummy(atcphy);
+		if (ret)
+			dev_warn(atcphy->dev,
+				 "Failed to park PIPE handler before mode switch: %d\n",
+				 ret);
+		else
+			atcphy->pipehandler_up = false;
+	}
+
 	return atcphy_configure(atcphy, target_mode);
 }
 
