@@ -11,6 +11,7 @@ appledrm-y += ibootep.o
 appledrm-y += iomfb_v12_3.o
 appledrm-y += iomfb_v13_3.o
 appledrm-y += epic/dpavservep.o
+appledrm-y += dcp_i2c.o
 appledrm-y += plane.o
 
 

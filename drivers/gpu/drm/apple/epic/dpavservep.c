@@ -231,3 +231,120 @@ int dpavservep_init(struct apple_dcp *dcp)
 
 	return ret;
 }
+
+/*
+ * I2C over the DCP AV service.
+ *
+ * The DCP firmware owns the DisplayPort AUX channel, so the AP cannot drive
+ * I2C-over-AUX itself. macOS asks the firmware to run the transaction instead:
+ * IOAVServiceReadI2C() and IOAVServiceWriteI2C() end up in
+ * DCPAVServiceProxy::readI2C() / ::writeI2C() (DCPAVFamilyProxy.kext), which
+ * issue EPIC service calls on this same "dcpav-service-epic" service:
+ *
+ *	read	group 1, command 9
+ *	write	group 1, command 10
+ *
+ * Both carry a 0x40 byte parameter block, one parameter per 16 byte slot,
+ * followed by the payload. The firmware fills in the result code, and for
+ * reads the data, in the reply. The group is 1 whenever a payload is present,
+ * matching copy_edid (group 1, command 7) above.
+ *
+ * Verified against the macOS 13.5 (22G74) kernelcache for Mac14,2, which is
+ * the DCP firmware version this driver loads.
+ */
+
+#define DPAVSERV_CMD_READ_I2C		9
+#define DPAVSERV_CMD_WRITE_I2C		10
+
+/* DDC/CI needs 32 bytes, an EDID block 128. */
+#define DPAVSERV_I2C_MAX_LEN		256
+
+struct dpavserv_read_i2c_cmd {
+	__le32 chip_addr;
+	u8 _pad0[12];
+	__le32 data_addr;
+	u8 _pad1[12];
+	__le32 size;
+	u8 _pad2[12];
+	__le32 retcode;
+	u8 _pad3[12];
+	u8 data[];
+} __packed;
+static_assert(sizeof(struct dpavserv_read_i2c_cmd) == 0x40);
+
+struct dpavserv_write_i2c_cmd {
+	__le32 retcode;
+	u8 _pad0[12];
+	__le32 chip_addr;
+	u8 _pad1[12];
+	__le32 data_addr;
+	u8 _pad2[12];
+	__le32 size;
+	u8 _pad3[12];
+	u8 data[];
+} __packed;
+static_assert(sizeof(struct dpavserv_write_i2c_cmd) == 0x40);
+
+int dcpavserv_read_i2c(struct apple_epic_service *service, u32 chip_addr,
+		       u32 data_addr, void *data, size_t len)
+{
+	struct dpavserv_read_i2c_cmd *cmd __free(kfree) = NULL;
+	size_t cmd_size;
+	int ret;
+
+	if (!len || len > DPAVSERV_I2C_MAX_LEN)
+		return -EINVAL;
+
+	cmd_size = sizeof(*cmd) + len;
+	cmd = kzalloc(cmd_size, GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	cmd->chip_addr = cpu_to_le32(chip_addr);
+	cmd->data_addr = cpu_to_le32(data_addr);
+	cmd->size = cpu_to_le32(len);
+
+	ret = afk_service_call(service, 1, DPAVSERV_CMD_READ_I2C, cmd, cmd_size,
+			       0, cmd, cmd_size, 0);
+	if (ret)
+		return ret;
+
+	if (le32_to_cpu(cmd->retcode))
+		return -EIO;
+
+	memcpy(data, cmd->data, len);
+
+	return 0;
+}
+
+int dcpavserv_write_i2c(struct apple_epic_service *service, u32 chip_addr,
+			u32 data_addr, const void *data, size_t len)
+{
+	struct dpavserv_write_i2c_cmd *cmd __free(kfree) = NULL;
+	size_t cmd_size;
+	int ret;
+
+	if (len > DPAVSERV_I2C_MAX_LEN)
+		return -EINVAL;
+
+	cmd_size = sizeof(*cmd) + len;
+	cmd = kzalloc(cmd_size, GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	cmd->chip_addr = cpu_to_le32(chip_addr);
+	cmd->data_addr = cpu_to_le32(data_addr);
+	cmd->size = cpu_to_le32(len);
+	if (len)
+		memcpy(cmd->data, data, len);
+
+	ret = afk_service_call(service, len ? 1 : 0, DPAVSERV_CMD_WRITE_I2C,
+			       cmd, cmd_size, 0, cmd, cmd_size, 0);
+	if (ret)
+		return ret;
+
+	if (le32_to_cpu(cmd->retcode))
+		return -EIO;
+
+	return 0;
+}

@@ -278,6 +278,7 @@ static int apple_probe_per_dcp(struct device *dev,
 	u32 surf;
 	int zpos = 0;
 	bool supports_l10r = !dcp_fw_compat_is_12_x(dcp);
+	struct i2c_adapter *ddc = NULL;
 	enum drm_plane_type plane_type;
 
 	for_each_set_bit(surf, iomfb_surfaces, DCP_MAX_PLANES) {
@@ -324,8 +325,16 @@ static int apple_probe_per_dcp(struct device *dev,
 	if (dcp_ext)
 		connector->base.fwnode = fwnode_handle_get(dcp->dev.fwnode);
 
-	ret = drm_connector_init(drm, &connector->base, &apple_connector_funcs,
-				 dcp_get_connector_type(dcp));
+	/*
+	 * External displays reach DDC/CI through the DCP firmware, so the
+	 * connector can carry an I2C adapter. The internal panel has none.
+	 */
+	if (dcp_ext)
+		ddc = dcp_i2c_create(dcp);
+
+	ret = drm_connector_init_with_ddc(drm, &connector->base,
+					  &apple_connector_funcs,
+					  dcp_get_connector_type(dcp), ddc);
 	if (ret)
 		return ret;
 

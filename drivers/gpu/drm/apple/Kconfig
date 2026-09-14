@@ -13,6 +13,7 @@ config DRM_APPLE
 	select VIDEOMODE_HELPERS
 	depends on BACKLIGHT_CLASS_DEVICE
 	select MULTIPLEXER
+	select I2C
 	help
 	  Say Y if you have an Apple Silicon chipset.
 

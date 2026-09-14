@@ -19,4 +19,13 @@ struct dcpavserv {
 
 const struct drm_edid *dcpavserv_copy_edid(struct apple_epic_service *service);
 
+/*
+ * DDC/CI over the AV service. macOS reaches these through
+ * IOAVServiceReadI2C / IOAVServiceWriteI2C.
+ */
+int dcpavserv_read_i2c(struct apple_epic_service *service, u32 chip_addr,
+		       u32 data_addr, void *data, size_t len);
+int dcpavserv_write_i2c(struct apple_epic_service *service, u32 chip_addr,
+			u32 data_addr, const void *data, size_t len);
+
 #endif /* _DRM_APPLE_EPIC_DPAVSERV_H */

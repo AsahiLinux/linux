@@ -41,4 +41,9 @@ void apple_connector_debugfs_init(struct drm_connector *connector, struct dentry
 
 void dcp_connector_update_dict(struct apple_connector *connector, const char *key,
 			       struct dcp_chunks *chunks);
+
+struct i2c_adapter;
+
+/* DDC/CI through the DCP firmware; NULL when unsupported. */
+struct i2c_adapter *dcp_i2c_create(struct platform_device *dcp);
 #endif
