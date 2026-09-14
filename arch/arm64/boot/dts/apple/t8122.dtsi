@@ -344,7 +344,7 @@
 			#interrupt-cells = <3>;
 			interrupt-controller;
 			reg = <0x2 0xd1000000 0x0 0x184000>,
-				<0x2 0xd1040000 0x0 0x4>;
+			      <0x2 0xd1040000 0x0 0x4>;
 			reg-names = "core", "event";
 			power-domains = <&ps_aic>;
 
