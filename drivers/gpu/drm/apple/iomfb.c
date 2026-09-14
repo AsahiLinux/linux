@@ -478,6 +478,26 @@ void dcp_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		dcp->ch_cmd.warned_busy = false;
 	}
 
+	/*
+	 * The DCP reports a display as connected before it has powered its
+	 * pipeline and programmed timings. Swaps submitted in that window are
+	 * accepted but discarded by the firmware ("swallowed swap ... as
+	 * fControllerPowerState is 0" / "... as timings are not enabled"), so
+	 * the swap_complete callback never arrives and every commit blocks in
+	 * drm_atomic_helper_wait_for_flip_done() for 10 seconds. On hotplug
+	 * that stalls the whole compositor for as long as it keeps drawing,
+	 * which also keeps userspace from getting round to the modeset that
+	 * would make the display usable.
+	 *
+	 * valid_mode is only set by a successful set_digital_out_mode(), so
+	 * until then complete the frame here, as the busy command channel
+	 * above already does.
+	 */
+	if (!dcp->valid_mode) {
+		schedule_work(&dcp->vblank_wq);
+		return;
+	}
+
 	switch (dcp->fw_compat) {
 	case DCP_FIRMWARE_V_12_3:
 		iomfb_flush_v12_3(dcp, crtc, state);
