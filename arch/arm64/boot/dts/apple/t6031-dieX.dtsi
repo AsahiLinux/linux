@@ -8,14 +8,16 @@
 
 &SOC_NODE {
 	DIE_NODE(pmgr): power-management@292280000 {
-		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr",
+			     "syscon", "simple-mfd";
 		reg = <0x2 0x92280000 0 0xc000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 	};
 
 	DIE_NODE(pmgr1): power-management@292800000 {
-		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr",
+			     "syscon", "simple-mfd";
 		reg = <0x2 0x92800000 0 0x4000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -45,7 +47,8 @@
 	};
 
 	DIE_NODE(pmgr_mini): power-management@2a0280000 {
-		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr",
+			     "syscon", "simple-mfd";
 		reg = <0x2 0xa0280000 0 0x4000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -99,7 +102,8 @@
 	};
 
 	DIE_NODE(pmgr_gfx): power-management@408e80000 {
-		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr",
+			     "syscon", "simple-mfd";
 		reg = <0x4 0x8e80000 0 0x4000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
