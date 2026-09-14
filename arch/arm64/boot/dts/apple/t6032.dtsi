@@ -33,12 +33,15 @@
 				core0 {
 					cpu = <&cpu_e10>;
 				};
+
 				core1 {
 					cpu = <&cpu_e11>;
 				};
+
 				core2 {
 					cpu = <&cpu_e12>;
 				};
+
 				core3 {
 					cpu = <&cpu_e13>;
 				};
@@ -48,18 +51,23 @@
 				core0 {
 					cpu = <&cpu_p20>;
 				};
+
 				core1 {
 					cpu = <&cpu_p21>;
 				};
+
 				core2 {
 					cpu = <&cpu_p22>;
 				};
+
 				core3 {
 					cpu = <&cpu_p23>;
 				};
+
 				core4 {
 					cpu = <&cpu_p24>;
 				};
+
 				core5 {
 					cpu = <&cpu_p25>;
 				};
@@ -69,18 +77,23 @@
 				core0 {
 					cpu = <&cpu_p30>;
 				};
+
 				core1 {
 					cpu = <&cpu_p31>;
 				};
+
 				core2 {
 					cpu = <&cpu_p32>;
 				};
+
 				core3 {
 					cpu = <&cpu_p33>;
 				};
+
 				core4 {
 					cpu = <&cpu_p34>;
 				};
+
 				core5 {
 					cpu = <&cpu_p35>;
 				};

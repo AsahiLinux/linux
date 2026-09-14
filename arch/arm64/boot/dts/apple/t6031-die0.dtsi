@@ -71,6 +71,7 @@
 		power-domains = <&ps_i2c1>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -85,6 +86,7 @@
 		power-domains = <&ps_i2c2>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -99,6 +101,7 @@
 		power-domains = <&ps_i2c3>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -113,6 +116,7 @@
 		power-domains = <&ps_i2c4>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -127,6 +131,7 @@
 		power-domains = <&ps_i2c5>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -141,6 +146,7 @@
 		power-domains = <&ps_i2c6>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -155,6 +161,7 @@
 		power-domains = <&ps_i2c7>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -169,6 +176,7 @@
 		power-domains = <&ps_i2c8>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
+
 		status = "disabled";
 	};
 
@@ -178,6 +186,7 @@
 		power-domains = <&ps_fpwm0>;
 		clocks = <&clkref>;
 		#pwm-cells = <2>;
+
 		status = "disabled";
 	};
 
@@ -194,6 +203,7 @@
 		clocks = <&clkref>, <&clkref>;
 		clock-names = "uart", "clk_uart_baud0";
 		power-domains = <&ps_uart0>;
+
 		status = "disabled";
 	};
 };

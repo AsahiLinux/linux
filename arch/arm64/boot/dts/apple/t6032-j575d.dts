@@ -30,8 +30,9 @@
 			compatible = "apple,simple-framebuffer", "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
-			status = "disabled";
 			power-domains = <&ps_dispext0_cpu>;
+
+			status = "disabled";
 		};
 	};
 

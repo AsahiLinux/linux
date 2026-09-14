@@ -24,18 +24,23 @@
 				core0 {
 					cpu = <&cpu_e00>;
 				};
+
 				core1 {
 					cpu = <&cpu_e01>;
 				};
+
 				core2 {
 					cpu = <&cpu_e02>;
 				};
+
 				core3 {
 					cpu = <&cpu_e03>;
 				};
+
 				core4 {
 					cpu = <&cpu_e04>;
 				};
+
 				core5 {
 					cpu = <&cpu_e05>;
 				};
@@ -45,18 +50,23 @@
 				core0 {
 					cpu = <&cpu_p00>;
 				};
+
 				core1 {
 					cpu = <&cpu_p01>;
 				};
+
 				core2 {
 					cpu = <&cpu_p02>;
 				};
+
 				core3 {
 					cpu = <&cpu_p03>;
 				};
+
 				core4 {
 					cpu = <&cpu_p04>;
 				};
+
 				core5 {
 					cpu = <&cpu_p05>;
 				};
@@ -254,6 +264,7 @@
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 			power-domains = <&ps_i2c1>;
+
 			status = "disabled";
 		};
 
@@ -268,6 +279,7 @@
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 			power-domains = <&ps_i2c2>;
+
 			status = "disabled";
 		};
 
@@ -282,6 +294,7 @@
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 			power-domains = <&ps_i2c3>;
+
 			status = "disabled";
 		};
 
@@ -296,6 +309,7 @@
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 			power-domains = <&ps_i2c4>;
+
 			status = "disabled";
 		};
 
@@ -310,6 +324,7 @@
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 			power-domains = <&ps_i2c6>;
+
 			status = "disabled";
 		};
 
@@ -324,6 +339,7 @@
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 			power-domains = <&ps_i2c8>;
+
 			status = "disabled";
 		};
 
@@ -333,6 +349,7 @@
 			power-domains = <&ps_fpwm0>;
 			clocks = <&clkref>;
 			#pwm-cells = <2>;
+
 			status = "disabled";
 		};
 
@@ -349,6 +366,7 @@
 			clocks = <&clkref>, <&clkref>;
 			clock-names = "uart", "clk_uart_baud0";
 			power-domains = <&ps_uart0>;
+
 			status = "disabled";
 		};
 
