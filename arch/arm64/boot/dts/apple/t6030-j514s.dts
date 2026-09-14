@@ -15,10 +15,99 @@
 / {
 	compatible = "apple,j514s", "apple,t6030", "apple,arm-platform";
 	model = "Apple MacBook Pro (14-inch, M3 Pro, Nov 2023)";
+
+	aliases {
+		dcp = &dcp;
+		dcpext1 = &dcpext1;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
+		disp0-piodma = &disp0_piodma;
+	};
 };
 
 &framebuffer0 {
+	panel = <&panel>;
+	post-init-providers = <&panel>;
 	power-domains = <&ps_disp_cpu>;
+};
+
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-mini-led", "apple,panel";
+		width-mm = <302>;
+		height-mm = <196>;
+		adj-height-mm = <189>;
+		apple,max-brightness = <500>;
+	};
+};
+
+&typec0 {
+	displayport = <&dcpext1>;
+};
+
+&display {
+	iommus = <&disp0_dart 0 0x100 0x0 0x10 0x0>,
+		<&dispext1_dart 0 0x100 0x0 0x10 0x0>;
+};
+
+&dispext1_dart {
+	status = "okay";
+};
+
+&dcpext1_dart {
+	status = "okay";
+};
+
+&dcpext1_mbox {
+	status = "okay";
+};
+
+&dcpext1 {
+	status = "okay";
+	apple,sync-syslog-ack;
+	apple,connector-type = "DP";
+	apple,dptx-phy = <0>;
+	phys = <&atcphy0 PHY_TYPE_DP>;
+	phy-names = "dp-phy";
+	mux-controls = <&atcphy0_xbar 0>;
+	mux-control-names = "dp-xbar";
+	mux-index = <2>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			dcpext1_dpout: endpoint {
+				remote-endpoint = <&atcphy0_dp>;
+			};
+		};
+	};
+};
+
+&atcphy0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@2 {
+			reg = <2>;
+
+			atcphy0_dp: endpoint {
+				remote-endpoint = <&dcpext1_dpout>;
+			};
+		};
+	};
+};
+
+&atcphy0_xbar {
+	status = "okay";
+};
+
+&ps_atc0_common {
+	apple,always-on;
 };
 
 &mtp_mt {
