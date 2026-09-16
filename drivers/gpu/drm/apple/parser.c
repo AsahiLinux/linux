@@ -452,6 +452,7 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 	s64 id = -1;
 	s64 best_color_mode = -1;
 	bool is_virtual = false;
+	bool is_preferred = false;
 	struct drm_display_mode *mode = &out->mode;
 
 	dcp_parse_foreach_in_dict(handle, it) {
@@ -475,6 +476,8 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 			ret = parse_int(it.handle, &id);
 		else if (!strcmp(key, "IsVirtual"))
 			ret = parse_bool(it.handle, &is_virtual);
+		else if (!strcmp(key, "IsPreferred"))
+			ret = parse_bool(it.handle, &is_preferred);
 		else if (!strcmp(key, "Score"))
 			ret = parse_int(it.handle, score);
 		else
@@ -488,6 +491,11 @@ static int parse_mode(struct dcp_parse_ctx *handle,
 			return ret;
 		}
 	}
+
+    if (is_preferred) {
+        *score |= (1L << 32);
+    }
+
 	if (out->sdr_rgb.score >= 0)
 		best_color_mode = out->sdr_rgb.id;
 	else if (out->sdr_444.score >= 0)
