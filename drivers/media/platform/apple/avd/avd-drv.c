@@ -137,7 +137,12 @@ int avd_init_job(struct avd_ctx *ctx, enum avd_codec codec, size_t segments)
 
 	job->codec = codec;
 	job->num = 0;
-	job->segments = kzalloc(sizeof(*job->segments) * segments, GFP_KERNEL);
+	/* Sized for the worst case (4096 H.264 slices), which is a 16 MiB
+	 * allocation on 16K-page kernels. It is only ever read by the CPU to
+	 * feed MMIO writes and is never DMA-mapped, so it does not need to be
+	 * physically contiguous: fall back to vmalloc rather than failing the
+	 * decode when memory is fragmented. */
+	job->segments = kvzalloc(sizeof(*job->segments) * segments, GFP_KERNEL);
 	if (!job->segments)
 		ret = -ENOMEM;
 	return ret;
@@ -185,7 +190,7 @@ int avd_submit_job(struct avd_ctx *ctx)
 		       reg);
 	}
 
-	kfree(sub->segments);
+	kvfree(sub->segments);
 	sub->segments = NULL;
 	return 0;
 }
