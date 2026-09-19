@@ -18,7 +18,7 @@ pub trait DriverFile {
     type Driver: drm::Driver;
 
     /// Open a new file (called when a client opens the DRM device).
-    fn open(device: &drm::Device<Self::Driver>) -> Result<Pin<KBox<Self>>>;
+    fn open(device: &drm::Device<Self::Driver, crate::drm::Registered>) -> Result<Pin<KBox<Self>>>;
 
     /// Get raw drm_file pointer
     fn as_raw(&self) -> *mut bindings::drm_file;
@@ -68,7 +68,8 @@ impl<T: DriverFile> File<T> {
         // SAFETY: A callback from `struct drm_driver::open` guarantees that
         // - `raw_dev` is valid pointer to a `struct drm_device`,
         // - the corresponding `struct drm_device` has been registered.
-        let drm = unsafe { drm::Device::from_raw(raw_dev) };
+        let drm: &drm::Device<T::Driver> = unsafe { drm::Device::from_raw(raw_dev) };
+        let drm = unsafe { drm.assume_ctx::<crate::drm::Registered>() };
 
         // SAFETY: `raw_file` is a valid pointer to a `struct drm_file`.
         let file = unsafe { File::<T>::from_raw(raw_file) };
