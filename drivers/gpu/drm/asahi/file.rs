@@ -8,11 +8,13 @@
 //! information to userspace and accepting submissions.
 
 use crate::debug::*;
-use crate::driver::AsahiDevice;
 use crate::{
     alloc,
     buffer,
-    driver,
+    driver::{
+        self,
+        AsahiDrmDevice, //
+    },
     gem,
     mmu,
     module_parameters,
@@ -33,6 +35,7 @@ use core::ptr::addr_of_mut;
 use kernel::bindings;
 use kernel::dma_fence::RawDmaFence;
 use kernel::drm::gem::BaseObject;
+use kernel::drm::Registered;
 use kernel::error::code::*;
 use kernel::new_mutex;
 use kernel::prelude::*;
@@ -48,6 +51,7 @@ use kernel::uaccess::{
 use kernel::{
     dma_fence,
     drm,
+    io::Io,
     uapi,
     xarray, //
 };
@@ -74,7 +78,7 @@ impl Drop for Vm {
         if !left_range.is_empty()
             && self
                 .vm
-                .unmap_range(left_range.start, left_range.range())
+                .unmap_range(None, left_range.start, left_range.range())
                 .is_err()
         {
             pr_err!("Vm::Drop: vm.unmap_range() failed\n");
@@ -82,7 +86,7 @@ impl Drop for Vm {
         if !right_range.is_empty()
             && self
                 .vm
-                .unmap_range(right_range.start, right_range.range())
+                .unmap_range(None, right_range.start, right_range.range())
                 .is_err()
         {
             pr_err!("Vm::Drop: vm.unmap_range() failed\n");
@@ -219,17 +223,19 @@ const VM_USER_RANGE: Range<u64> = mmu::IOVA_USER_USABLE_RANGE;
 const VM_KERNEL_MIN_SIZE: u64 = 0x20000000;
 
 impl drm::file::DriverFile for File {
-    type Driver = driver::AsahiDriver;
+    type Driver = driver::AsahiDrmDriver;
 
     /// Create a new `File` instance for a fresh client.
-    fn open(device: &AsahiDevice) -> Result<Pin<KBox<Self>>> {
+    fn open(device: &drm::Device<Self::Driver, Registered>) -> Result<Pin<KBox<Self>>> {
         debug::update_debug_flags();
 
-        let gpu = &device.gpu;
-        let id = gpu.ids().file.next();
+        device.registration_data_with(|reg_data| {
+            let gpu = &reg_data.gpu;
+            let id = gpu.ids().file.next();
 
-        mod_dev_dbg!(device, "[File {}]: DRM device opened\n", id);
-        Ok(KBox::pin_init(File::new(id), GFP_KERNEL)?)
+            mod_dev_dbg!(device, "[File {}]: DRM device opened\n", id);
+            Ok(KBox::pin_init(File::new(id), GFP_KERNEL)?)
+        })
     }
 
     fn as_raw(&self) -> *mut bindings::drm_file {
@@ -284,13 +290,14 @@ impl File {
 
     /// IOCTL: get_param: Get a driver parameter value.
     pub(crate) fn get_params(
-        device: &AsahiDevice,
-        data: &uapi::drm_asahi_get_params,
+        device: &AsahiDrmDevice,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
+        data: &mut uapi::drm_asahi_get_params,
         file: &DrmFile,
     ) -> Result<u32> {
         mod_dev_dbg!(device, "[File {}]: IOCTL: get_params\n", file.inner().id);
 
-        let gpu = &device.gpu;
+        let gpu = &reg_data.gpu;
 
         if data.param_group != 0 || data.pad != 0 {
             cls_pr_debug!(Errors, "get_params: Invalid arguments\n");
@@ -349,7 +356,8 @@ impl File {
 
     /// IOCTL: vm_create: Create a new `Vm`.
     pub(crate) fn vm_create(
-        device: &AsahiDevice,
+        device: &AsahiDrmDevice<drm::Registered>,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_vm_create,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -373,7 +381,7 @@ impl File {
         let kernel_gpu_range = kernel_range.start..(kernel_range.start + kernel_half_size);
         let kernel_gpufw_range = kernel_gpu_range.end..kernel_range.end;
 
-        let gpu = &device.gpu;
+        let gpu = &reg_data.gpu;
         let file_id = file.inner().id;
         let vm = gpu.new_vm(kernel_range.clone())?;
 
@@ -424,7 +432,12 @@ impl File {
             id
         );
         let mut dummy_obj = gem::new_kernel_object(device, 0x4000)?;
-        dummy_obj.vmap()?.memset(0);
+        // TODO: aren't new GEM shmem object zero initialized?
+        let obj_size = dummy_obj.size();
+        let vmap = dummy_obj.vmap()?;
+        for off in 0..obj_size {
+            vmap.try_write8(0x0, off)?;
+        }
         let dummy_mapping =
             dummy_obj.map_at(&vm, mmu::IOVA_UNK_PAGE, mmu::PROT_GPU_SHARED_RW, true)?;
 
@@ -447,21 +460,24 @@ impl File {
 
     /// IOCTL: vm_destroy: Destroy a `Vm`.
     pub(crate) fn vm_destroy(
-        _device: &AsahiDevice,
+        _device: &AsahiDrmDevice<drm::Registered>,
+        _reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_vm_destroy,
         file: &DrmFile,
     ) -> Result<u32> {
         let vm = file.inner().vms().remove(data.vm_id as usize);
-        if vm.is_none() {
-            Err(ENOENT)
-        } else {
+        if let Some(vm) = vm {
+            vm.vm.bo_deferred_cleanup();
             Ok(0)
+        } else {
+            Err(ENOENT)
         }
     }
 
     /// IOCTL: gem_create: Create a new GEM object.
     pub(crate) fn gem_create(
-        device: &AsahiDevice,
+        device: &AsahiDrmDevice,
+        _reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_gem_create,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -516,7 +532,8 @@ impl File {
 
     /// IOCTL: gem_mmap_offset: Assign an mmap offset to a GEM object.
     pub(crate) fn gem_mmap_offset(
-        device: &AsahiDevice,
+        device: &AsahiDrmDevice,
+        _reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_gem_mmap_offset,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -539,8 +556,9 @@ impl File {
 
     /// IOCTL: vm_bind: Map or unmap memory into a Vm.
     pub(crate) fn vm_bind(
-        device: &AsahiDevice,
-        data: &uapi::drm_asahi_vm_bind,
+        device: &AsahiDrmDevice<drm::Registered>,
+        _reg_data: &driver::AsahiDrmRegistrationData<'_>,
+        data: &mut uapi::drm_asahi_vm_bind,
         file: &DrmFile,
     ) -> Result<u32> {
         mod_dev_dbg!(
@@ -565,25 +583,27 @@ impl File {
 
         for _i in 0..data.num_binds {
             let bind: uapi::drm_asahi_gem_bind_op = reader.read_up_to(data.stride as usize)?;
-            Self::do_gem_bind_unbind(vm_id, &bind, file)?;
+            Self::do_gem_bind_unbind(device, vm_id, &bind, file)?;
         }
 
         Ok(0)
     }
 
     pub(crate) fn do_gem_bind_unbind(
+        device: &AsahiDrmDevice<drm::Registered>,
         vm_id: usize,
         data: &uapi::drm_asahi_gem_bind_op,
         file: &DrmFile,
     ) -> Result<u32> {
         if (data.flags & uapi::drm_asahi_bind_flags_DRM_ASAHI_BIND_UNBIND) != 0 {
-            Self::do_gem_unbind(vm_id, data, file)
+            Self::do_gem_unbind(device, vm_id, data, file)
         } else {
-            Self::do_gem_bind(vm_id, data, file)
+            Self::do_gem_bind(device, vm_id, data, file)
         }
     }
 
     pub(crate) fn do_gem_bind(
+        device: &AsahiDrmDevice<drm::Registered>,
         vm_id: usize,
         data: &uapi::drm_asahi_gem_bind_op,
         file: &DrmFile,
@@ -673,7 +693,15 @@ impl File {
             return Err(EINVAL);
         }
 
-        vm.bind_object(&bo, data.addr, data.range, data.offset, prot, single_page)?;
+        vm.bind_object(
+            device,
+            &bo,
+            data.addr,
+            data.range,
+            data.offset,
+            prot,
+            single_page,
+        )?;
 
         vm.bo_deferred_cleanup();
 
@@ -681,6 +709,7 @@ impl File {
     }
 
     pub(crate) fn do_gem_unbind(
+        device: &AsahiDrmDevice<drm::Registered>,
         vm_id: usize,
         data: &uapi::drm_asahi_gem_bind_op,
         file: &DrmFile,
@@ -737,7 +766,7 @@ impl File {
             return Err(EINVAL);
         }
 
-        vm.unmap_range(range.start, range.range())?;
+        vm.unmap_range(Some(device.as_ref().as_ref()), range.start, range.range())?;
 
         vm.bo_deferred_cleanup();
 
@@ -770,7 +799,8 @@ impl File {
 
     /// IOCTL: gem_bind_object: Map or unmap a GEM object as a special object.
     pub(crate) fn gem_bind_object(
-        device: &AsahiDevice,
+        device: &AsahiDrmDevice<drm::Registered>,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_gem_bind_object,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -799,7 +829,7 @@ impl File {
 
         match data.op {
             uapi::drm_asahi_bind_object_op_DRM_ASAHI_BIND_OBJECT_OP_BIND => {
-                Self::do_gem_bind_object(device, data, file)
+                Self::do_gem_bind_object(reg_data, data, file)
             }
             uapi::drm_asahi_bind_object_op_DRM_ASAHI_BIND_OBJECT_OP_UNBIND => {
                 Self::do_gem_unbind_object(device, data, file)
@@ -812,7 +842,8 @@ impl File {
     }
 
     pub(crate) fn do_gem_bind_object(
-        device: &AsahiDevice,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
+        // device: &AsahiDrmDevice,
         data: &mut uapi::drm_asahi_gem_bind_object,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -840,7 +871,7 @@ impl File {
         let bo = gem::ObjectRef::new(gem::Object::lookup_handle(file, data.handle)?);
 
         let mapping = Arc::new(
-            device.gpu.map_timestamp_buffer(bo, offset..end_offset)?,
+            reg_data.gpu.map_timestamp_buffer(bo, offset..end_offset)?,
             GFP_KERNEL,
         )?;
         let obj = KBox::new(Object::TimestampBuffer(mapping), GFP_KERNEL)?;
@@ -855,7 +886,7 @@ impl File {
     }
 
     pub(crate) fn do_gem_unbind_object(
-        _device: &AsahiDevice,
+        _device: &AsahiDrmDevice,
         data: &mut uapi::drm_asahi_gem_bind_object,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -897,7 +928,8 @@ impl File {
 
     /// IOCTL: queue_create: Create a new command submission queue of a given type.
     pub(crate) fn queue_create(
-        device: &AsahiDevice,
+        device: &AsahiDrmDevice<drm::Registered>,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_queue_create,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -935,7 +967,8 @@ impl File {
         let _ = file_vm;
         core::mem::drop(guard);
 
-        let queue = device.gpu.new_queue(
+        let queue = reg_data.gpu.new_queue(
+            reg_data,
             vm,
             ualloc,
             ualloc_priv,
@@ -952,7 +985,8 @@ impl File {
 
     /// IOCTL: queue_destroy: Destroy a command submission queue.
     pub(crate) fn queue_destroy(
-        _device: &AsahiDevice,
+        _device: &AsahiDrmDevice,
+        _reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_queue_destroy,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -967,7 +1001,8 @@ impl File {
 
     /// IOCTL: submit: Submit GPU work to a command submission queue.
     pub(crate) fn submit(
-        device: &AsahiDevice,
+        device: &AsahiDrmDevice,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_submit,
         file: &DrmFile,
     ) -> Result<u32> {
@@ -978,7 +1013,7 @@ impl File {
             return Err(EINVAL);
         }
 
-        let gpu = &device.gpu;
+        let gpu = &reg_data.gpu;
         gpu.update_globals();
 
         // Upgrade to Arc<T> to drop the XArray lock early
@@ -1030,9 +1065,14 @@ impl File {
         reader.read_all(&mut vec, GFP_KERNEL)?;
 
         let objects = file.inner().objects();
-        let ret = queue
-            .lock()
-            .submit(id, syncs, data.in_sync_count as usize, &vec, objects);
+        let ret = queue.lock().submit(
+            reg_data,
+            id,
+            syncs,
+            data.in_sync_count as usize,
+            &vec,
+            objects,
+        );
 
         match ret {
             Err(ERESTARTSYS) => Err(ERESTARTSYS),
@@ -1053,7 +1093,8 @@ impl File {
 
     /// IOCTL: get_time: Get the current GPU timer value.
     pub(crate) fn get_time(
-        device: &AsahiDevice,
+        _device: &AsahiDrmDevice,
+        reg_data: &driver::AsahiDrmRegistrationData<'_>,
         data: &mut uapi::drm_asahi_get_time,
         _file: &DrmFile,
     ) -> Result<u32> {
@@ -1063,7 +1104,7 @@ impl File {
         }
 
         // TODO: Do this on device-init for perf.
-        let gpu = &device.gpu;
+        let gpu = &reg_data.gpu;
         let frequency_hz = gpu.get_cfg().base_clock_hz as u64;
         let ts_gcd = gcd(frequency_hz, NSEC_PER_SEC as u64);
 

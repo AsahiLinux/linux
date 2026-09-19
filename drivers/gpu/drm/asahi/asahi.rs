@@ -30,7 +30,7 @@ mod vm;
 mod workqueue;
 
 kernel::module_platform_driver! {
-    type: driver::AsahiDriver,
+    type: driver::AsahiPlatformDriver,
     name: "asahi",
     description: "AGX GPU driver for Apple silicon SoCs",
     license: "Dual MIT/GPL",

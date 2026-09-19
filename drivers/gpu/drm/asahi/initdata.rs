@@ -16,7 +16,7 @@ use crate::fw::initdata::*;
 use crate::fw::types::*;
 use crate::module_parameters;
 use crate::{
-    driver::AsahiDevice,
+    driver::AsahiDrmDevice,
     gem,
     gpu,
     hw,
@@ -25,6 +25,9 @@ use crate::{
 use kernel::error::{
     Error,
     Result, //
+};
+use kernel::io::{
+    Io, //
 };
 use kernel::macros::versions;
 use kernel::prelude::*;
@@ -36,7 +39,7 @@ use ::pin_init::Init;
 /// Builder helper for the global GPU InitData.
 #[versions(AGX)]
 pub(crate) struct InitDataBuilder<'a> {
-    dev: &'a AsahiDevice,
+    dev: &'a AsahiDrmDevice,
     alloc: &'a mut gpu::KernelAllocators,
     cfg: &'static hw::HwConfig,
     dyncfg: &'a hw::DynConfig,
@@ -46,7 +49,7 @@ pub(crate) struct InitDataBuilder<'a> {
 impl<'a> InitDataBuilder::ver<'a> {
     /// Create a new InitData builder
     pub(crate) fn new(
-        dev: &'a AsahiDevice,
+        dev: &'a AsahiDrmDevice,
         alloc: &'a mut gpu::KernelAllocators,
         cfg: &'static hw::HwConfig,
         dyncfg: &'a hw::DynConfig,
@@ -857,7 +860,12 @@ impl<'a> InitDataBuilder::ver<'a> {
         let hwb = self.hwdata_b()?;
 
         let mut buffer_mgr_ctl = gem::new_kernel_object(self.dev, 0x4000)?;
-        buffer_mgr_ctl.vmap()?.memset(0);
+        // TODO: aren't new GEM shmem object zero initialized?
+        let size = buffer_mgr_ctl.size();
+        let vmap = buffer_mgr_ctl.vmap()?;
+        for off in 0..size {
+            vmap.try_write8(0x0, off)?;
+        }
 
         GpuObject::new_init_prealloc(
             self.alloc.private.alloc_object()?,

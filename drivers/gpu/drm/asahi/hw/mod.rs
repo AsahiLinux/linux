@@ -4,9 +4,9 @@
 //!
 //! This module contains the definitions used to store per-GPU and per-SoC configuration data.
 
-use crate::driver::AsahiDevice;
 use crate::fw::types::*;
 use kernel::c_str;
+use kernel::device;
 use kernel::prelude::*;
 
 const MAX_POWERZONES: usize = 5;
@@ -458,7 +458,7 @@ pub(crate) struct PwrConfig {
 
 impl PwrConfig {
     fn load_opp(
-        dev: &AsahiDevice,
+        dev: &device::Device,
         name: &CStr,
         cfg: &HwConfig,
         is_main: bool,
@@ -485,7 +485,7 @@ impl PwrConfig {
 
             if volt_uv.len() != voltage_count as usize {
                 dev_err!(
-                    dev.as_ref(),
+                    dev,
                     "Invalid opp-microvolt length (expected {}, got {})\n",
                     voltage_count,
                     volt_uv.len()
@@ -516,22 +516,22 @@ impl PwrConfig {
     }
 
     /// Load the GPU power configuration from the device tree.
-    pub(crate) fn load(dev: &AsahiDevice, cfg: &HwConfig) -> Result<PwrConfig> {
+    pub(crate) fn load(dev: &device::Device, cfg: &HwConfig) -> Result<PwrConfig> {
         let perf_states = Self::load_opp(dev, c_str!("operating-points-v2"), cfg, true)?;
-        let node = dev.as_ref().of_node().ok_or(EIO)?;
+        let node = dev.of_node().ok_or(EIO)?;
 
         macro_rules! prop {
             ($prop:expr, $default:expr) => {{
                 node.get_opt_property(c_str!($prop))
                     .map_err(|e| {
-                        dev_err!(dev.as_ref(), "Error reading property {}: {:?}\n", $prop, e);
+                        dev_err!(dev, "Error reading property {}: {:?}\n", $prop, e);
                         e
                     })?
                     .unwrap_or($default)
             }};
             ($prop:expr) => {{
                 node.get_property(c_str!($prop)).map_err(|e| {
-                    dev_err!(dev.as_ref(), "Error reading property {}: {:?}\n", $prop, e);
+                    dev_err!(dev, "Error reading property {}: {:?}\n", $prop, e);
                     e
                 })?
             }};
@@ -540,7 +540,7 @@ impl PwrConfig {
         let pz_data = prop!("apple,power-zones", KVec::new());
 
         if pz_data.len() > 3 * MAX_POWERZONES || pz_data.len() % 3 != 0 {
-            dev_err!(dev.as_ref(), "Invalid apple,power-zones value\n");
+            dev_err!(dev, "Invalid apple,power-zones value\n");
             return Err(EINVAL);
         }
 
@@ -561,11 +561,11 @@ impl PwrConfig {
         let sram_leak_coef: KVec<F32> = prop!("apple,sram-leak-coef");
 
         if core_leak_coef.len() != cfg.max_num_clusters as usize {
-            dev_err!(dev.as_ref(), "Invalid apple,core-leak-coef\n");
+            dev_err!(dev, "Invalid apple,core-leak-coef\n");
             return Err(EINVAL);
         }
         if sram_leak_coef.len() != cfg.max_num_clusters as usize {
-            dev_err!(dev.as_ref(), "Invalid apple,sram_leak_coef\n");
+            dev_err!(dev, "Invalid apple,sram_leak_coef\n");
             return Err(EINVAL);
         }
 

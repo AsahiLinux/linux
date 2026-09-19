@@ -8,12 +8,16 @@
 //! implementing RTKit buffers on top of GEM objects for firmware use.
 
 use kernel::{
-    drm,
-    drm::gem::{
-        shmem,
-        shmem::VMap,
-        BaseObject,
-        DriverObject, //
+    drm::{
+        self,
+        gem::{
+            shmem::{
+                self,
+                VMapOwned, //
+            },
+            BaseObject,
+            DriverObject, //
+        }, //
     },
     error::Result,
     prelude::*,
@@ -30,8 +34,8 @@ use core::sync::atomic::{
 use crate::{
     debug::*,
     driver::{
-        AsahiDevice,
-        AsahiDriver, //
+        AsahiDrmDevice,
+        AsahiDrmDriver, //
     },
     file,
     mmu,
@@ -59,15 +63,13 @@ pub(crate) type Object = shmem::Object<AsahiObject>;
 unsafe impl Send for AsahiObject {}
 unsafe impl Sync for AsahiObject {}
 
-// /// Type alias for the SGTable type for this driver.
-// pub(crate) type SGTable = shmem::SGTable<AsahiObject>;
-
 /// A shared reference to a GEM object for this driver.
 pub(crate) struct ObjectRef {
     /// The underlying GEM object reference
     pub(crate) gem: ARef<Object>,
     /// The kernel-side VMap of this object, if needed
-    vmap: Option<VMap<AsahiObject, u8>>,
+    // vmap: Option<VMapOwned::<u8, AsahiObject>>,
+    vmap: Option<VMapOwned<AsahiObject, 0>>,
 }
 
 crate::no_debug!(ObjectRef);
@@ -81,11 +83,11 @@ impl ObjectRef {
     }
 
     /// Return the `VMap` for this object, creating it if necessary.
-    pub(crate) fn vmap(&mut self) -> Result<shmem::VMapRef<'_, AsahiObject, u8>> {
+    pub(crate) fn vmap(&mut self) -> Result<&shmem::VMapOwned<AsahiObject, 0>> {
         if self.vmap.is_none() {
-            self.vmap = Some(self.gem.owned_vmap()?);
+            self.vmap = Some(self.gem.owned_vmap::<0>()?);
         }
-        self.gem.vmap()
+        self.vmap.as_ref().ok_or(EINVAL)
     }
 
     /// Returns the size of an object in bytes
@@ -145,8 +147,7 @@ impl ObjectRef {
         {
             return Err(EINVAL);
         }
-
-        vm.map_at(addr, self.gem.size(), self.gem.clone(), prot, guard)
+        vm.map_at(addr, self.gem.size(), &self.gem, prot, guard)
     }
 }
 
@@ -157,7 +158,7 @@ pub(crate) struct AsahiObjConfig {
 }
 
 /// Create a new kernel-owned GEM object.
-pub(crate) fn new_kernel_object(dev: &AsahiDevice, size: usize) -> Result<ObjectRef> {
+pub(crate) fn new_kernel_object(dev: &AsahiDrmDevice, size: usize) -> Result<ObjectRef> {
     let gem = shmem::Object::<AsahiObject>::new(
         dev,
         align(size, mmu::UAT_PGSZ),
@@ -178,7 +179,7 @@ pub(crate) fn new_kernel_object(dev: &AsahiDevice, size: usize) -> Result<Object
 
 /// Create a new user-owned GEM object with the given flags.
 pub(crate) fn new_object(
-    dev: &AsahiDevice,
+    dev: &AsahiDrmDevice,
     size: usize,
     flags: u32,
     parent_object: Option<&shmem::Object<AsahiObject>>,
@@ -208,13 +209,13 @@ pub(crate) fn new_object(
 
 #[vtable]
 impl DriverObject for AsahiObject {
-    type Driver = AsahiDriver;
+    type Driver = AsahiDrmDriver;
     type Args = AsahiObjConfig;
 
     const HAS_EXPORT: bool = true;
 
     /// Callback to create the inner data of a GEM object
-    fn new(_dev: &AsahiDevice, _size: usize, args: Self::Args) -> impl PinInit<Self, Error> {
+    fn new(_dev: &AsahiDrmDevice, _size: usize, args: Self::Args) -> impl PinInit<Self, Error> {
         let id = GEM_ID.fetch_add(1, Ordering::Relaxed);
         mod_pr_debug!("AsahiObject::new id={}\n", id);
         try_pin_init!(AsahiObject {
@@ -222,6 +223,17 @@ impl DriverObject for AsahiObject {
             flags: args.flags,
             exportable: args.exportable,
             kernel: args.kernel,
+        })
+    }
+
+    fn create_imported(_dev: &AsahiDrmDevice, _size: usize) -> impl PinInit<Self, Error> {
+        let id = GEM_ID.fetch_add(1, Ordering::Relaxed);
+        mod_pr_debug!("AsahiObject::create_imported id={}\n", id);
+        try_pin_init!(Self {
+            id,
+            flags: 0,
+            exportable: false,
+            kernel: false,
         })
     }
 

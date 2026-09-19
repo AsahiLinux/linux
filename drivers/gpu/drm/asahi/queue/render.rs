@@ -184,6 +184,7 @@ impl super::QueueInner::ver {
     /// Submit work to a render queue.
     pub(super) fn submit_render(
         &self,
+        gpu: &gpu::GpuManager::ver,
         job: &mut Job<super::QueueJob::ver>,
         cmdbuf: &uapi::drm_asahi_cmd_render,
         vertex_attachments: &microseq::Attachments,
@@ -226,18 +227,6 @@ impl super::QueueInner::ver {
         vtx_user_timestamps.end = common::get_timestamp_object(objects, cmdbuf.ts_vtx.end)?;
         frg_user_timestamps.start = common::get_timestamp_object(objects, cmdbuf.ts_frag.start)?;
         frg_user_timestamps.end = common::get_timestamp_object(objects, cmdbuf.ts_frag.end)?;
-
-        let gpu = match (*self.dev)
-            .gpu
-            .as_any()
-            .downcast_ref::<gpu::GpuManager::ver>()
-        {
-            Some(gpu) => gpu,
-            None => {
-                dev_crit!(self.dev.as_ref(), "GpuManager mismatched with Queue!\n");
-                return Err(EIO);
-            }
-        };
 
         let nclusters = gpu.get_dyncfg().id.num_clusters;
 

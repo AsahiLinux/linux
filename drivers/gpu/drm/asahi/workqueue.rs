@@ -96,7 +96,7 @@ impl From<WorkError> for kernel::error::Error {
 
 /// A GPU context tracking structure, which must be explicitly invalidated when dropped.
 pub(crate) struct GpuContext {
-    dev: driver::AsahiDevRef,
+    dev: driver::AsahiDevice,
     data: Option<KBox<GpuObject<fw::workqueue::GpuContextData>>>,
 }
 no_debug!(GpuContext);
@@ -104,12 +104,12 @@ no_debug!(GpuContext);
 impl GpuContext {
     /// Allocate a new GPU context.
     pub(crate) fn new(
-        dev: &driver::AsahiDevice,
+        dev: driver::AsahiDevice,
         alloc: &mut gpu::KernelAllocators,
         buffer: Arc<dyn core::any::Any + Send + Sync>,
     ) -> Result<GpuContext> {
         Ok(GpuContext {
-            dev: dev.into(),
+            dev,
             data: Some(KBox::new(
                 alloc.shared.new_object(
                     fw::workqueue::GpuContextData { _buffer: buffer },
@@ -128,9 +128,14 @@ impl GpuContext {
 
 impl Drop for GpuContext {
     fn drop(&mut self) {
-        mod_dev_dbg!(self.dev, "GpuContext: Freeing GPU context\n");
-        let data = self.data.take().unwrap();
-        (*self.dev).gpu.free_context(data);
+        let Some(guard) = self.dev.registration_guard() else {
+            return;
+        };
+
+        guard.registration_data_with(|reg_data| {
+            let data = self.data.take().unwrap();
+            reg_data.gpu.free_context(data);
+        })
     }
 }
 
@@ -225,7 +230,7 @@ impl<O: OpaqueCommandObject, C: FnOnce(Option<WorkError>) + Send + Sync> GenSubm
 /// Inner data for managing a single work queue.
 #[versions(AGX)]
 struct WorkQueueInner {
-    dev: driver::AsahiDevRef,
+    dev: driver::AsahiDevice,
     event_manager: Arc<event::EventManager>,
     info: GpuObject<QueueInfo::ver>,
     new: bool,
@@ -633,7 +638,7 @@ impl WorkQueue::ver {
     /// Create a new WorkQueue of a given type and priority.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        dev: &driver::AsahiDevice,
+        dev: driver::AsahiDevice,
         alloc: &mut gpu::KernelAllocators,
         event_manager: Arc<event::EventManager>,
         gpu_context: Arc<GpuContext>,

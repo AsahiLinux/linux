@@ -321,8 +321,8 @@ pub(crate) struct Buffer {
 #[versions(AGX)]
 impl Buffer::ver {
     /// Create a new Buffer for a given VM, given the per-VM allocators.
-    pub(crate) fn new(
-        gpu: &dyn gpu::GpuManager,
+    pub(crate) fn new<'drm>(
+        gpu: &'drm dyn gpu::GpuManager,
         alloc: &mut gpu::KernelAllocators,
         ualloc: Arc<Mutex<alloc::DefaultAllocator>>,
         ualloc_priv: Arc<Mutex<alloc::DefaultAllocator>>,

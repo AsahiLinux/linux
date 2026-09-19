@@ -11,14 +11,18 @@ use crate::hw;
 use kernel::{
     c_str,
     device::Core,
-    devres::Devres,
     io::{
-        mem::IoMem, //
+        mem::IoMem,
         Io,
+        IoBase, //
     },
     platform,
     prelude::*,
-    sync::aref::ARef, //
+    soc::apple::rtkit::ASC_CPU_CONTROL,
+    sync::{
+        aref::ARef,
+        Arc, //
+    }, //
 };
 
 /// Size of the ASC control MMIO region.
@@ -26,9 +30,6 @@ pub(crate) const ASC_CTL_SIZE: usize = 0x4000;
 
 /// Size of the SGX MMIO region.
 pub(crate) const SGX_SIZE: usize = 0x1000000;
-
-const CPU_CONTROL: usize = 0x44;
-const CPU_RUN: u32 = 0x1 << 4; // BIT(4)
 
 const FAULT_INFO: usize = 0x17030;
 
@@ -152,16 +153,18 @@ pub(crate) struct FaultInfo {
 }
 
 /// Device resources for this GPU instance.
-pub(crate) struct Resources {
+pub(crate) struct Resources<'drm> {
     dev: ARef<platform::Device>,
-    sgx: Pin<KBox<Devres<IoMem<SGX_SIZE>>>>,
+    sgx: Arc<IoMem<'drm, SGX_SIZE>>,
 }
 
-impl Resources {
+impl Resources<'_> {
     /// Map the required resources given our platform device.
-    pub(crate) fn new(pdev: &platform::Device<Core>) -> Result<Resources> {
-        let sgx_req = pdev.io_request_by_name(c_str!("sgx")).ok_or(EINVAL)?;
-        let sgx_iomem = KBox::pin_init(sgx_req.iomap_sized::<SGX_SIZE>(), GFP_KERNEL)?;
+    pub(crate) fn new<'bound>(
+        pdev: &'bound platform::Device<Core<'_>>,
+    ) -> Result<Resources<'bound>> {
+        let sgx_req = pdev.io_request_by_name(c"sgx").ok_or(EINVAL)?;
+        let sgx_iomem = Arc::new(sgx_req.iomap_sized::<SGX_SIZE>()?, GFP_KERNEL)?;
 
         Ok(Resources {
             // SAFETY: This device does DMA via the UAT IOMMU.
@@ -171,36 +174,17 @@ impl Resources {
     }
 
     fn sgx_read32<const OFF: usize>(&self) -> u32 {
-        if let Some(sgx) = self.sgx.try_access() {
-            sgx.relaxed().read32(OFF)
-        } else {
-            0
-        }
+        self.sgx.as_view().relaxed().read32(OFF)
     }
-
-    /* Not yet used
-    fn sgx_write32<OFF: usize>(&self, val: u32) {
-        if let Some(sgx) = self.sgx.try_access() {
-            sgx.write32_relaxed(val, OFF)
-        }
-    }
-    */
 
     fn sgx_read64<const OFF: usize>(&self) -> u64 {
-        if let Some(sgx) = self.sgx.try_access() {
-            sgx.relaxed().read64(OFF)
-        } else {
-            0
-        }
+        // TODO: use infallible `read64()`
+        self.sgx
+            .as_view()
+            .relaxed()
+            .try_read64(OFF)
+            .expect("64-bit read failed!")
     }
-
-    /* Not yet used
-    fn sgx_write64<OFF: usize>(&self, val: u64) {
-        if let Some(sgx) = self.sgx.try_access() {
-            sgx.write64_relaxed(val, OFF)
-        }
-    }
-    */
 
     /// Initialize the MMIO registers for the GPU.
     pub(crate) fn init_mmio(&self) -> Result {
@@ -210,13 +194,11 @@ impl Resources {
     }
 
     /// Start the ASC coprocessor CPU.
-    pub(crate) fn start_cpu(pdev: &platform::Device<Core>) -> Result {
+    pub(crate) fn start_cpu(pdev: &platform::Device<Core<'_>>) -> Result {
         let asc_req = pdev.io_request_by_name(c_str!("asc")).ok_or(EINVAL)?;
-        let asc_iomem = KBox::pin_init(asc_req.iomap_sized::<ASC_CTL_SIZE>(), GFP_KERNEL)?;
-        let res = asc_iomem.access(pdev.as_ref())?.relaxed();
-
-        let val = res.read32(CPU_CONTROL);
-        res.write32(val | CPU_RUN, CPU_CONTROL);
+        let asc_mmio = asc_req.iomap_sized::<ASC_CTL_SIZE>()?;
+        let asc_mmio = asc_mmio.as_view().relaxed();
+        asc_mmio.update(ASC_CPU_CONTROL, |r| r.with_const_cpu_run::<1>());
         Ok(())
     }
 
