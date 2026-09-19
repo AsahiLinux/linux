@@ -81,6 +81,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/pci.h>
 #include <linux/phy.h>
@@ -108,6 +109,7 @@
 #include <sound/core.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm.h>
+#include <linux/pm_domain.h>
 #include <trace/events/rust_sample.h>
 
 /*
