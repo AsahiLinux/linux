@@ -940,11 +940,18 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 	ret = wait_for_completion_timeout(&cookie->done, msecs_to_jiffies(1000));
 	swap_id = cookie->swap_id;
 	kref_put(&cookie->refcount, release_swap_cookie);
-	if (ret == 0)
+	if (ret == 0) {
+		/* crashed while we waited, RTKit refuses any further messages */
+		if (dcp->crashed) {
+			dev_warn(dcp->dev, "%s: DCP crashed during clear swap\n",
+				 __func__);
+			return;
+		}
 		dev_warn(dcp->dev, "%s: clear swap timeout %u ms\n", __func__, 1000);
-	else
+	} else {
 		dev_dbg(dcp->dev, "%s: clear swap submitted: %u after %u ms\n",
 			__func__, swap_id, 1000 - jiffies_to_msecs(ret));
+	}
 
 	poff_cookie = kzalloc(sizeof(*poff_cookie), GFP_KERNEL);
 	if (!poff_cookie)
