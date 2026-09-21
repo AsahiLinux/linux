@@ -457,6 +457,13 @@ dcpep_cb_map_physical(struct apple_dcp *dcp, struct dcp_map_physical_req *req)
 
 static u64 dcpep_cb_get_frequency(struct apple_dcp *dcp)
 {
+	/*
+	 * External displays use a DT fixed-clock placeholder with frequency 0.
+	 * Return the pixel clock of the mode being set so the firmware can
+	 * configure display timing correctly.
+	 */
+	if (!dcp->main_display && dcp->pixel_freq_hz)
+		return dcp->pixel_freq_hz;
 	return clk_get_rate(dcp->clk);
 }
 
@@ -1033,6 +1040,7 @@ static void dcpep_cb_hotplug(struct apple_dcp *dcp, u64 *connected)
 	/* Hotplug invalidates mode. DRM doesn't always handle this. */
 	if (!(*connected)) {
 		dcp->valid_mode = false;
+		dcp->pixel_freq_hz = 0;
 		/* after unplug swap will not complete until the next
 		 * set_digital_out_mode */
 		schedule_work(&dcp->vblank_wq);
@@ -1228,6 +1236,9 @@ int DCP_FW_NAME(iomfb_modeset)(struct apple_dcp *dcp,
 		.color_mode_id = mode->color_mode_id,
 		.timing_mode_id = mode->timing_mode_id
 	};
+
+	/* Cache pixel clock so dcpep_cb_get_frequency() can report it */
+	dcp->pixel_freq_hz = (u64)mode->mode.clock * 1000;
 
 	/* Keep track of suspected vrr modes */
 	dcp->use_timestamps = mode->vrr;

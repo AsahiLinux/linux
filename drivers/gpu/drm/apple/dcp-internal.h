@@ -190,6 +190,9 @@ struct apple_dcp {
 	bool use_timestamps;
 	struct dcp_set_digital_out_mode_req mode;
 
+	/* Pixel clock frequency in Hz for the current mode (external displays) */
+	u64 pixel_freq_hz;
+
 	/* completion for active turning true */
 	struct completion start_done;
 
