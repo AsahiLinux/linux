@@ -46,7 +46,7 @@ apple_get_ix_layout(u32 width, u32 height, u32 bpp, u32 plane,  bool yuv)
 
 	layout.width_tiles = DIV_ROUND_UP(width, layout.tile_w);
 	layout.height_tiles = DIV_ROUND_UP(height, layout.tile_h);
-	layout.tile_bytes = layout.tile_w * layout.tile_h  * DIV_ROUND_UP(bpp, 8);
+	layout.tile_bytes = DIV_ROUND_UP(layout.tile_w * layout.tile_h * bpp, 8);
 	layout.meta_offset = ALIGN(layout.width_tiles * layout.height_tiles * layout.tile_bytes,
 				   APPLE_GPU_CACHELINE);
 
