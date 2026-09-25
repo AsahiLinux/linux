@@ -57,7 +57,7 @@ static const struct brcmf_feat_fwcap brcmf_fwcap_map[] = {
 	{ BRCMF_FEAT_MONITOR_FLAG, "rtap" },
 	{ BRCMF_FEAT_MONITOR_FMT_RADIOTAP, "rtap" },
 	{ BRCMF_FEAT_DOT11H, "802.11h" },
-	{ BRCMF_FEAT_SAE, "sae " },
+	{ BRCMF_FEAT_SAE, "sae" },
 	{ BRCMF_FEAT_FWAUTH, "idauth" },
 	{ BRCMF_FEAT_SAE_EXT, "sae_ext" },
 	{ BRCMF_FEAT_GCMP, "gcmp"}
@@ -244,11 +244,12 @@ static void brcmf_feat_iovar_data_set(struct brcmf_if *ifp,
 static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
-	char caps[MAX_CAPS_BUFFER_SIZE];
+	char caps[MAX_CAPS_BUFFER_SIZE + 1] = {};
+	char *cap, *next = caps;
 	enum brcmf_feat_id id;
 	int i, err;
 
-	err = brcmf_fil_iovar_data_get(ifp, "cap", caps, sizeof(caps));
+	err = brcmf_fil_iovar_data_get(ifp, "cap", caps, sizeof(caps) - 1);
 	if (err) {
 		bphy_err(drvr, "could not get firmware cap (%d)\n", err);
 		return;
@@ -256,12 +257,17 @@ static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 
 	brcmf_dbg(INFO, "[ %s]\n", caps);
 
-	for (i = 0; i < ARRAY_SIZE(brcmf_fwcap_map); i++) {
-		if (strnstr(caps, brcmf_fwcap_map[i].fwcap_id, sizeof(caps))) {
+	while ((cap = strsep(&next, " \t\r\n")) != NULL) {
+		if (!*cap)
+			continue;
+
+		for (i = 0; i < ARRAY_SIZE(brcmf_fwcap_map); i++) {
+			if (strcmp(cap, brcmf_fwcap_map[i].fwcap_id))
+				continue;
 			id = brcmf_fwcap_map[i].feature;
 			brcmf_dbg(INFO, "enabling feature: %s\n",
 				  brcmf_feat_names[id]);
-			ifp->drvr->feat_flags |= BIT(id);
+			drvr->feat_flags |= BIT(id);
 		}
 	}
 }
