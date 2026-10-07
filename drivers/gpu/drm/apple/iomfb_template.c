@@ -869,9 +869,14 @@ static void last_client_closed_poff(struct apple_dcp *dcp, void *out, void *cook
 
 static void aborted_swaps_dcp_poff(struct apple_dcp *dcp, void *out, void *cookie)
 {
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
+	/* iomfb_last_client_close times out on 14.7 */
+	last_client_closed_poff(dcp, NULL, cookie);
+#else
 	struct iomfb_last_client_close_req last_client_req = {};
 	iomfb_last_client_close(dcp, false, &last_client_req,
 				last_client_closed_poff, cookie);
+#endif
 }
 
 void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
