@@ -46,6 +46,7 @@ properties:
               - apple,t6030-pcie
               - apple,t6031-pcie
               - apple,t8122-pcie
+              - apple,t8132-pcie
           - const: apple,t6020-pcie
       - const: apple,t6020-pcie
 
@@ -55,17 +56,7 @@ properties:
 
   reg-names:
     minItems: 3
-    items:
-      - const: config
-      - const: rc
-      - const: port0
-      - const: port1
-      - const: port2
-      - const: port3
-      - const: phy0
-      - const: phy1
-      - const: phy2
-      - const: phy3
+    maxItems: 10
 
   ranges:
     minItems: 2
@@ -133,17 +124,81 @@ allOf:
       properties:
         reg:
           maxItems: 5
+        reg-names:
+          items:
+            - const: config
+            - const: rc
+            - const: port0
+            - const: port1
+            - const: port2
         interrupts:
           maxItems: 3
   - if:
       properties:
         compatible:
           contains:
-            const: apple,t6020-pcie
+            enum:
+              - apple,t8112-pcie
+              - apple,t6000-pcie
     then:
       properties:
+        reg:
+          maxItems: 6
         reg-names:
+          items:
+            - const: config
+            - const: rc
+            - const: port0
+            - const: port1
+            - const: port2
+            - const: port3
+  - if:
+      properties:
+        compatible:
+          oneOf:
+            - const: apple,t6020-pcie
+            - contains:
+                enum:
+                  - apple,t6030-pcie
+                  - apple,t6031-pcie
+    then:
+      properties:
+        reg:
           minItems: 10
+        reg-names:
+          items:
+            - const: config
+            - const: rc
+            - const: port0
+            - const: port1
+            - const: port2
+            - const: port3
+            - const: phy0
+            - const: phy1
+            - const: phy2
+            - const: phy3
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: apple,t8132-pcie
+    then:
+      properties:
+        regs:
+          minItems: 8
+          maxItems: 8
+        reg-names:
+          items:
+            - const: config
+            - const: rc
+            - const: port0
+            - const: port1
+            - const: port2
+            - const: phy0
+            - const: phy1
+            - const: phy2
+        interrupts:
+          maxItems: 3
 
 examples:
   - |
