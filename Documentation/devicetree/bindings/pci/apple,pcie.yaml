@@ -45,6 +45,7 @@ properties:
           - enum:
               - apple,t6030-pcie
               - apple,t6031-pcie
+              - apple,t6041-pcie
               - apple,t8122-pcie
               - apple,t8132-pcie
           - const: apple,t6020-pcie
@@ -161,6 +162,7 @@ allOf:
                 enum:
                   - apple,t6030-pcie
                   - apple,t6031-pcie
+                  - apple,t6041-pcie
     then:
       properties:
         reg:
