@@ -5,6 +5,7 @@
  * Copyright The Asahi Linux Contributors
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/pinctrl/apple.h>
 
@@ -350,6 +351,48 @@
 			compatible = "apple,t6041-sart", "apple,t6000-sart";
 			reg = <0x4 0x0dc50000 0x0 0x10000>;
 			power-domains = <&ps_ans>;
+		};
+
+		pcie0_dart_0: iommu@410000000 {
+			compatible = "apple,t6041-dart", "apple,t8110-dart";
+			reg = <0x4 0x10000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1724 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_sys_gp>;
+		};
+
+		pcie0_dart_1: iommu@411000000 {
+			compatible = "apple,t6041-dart", "apple,t8110-dart";
+			reg = <0x4 0x11000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1733 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_sys_gp>;
+
+			status = "disabled";
+		};
+
+		pcie0_dart_2: iommu@412000000 {
+			compatible = "apple,t6041-dart", "apple,t8110-dart";
+			reg = <0x4 0x12000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1742 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_sys_gp>;
+
+			status = "disabled";
+		};
+
+		pcie0_dart_3: iommu@413000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x13000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1751 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_sys_gp>;
+
+			status = "disabled";
 		};
 
 		i2c0: i2c@429010000 {
@@ -739,6 +782,162 @@
 			i2c8_pins: i2c8-pins {
 				pinmux = <APPLE_PINMUX(72, 1)>,
 				         <APPLE_PINMUX(73, 1)>;
+			};
+
+			pcie_pins: pcie-pins {
+				// clkreq pins
+				pinmux = <APPLE_PINMUX(0, 1)>,
+				         <APPLE_PINMUX(1, 1)>,
+				         <APPLE_PINMUX(2, 1)>,
+				         <APPLE_PINMUX(3, 1)>;
+			};
+		};
+
+		pcie0: pcie@1cb0000000 {
+			device_type = "pci";
+			compatible = "apple,t6041-pcie", "apple,t6020-pcie";
+
+			reg = <0x1c 0xb0000000 0x0 0x1000000>,	/* config */
+			      <0x4 0x14000000 0x0 0x4000>,	/* rc */
+			      <0x4 0x10028000 0x0 0x4000>,	/* port0 */
+			      <0x4 0x11028000 0x0 0x4000>,	/* port1 */
+			      <0x4 0x12028000 0x0 0x4000>,	/* port2 */
+			      <0x4 0x13028000 0x0 0x4000>,	/* port3 */
+			      <0x4 0x17020000 0x0 0x4000>,	/* phy0 */
+			      <0x4 0x17024000 0x0 0x4000>,	/* phy1 */
+			      <0x4 0x17028000 0x0 0x4000>,	/* phy2 */
+			      <0x4 0x1702c000 0x0 0x4000>;	/* phy3 */
+			reg-names = "config", "rc",
+			            "port0", "port1", "port2", "port3",
+			            "phy0", "phy1", "phy2", "phy3";
+
+			ranges = <0x43000000
+			          0xb 0xc0000000
+			          0xb 0xc0000000
+			          0x0 0x20000000>,
+				 <0x02000000
+			          0x0 0x80000000
+				  0xb 0x80000000
+				  0x0 0x40000000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1723 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1732 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1741 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1750 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			msi-parent = <&pcie0>;
+			msi-ranges = <&aic AIC_IRQ 2071 IRQ_TYPE_EDGE_RISING
+			              32>;
+
+			iommu-map = <0x100 &pcie0_dart_0 1 1>,
+			            <0x200 &pcie0_dart_1 1 1>,
+			            <0x300 &pcie0_dart_2 1 1>,
+			            <0x400 &pcie0_dart_3 1 1>;
+
+			iommu-map-mask = <0xff00>;
+
+			bus-range = <0 4>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			power-domains = <&ps_apcie_gp>;
+			pinctrl-0 = <&pcie_pins>;
+			pinctrl-names = "default";
+
+			port00: pci@0,0 {
+				device_type = "pci";
+				compatible = "pciclass,0604";
+				reg = <0x0 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 4 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port00 0 0 0 0>,
+						<0 0 0 2 &port00 0 0 0 1>,
+						<0 0 0 3 &port00 0 0 0 2>,
+						<0 0 0 4 &port00 0 0 0 3>;
+			};
+
+			port01: pci@1,0 {
+				device_type = "pci";
+				compatible = "pciclass,0604";
+				reg = <0x800 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 5 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port01 0 0 0 0>,
+						<0 0 0 2 &port01 0 0 0 1>,
+						<0 0 0 3 &port01 0 0 0 2>,
+						<0 0 0 4 &port01 0 0 0 3>;
+
+				status = "disabled";
+			};
+
+			port02: pci@2,0 {
+				device_type = "pci";
+				compatible = "pciclass,0604";
+				reg = <0x1000 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 6 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port02 0 0 0 0>,
+						<0 0 0 2 &port02 0 0 0 1>,
+						<0 0 0 3 &port02 0 0 0 2>,
+						<0 0 0 4 &port02 0 0 0 3>;
+
+				status = "disabled";
+			};
+
+			port03: pci@3,0 {
+				device_type = "pci";
+				compatible = "pciclass,0604";
+				reg = <0x1800 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 7 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port03 0 0 0 0>,
+						<0 0 0 2 &port03 0 0 0 1>,
+						<0 0 0 3 &port03 0 0 0 2>,
+						<0 0 0 4 &port03 0 0 0 3>;
+
+				status = "disabled";
 			};
 		};
 	};
