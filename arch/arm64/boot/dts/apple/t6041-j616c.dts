@@ -16,3 +16,11 @@
 	model = "Apple MacBook Pro (16-inch, M4 Max, 2024)";
 	compatible = "apple,j616c", "apple,t6041", "apple,arm-platform";
 };
+
+&wifi0 {
+	brcm,board-type = "apple,hostomel";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,hostomel";
+};

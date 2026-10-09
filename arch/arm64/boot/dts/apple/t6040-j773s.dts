@@ -15,10 +15,43 @@
 / {
 	model = "Apple Mac mini (M4 Pro, 2024)";
 	compatible = "apple,j773s", "apple,t6040", "apple,arm-platform";
+
+	aliases {
+		ethernet0 = &ethernet0;
+	};
 };
 
 &framebuffer0 {
 	power-domains = <&ps_dispext0_fe>;
+};
+
+&wifi0 {
+	brcm,board-type = "apple,sakhalin";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,sakhalin";
+};
+
+&port02 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	ethernet0: ethernet@0,0 {
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 00];
+	};
+};
+
+&pcie0_dart_2 {
+	status = "okay";
+};
+
+&pcie0 {
+	iommu-map = <0x100 &pcie0_dart_0 1 1>,
+	            <0x200 &pcie0_dart_2 1 1>;
 };
 
 /* Delete power domains not present on Mac mini */
