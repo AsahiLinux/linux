@@ -5,6 +5,7 @@
  * Copyright The Asahi Linux Contributors
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/apple.h>
@@ -205,6 +206,8 @@
 
 		#address-cells = <2>;
 		#size-cells = <2>;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		pmgr: power-management@380700000 {
 			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr",
@@ -373,6 +376,13 @@
 				pinmux = <APPLE_PINMUX(108, 1)>,
 					 <APPLE_PINMUX(107, 1)>;
 			};
+
+			pcie_pins: pcie-pins {
+				// clkreq pins
+				pinmux = <APPLE_PINMUX(160, 1)>,
+				         <APPLE_PINMUX(161, 1)>,
+				         <APPLE_PINMUX(162, 1)>;
+			};
 		};
 
 		i2c0: i2c@3ad010000 {
@@ -496,6 +506,37 @@
 			power-domains = <&ps_ans>;
 		};
 
+		pcie0_dart: iommu@490000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x90000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1232 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+		};
+
+		pcie1_dart: iommu@491000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x91000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1236 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+
+			status = "disabled";
+		};
+
+		pcie2_dart: iommu@492000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x92000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1250 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+
+			status = "disabled";
+		};
+
 		nvme: nvme@4c5cc0000 {
 			compatible = "apple,t8132-nvme-ans2";
 			reg = <0x4 0xc5cc0000 0x0 0x60000>,
@@ -512,6 +553,121 @@
 			resets = <&ps_ans>;
 
 			apple,sart = <&sart>;
+		};
+
+		pcie0: pcie@1cb0000000 {
+			device_type = "pci";
+			compatible = "apple,t8132-pcie", "apple,t6020-pcie";
+
+			reg = <0x1c 0xb0000000 0x0 0x1000000>,	/* config */
+			      <0x4 0x94000000 0x0 0x4000>,	/* rc */
+			      <0x4 0x90028000 0x0 0x4000>,	/* port0 */
+			      <0x4 0x91028000 0x0 0x4000>,	/* port1 */
+			      <0x4 0x92028000 0x0 0x4000>,	/* port2 */
+			      <0x4 0x97020000 0x0 0x4000>,	/* phy0 */
+			      <0x4 0x97024000 0x0 0x4000>,	/* phy1 */
+			      <0x4 0x97028000 0x0 0x4000>;	/* phy2 */
+			reg-names = "config", "rc", "port0", "port1", "port2",
+			            "phy0", "phy1", "phy2";
+
+			ranges = <0x43000000
+			          0xb 0xc0000000
+				  0xb 0xc0000000
+				  0x0 0x20000000>,
+				 <0x02000000
+				  0x0 0x80000000
+				  0xb 0x80000000
+				  0x0 0x40000000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1231 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1240 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1249 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			msi-parent = <&pcie0>;
+			msi-ranges = <&aic AIC_IRQ 1506 IRQ_TYPE_EDGE_RISING
+			              32>;
+
+			iommu-map = <0x100 &pcie0_dart 0 1>,
+			            <0x200 &pcie1_dart 1 1>,
+			            <0x300 &pcie2_dart 1 1>;
+			iommu-map-mask = <0xff00>;
+
+			bus-range = <0 3>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			power-domains = <&ps_apcie_gp>;
+			pinctrl-0 = <&pcie_pins>;
+			pinctrl-names = "default";
+
+			port00: pci@0,0 {
+				device_type = "pci";
+				reg = <0x0 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 163 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port00 0 0 0 0>,
+						<0 0 0 2 &port00 0 0 0 1>,
+						<0 0 0 3 &port00 0 0 0 2>,
+						<0 0 0 4 &port00 0 0 0 3>;
+			};
+
+			port01: pci@1,0 {
+				device_type = "pci";
+				reg = <0x800 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 164 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port01 0 0 0 0>,
+						<0 0 0 2 &port01 0 0 0 1>,
+						<0 0 0 3 &port01 0 0 0 2>,
+						<0 0 0 4 &port01 0 0 0 3>;
+
+				status = "disabled";
+			};
+
+			port02: pci@2,0 {
+				device_type = "pci";
+				reg = <0x1000 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 165 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port02 0 0 0 0>,
+						<0 0 0 2 &port02 0 0 0 1>,
+						<0 0 0 3 &port02 0 0 0 2>,
+						<0 0 0 4 &port02 0 0 0 3>;
+
+				status = "disabled";
+			};
 		};
 	};
 
