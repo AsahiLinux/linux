@@ -15,6 +15,10 @@
 / {
 	model = "Apple Mac mini (M4, 2024)";
 	compatible = "apple,j773g", "apple,t8132", "apple,arm-platform";
+
+	aliases {
+		ethernet0 = &ethernet0;
+	};
 };
 
 /*
@@ -22,4 +26,35 @@
  */
 &framebuffer0 {
 	power-domains = <&ps_dispext0_fe>, <&ps_dptx_phy>;
+};
+
+/* PCIe Devices */
+
+&wifi0 {
+	brcm,board-type = "apple,sakhalin";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,sakhalin";
+};
+
+&port02 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	ethernet0: ethernet@0,0 {
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 00];
+	};
+};
+
+&pcie2_dart {
+	status = "okay";
+};
+
+&pcie0 {
+	iommu-map = <0x100 &pcie0_dart 1 1>,
+	            <0x200 &pcie2_dart 1 1>;
 };
