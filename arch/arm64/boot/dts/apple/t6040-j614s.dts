@@ -17,6 +17,14 @@
 	compatible = "apple,j614s", "apple,t6040", "apple,arm-platform";
 };
 
+&wifi0 {
+	brcm,board-type = "apple,mriya";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,mriya";
+};
+
 /* Delete power domains not present on M4 Pro MacBook Pro models */
 
 /delete-node/ &ps_dispext2_cpu;

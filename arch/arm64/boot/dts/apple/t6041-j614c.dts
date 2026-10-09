@@ -12,6 +12,14 @@
 #include "t6041.dtsi"
 #include "t604x-j614-j616.dtsi"
 
+&wifi0 {
+	brcm,board-type = "apple,mriya";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,mriya";
+};
+
 / {
 	model = "Apple MacBook Pro (14-inch, M4 Max, 2024)";
 	compatible = "apple,j614c", "apple,t6041", "apple,arm-platform";
