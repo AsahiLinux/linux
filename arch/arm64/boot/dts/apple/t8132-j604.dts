@@ -34,3 +34,35 @@
 &fpwm1 {
 	status = "okay";
 };
+
+/* PCIe Devices */
+
+&wifi0 {
+	brcm,board-type = "apple,guam";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,guam";
+};
+
+&port02 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	mmc@0,0 {
+		compatible = "pci17a0,9755";
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		cd-inverted;
+		wp-inverted;
+	};
+};
+
+&pcie2_dart {
+	status = "okay";
+};
+
+&pcie0 {
+	iommu-map = <0x100 &pcie0_dart 1 1>,
+	            <0x200 &pcie2_dart 1 1>;
+};
