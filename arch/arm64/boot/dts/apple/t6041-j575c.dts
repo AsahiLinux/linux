@@ -15,8 +15,66 @@
 / {
 	model = "Apple Mac Studio (M4 Max, 2025)";
 	compatible = "apple,j575c", "apple,t6041", "apple,arm-platform";
+
+	aliases {
+		ethernet0 = &ethernet0;
+	};
 };
 
 &framebuffer0 {
 	power-domains = <&ps_disp_fe>;
+};
+
+/* PCIe Devices */
+
+&wifi0 {
+	brcm,board-type = "apple,aruba";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,aruba";
+};
+
+&port01 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	mmc@0,0 {
+		compatible = "pci17a0,9755";
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		cd-inverted;
+		wp-inverted;
+	};
+};
+
+&port02 {
+	bus-range = <3 3>;
+
+	status = "okay";
+
+	ethernet0: ethernet@0,0 {
+		reg = <0x30000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 00];
+	};
+};
+
+/* USB xHCI */
+&port03 {
+	bus-range = <4 4>;
+
+	status = "okay";
+};
+
+&pcie0_dart_1 {
+	status = "okay";
+};
+
+&pcie0_dart_2 {
+	status = "okay";
+};
+
+&pcie0_dart_3 {
+	status = "okay";
 };
