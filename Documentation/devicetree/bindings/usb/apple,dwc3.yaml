@@ -27,6 +27,7 @@ properties:
               - apple,t6031-dwc3
               - apple,t8112-dwc3
               - apple,t8122-dwc3
+              - apple,t8132-dwc3
           - const: apple,t8103-dwc3
       - const: apple,t8103-dwc3
 
