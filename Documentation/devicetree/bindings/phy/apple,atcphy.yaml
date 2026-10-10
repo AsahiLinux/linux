@@ -60,6 +60,7 @@ properties:
           - enum:
               - apple,t6030-atcphy
               - apple,t6031-atcphy
+              - apple,t8132-atcphy
           - const: apple,t8122-atcphy
   reg:
     items:
