@@ -15,6 +15,199 @@
 / {
 	model = "Apple iMac (24-inch, 4x USB-C, M4, 2024)";
 	compatible = "apple,j624", "apple,t8132", "apple,arm-platform";
+
+	aliases {
+		atcphy2 = &atcphy2;
+		atcphy3 = &atcphy3;
+	};
+};
+
+/*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Back-right";
+};
+
+&typec1 {
+	label = "USB-C Back-right-middle";
+};
+
+/*
+ * Add the additional two USB type C ports
+ */
+
+&nub_spmi_a0 {
+	usb-pd@6 {
+		compatible = "apple,sn201202x";
+		reg = <0x6 SPMI_USID>;
+		interrupts = <89 IRQ_TYPE_EDGE_RISING>,
+		             <91 IRQ_TYPE_EDGE_RISING>,
+		             <95 IRQ_TYPE_EDGE_RISING>,
+		             <97 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq", "select", "sleep", "wake";
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Back-left";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					typec3_connector_hs: endpoint {
+						remote-endpoint = <&dwc3_3_hs>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					typec3_connector_ss: endpoint {
+						remote-endpoint =
+							<&atcphy3_typec_lanes>;
+					};
+				};
+			};
+		};
+	};
+
+	usb-pd@8 {
+		compatible = "apple,sn201202x";
+		reg = <0x8 SPMI_USID>;
+		interrupts = <63 IRQ_TYPE_EDGE_RISING>,
+		             <65 IRQ_TYPE_EDGE_RISING>,
+		             <69 IRQ_TYPE_EDGE_RISING>,
+		             <71 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq", "select", "sleep", "wake";
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Back-left-middle";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					typec2_connector_hs: endpoint {
+						remote-endpoint = <&dwc3_2_hs>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					typec2_connector_ss: endpoint {
+						remote-endpoint =
+							<&atcphy2_typec_lanes>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&atcphy2 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			atcphy2_typec_lanes: endpoint {
+				remote-endpoint = <&typec2_connector_ss>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			atcphy2_usb3: endpoint {
+				remote-endpoint = <&dwc3_2_ss>;
+			};
+		};
+	};
+};
+
+&atcphy3 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			atcphy3_typec_lanes: endpoint {
+				remote-endpoint = <&typec3_connector_ss>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			atcphy3_usb3: endpoint {
+				remote-endpoint = <&dwc3_3_ss>;
+			};
+		};
+	};
+};
+
+&dwc3_2 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dwc3_2_hs: endpoint {
+				remote-endpoint = <&typec2_connector_hs>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dwc3_2_ss: endpoint {
+				remote-endpoint = <&atcphy2_usb3>;
+			};
+		};
+	};
+};
+
+&dwc3_3 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dwc3_3_hs: endpoint {
+				remote-endpoint = <&typec3_connector_hs>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dwc3_3_ss: endpoint {
+				remote-endpoint = <&atcphy3_usb3>;
+			};
+		};
+	};
 };
 
 &wifi0 {
