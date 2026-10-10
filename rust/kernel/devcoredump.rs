@@ -2,7 +2,7 @@
 
 //! Device coredump support.
 //!
-//! C header: [`include/linux/devcoredump.h`](../../../../include/linux/devcoredump.h)
+//! C header: [`include/linux/devcoredump.h`](srctree/include/linux/devcoredump.h)
 
 use crate::{
     alloc, bindings, device,
@@ -22,11 +22,18 @@ pub const DEFAULT_TIMEOUT: Jiffies = bindings::DEVCD_TIMEOUT as Jiffies;
 ///
 /// Users must implement this trait to provide device coredump support.
 pub trait DevCoreDump {
-    /// Returns the IOVA (virtual address) of the buffer from RTKit's point of view, or an error if
-    /// unavailable.
+    /// Reads part of the coredump into `buf`, starting at `offset`.
+    ///
+    /// Returns how many bytes were written. Return `Ok(0)` once there is nothing left to read.
+    ///
+    /// Userspace can read from several threads at once, so this may run concurrently.
     fn read(&self, buf: &mut [u8], offset: usize) -> Result<usize>;
 }
 
+/// # Safety
+///
+/// `buffer` must point to `count` writable bytes, and `data` must come from `T::into_foreign()`
+/// and not have been freed yet.
 unsafe extern "C" fn read_callback<
     'a,
     T: ForeignOwnable<Borrowed<'a>: Deref<Target = D>>,
@@ -38,20 +45,19 @@ unsafe extern "C" fn read_callback<
     data: *mut crate::ffi::c_void,
     _datalen: usize,
 ) -> isize {
-    // SAFETY: This pointer came from into_foreign() below.
+    // SAFETY: `data` comes from `T::into_foreign()` and has not been freed yet.
     let coredump = unsafe { T::borrow(data.cast()) };
-    // The caller does not initialize `buffer`, and copies as many bytes to userspace as we return.
-    // Zero it, so that an implementation returning more than it wrote cannot leak stale data.
+    // The core hands us an uninitialized buffer and copies back however many bytes we report.
+    // Zero it first, so a sloppy `read()` cannot leak old heap contents to userspace.
     //
-    // SAFETY: The caller guarantees `buffer` points to at least `count` bytes.
+    // SAFETY: `buffer` points to `count` writable bytes.
     unsafe { buffer.write_bytes(0, count) };
-    // SAFETY: The caller guarantees `buffer` points to at least `count` bytes.
+    // SAFETY: Same as above, and the buffer is initialized now.
     let buf = unsafe { core::slice::from_raw_parts_mut(buffer, count) };
 
     from_result(|| {
         let len = coredump.read(buf, offset.try_into()?)?;
 
-        // The caller copies `len` bytes out of `buffer`, which only holds `count` bytes.
         if len > count {
             return Err(EIO);
         }
@@ -60,6 +66,9 @@ unsafe extern "C" fn read_callback<
     })
 }
 
+/// # Safety
+///
+/// `data` must come from `T::into_foreign()`, and must not be used again after this call.
 unsafe extern "C" fn free_callback<
     'a,
     T: ForeignOwnable<Borrowed<'a>: Deref<Target = D>>,
@@ -67,13 +76,20 @@ unsafe extern "C" fn free_callback<
 >(
     data: *mut crate::ffi::c_void,
 ) {
-    // SAFETY: This pointer came from into_foreign() below.
+    // SAFETY: `data` comes from `T::into_foreign()`, and we own it from here on.
     unsafe {
         T::from_foreign(data.cast());
     }
 }
 
 /// Registers a coredump for the given device.
+///
+/// The core takes ownership of `coredump` and drops it when userspace dismisses the dump or
+/// `timeout` runs out. If the dump cannot be registered, for example because the previous one for
+/// `dev` is still pending, it is dropped right away.
+///
+/// `module` should be the module implementing [`DevCoreDump`]: it stays pinned for as long as the
+/// dump is around.
 pub fn dev_coredump<'a, T, D>(
     dev: &device::Device,
     module: &'static ThisModule,
@@ -81,17 +97,18 @@ pub fn dev_coredump<'a, T, D>(
     gfp: alloc::Flags,
     timeout: Jiffies,
 ) where
-    // The coredump outlives the caller, and is dropped from a workqueue.
+    // The dump outlives the caller and gets dropped from a workqueue.
     T: ForeignOwnable<Borrowed<'a>: Deref<Target = D>> + Send + 'static,
-    // Userspace may read the coredump from several threads at once.
     D: DevCoreDump + Sync,
 {
-    // SAFETY: Call upholds dev_coredumpm lifetime requirements.
+    // SAFETY: `dev` and `module` are valid, and the core takes its own references to them. The
+    // pointer from `into_foreign()` only ever reaches our two callbacks, and `free_callback` runs
+    // last and exactly once.
     unsafe {
         bindings::dev_coredumpm_timeout(
             dev.as_raw(),
             module.0,
-            coredump.into_foreign() as *mut _,
+            coredump.into_foreign(),
             0,
             gfp.as_raw(),
             Some(read_callback::<'a, T, D>),
