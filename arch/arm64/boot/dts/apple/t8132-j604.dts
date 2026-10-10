@@ -17,6 +17,10 @@
 	model = "Apple MacBook Pro (14-inch, M4, 2024)";
 	compatible = "apple,j604", "apple,t8132", "apple,arm-platform";
 
+	aliases {
+		atcphy3 = &atcphy3;
+	};
+
 	led-controller {
 		compatible = "pwm-leds";
 
@@ -66,3 +70,97 @@
 	iommu-map = <0x100 &pcie0_dart 1 1>,
 	            <0x200 &pcie2_dart 1 1>;
 };
+
+/*
+ * Add the additional USB type C port
+ */
+
+&nub_spmi_a1 {
+	usb-pd@c {
+		compatible = "apple,sn201202x";
+		reg = <0xc SPMI_USID>;
+		interrupts = <11 IRQ_TYPE_EDGE_RISING>,
+		             <13 IRQ_TYPE_EDGE_RISING>,
+		             <17 IRQ_TYPE_EDGE_RISING>,
+		             <19 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq", "select", "sleep", "wake";
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Right";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					typec3_connector_hs: endpoint {
+						remote-endpoint = <&dwc3_3_hs>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					typec3_connector_ss: endpoint {
+						remote-endpoint =
+							<&atcphy3_typec_lanes>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&dwc3_3 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dwc3_3_hs: endpoint {
+				remote-endpoint = <&typec3_connector_hs>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dwc3_3_ss: endpoint {
+				remote-endpoint = <&atcphy3_usb3>;
+			};
+		};
+	};
+};
+
+&atcphy3 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			atcphy3_typec_lanes: endpoint {
+				remote-endpoint = <&typec3_connector_ss>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			atcphy3_usb3: endpoint {
+				remote-endpoint = <&dwc3_3_ss>;
+			};
+		};
+	};
+};
+
+/delete-node/ &atcphy2;
+/delete-node/ &dwc3_2;
