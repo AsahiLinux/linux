@@ -45,3 +45,15 @@
 	iommu-map = <0x100 &pcie0_dart 1 1>,
 	            <0x200 &pcie2_dart 1 1>;
 };
+
+/*
+ * Provide labels for the USB type C ports.
+ */
+
+&typec0 {
+	label = "USB-C Back-right";
+};
+
+&typec1 {
+	label = "USB-C Back-left";
+};
