@@ -1152,7 +1152,6 @@
 				label = "pmp-msr";
 				#power-domain-cells = <0>;
 				power-domains = <&ps_msr>;
-				status = "disabled";
 			};
 
 			pmp_report_jpg: report@d {
@@ -1665,6 +1664,34 @@
 			resets = <&ps_ans>;
 
 			apple,sart = <&sart>;
+		};
+
+		msr@391000000 {
+			compatible = "apple,t6030-msr";
+			reg = <0x3 0x91000000 0x0 0x30000>,
+			      <0x3 0x91210000 0x0 0x4000>,
+			      <0x3 0x91204000 0x0 0x4000>;
+			reg-names = "base", "piodma", "dpe";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 860 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 862 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "base", "piodma";
+			iommus = <&msr_dart 0>, <&msr_dart 1>;
+			#if defined(APPLE_USE_PMP)
+			power-domains = <&pmp_report_msr>, <&ps_msr_ase_core>;
+			#else
+			power-domains = <&ps_msr>, <&ps_msr_ase_core>;
+			#endif
+			power-domain-names = "core", "ase-core";
+		};
+
+		msr_dart: iommu@391200000 {
+			compatible = "apple,t6030-dart", "apple,t8110-dart";
+			reg = <0x3 0x91200000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 861 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_msr>;
 		};
 
 		pcie0: pcie@580000000 {
