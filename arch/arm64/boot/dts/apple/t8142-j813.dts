@@ -17,6 +17,10 @@
 	model = "Apple MacBook Air (13-inch, M5, 2026)";
 	compatible = "apple,j813", "apple,t8142", "apple,arm-platform";
 
+	aliases {
+		keyboard = &keyboard;
+	};
+
 	led-controller {
 		compatible = "pwm-leds";
 
@@ -33,4 +37,30 @@
 
 &fpwm0 {
 	status = "okay";
+};
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
 };
