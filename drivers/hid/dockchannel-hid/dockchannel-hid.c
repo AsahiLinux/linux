@@ -1094,6 +1094,7 @@ static int dockchannel_hid_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct dockchannel_hid *dchid;
 	struct device_node *child, *helper;
+	struct fwnode_handle *stm;
 	struct platform_device *helper_pdev;
 	struct property *prop;
 	int ret;
@@ -1108,6 +1109,9 @@ static int dockchannel_hid_probe(struct platform_device *pdev)
 	}
 
 	dchid->dev = dev;
+	stm = device_get_named_child_node(dev, "stm");
+	dchid->id_ready = !stm || !fwnode_device_is_available(stm);
+	fwnode_handle_put(stm);
 
 	/*
 	 * First make sure all the GPIOs are available, in cased we need to defer.
