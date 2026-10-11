@@ -17,6 +17,7 @@
 
 	aliases {
 		serial0 = &serial0;
+		keyboard = &keyboard;
 	};
 
 	chosen {
@@ -51,4 +52,27 @@
 
 &serial0 {
 	status = "okay";
+};
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
 };
