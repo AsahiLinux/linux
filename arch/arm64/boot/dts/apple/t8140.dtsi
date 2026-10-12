@@ -297,6 +297,46 @@
 			             <AIC_IRQ 269 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <216>;
+
+			i2c0_pins: i2c0-pins {
+				pinmux = <APPLE_PINMUX(171, 1)>,
+				         <APPLE_PINMUX(170, 1)>;
+			};
+
+			i2c2_pins: i2c2-pins {
+				pinmux = <APPLE_PINMUX(165, 1)>,
+				         <APPLE_PINMUX(164, 1)>;
+			};
+		};
+
+		i2c0: i2c@385010000 {
+			compatible = "apple,t8140-i2c", "apple,t8103-i2c";
+			reg = <0x3 0x85010000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1108 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c0_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c0>;
+
+			status = "disabled";
+		};
+
+		i2c2: i2c@385018000 {
+			compatible = "apple,t8140-i2c", "apple,t8103-i2c";
+			reg = <0x3 0x85018000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1110 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c2_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c2>;
+
+			status = "disabled";
 		};
 
 		serial0: serial@385200000 {
