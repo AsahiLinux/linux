@@ -60,8 +60,9 @@
 			compatible = "apple,tahiti-e";
 			reg = <0x0 0x0>;
 			cpu-release-addr = <0 0>;
-			d-cache-size = <0x10000>;
 			enable-method = "spin-table";
+
+			d-cache-size = <0x10000>;
 			i-cache-size = <0x20000>;
 			next-level-cache = <&l2_cache_0>;
 		};
@@ -71,8 +72,9 @@
 			compatible = "apple,tahiti-e";
 			reg = <0x0 0x1>;
 			cpu-release-addr = <0 0>;
-			d-cache-size = <0x10000>;
 			enable-method = "spin-table";
+
+			d-cache-size = <0x10000>;
 			i-cache-size = <0x20000>;
 			next-level-cache = <&l2_cache_0>;
 		};
@@ -82,8 +84,9 @@
 			compatible = "apple,tahiti-e";
 			reg = <0x0 0x2>;
 			cpu-release-addr = <0 0>;
-			d-cache-size = <0x10000>;
 			enable-method = "spin-table";
+
+			d-cache-size = <0x10000>;
 			i-cache-size = <0x20000>;
 			next-level-cache = <&l2_cache_0>;
 		};
@@ -93,8 +96,9 @@
 			compatible = "apple,tahiti-e";
 			reg = <0x0 0x3>;
 			cpu-release-addr = <0 0>;
-			d-cache-size = <0x10000>;
 			enable-method = "spin-table";
+
+			d-cache-size = <0x10000>;
 			i-cache-size = <0x20000>;
 			next-level-cache = <&l2_cache_0>;
 		};
@@ -104,8 +108,9 @@
 			compatible = "apple,tahiti-p";
 			reg = <0x0 0x10100>;
 			cpu-release-addr = <0 0>;
-			d-cache-size = <0x20000>;
 			enable-method = "spin-table";
+
+			d-cache-size = <0x20000>;
 			i-cache-size = <0x30000>;
 			next-level-cache = <&l2_cache_1>;
 		};
@@ -115,8 +120,9 @@
 			compatible = "apple,tahiti-p";
 			reg = <0x0 0x10101>;
 			cpu-release-addr = <0 0>;
-			d-cache-size = <0x20000>;
 			enable-method = "spin-table";
+
+			d-cache-size = <0x20000>;
 			i-cache-size = <0x30000>;
 			next-level-cache = <&l2_cache_1>;
 		};
