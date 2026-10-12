@@ -12,8 +12,8 @@
 #include "t8140.dtsi"
 
 / {
-	compatible = "apple,j700", "apple,t8140", "apple,arm-platform";
 	model = "Apple MacBook Neo (A18 Pro, 2026)";
+	compatible = "apple,j700", "apple,t8140", "apple,arm-platform";
 
 	aliases {
 		serial0 = &serial0;
