@@ -27,10 +27,14 @@ pub struct OpMapRequest<'a, 'ctx, T: DriverGpuVm + 'ctx> {
     pub range: u64,
     /// Offset in GEM object.
     pub gem_offset: u64,
+    /// Length of the mapping in the GEM object.
+    pub gem_range: u32,
     /// The GEM object to map.
     pub vm_bo: &'a GpuVmBo<T>,
     /// The user-provided context type.
     pub context: &'a mut T::SmContext<'ctx>,
+    /// The requested GpuVa flags.
+    pub flags: GpuVaFlags,
 }
 
 impl<'a, 'ctx, T: DriverGpuVm> OpMapRequest<'a, 'ctx, T> {
@@ -44,9 +48,9 @@ impl<'a, 'ctx, T: DriverGpuVm> OpMapRequest<'a, 'ctx, T> {
                 gem: bindings::drm_gpuva_op_map__bindgen_ty_2 {
                     offset: self.gem_offset,
                     obj: self.vm_bo.obj().as_raw(),
-                    range: 0, // FIXME
+                    range: self.gem_range,
                 },
-                flags: 0,
+                flags: u32::from(self.flags),
             },
         }
     }
@@ -78,6 +82,11 @@ impl<'op, T: DriverGpuVm> OpMap<'op, T> {
     /// The offset within the [`drm_gem_object`](DriverGpuVm::Object).
     pub fn gem_offset(&self) -> u64 {
         self.op.gem.offset
+    }
+
+    /// The flags of this new mapping
+    pub fn flags(&self) -> GpuVaFlags {
+        GpuVaFlags::from(self.op.flags)
     }
 
     /// The [`drm_gem_object`](DriverGpuVm::Object) to map.
