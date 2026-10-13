@@ -439,7 +439,8 @@ where
     D: DriverObject,
     R: Deref<Target = Object<D>>,
 {
-    addr: *mut c_void,
+    /// FIXME: Should not be public!
+    pub addr: *mut c_void,
     owner: R,
 }
 
