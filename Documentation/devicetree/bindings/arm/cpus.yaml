@@ -85,6 +85,8 @@ properties:
           - apm,strega
           - apple,avalanche
           - apple,blizzard
+          - apple,brava-e
+          - apple,brava-p
           - apple,cyclone
           - apple,donan-e
           - apple,donan-p
