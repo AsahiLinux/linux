@@ -24,6 +24,7 @@ properties:
           - apple,t6020-fpwm
           - apple,t6030-fpwm
           - apple,t6031-fpwm
+          - apple,t6041-fpwm
       - const: apple,s5l-fpwm
 
   reg:
