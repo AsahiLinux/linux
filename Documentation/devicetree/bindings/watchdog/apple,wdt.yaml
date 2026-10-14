@@ -20,6 +20,7 @@ properties:
               - apple,t6020-wdt
               - apple,t6030-wdt
               - apple,t6031-wdt
+              - apple,t6041-wdt
               - apple,t8122-wdt
               - apple,t8132-wdt
           - const: apple,t8103-wdt
