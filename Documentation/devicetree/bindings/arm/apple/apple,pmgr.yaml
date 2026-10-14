@@ -40,6 +40,7 @@ properties:
               - apple,t6020-pmgr
               - apple,t6030-pmgr
               - apple,t6031-pmgr
+              - apple,t6041-pmgr
               - apple,t8122-pmgr
               - apple,t8132-pmgr
               - apple,t8140-pmgr
