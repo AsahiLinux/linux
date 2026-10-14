@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Mac Studio (M4 Max, 2025)
+ *
+ * target-type: J575c
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6041.dtsi"
+#include "t604x-j575-j773.dtsi"
+
+/ {
+	model = "Apple Mac Studio (M4 Max, 2025)";
+	compatible = "apple,j575c", "apple,t6041", "apple,arm-platform";
+};
+
+&framebuffer0 {
+	power-domains = <&ps_disp_fe>;
+};

@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Mac mini (M4 Pro, 2024)
+ *
+ * target-type: J773s
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6040.dtsi"
+#include "t604x-j575-j773.dtsi"
+
+/ {
+	model = "Apple Mac mini (M4 Pro, 2024)";
+	compatible = "apple,j773s", "apple,t6040", "apple,arm-platform";
+};
+
+&framebuffer0 {
+	power-domains = <&ps_dispext0_fe>;
+};
+
+/* Delete power domains not present on Mac mini */
+
+/delete-node/ &ps_disp_cpu;
+/delete-node/ &ps_disp_fe;
+/delete-node/ &ps_disp_sys;

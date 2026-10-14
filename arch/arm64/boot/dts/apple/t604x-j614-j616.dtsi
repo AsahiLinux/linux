@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (14/16-inch, 2024)
+ *
+ * This file contains the parts common to J614 and J616 devices with both
+ * M4 Pro and M4 Max.
+ *
+ * target-type: J614s / J614c / J616s / J616c
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include <dt-bindings/leds/common.h>
+
+/ {
+	chassis-type = "laptop";
+
+	aliases {
+		serial0 = &serial0;
+	};
+
+	chosen {
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		stdout-path = "serial0";
+
+		framebuffer0: framebuffer@0 {
+			compatible = "apple,simple-framebuffer",
+			             "simple-framebuffer";
+			reg = <0 0 0 0>; /* To be filled by loader */
+			power-domains = <&ps_disp_fe>;
+			/* Format properties will be added by loader */
+
+			status = "disabled";
+		};
+	};
+
+	led-controller {
+		compatible = "pwm-leds";
+
+		led-0 {
+			color = <LED_COLOR_ID_WHITE>;
+			default-state = "keep";
+			function = LED_FUNCTION_KBD_BACKLIGHT;
+			label = "kbd_backlight";
+			max-brightness = <255>;
+			pwms = <&fpwm0 0 40000>;
+		};
+	};
+
+	memory@10000000000 {
+		device_type = "memory";
+		reg = <0x100 0 0x2 0>; /* To be filled by loader */
+	};
+};
+
+&fpwm0 {
+	status = "okay";
+};
+
+&serial0 {
+	status = "okay";
+};
