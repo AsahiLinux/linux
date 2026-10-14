@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple MacBook Pro (14-inch, M4 Pro, 2024)
+ *
+ * target-type: J614s
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6040.dtsi"
+#include "t604x-j614-j616.dtsi"
+
+/ {
+	model = "Apple MacBook Pro (14-inch, M4 Pro, 2024)";
+	compatible = "apple,j614s", "apple,t6040", "apple,arm-platform";
+};
+
+/* Delete power domains not present on M4 Pro MacBook Pro models */
+
+/delete-node/ &ps_dispext2_cpu;
+/delete-node/ &ps_dispext2_fe;
+/delete-node/ &ps_dispext2_sys;
