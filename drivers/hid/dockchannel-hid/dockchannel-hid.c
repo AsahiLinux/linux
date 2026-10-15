@@ -1174,7 +1174,7 @@ static int dockchannel_hid_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(dchid->dc)) {
 		return PTR_ERR(dchid->dc);
 	}
-	dchid->new_iface_wq = alloc_workqueue("dchid-new", WQ_MEM_RECLAIM, 0);
+	dchid->new_iface_wq = alloc_ordered_workqueue("dchid-new", 0);
 	if (!dchid->new_iface_wq)
 		return -ENOMEM;
 
