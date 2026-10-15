@@ -35,6 +35,14 @@
 #define DCP_FORMAT_XF22		fourcc_code('2', '2', 'f', 'x')	// P210 full range 2 plane 10-bit YCbCR
 #define DCP_FORMAT_XF44		fourcc_code('4', '4', 'f', 'x')	// P410 full range 2 plane 10-bit YCbCR
 
+#define DCP_FORMAT_P420		fourcc_code('0', '2', '4', 'p') /* P030 video range 2 plane 10-bit YCbCr, 3x1 blocks */
+#define DCP_FORMAT_P422		fourcc_code('2', '2', '4', 'p') /* P230 video range 2 plane 10-bit YCbCr, 3x1 blocks */
+#define DCP_FORMAT_P444		fourcc_code('4', '4', '4', 'p') /* P430 video range 2 plane 10-bit YCbCr, 3x1 blocks */
+
+#define DCP_FORMAT_PF20		fourcc_code('0', '2', 'f', 'p') /* P030 full range 2 plane 10-bit YCbCr, 3x1 blocks */
+#define DCP_FORMAT_PF22		fourcc_code('2', '2', 'f', 'p') /* P230 full range 2 plane 10-bit YCbCr, 3x1 blocks */
+#define DCP_FORMAT_PF44		fourcc_code('4', '4', 'f', 'p') /* P430 full range 2 plane 10-bit YCbCr, 3x1 blocks */
+
 enum dcp_colorspace {
 	DCP_COLORSPACE_BG_SRGB = 0,
 	DCP_COLORSPACE_BT601 = 1,
