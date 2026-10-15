@@ -238,12 +238,21 @@ static u32 drm_format_to_dcp(u32 drm, enum drm_color_range range)
 		return fr ? DCP_FORMAT_XF20 : DCP_FORMAT_X420;
 	case DRM_FORMAT_P210:
 		return fr ? DCP_FORMAT_XF22 : DCP_FORMAT_X422;
+	/* semi planar 10-bit YCbCr formats, 3x1 blocks, limited and full range */
+	case DRM_FORMAT_P030:
+		return fr ? DCP_FORMAT_PF20 : DCP_FORMAT_P420;
+	case DRM_FORMAT_P230:
+		return fr ? DCP_FORMAT_PF22 : DCP_FORMAT_P422;
 	/*
-	 * TODO: missing DRM fourcc for P410
+	 * TODO: missing DRM fourccs for P410 / P430
 	 */
 #if defined(DRM_FORMAT_P410)
 	case DRM_FORMAT_P410:
 		return fr ? DCP_FORMAT_XF44 : DCP_FORMAT_X444;
+#endif
+#if defined(DRM_FORMAT_P430)
+	case DRM_FORMAT_P430:
+		return fr ? DCP_FORMAT_PF44 : DCP_FORMAT_P444;
 #endif
 	}
 
@@ -495,6 +504,11 @@ static const u32 dcp_primary_formats[] = {
 #if defined(DRM_FORMAT_P410)
 	DRM_FORMAT_P410,
 #endif
+	DRM_FORMAT_P030,
+	DRM_FORMAT_P230,
+#if defined(DRM_FORMAT_P430)
+	DRM_FORMAT_P430,
+#endif
 };
 
 static const u32 dcp_overlay_formats[] = {
@@ -509,6 +523,11 @@ static const u32 dcp_overlay_formats[] = {
 	DRM_FORMAT_P210,
 #if defined(DRM_FORMAT_P410)
 	DRM_FORMAT_P410,
+#endif
+	DRM_FORMAT_P030,
+	DRM_FORMAT_P230,
+#if defined(DRM_FORMAT_P430)
+	DRM_FORMAT_P430,
 #endif
 };
 
