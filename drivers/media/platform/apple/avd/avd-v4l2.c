@@ -457,7 +457,7 @@ static const struct avd_coded_fmt_desc avd_coded_fmts[] = {
 
 static bool avd_is_capable(struct avd_ctx *ctx, unsigned int capability)
 {
-	return (ctx->dev->variant->capabilities & capability) == capability;
+	return (ctx->dev->capabilities & capability) == capability;
 }
 
 static const struct avd_coded_fmt_desc *

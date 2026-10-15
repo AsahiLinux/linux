@@ -15,6 +15,7 @@
 #include <linux/iommu.h>
 #include <linux/reset.h>
 #include <linux/delay.h>
+#include <linux/unaligned.h>
 
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-v4l2.h>
@@ -22,6 +23,12 @@
 #include "avd.h"
 #include "avd-inst.h"
 #include "avd-regs.h"
+
+#define AVD_CONFIG_OFFSET	0x400
+#define AVD_CONFIG_SIZE		0x100
+#define AVD_CONFIG_CODEC_OFFSET	0x4
+#define AVD_CONFIG_MAGIC	((u32)'A' | ((u32)'V' << 8) | \
+				 ((u32)'D' << 16) | ((u32)'c' << 24))
 
 static void calc_tile_meta(u32 w, u32 h, u32 bpb, u32 tile_dim,
 			   u32 meta_hdr_bytes, u32 *tile, u32 *meta)
@@ -722,6 +729,22 @@ static int avd_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(avd->dev, "failed to load firmware: %d", ret);
 		return ret;
+	}
+
+	if (avd->fw->size < (AVD_CONFIG_OFFSET + AVD_CONFIG_SIZE)) {
+		dev_err(avd->dev, "Firmware %s is too small, size: %zu bytes\n",
+			avd->variant->fw_name, avd->fw->size);
+		iommu_domain_free(avd->empty_domain);
+		return -EINVAL;
+	}
+
+	if (get_unaligned_le32(avd->fw->data + AVD_CONFIG_OFFSET) == AVD_CONFIG_MAGIC) {
+		u32 codec_offset = AVD_CONFIG_OFFSET + AVD_CONFIG_CODEC_OFFSET;
+		u32 fw_caps = get_unaligned_le32(avd->fw->data + codec_offset);
+		avd->capabilities = fw_caps & avd->variant->capabilities;
+	} else {
+		dev_err(avd->dev, "Too old or incompatible firmware without config\n");
+		return -EINVAL;
 	}
 
 	ret = dma_set_mask_and_coherent(avd->dev,
