@@ -16,6 +16,7 @@ config APPLE_PMGR_PWRSTATE
 
 config APPLE_PMP_REPORT
 	bool "Apple PMP report control"
+	depends on 64BIT
 	depends on OF
 	depends on PM
 	select PM_GENERIC_DOMAINS
