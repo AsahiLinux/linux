@@ -390,6 +390,38 @@
 			#performance-domain-cells = <0>;
 		};
 
+		avd_dart: iommu@289010000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x2 0x89010000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 686 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_avd_sys>;
+		};
+
+		video-codec@289070000 {
+			compatible = "apple,t8122-avd";
+			reg = <0x2 0x89070000 0x0 0x4000>,
+			      <0x2 0x89080000 0x0 0x10000>,
+			      <0x2 0x89090000 0x0 0x14000>,
+			      <0x2 0x890a4000 0x0 0x4000>,
+			      <0x2 0x89100000 0x0 0x10000>;
+			reg-names = "piodma", "code", "sram", "mbox", "ctrl";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 679 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 680 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 681 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 682 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 683 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 684 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 685 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "mbox0", "mbox1", "mbox2", "mbox3",
+					  "flag0", "flag1", "piodma";
+			iommus = <&avd_dart 0>, <&avd_dart 1>;
+			power-domains = <&ps_avd_sys>;
+			resets = <&ps_avd_sys>;
+		};
+
 		i2c0: i2c@2a1010000 {
 			compatible = "apple,t8122-i2c", "apple,t8103-i2c";
 			reg = <0x2 0xa1010000 0x0 0x4000>;
