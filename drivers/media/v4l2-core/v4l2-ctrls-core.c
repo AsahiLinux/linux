@@ -631,7 +631,7 @@ validate_vp9_frame(struct v4l2_ctrl_vp9_frame *frame)
 	 * According to the spec, tile_cols_log2 shall be less than or equal
 	 * to 6.
 	 */
-	if (frame->tile_cols_log2 > 6)
+	if (frame->tile_cols_log2 > 6 || frame->tile_rows_log2 > 2)
 		return -EINVAL;
 
 	if (frame->reference_mode > V4L2_VP9_REFERENCE_MODE_SELECT)
