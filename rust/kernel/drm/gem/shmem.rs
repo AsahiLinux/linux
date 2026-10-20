@@ -601,10 +601,12 @@ impl<T: DriverObject> Drop for SGTableMap<T> {
     fn drop(&mut self) {
         // SAFETY: `obj` is always valid via our type invariants
         let obj = unsafe { self.obj.as_ref() };
-        let _lock = DmaResvGuard::new(obj);
+        if !obj.is_imported() {
+            let _lock = DmaResvGuard::new(obj);
 
-        // SAFETY: We acquired the lock needed for calling this function above
-        unsafe { bindings::__drm_gem_shmem_free_sgt_locked(obj.as_raw_shmem()) };
+            // SAFETY: We acquired the lock needed for calling this function above
+            unsafe { bindings::__drm_gem_shmem_free_sgt_locked(obj.as_raw_shmem()) };
+        }
     }
 }
 
