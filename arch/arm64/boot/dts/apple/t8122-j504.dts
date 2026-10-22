@@ -31,6 +31,13 @@
 	};
 };
 
+&panel {
+	compatible = "apple,panel-j504", "apple,panel";
+	width-mm = <302>;
+	height-mm = <196>;
+	adj-height-mm = <189>;
+};
+
 &wifi0 {
 	brcm,board-type = "apple,tresco";
 };
