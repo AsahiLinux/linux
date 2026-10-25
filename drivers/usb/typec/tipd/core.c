@@ -1959,7 +1959,7 @@ static const struct tipd_data tipd_tps6598x_data = {
 	.connect = tps6598x_connect,
 };
 
-static const struct tipd_data tps66993_data = {
+static const struct tipd_data tipd_tps66993_data = {
 	.irq_handler = tps6598x_interrupt,
 	.irq_mask1 = TPS_REG_INT_DATA_STATUS_UPDATE |
 		     TPS_REG_INT_PLUG_EVENT,
