@@ -200,8 +200,11 @@ static bool iomfbep_cb_match_backlight_service(struct apple_dcp *dcp, int tag, v
 static void iomfb_cb_pr_publish(struct apple_dcp *dcp, struct iomfb_property *prop)
 {
 	switch (prop->id) {
+#if DCP_FW_VER < DCP_FW_VERSION(14, 7, 0)
 	case IOMFB_PROPERTY_NITS_V13_3:
+#else
 	case IOMFB_PROPERTY_NITS_V14_7:
+#endif
 	{
 		if (dcp_has_panel(dcp)) {
 			dcp->brightness.nits = prop->value / dcp->brightness.scale;
