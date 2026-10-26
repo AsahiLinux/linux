@@ -810,7 +810,7 @@ static int hw_atl2_hw_multicast_list_set(struct aq_hw_s *self,
 	struct aq_nic_cfg_s *cfg = self->aq_nic_cfg;
 	int err = 0;
 
-	if (count > (HW_ATL2_MAC_MAX - HW_ATL2_MAC_MIN)) {
+	if (count > (priv->l2_filter_count - 1)) {
 		err = -EBADRQC;
 		goto err_exit;
 	}
@@ -1635,6 +1635,13 @@ static int hw_atl2_hw_vlan_ctrl(struct aq_hw_s *self, bool enable)
 	return aq_hw_err_from_flags(self);
 }
 
+static int hw_atl2_get_num_multicast_addresses(struct aq_hw_s *self)
+{
+	struct hw_atl2_priv *priv = self->priv;
+
+	return min_t(int, priv->l2_filter_count - 1, AQ_HW_MULTICAST_ADDRESS_MAX);
+}
+
 const struct aq_hw_ops hw_atl2_ops = {
 	.hw_soft_reset        = hw_atl2_utils_soft_reset,
 	.hw_prepare           = hw_atl2_utils_initfw,
@@ -1694,4 +1701,6 @@ const struct aq_hw_ops hw_atl2_ops = {
 	.hw_get_clk_sel          = hw_atl2_hw_get_clk_sel,
 	.extract_hwts            = NULL,
 	.hw_extts_gpio_enable    = NULL,
+
+	.hw_get_num_multicast_addresses = hw_atl2_get_num_multicast_addresses,
 };
