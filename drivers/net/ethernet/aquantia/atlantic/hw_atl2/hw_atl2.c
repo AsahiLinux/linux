@@ -757,11 +757,44 @@ static int hw_atl2_hw_ring_tx_init(struct aq_hw_s *self,
 #define IS_FILTER_ENABLED(_F_) ((packet_filter & (_F_)) ? 1U : 0U)
 
 static int hw_atl2_hw_packet_filter_set(struct aq_hw_s *self,
-					unsigned int packet_filter)
+				   unsigned int packet_filter)
 {
+	struct aq_nic_cfg_s *cfg = self->aq_nic_cfg;
+	struct hw_atl2_priv *priv = self->priv;
+	u32 base_location = priv->l2_filters_base_index + 1;
+	unsigned int i = 0U;
+	u32 vlan_promisc;
+	u32 l2_promisc;
+
 	hw_atl2_hw_new_rx_filter_promisc(self, IS_FILTER_ENABLED(IFF_PROMISC));
 
-	return hw_atl_b0_hw_packet_filter_set(self, packet_filter);
+	l2_promisc = IS_FILTER_ENABLED(IFF_PROMISC) ||
+		     !!(cfg->priv_flags & BIT(AQ_HW_LOOPBACK_DMA_NET));
+	vlan_promisc = l2_promisc || cfg->is_vlan_force_promisc;
+
+	hw_atl_rpfl2promiscuous_mode_en_set(self, l2_promisc);
+
+	hw_atl_rpf_vlan_prom_mode_en_set(self, vlan_promisc);
+
+	hw_atl_rpfl2multicast_flr_en_set(self,
+					 IS_FILTER_ENABLED(IFF_ALLMULTI) &&
+					 IS_FILTER_ENABLED(IFF_MULTICAST), 0);
+
+	hw_atl_rpfl2_accept_all_mc_packets_set(self,
+					      IS_FILTER_ENABLED(IFF_ALLMULTI) &&
+					      IS_FILTER_ENABLED(IFF_MULTICAST));
+
+	hw_atl_rpfl2broadcast_en_set(self, IS_FILTER_ENABLED(IFF_BROADCAST));
+
+	for (i = HW_ATL2_MAC_MIN;
+	     i < min_t(unsigned int, HW_ATL2_MAC_MAX, priv->l2_filter_count);
+	     ++i)
+		hw_atl_rpfl2_uc_flr_en_set(self,
+					   (cfg->is_mc_list_enabled &&
+					    (i <= cfg->mc_list_count)) ?
+					   1U : 0U, base_location + i);
+
+	return aq_hw_err_from_flags(self);
 }
 
 #undef IS_FILTER_ENABLED
