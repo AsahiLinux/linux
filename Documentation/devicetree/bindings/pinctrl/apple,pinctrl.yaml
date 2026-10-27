@@ -17,6 +17,9 @@ description: |
 properties:
   compatible:
     oneOf:
+      - items:
+          - const: apple,t8142-pinctrl
+          - const: apple,t8140-pinctrl
       - const: apple,t8140-pinctrl
       - items:
           - enum:
