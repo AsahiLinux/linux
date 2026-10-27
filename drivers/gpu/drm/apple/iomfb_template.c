@@ -474,7 +474,8 @@ static struct DCP_FW_NAME(dcp_map_reg_resp) dcpep_cb_map_reg(struct apple_dcp *d
 		return (struct DCP_FW_NAME(dcp_map_reg_resp)){ .ret = 1 };
 	} else {
 		struct resource *rsrc = dcp->disp_registers[req->index];
-#if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
+		// TODO: This is likely t8122 change and not fw dependent
+#if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0) && DCP_FW_VER < DCP_FW_VERSION(14, 0, 0)
 		dma_addr_t dva = dma_map_resource(dcp->dev, rsrc->start, resource_size(rsrc),
 						  DMA_BIDIRECTIONAL, 0);
 		WARN_ON(dva == DMA_MAPPING_ERROR);
@@ -483,7 +484,9 @@ static struct DCP_FW_NAME(dcp_map_reg_resp) dcpep_cb_map_reg(struct apple_dcp *d
 		return (struct DCP_FW_NAME(dcp_map_reg_resp)){
 			.addr = rsrc->start,
 			.length = resource_size(rsrc),
-#if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
+#if DCP_FW_VER >= DCP_FW_VERSION(14, 0, 0)
+			.dva = rsrc->start,
+#elif DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
 			.dva = dva,
 #endif
 		};
