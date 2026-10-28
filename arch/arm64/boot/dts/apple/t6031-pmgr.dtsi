@@ -360,8 +360,13 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(disp_fe);
+		/* This power-state dependency is inverted from other devices.
+		 * It might be and error in Apple's device tree. Their "dcp"
+		 * node uses the virtual "DISP-CPU-V" power-state as
+		 * "power-gate" which depends on both ps_disp_fe and
+		 * ps_disp_cpu.
+		 */
 		power-domains = <&DIE_NODE(ps_disp_cpu)>;
-		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_disp_cpu): power-controller@2a0 {
@@ -371,6 +376,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(disp_cpu);
 		power-domains = <&DIE_NODE(ps_disp_sys)>;
+		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_spi0): power-controller@2a8 {
