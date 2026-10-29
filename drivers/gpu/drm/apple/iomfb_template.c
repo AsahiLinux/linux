@@ -468,7 +468,7 @@ static struct DCP_FW_NAME(dcp_map_reg_resp) dcpep_cb_map_reg(struct apple_dcp *d
 						struct DCP_FW_NAME(dcp_map_reg_req) *req)
 {
 	if (req->index >= dcp->nr_disp_registers) {
-		dev_warn(dcp->dev, "attempted to read invalid reg index %u\n",
+		dev_err(dcp->dev, "attempted to read invalid reg index %u\n",
 			 req->index);
 
 		return (struct DCP_FW_NAME(dcp_map_reg_resp)){ .ret = 1 };
