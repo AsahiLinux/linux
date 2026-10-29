@@ -174,6 +174,7 @@ struct apple_dart_hw {
 	irqreturn_t (*irq_handler)(int irq, void *dev);
 	int (*invalidate_tlb)(struct apple_dart_stream_map *stream_map);
 	void (*enable_remap)(struct apple_dart *dart, int sid, int remap_to);
+	bool (*is_remapped)(struct apple_dart *dart, int sid);
 
 	u32 oas;
 	enum io_pgtable_fmt fmt;
@@ -433,6 +434,9 @@ apple_dart_hw_map_locked_ttbr(struct apple_dart_stream_map *stream_map, u8 idx)
 		phys_addr_t phys;
 		u64 *l1_tbl;
 
+		if (dart->hw->is_remapped(dart, sid))
+			continue;
+
 		ttbr = readl(dart->regs + DART_TTBR(dart, sid, idx));
 
 		if (!(ttbr & dart->hw->ttbr_valid)) {
@@ -602,6 +606,22 @@ apple_dart_t8110_hw_enable_remap(struct apple_dart *dart, int sid, int remap_to)
 	u32 tcr = FIELD_PREP(DART_T8110_TCR_REMAP, remap_to) |
 		  FIELD_PREP(DART_T8110_TCR_REMAP_ENABLE, 1);
 	writel(tcr, dart->regs + DART_TCR(dart, sid));
+}
+
+static bool
+apple_dart_t8020_hw_is_remapped(struct apple_dart *dart, int sid)
+{
+	u32 tcr = readl(dart->regs + DART_TCR(dart, sid));
+
+	return (tcr & FIELD_PREP(DART_T8020_TCR_REMAP_ENABLE, 1)) != 0;
+}
+
+static bool
+apple_dart_t8110_hw_is_remapped(struct apple_dart *dart, int sid)
+{
+	u32 tcr = readl(dart->regs + DART_TCR(dart, sid));
+
+	return (tcr & FIELD_PREP(DART_T8110_TCR_REMAP_ENABLE, 1)) != 0;
 }
 
 static int apple_dart_hw_reset(struct apple_dart *dart)
@@ -1586,6 +1606,7 @@ static const struct apple_dart_hw apple_dart_hw_t8103 = {
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
 	.enable_remap = apple_dart_t8020_hw_enable_remap,
+	.is_remapped =  apple_dart_t8020_hw_is_remapped,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 16,
@@ -1613,6 +1634,7 @@ static const struct apple_dart_hw apple_dart_hw_t8103_usb4 = {
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
 	.enable_remap = apple_dart_t8020_hw_enable_remap,
+	.is_remapped =  apple_dart_t8020_hw_is_remapped,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 64,
@@ -1640,6 +1662,7 @@ static const struct apple_dart_hw apple_dart_hw_t6000 = {
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
 	.enable_remap = apple_dart_t8020_hw_enable_remap,
+	.is_remapped =  apple_dart_t8020_hw_is_remapped,
 	.oas = 42,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 16,
@@ -1667,6 +1690,7 @@ static const struct apple_dart_hw apple_dart_hw_t8110 = {
 	.irq_handler = apple_dart_t8110_irq,
 	.invalidate_tlb = apple_dart_t8110_hw_invalidate_tlb,
 	.enable_remap = apple_dart_t8110_hw_enable_remap,
+	.is_remapped =  apple_dart_t8110_hw_is_remapped,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 256,
 
