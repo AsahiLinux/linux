@@ -2010,6 +2010,7 @@ static const struct tipd_data tipd_sn201202x_data = {
 	.trace_status = trace_tps6598x_status,
 	.init = cd321x_init,
 	.read_data_status = cd321x_read_data_status,
+	.read_power_status = tps6598x_read_power_status,
 	.reset = cd321x_reset,
 	.switch_power_state = cd321x_switch_power_state,
 	.connect = cd321x_connect,
