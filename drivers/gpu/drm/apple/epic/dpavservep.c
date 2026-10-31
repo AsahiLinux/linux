@@ -79,6 +79,10 @@ struct dpavserv_copy_edid_cmd {
 #define EDID_EXT_BLOCK_COUNT_OFFSET	0x7E
 #define EDID_MAX_SIZE			SZ_32K
 #define EDID_BUF_SIZE			(EDID_LEADING_DATA_SIZE + EDID_MAX_SIZE)
+#define EDID_CTA_EXT_TAG		0x02
+/* Extended tag data block, length 2, extended tag 0x78 */
+#define EDID_HF_EEODB_HDR0		0xe2
+#define EDID_HF_EEODB_HDR1		0x78
 
 struct dpavserv_copy_edid_resp {
 	__le64 max_size;
@@ -161,6 +165,7 @@ const struct drm_edid *dcpavserv_copy_edid(struct apple_epic_service *service)
 	struct dpavserv_copy_edid_resp *resp __free(kfree) = NULL;
 	int num_blocks;
 	u64 data_size;
+	const u8 *edid;
 	int ret;
 
 	memset(&cmd, 0, sizeof(cmd));
@@ -184,9 +189,30 @@ const struct drm_edid *dcpavserv_copy_edid(struct apple_epic_service *service)
 	if (data_size < EDID_LEADING_DATA_SIZE + EDID_BLOCK_SIZE)
 		return ERR_PTR(-EIO);
 
-	num_blocks = resp->data[EDID_LEADING_DATA_SIZE + EDID_EXT_BLOCK_COUNT_OFFSET];
-	if ((1 + num_blocks) * EDID_BLOCK_SIZE != data_size - EDID_LEADING_DATA_SIZE)
+	edid = resp->data + EDID_LEADING_DATA_SIZE;
+	num_blocks = edid[EDID_EXT_BLOCK_COUNT_OFFSET];
+
+	/*
+	 * HDMI 2.1 sinks may declare only one extension in the base block and
+	 * carry the real extension count in an HDMI Forum EDID Extension
+	 * Override Data Block (HF-EEODB) at the start of the first CTA block.
+	 * The DCP firmware returns all blocks, so honour the override here;
+	 * drm_edid itself handles HF-EEODB once the EDID is allocated.
+	 */
+	if (num_blocks >= 1 &&
+	    data_size >= EDID_LEADING_DATA_SIZE + 2 * EDID_BLOCK_SIZE &&
+	    edid[EDID_BLOCK_SIZE + 0] == EDID_CTA_EXT_TAG &&
+	    edid[EDID_BLOCK_SIZE + 4] == EDID_HF_EEODB_HDR0 &&
+	    edid[EDID_BLOCK_SIZE + 5] == EDID_HF_EEODB_HDR1 &&
+	    edid[EDID_BLOCK_SIZE + 6] > num_blocks)
+		num_blocks = edid[EDID_BLOCK_SIZE + 6];
+
+	if ((1 + num_blocks) * EDID_BLOCK_SIZE != data_size - EDID_LEADING_DATA_SIZE) {
+		dev_warn(service->ep->dcp->dev,
+			 "EDID size mismatch: %llu bytes for %d extension blocks\n",
+			 data_size - EDID_LEADING_DATA_SIZE, num_blocks);
 		return ERR_PTR(-EIO);
+	}
 
 	return drm_edid_alloc(resp->data + EDID_LEADING_DATA_SIZE,
 			      data_size - EDID_LEADING_DATA_SIZE);
