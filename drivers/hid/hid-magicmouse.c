@@ -132,6 +132,23 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 
 #define J314_TP_MAX_FINGER_ORIENTATION 16384
 
+/*
+ * The driver filters out all contacts that aren't TP_HOVER_TOUCH_DOWN to
+ * TP_HOVER_LIFTING.
+ */
+enum tp_hover_state {
+	TP_HOVER_NOT_TRACKED = 0,
+	TP_HOVER_FIRST_SEEN = 1,
+	TP_HOVER_HOVERING = 2,
+	TP_HOVER_TOUCH_DOWN = 3,
+	TP_HOVER_TOUCHING = 4,
+	TP_HOVER_LIFTING = 5,
+	TP_HOVER_AFTER_LIFT = 6,
+	TP_HOVER_GONE = 7,
+};
+
+#define TP_CONTACT_TYPE_PALM	7
+
 struct magicmouse_input_ops {
 	int (*raw_event)(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size);
@@ -679,8 +696,11 @@ static int magicmouse_raw_event_usb(struct hid_device *hdev,
 /**
  * struct tp_finger - single trackpad finger structure, le16-aligned
  *
- * @unknown1:		unknown
- * @unknown2:		unknown
+ * @contact_separator:	contact id, constant while the contact lasts
+ * @hover_state:	see enum tp_hover_state for touch classifications
+ * @contact_type:	firmware classified: 1 flat thumb, 2-5 fingertips, 7 palm,
+ *			0 not yet classified. Other values unknown.
+ * @unknown:		unknown. Observed as 0, 1 or 0xff.
  * @abs_x:		absolute x coordinate
  * @abs_y:		absolute y coordinate
  * @rel_x:		relative x coordinate
@@ -695,8 +715,10 @@ static int magicmouse_raw_event_usb(struct hid_device *hdev,
  * @multi:		one finger: varies, more fingers: constant
  */
 struct tp_finger {
-	__le16 unknown1;
-	__le16 unknown2;
+	u8 contact_separator;
+	u8 hover_state;
+	u8 contact_type;
+	u8 unknown;
 	__le16 abs_x;
 	__le16 abs_y;
 	__le16 rel_x;
@@ -744,8 +766,11 @@ static void report_finger_data(struct input_dev *input, int slot,
 			       const struct input_mt_pos *pos,
 			       const struct tp_finger *f)
 {
+	int tool = f->contact_type == TP_CONTACT_TYPE_PALM ?
+		   MT_TOOL_PALM : MT_TOOL_FINGER;
+
 	input_mt_slot(input, slot);
-	input_mt_report_slot_state(input, MT_TOOL_FINGER, true);
+	input_mt_report_slot_state(input, tool, true);
 
 	input_report_abs(input, ABS_MT_TOUCH_MAJOR,
 			 le16_to_int(f->touch_major) << 1);
@@ -798,6 +823,9 @@ static int magicmouse_raw_event_mtp(struct hid_device *hdev,
 	for (i = 0; i < tp_hdr->num_fingers; i++) {
 		f = (struct tp_finger *)(data + hdr_sz + i * touch_sz);
 		if (le16_to_int(f->touch_major) == 0)
+			continue;
+		if (!(f->hover_state >= TP_HOVER_TOUCH_DOWN &&
+		      f->hover_state <= TP_HOVER_LIFTING))
 			continue;
 
 		hid_dbg(hdev, "ev x:%04x y:%04x\n", le16_to_int(f->abs_x),
@@ -1109,6 +1137,9 @@ static int magicmouse_setup_input_mtp(struct input_dev *input,
 	/* touchpad button */
 	input_set_capability(input, EV_KEY, BTN_MOUSE);
 
+	/* tool type: report when contact is a finger or palm */
+	input_set_abs_params(input, ABS_MT_TOOL_TYPE, MT_TOOL_FINGER,
+			     MT_TOOL_PALM, 0, 0);
 	/*
 	 * hid-input may mark device as using autorepeat, but the trackpad does
 	 * not actually want it.
