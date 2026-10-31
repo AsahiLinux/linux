@@ -6,6 +6,7 @@ config TYPEC_TPS6598X_CORE
 config TYPEC_TPS6598X
 	tristate "TI TPS6598x USB Power Delivery controller driver"
 	depends on I2C
+	depends on DRM || !DRM
 	select REGMAP_I2C
 	select TYPEC_TPS6598X_CORE
 	help
@@ -18,6 +19,7 @@ config TYPEC_TPS6598X
 config TYPEC_SN201202X
 	tristate "TI SN201202x USB Power Delivery controller support"
 	depends on SPMI
+	depends on DRM || !DRM
 	select TYPEC_TPS6598X_CORE
 	help
 	  Say Y here to enable support for SN201202x, a TPS6598x variant
