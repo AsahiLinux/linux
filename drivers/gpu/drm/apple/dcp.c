@@ -505,6 +505,9 @@ int dcp_start(struct platform_device *pdev)
 	struct apple_dcp *dcp = platform_get_drvdata(pdev);
 	int ret;
 
+	if (IS_ERR_OR_NULL(dcp->rtk))
+		return -ENODEV;
+
 	init_completion(&dcp->start_done);
 
 	/* start RTKit endpoints */
