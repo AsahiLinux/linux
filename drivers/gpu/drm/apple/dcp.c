@@ -760,11 +760,8 @@ static int dcp_create_piodma_iommu_dev(struct apple_dcp *dcp)
 	}
 
 	dcp->iommu_dom = iommu_get_domain_for_dev(&dcp->piodma->dev);
-	if (IS_ERR(dcp->iommu_dom)) {
-		ret = dev_err_probe(dcp->dev, PTR_ERR(dcp->iommu_dom),
-				    "Failed to get default iommu domain for "
-				    "piodma device\n");
-		dcp->iommu_dom = NULL;
+	if (!dcp->iommu_dom) {
+		ret = -EPROBE_DEFER;
 		goto err_destroy_pdev;
 	}
 
@@ -1058,11 +1055,6 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	else
 		dcp->connector_type = DRM_MODE_CONNECTOR_Unknown;
 
-	ret = dcp_create_piodma_iommu_dev(dcp);
-	if (ret || !dcp->iommu_dom)
-		return dev_err_probe(dev, ret,
-				"Failed to created PIODMA iommu child device");
-
 	ret = dcp_get_disp_regs(dcp);
 	if (ret) {
 		dev_err(dev, "failed to find display registers\n");
@@ -1145,12 +1137,6 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 	if (dcp->shmem)
 		iomfb_shutdown(dcp);
 
-	if (dcp->piodma) {
-		dcp->iommu_dom = NULL;
-		of_platform_device_destroy(&dcp->piodma->dev, NULL);
-		dcp->piodma = NULL;
-	}
-
 	if (dcp->connector_type == DRM_MODE_CONNECTOR_eDP) {
 		if (dcp->bl_register_wq.func)
 			cancel_work_sync(&dcp->bl_register_wq);
@@ -1176,7 +1162,7 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	enum dcp_firmware_version fw_compat;
 	struct device *dev = &pdev->dev;
 	struct apple_dcp *dcp;
-	int surf, num_surfs;
+	int ret, surf, num_surfs;
 	u32 surf_en;
 	u32 mux_index;
 
@@ -1201,6 +1187,11 @@ static int dcp_platform_probe(struct platform_device *pdev)
 	dcp->hw = *(struct apple_dcp_hw_data *)of_device_get_match_data(dev);
 
 	platform_set_drvdata(pdev, dcp);
+
+	ret = dcp_create_piodma_iommu_dev(dcp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				"Failed to created PIODMA iommu child device");
 
 	dcp->phy = devm_phy_optional_get(dev, "dp-phy");
 	if (IS_ERR(dcp->phy)) {
@@ -1316,12 +1307,22 @@ static int dcp_platform_probe(struct platform_device *pdev)
 
 static void dcp_platform_remove(struct platform_device *pdev)
 {
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
 	component_del(&pdev->dev, &dcp_comp_ops);
+
+	if (dcp->piodma)
+		of_platform_device_destroy(&dcp->piodma->dev, NULL);
 }
 
 static void dcp_platform_shutdown(struct platform_device *pdev)
 {
+	struct apple_dcp *dcp = platform_get_drvdata(pdev);
+
 	component_del(&pdev->dev, &dcp_comp_ops);
+
+	if (dcp->piodma)
+		of_platform_device_destroy(&dcp->piodma->dev, NULL);
 }
 
 static int dcp_platform_suspend(struct device *dev)
