@@ -1046,6 +1046,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(aic);
+		apple,always-on; /* Core device */
 	};
 
 	DIE_NODE(ps_dwi): power-controller@108 {
