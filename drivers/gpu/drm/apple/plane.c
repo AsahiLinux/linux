@@ -10,6 +10,7 @@
 #include "iomfb_plane.h"
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_blend.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_framebuffer.h>
@@ -623,6 +624,9 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 					  (1 << DRM_COLOR_RANGE_MAX) - 1,
 					  DRM_COLOR_YCBCR_BT709,
 					  DRM_COLOR_YCBCR_LIMITED_RANGE);
+
+	// TODO: check if DRM_MODE_BLEND_COVERAGE can be supported
+	drm_plane_create_blend_mode_property(&plane->base, BIT(DRM_MODE_BLEND_PREMULTI));
 
 	if (type == DRM_PLANE_TYPE_PRIMARY)
 		drm_plane_helper_add(&plane->base, &apple_primary_plane_helper_funcs);
