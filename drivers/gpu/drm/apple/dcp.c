@@ -1152,13 +1152,18 @@ static void dcp_comp_unbind(struct device *dev, struct device *main, void *data)
 	}
 
 	if (dcp->connector_type == DRM_MODE_CONNECTOR_eDP) {
-		cancel_work_sync(&dcp->bl_register_wq);
-		cancel_work_sync(&dcp->bl_update_wq);
+		if (dcp->bl_register_wq.func)
+			cancel_work_sync(&dcp->bl_register_wq);
+		if (dcp->bl_update_wq.func)
+			cancel_work_sync(&dcp->bl_update_wq);
 	}
-	cancel_work_sync(&dcp->vblank_wq);
+	if (dcp->vblank_wq.func)
+		cancel_work_sync(&dcp->vblank_wq);
 
-	devm_clk_put(dev, dcp->clk);
-	dcp->clk = NULL;
+	if (dcp->clk) {
+		devm_clk_put(dev, dcp->clk);
+		dcp->clk = NULL;
+	}
 }
 
 static const struct component_ops dcp_comp_ops = {
