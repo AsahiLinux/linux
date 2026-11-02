@@ -41,6 +41,20 @@
 		#size-cells = <1>;
 	};
 
+	DIE_NODE(pmgr_cio): power-management@292818000 {
+		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		reg = <0x2 0x92818000 0 0x4000>;
+
+		DIE_NODE(cio_reset): reset-controller@2028 {
+			compatible = "apple,t6031-cio-reset", "apple,t6000-cio-reset";
+			reg = <0x2028 0x4>;
+			#reset-cells = <1>;
+		};
+	};
+
 	DIE_NODE(pinctrl_nub): pinctrl@2a01f0000 {
 		compatible = "apple,t6031-pinctrl", "apple,t8103-pinctrl";
 		reg = <0x2 0xa01f0000 0x0 0x4000>;
@@ -92,6 +106,18 @@
 			     <AIC_IRQ DIE_NO 601 IRQ_TYPE_LEVEL_HIGH>;
 
 		apple,npins = <102>;
+
+		DIE_NODE(acio0_pins): acio0-pins {
+			pinmux = <APPLE_PINMUX(55, 1)>;
+		};
+
+		DIE_NODE(acio1_pins): acio1-pins {
+			pinmux = <APPLE_PINMUX(57, 1)>;
+		};
+
+		DIE_NODE(acio2_pins): acio2-pins {
+			pinmux = <APPLE_PINMUX(59, 1)>;
+		};
 	};
 
 	DIE_NODE(sio_dart): iommu@391004000 {

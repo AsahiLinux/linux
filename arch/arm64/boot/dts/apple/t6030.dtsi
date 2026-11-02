@@ -836,6 +836,20 @@
 			power-domains = <&ps_aic>;
 		};
 
+		pmgr_cio: power-management@350780000 {
+			compatible = "apple,t6030-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			reg = <0x3 0x50780000 0 0x4000>;
+
+			cio_reset: reset-controller@8 {
+				compatible = "apple,t6030-cio-reset", "apple,t6000-cio-reset";
+				reg = <0x8 0x4>;
+				#reset-cells = <1>;
+			};
+		};
+
 		pinctrl_nub: pinctrl@3641f0000 {
 			compatible = "apple,t6030-pinctrl", "apple,t8103-pinctrl";
 			reg = <0x3 0x641f0000 0x0 0x4000>;
@@ -1115,6 +1129,18 @@
 				     <AIC_IRQ 400 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <54>;
+
+			acio0_pins: acio0-pins {
+				pinmux = <APPLE_PINMUX(25, 1)>;
+			};
+
+			acio1_pins: acio1-pins {
+				pinmux = <APPLE_PINMUX(27, 1)>;
+			};
+
+			acio2_pins: acio2-pins {
+				pinmux = <APPLE_PINMUX(29, 1)>;
+			};
 		};
 
 		mtp: mtp@37a400000 {
@@ -1392,6 +1418,120 @@
 			status = "disabled";
 		};
 
+		usb4_0_mbox: mailbox@701108000 {
+			compatible = "apple,t6030-asc-mailbox",
+				"apple,asc-mailbox-v4";
+			reg = <0x7 0x01108000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1128 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1129 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1130 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1131 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
+		usb4_0_acio: cio@701ac0000 {
+			compatible = "apple,t6030-usb4-acio", "apple,t8103-usb4-acio";
+			reg = <0x7 0x01ac0000 0x0 0xc000>,
+				<0x7 0x01080000 0x0 0x20000>;
+			reg-names = "rc", "sram";
+
+			mboxes = <&usb4_0_mbox>;
+			resets = <&cio_reset 0>;
+
+			power-domains = <&ps_atc0_cio>,
+					<&ps_atc0_cio_pcie>,
+					<&ps_atc0_cio_usb>;
+
+			thunderbolt-switch;
+
+			pinctrl-0 = <&acio0_pins>;
+			pinctrl-names = "default";
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x7 0x01000000 0x1000000>;
+			nonposted-mmio;
+
+			usb4_0_dart: iommu@a80000 {
+				compatible = "apple,t6030-dart", "apple,t8110-dart";
+				reg = <0xa80000 0x4000>;
+				interrupt-parent = <&aic>;
+				interrupts = <AIC_IRQ 1126 IRQ_TYPE_LEVEL_HIGH>;
+				#iommu-cells = <5>;
+			};
+
+			usb4_0_nhi: nhi@f00000 {
+				reg = <0xf00000 0x100000>,
+					<0xdb0000 0x30004>;
+				reg-names = "nhi", "pdf";
+				compatible = "apple,t6030-usb4-nhi",
+					"apple,t8103-usb4-nhi";
+				interrupt-parent = <&aic>;
+				interrupts = <AIC_IRQ 1099 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1100 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1101 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1102 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1103 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1104 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1105 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1106 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1107 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1108 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1109 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1110 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1111 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1112 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1113 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1114 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1115 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1116 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1117 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1118 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1119 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1120 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1121 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1122 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names =
+					"txring0", "txring1", "txring2",
+					"txring3", "txring4", "txring5",
+					"txring6", "txring7", "txring8",
+					"txring9", "txring10", "txring11",
+					"rxring0", "rxring1", "rxring2",
+					"rxring3", "rxring4", "rxring5",
+					"rxring6", "rxring7", "rxring8",
+					"rxring9", "rxring10", "rxring11";
+				iommus = <&usb4_0_dart 0 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 1 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 2 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 3 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 4 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 5 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 6 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 7 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 8 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 9 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 10 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 11 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 16 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 17 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 18 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 19 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 20 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 21 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 22 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 23 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 24 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 25 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 26 0x100 0x0 0x10 0x0>,
+					<&usb4_0_dart 27 0x100 0x0 0x10 0x0>;
+				/* To be filled by the loader */
+				apple,thunderbolt-drom = [00];
+			};
+		};
+
 		dwc3_0: usb@702280000 {
 			compatible = "apple,t6030-dwc3", "apple,t8103-dwc3";
 			reg = <0x7 0x02280000 0x0 0xcd00>, <0x7 0x0228cd00 0x0 0x3200>;
@@ -1445,6 +1585,120 @@
 			power-domains = <&ps_atc0_usb>;
 		};
 
+		usb4_1_mbox: mailbox@b01108000 {
+			compatible = "apple,t6030-asc-mailbox",
+				"apple,asc-mailbox-v4";
+			reg = <0xb 0x01108000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1186 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1187 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1188 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1189 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
+		usb4_1_acio: cio@b01ac0000 {
+			compatible = "apple,t6030-usb4-acio", "apple,t8103-usb4-acio";
+			reg = <0xb 0x01ac0000 0x0 0xc000>,
+				<0xb 0x01080000 0x0 0x20000>;
+			reg-names = "rc", "sram";
+
+			mboxes = <&usb4_1_mbox>;
+			resets = <&cio_reset 1>;
+
+			power-domains = <&ps_atc1_cio>,
+					<&ps_atc1_cio_pcie>,
+					<&ps_atc1_cio_usb>;
+
+			thunderbolt-switch;
+
+			pinctrl-0 = <&acio1_pins>;
+			pinctrl-names = "default";
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0xb 0x01000000 0x1000000>;
+			nonposted-mmio;
+
+			usb4_1_dart: iommu@a80000 {
+				compatible = "apple,t6030-dart", "apple,t8110-dart";
+				reg = <0xa80000 0x4000>;
+				interrupt-parent = <&aic>;
+				interrupts = <AIC_IRQ 1184 IRQ_TYPE_LEVEL_HIGH>;
+				#iommu-cells = <5>;
+			};
+
+			usb4_1_nhi: nhi@f00000 {
+				reg = <0xf00000 0x100000>,
+					<0xdb0000 0x30004>;
+				reg-names = "nhi", "pdf";
+				compatible = "apple,t6030-usb4-nhi",
+					"apple,t8103-usb4-nhi";
+				interrupt-parent = <&aic>;
+				interrupts = <AIC_IRQ 1157 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1158 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1159 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1160 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1161 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1162 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1163 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1164 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1165 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1166 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1167 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1168 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1169 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1170 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1171 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1172 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1173 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1174 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1175 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1176 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1177 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1178 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1179 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1180 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names =
+					"txring0", "txring1", "txring2",
+					"txring3", "txring4", "txring5",
+					"txring6", "txring7", "txring8",
+					"txring9", "txring10", "txring11",
+					"rxring0", "rxring1", "rxring2",
+					"rxring3", "rxring4", "rxring5",
+					"rxring6", "rxring7", "rxring8",
+					"rxring9", "rxring10", "rxring11";
+				iommus = <&usb4_1_dart 0 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 1 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 2 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 3 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 4 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 5 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 6 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 7 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 8 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 9 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 10 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 11 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 16 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 17 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 18 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 19 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 20 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 21 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 22 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 23 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 24 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 25 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 26 0x100 0x0 0x10 0x0>,
+					<&usb4_1_dart 27 0x100 0x0 0x10 0x0>;
+				/* To be filled by the loader */
+				apple,thunderbolt-drom = [00];
+			};
+		};
+
 		dwc3_1: usb@b02280000 {
 			compatible = "apple,t6030-dwc3", "apple,t8103-dwc3";
 			reg = <0xb 0x02280000 0x0 0xcd00>, <0xb 0x0228cd00 0x0 0x3200>;
@@ -1496,6 +1750,120 @@
 			orientation-switch;
 			mode-switch;
 			power-domains = <&ps_atc1_usb>;
+		};
+
+		usb4_2_mbox: mailbox@f01108000 {
+			compatible = "apple,t6030-asc-mailbox",
+				"apple,asc-mailbox-v4";
+			reg = <0xf 0x01108000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1244 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1245 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1246 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 1247 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+		};
+
+		usb4_2_acio: cio@f01ac0000 {
+			compatible = "apple,t6030-usb4-acio", "apple,t8103-usb4-acio";
+			reg = <0xf 0x01ac0000 0x0 0xc000>,
+				<0xf 0x01080000 0x0 0x20000>;
+			reg-names = "rc", "sram";
+
+			mboxes = <&usb4_2_mbox>;
+			resets = <&cio_reset 2>;
+
+			power-domains = <&ps_atc2_cio>,
+					<&ps_atc2_cio_pcie>,
+					<&ps_atc2_cio_usb>;
+
+			thunderbolt-switch;
+
+			pinctrl-0 = <&acio2_pins>;
+			pinctrl-names = "default";
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0xf 0x01000000 0x1000000>;
+			nonposted-mmio;
+
+			usb4_2_dart: iommu@a80000 {
+				compatible = "apple,t6030-dart", "apple,t8110-dart";
+				reg = <0xa80000 0x4000>;
+				interrupt-parent = <&aic>;
+				interrupts = <AIC_IRQ 1242 IRQ_TYPE_LEVEL_HIGH>;
+				#iommu-cells = <5>;
+			};
+
+			usb4_2_nhi: nhi@f00000 {
+				reg = <0xf00000 0x100000>,
+					<0xdb0000 0x30004>;
+				reg-names = "nhi", "pdf";
+				compatible = "apple,t6030-usb4-nhi",
+					"apple,t8103-usb4-nhi";
+				interrupt-parent = <&aic>;
+				interrupts = <AIC_IRQ 1215 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1216 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1217 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1218 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1219 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1220 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1221 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1222 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1223 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1224 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1225 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1226 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1227 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1228 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1229 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1230 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1231 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1232 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1233 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1234 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1235 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1236 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1237 IRQ_TYPE_LEVEL_HIGH>,
+					<AIC_IRQ 1238 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names =
+					"txring0", "txring1", "txring2",
+					"txring3", "txring4", "txring5",
+					"txring6", "txring7", "txring8",
+					"txring9", "txring10", "txring11",
+					"rxring0", "rxring1", "rxring2",
+					"rxring3", "rxring4", "rxring5",
+					"rxring6", "rxring7", "rxring8",
+					"rxring9", "rxring10", "rxring11";
+				iommus = <&usb4_2_dart 0 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 1 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 2 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 3 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 4 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 5 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 6 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 7 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 8 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 9 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 10 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 11 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 16 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 17 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 18 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 19 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 20 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 21 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 22 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 23 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 24 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 25 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 26 0x100 0x0 0x10 0x0>,
+					<&usb4_2_dart 27 0x100 0x0 0x10 0x0>;
+				/* To be filled by the loader */
+				apple,thunderbolt-drom = [00];
+			};
 		};
 
 		dwc3_2: usb@f02280000 {
