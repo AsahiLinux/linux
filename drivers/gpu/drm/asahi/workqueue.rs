@@ -914,7 +914,7 @@ impl WorkQueue for WorkQueue::ver {
                 cmd.inner.gpu_va()
             );
             cmd.as_mut().inner_mut().complete();
-            workqueue::system().enqueue(cmd);
+            workqueue::system_dfl().enqueue(cmd);
         }
 
         mod_pr_debug!(
