@@ -302,7 +302,7 @@ impl MailCallback for SepData {
     fn recv_message(data: <Self::Data as ForeignOwnable>::Borrowed<'_>, msg: Message) {
         let work = SepReceiveWork::new(data.into(), msg);
         if let Ok(work) = work {
-            let res = workqueue::system().enqueue(work);
+            let res = workqueue::system_dfl().enqueue(work);
             if res.is_err() {
                 dev_err!(
                     data.dev,
