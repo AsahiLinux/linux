@@ -1089,7 +1089,7 @@ static void init_cpu_ftr_reg(u32 sys_reg, u64 new)
 extern const struct arm64_cpu_capabilities arm64_errata[];
 static const struct arm64_cpu_capabilities arm64_features[];
 
-static void __init
+void __init
 init_cpucap_indirect_list_from_array(const struct arm64_cpu_capabilities *caps)
 {
 	for (; caps->matches; caps++) {
@@ -1634,8 +1634,8 @@ has_always(const struct arm64_cpu_capabilities *entry, int scope)
 	return true;
 }
 
-static bool
-feature_matches(u64 reg, const struct arm64_cpu_capabilities *entry)
+bool
+cpufeature_matches(u64 reg, const struct arm64_cpu_capabilities *entry)
 {
 	int val, min, max;
 	u64 tmp;
@@ -1688,14 +1688,14 @@ has_user_cpuid_feature(const struct arm64_cpu_capabilities *entry, int scope)
 	if (!mask)
 		return false;
 
-	return feature_matches(val, entry);
+	return cpufeature_matches(val, entry);
 }
 
 static bool
 has_cpuid_feature(const struct arm64_cpu_capabilities *entry, int scope)
 {
 	u64 val = read_scoped_sysreg(entry, scope);
-	return feature_matches(val, entry);
+	return cpufeature_matches(val, entry);
 }
 
 const struct cpumask *system_32bit_el0_cpumask(void)
@@ -3973,6 +3973,7 @@ void __init setup_boot_cpu_features(void)
 	 * handle the boot CPU.
 	 */
 	init_cpucap_indirect_list();
+	init_cpucap_indirect_list_impdef();
 
 	/*
 	 * Detect broken pseudo-NMI. Must be called _before_ the call to
