@@ -2,7 +2,7 @@
 
 //! Generic memory-mapped IO.
 
-use core::ops::Deref;
+use core::ptr::NonNull;
 
 use crate::{
     device::{
@@ -10,13 +10,16 @@ use crate::{
         Device, //
     },
     devres::Devres,
+    impl_flags,
     io::{
         self,
         resource::{
             Region,
             Resource, //
         },
+        IoBase,
         Mmio,
+        MmioBackend,
         MmioRaw, //
     },
     prelude::*,
@@ -210,11 +213,13 @@ impl<'a, const SIZE: usize> ExclusiveIoMem<'a, SIZE> {
     }
 }
 
-impl<const SIZE: usize> Deref for ExclusiveIoMem<'_, SIZE> {
-    type Target = Mmio<SIZE>;
+impl<'a, const SIZE: usize> IoBase<'a> for &'a ExclusiveIoMem<'_, SIZE> {
+    type Backend = MmioBackend;
+    type Target = super::Region<SIZE>;
 
-    fn deref(&self) -> &Self::Target {
-        &self.iomem
+    #[inline]
+    fn as_view(self) -> Mmio<'a, Self::Target> {
+        self.iomem.as_view()
     }
 }
 
@@ -229,7 +234,7 @@ impl<const SIZE: usize> Deref for ExclusiveIoMem<'_, SIZE> {
 /// start of the I/O memory mapped region.
 pub struct IoMem<'a, const SIZE: usize = 0> {
     dev: &'a Device<Bound>,
-    io: MmioRaw<SIZE>,
+    io: MmioRaw<super::Region<SIZE>>,
 }
 
 impl<'a, const SIZE: usize> IoMem<'a, SIZE> {
@@ -264,8 +269,7 @@ impl<'a, const SIZE: usize> IoMem<'a, SIZE> {
             return Err(ENOMEM);
         }
 
-        let io = MmioRaw::new(addr as usize, size)?;
-
+        let io = MmioRaw::new_region(addr as usize, size)?;
         Ok(IoMem { dev, io })
     }
 
@@ -291,11 +295,115 @@ impl<const SIZE: usize> Drop for IoMem<'_, SIZE> {
     }
 }
 
-impl<const SIZE: usize> Deref for IoMem<'_, SIZE> {
-    type Target = Mmio<SIZE>;
+impl<'a, const SIZE: usize> IoBase<'a> for &'a IoMem<'_, SIZE> {
+    type Backend = MmioBackend;
+    type Target = super::Region<SIZE>;
 
-    fn deref(&self) -> &Self::Target {
+    #[inline]
+    fn as_view(self) -> Mmio<'a, Self::Target> {
         // SAFETY: Safe as by the invariant of `IoMem`.
-        unsafe { Mmio::from_raw(&self.io) }
+        unsafe { Mmio::from_raw(self.io) }
+    }
+}
+
+impl_flags!(
+    /// Flags to be used when remapping memory.
+    #[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
+    pub struct MemFlags(usize);
+
+    /// Enum mirroring the C MEMREMAP_* eum values
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum MemFlag {
+        /// Matches the default mapping for System RAM on the architecture.
+        ///
+        /// This is usually a read-allocate write-back cache. Moreover, if this flag is specified and
+        /// the requested remap region is RAM, memremap() will bypass establishing a new mapping and
+        /// instead return a pointer into the direct map.
+        WB = bindings::MEMREMAP_WB as usize,
+
+        /// Establish a mapping whereby writes either bypass the cache or are written through to memory
+        /// and never exist in a cache-dirty state with respect to program visibility.
+        ///
+        /// Attempts to map System RAM with this mapping type will fail.
+        WT = bindings::MEMREMAP_WT as usize,
+
+        /// Establish a writecombine mapping, whereby writes may be coalesced together  (e.g. in the
+        /// CPU's write buffers), but is otherwise uncached.
+        ///
+        /// Attempts to map System RAM with this mapping type will fail.
+        WC = bindings::MEMREMAP_WC as usize,
+        // Note: Skipping MEMREMAP_ENC/DEC since they are under-documented and have zero
+        // users outside of arch/x86.
+    }
+);
+
+/// Represents a non-MMIO memory block. This is like [`IoMem`], but for cases where it is known
+/// that the resource being mapped does not have I/O side effects.
+// Invariants:
+// `ptr` is a non-null and valid address of at least `usize` bytes and returned by a `memremap`
+// call.
+// ```
+pub struct Mem {
+    ptr: NonNull<crate::ffi::c_void>,
+    size: usize,
+}
+
+impl Mem {
+    /// Tries to create a new instance of a memory block from a Resource.
+    ///
+    /// The resource described by `res` is mapped into the CPU's address space so that it can be
+    /// accessed directly. It is also consumed by this function so that it can't be mapped again
+    /// to a different address.
+    ///
+    /// If multiple caching flags are specified, the different mapping types will be attempted in
+    /// the order [`MemFlag::WB`], [`MemFlag::WT`], [`MemFlag::WC`].
+    ///
+    /// # Flags
+    ///
+    /// * [`MemFlag::WB`]: Matches the default mapping for System RAM on the architecture.
+    ///   This is usually a read-allocate write-back cache. Moreover, if this flag is specified and
+    ///   the requested remap region is RAM, memremap() will bypass establishing a new mapping and
+    ///   instead return a pointer into the direct map.
+    ///
+    /// * [`MemFlag::WT`]: Establish a mapping whereby writes either bypass the cache or are written
+    ///   through to memory and never exist in a cache-dirty state with respect to program visibility.
+    ///   Attempts to map System RAM with this mapping type will fail.
+    /// * [`MemFlag::WC`]: Establish a writecombine mapping, whereby writes may be coalesced together
+    ///   (e.g. in the CPU's write buffers), but is otherwise uncached. Attempts to map System RAM with
+    ///   this mapping type will fail.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that either (a) the resulting interface cannot be used to initiate DMA
+    /// operations, or (b) that DMA operations initiated via the returned interface use DMA handles
+    /// allocated through the `dma` module.
+    pub unsafe fn try_new(res: Resource, flags: MemFlags) -> Result<Self> {
+        let size: usize = res.size().try_into()?;
+
+        let addr = unsafe { bindings::memremap(res.start(), size, flags.into()) };
+        let ptr = NonNull::new(addr).ok_or(ENOMEM)?;
+        // INVARIANT: `ptr` is non-null and was returned by `memremap`, so it is valid.
+        Ok(Self { ptr, size })
+    }
+
+    /// Returns the base address of the memory mapping as a raw pointer.
+    ///
+    /// It is up to the caller to use this pointer safely, depending on the requirements of the
+    /// hardware backing this memory block.
+    pub fn ptr(&self) -> *mut u8 {
+        self.ptr.cast().as_ptr()
+    }
+
+    /// Returns the size of this mapped memory block.
+    pub fn size(&self) -> usize {
+        self.size
+    }
+}
+
+impl Drop for Mem {
+    fn drop(&mut self) {
+        // SAFETY: By the type invariant, `self.ptr` is a value returned by a previous successful
+        // call to `memremap`.
+        unsafe { bindings::memunmap(self.ptr.as_ptr()) };
     }
 }

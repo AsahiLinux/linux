@@ -8,6 +8,7 @@
 use super::LockClassKey;
 use crate::{
     str::{CStr, CStrExt as _},
+    try_pin_init,
     types::{NotThreadSafe, Opaque, ScopeGuard},
 };
 use core::{cell::UnsafeCell, marker::PhantomPinned, pin::Pin};
@@ -142,6 +143,31 @@ impl<T, B: Backend> Lock<T, B> {
                 B::init(slot, name.as_char_ptr(), key.as_ptr())
             }),
         })
+    }
+
+    /// Constructs a new lock initialiser taking an initialiser.
+    pub fn pin_init<E>(
+        t: impl PinInit<T, E>,
+        name: &'static CStr,
+        key: &'static LockClassKey,
+    ) -> impl PinInit<Self, E>
+    where
+        E: core::convert::From<core::convert::Infallible>,
+    {
+        try_pin_init!(Self {
+            // SAFETY: We are just forwarding the initialization across a
+            // cast away from UnsafeCell, so the pin_init_from_closure and
+            // __pinned_init() requirements are in sync.
+            data <- unsafe { pin_init::pin_init_from_closure(move |slot: *mut UnsafeCell<T>| {
+                t.__pinned_init(slot as *mut T)
+            })},
+            _pin: PhantomPinned,
+            // SAFETY: `slot` is valid while the closure is called and both `name` and `key` have
+            // static lifetimes so they live indefinitely.
+            state <- Opaque::ffi_init(|slot| unsafe {
+                B::init(slot, name.as_char_ptr(), key.as_ptr())
+            }),
+        }? E)
     }
 }
 

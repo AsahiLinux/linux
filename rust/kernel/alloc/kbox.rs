@@ -716,6 +716,16 @@ where
     }
 }
 
+impl<T, A> AsRef<T> for Box<T, A>
+where
+    T: ?Sized,
+    A: Allocator,
+{
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
 /// # Examples
 ///
 /// ```

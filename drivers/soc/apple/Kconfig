@@ -72,6 +72,12 @@ config APPLE_TUNABLE
 	tristate
 	depends on ARCH_APPLE || COMPILE_TEST
 
+config RUST_APPLE_RTKIT
+	bool
+	depends on PM
+	depends on RUST
+	select APPLE_RTKIT
+
 endmenu
 
 endif

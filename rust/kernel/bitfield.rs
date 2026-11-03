@@ -378,9 +378,12 @@ macro_rules! bitfield {
         @private_field_accessors $vis:vis $name:ident $storage:ty : $hi:tt:$lo:tt $field:ident
     ) => {
         ::kernel::macros::paste!(
+        /// Constant: field bit Range.
         $vis const [<$field:upper _RANGE>]: ::core::ops::RangeInclusive<u8> = $lo..=$hi;
+        /// Constant: field mask.
         $vis const [<$field:upper _MASK>]: $storage =
             ((((1 << $hi) - 1) << 1) + 1) - ((1 << $lo) - 1);
+        /// Constant: field shift.
         $vis const [<$field:upper _SHIFT>]: u32 = $lo;
         );
 

@@ -1477,6 +1477,21 @@ pub unsafe trait PinnedDrop: __internal::HasPinData {
     fn drop(self: Pin<&mut Self>, only_call_from_drop: __internal::OnlyCallFromDrop);
 }
 
+/// Create a new default T.
+///
+/// The returned initializer will use Default::default to initialize the `slot`.
+#[inline]
+pub fn default<T: Default>() -> impl Init<T> {
+    // SAFETY: Because `T: Default`, T cannot require pinning and
+    // we can just move the data into the slot.
+    unsafe {
+        init_from_closure(|slot: *mut T| {
+            *slot = Default::default();
+            Ok(())
+        })
+    }
+}
+
 /// Marker trait for types that can be initialized by writing just zeroes.
 ///
 /// # Safety

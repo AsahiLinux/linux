@@ -39,7 +39,9 @@ use core::{
         Deref,
         DerefMut,
         Index,
-        IndexMut, //
+        IndexMut,
+        Range,
+        RangeBounds, //
     },
     ptr::{
         self,
@@ -51,6 +53,8 @@ use core::{
     }, //
 };
 
+mod drain;
+use self::drain::Drain;
 mod errors;
 pub use self::errors::{InsertError, PushError, RemoveError};
 
@@ -216,6 +220,19 @@ where
     #[inline]
     pub const fn len(&self) -> usize {
         self.len
+    }
+
+    /// Forcefully sets `self.len` to `new_len`.
+    ///
+    /// # Safety
+    ///
+    /// - `new_len` must be less than or equal to [`Self::capacity`].
+    /// - If `new_len` is greater than `self.len`, all elements within the interval
+    ///   [`self.len`,`new_len`) must be initialized.
+    #[inline]
+    pub unsafe fn set_len(&mut self, new_len: usize) {
+        debug_assert!(new_len <= self.capacity());
+        self.len = new_len;
     }
 
     /// Increments `self.len` by `additional`.
@@ -758,6 +775,56 @@ where
             next_to_check += 1;
         }
         self.truncate(num_kept);
+    }
+
+    /// Removes the specified range from the vector in bulk, returning all
+    /// removed elements as an iterator. If the iterator is dropped before
+    /// being fully consumed, it drops the remaining removed elements.
+    ///
+    /// The returned iterator keeps a mutable borrow on the vector to optimize
+    /// its implementation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the vector.
+    ///
+    /// # Leaking
+    ///
+    /// If the returned iterator goes out of scope without being dropped (due to
+    /// [`mem::forget`], for example), the vector may have lost and leaked
+    /// elements arbitrarily, including elements outside the range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut v = vec![1, 2, 3];
+    /// let u: Vec<_> = v.drain(1..).collect();
+    /// assert_eq!(v, &[1]);
+    /// assert_eq!(u, &[2, 3]);
+    ///
+    /// // A full range clears the vector, like `clear()` does
+    /// v.drain(..);
+    /// assert_eq!(v, &[]);
+    /// ```
+    pub fn drain<R>(&mut self, range: R) -> Drain<'_, T, A>
+    where
+        R: RangeBounds<usize>,
+    {
+        let len = self.len();
+        let Range { start, end } = slice::range(range, ..len);
+
+        unsafe {
+            // set self.vec length's to start, to be safe in case Drain is leaked
+            self.set_len(start);
+            let range_slice = slice::from_raw_parts(self.as_ptr().add(start), end - start);
+            Drain {
+                tail_start: end,
+                tail_len: len - end,
+                iter: range_slice.iter(),
+                vec: NonNull::from(self),
+            }
+        }
     }
 }
 // TODO: This is a temporary KVVec-specific implementation. It should be replaced with a generic
@@ -1657,5 +1724,53 @@ mod tests {
         for i in 0..10u8 {
             assert_eq!(v[i as usize], i);
         }
+    }
+}
+
+// #[stable(feature = "array_try_from_vec", since = "1.48.0")]
+impl<T, A: Allocator, const N: usize> TryFrom<Vec<T, A>> for [T; N] {
+    type Error = Vec<T, A>;
+
+    /// Gets the entire contents of the `Vec<T>` as an array,
+    /// if its size exactly matches that of the requested array.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// assert_eq!(vec![1, 2, 3].try_into(), Ok([1, 2, 3]));
+    /// assert_eq!(<Vec<i32>>::new().try_into(), Ok([]));
+    /// ```
+    ///
+    /// If the length doesn't match, the input comes back in `Err`:
+    /// ```
+    /// let r: Result<[i32; 4], _> = (0..10).collect::<Vec<_>>().try_into();
+    /// assert_eq!(r, Err(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+    /// ```
+    ///
+    /// If you're fine with just getting a prefix of the `Vec<T>`,
+    /// you can call [`.truncate(N)`](Vec::truncate) first.
+    /// ```
+    /// let mut v = String::from("hello world").into_bytes();
+    /// v.sort();
+    /// v.truncate(2);
+    /// let [a, b]: [_; 2] = v.try_into().unwrap();
+    /// assert_eq!(a, b' ');
+    /// assert_eq!(b, b'd');
+    /// ```
+    fn try_from(mut vec: Vec<T, A>) -> Result<[T; N], Vec<T, A>> {
+        if vec.len() != N {
+            return Err(vec);
+        }
+
+        // SAFETY: `.set_len(0)` is always sound.
+        unsafe { vec.dec_len(vec.len()) };
+
+        // SAFETY: A `Vec`'s pointer is always aligned properly, and
+        // the alignment the array needs is the same as the items.
+        // We checked earlier that we have sufficient items.
+        // The items will not double-drop as the `set_len`
+        // tells the `Vec` not to also drop them.
+        let array = unsafe { ptr::read(vec.as_ptr() as *const [T; N]) };
+        Ok(array)
     }
 }
