@@ -22,6 +22,16 @@ config RESET_A10SR
 	  This option enables support for the external reset functions for
 	  peripheral PHYs on the Altera Arria10 System Resource Chip.
 
+config RESET_APPLE_CIO
+	tristate "Apple SoC CIO block reset driver"
+	depends on ARCH_APPLE || COMPILE_TEST
+	select MFD_SYSCON
+	help
+	  This enables the reset driver for the CIO (USB4/Thunderbolt) blocks
+	  found on Apple Silicon SoCs. It is required to start the blocks
+	  before the USB4/Thunderbolt host routers inside them can be brought
+	  up by the thunderbolt driver.
+
 config RESET_ASPEED
 	tristate "ASPEED Reset Driver"
 	depends on ARCH_ASPEED || COMPILE_TEST

@@ -149,6 +149,14 @@ static void ring_interrupt_active(struct tb_ring *ring, bool active)
 		nhi_mask_interrupt(ring->nhi, mask, index);
 }
 
+static void nhi_ring_interrupt_active(struct tb_ring *ring, bool active)
+{
+	if (ring->nhi->ops->ring_interrupt_active)
+		ring->nhi->ops->ring_interrupt_active(ring, active);
+	else
+		ring_interrupt_active(ring, active);
+}
+
 /*
  * nhi_disable_interrupts() - disable interrupts for all rings
  *
@@ -168,19 +176,32 @@ void nhi_disable_interrupts(struct tb_nhi *nhi)
 
 /* ring helper methods */
 
+static const struct tb_nhi_ring_layout nhi_default_ring_layout = {
+	.tx_desc_base = REG_TX_RING_BASE,
+	.rx_desc_base = REG_RX_RING_BASE,
+	.desc_stride = 16,
+	.tx_options_base = REG_TX_OPTIONS_BASE,
+	.rx_options_base = REG_RX_OPTIONS_BASE,
+	.options_stride = 32,
+};
+
 static void __iomem *ring_desc_base(struct tb_ring *ring)
 {
+	const struct tb_nhi_ring_layout *layout = ring->nhi->ring_layout;
 	void __iomem *io = ring->nhi->iobase;
-	io += ring->is_tx ? REG_TX_RING_BASE : REG_RX_RING_BASE;
-	io += ring->hop * 16;
+
+	io += ring->is_tx ? layout->tx_desc_base : layout->rx_desc_base;
+	io += ring->hop * layout->desc_stride;
 	return io;
 }
 
 static void __iomem *ring_options_base(struct tb_ring *ring)
 {
+	const struct tb_nhi_ring_layout *layout = ring->nhi->ring_layout;
 	void __iomem *io = ring->nhi->iobase;
-	io += ring->is_tx ? REG_TX_OPTIONS_BASE : REG_RX_OPTIONS_BASE;
-	io += ring->hop * 32;
+
+	io += ring->is_tx ? layout->tx_options_base : layout->rx_options_base;
+	io += ring->hop * layout->options_stride;
 	return io;
 }
 
@@ -207,13 +228,40 @@ static void ring_iowrite32desc(struct tb_ring *ring, u32 value, u32 offset)
 
 static void ring_iowrite64desc(struct tb_ring *ring, u64 value, u32 offset)
 {
-	iowrite32(value, ring_desc_base(ring) + offset);
-	iowrite32(value >> 32, ring_desc_base(ring) + offset + 4);
+	void __iomem *base = ring_desc_base(ring);
+
+	iowrite32(value, base + offset);
+	iowrite32(value >> 32, base + offset + 4);
 }
 
 static void ring_iowrite32options(struct tb_ring *ring, u32 value, u32 offset)
 {
 	iowrite32(value, ring_options_base(ring) + offset);
+}
+
+static void ring_configure(struct tb_ring *ring, u32 flags, u32 e2e_flags)
+{
+	if (ring->is_tx)
+		ring_iowrite32options(ring, 0, 4);
+	else
+		ring_iowrite32options(ring, ring->sof_mask << 16 | ring->eof_mask, 4);
+
+	ring_iowrite32options(ring, flags, 0);
+
+	/*
+	 * Now that the ring valid bit is set we can configure E2E if
+	 * enabled for the ring.
+	 */
+	if (e2e_flags)
+		ring_iowrite32options(ring, flags | e2e_flags, 0);
+}
+
+static void nhi_ring_configure(struct tb_ring *ring, u32 flags, u32 e2e_flags)
+{
+	if (ring->nhi->ops->ring_configure)
+		ring->nhi->ops->ring_configure(ring, flags, e2e_flags);
+	else
+		ring_configure(ring, flags, e2e_flags);
 }
 
 static bool ring_full(struct tb_ring *ring)
@@ -235,6 +283,12 @@ static void ring_write_descriptors(struct tb_ring *ring)
 {
 	struct ring_frame *frame, *n;
 	struct ring_desc *descriptor;
+	u32 flags;
+
+	flags = RING_DESC_POSTED;
+	if (!(ring->flags & RING_FLAG_NO_INTERRUPT))
+		flags |= RING_DESC_INTERRUPT;
+
 	list_for_each_entry_safe(frame, n, &ring->queue, list) {
 		if (ring_full(ring))
 			break;
@@ -242,7 +296,7 @@ static void ring_write_descriptors(struct tb_ring *ring)
 		descriptor = &ring->descriptors[ring->head];
 		descriptor->phys = frame->buffer_phy;
 		descriptor->time = 0;
-		descriptor->flags = RING_DESC_POSTED | RING_DESC_INTERRUPT;
+		descriptor->flags = flags;
 		if (ring->is_tx) {
 			descriptor->length = frame->size;
 			descriptor->eof = frame->eof;
@@ -339,8 +393,9 @@ EXPORT_SYMBOL_GPL(__tb_ring_enqueue);
  * @ring: Ring to poll
  *
  * This function can be called when @start_poll callback of the @ring
- * has been called. It will read one completed frame from the ring and
- * return it to the caller.
+ * has been called or the ring is created with %RING_FLAG_NO_INTERRUPT.
+ * It will read one completed frame from the ring and return it to the
+ * caller.
  *
  * Return: Pointer to &struct ring_frame, %NULL if there is no more
  * completed frames.
@@ -392,6 +447,14 @@ static void __ring_interrupt_mask(struct tb_ring *ring, bool mask)
 	iowrite32(val, ring->nhi->iobase + reg);
 }
 
+static void nhi_ring_interrupt_mask(struct tb_ring *ring, bool mask)
+{
+	if (ring->nhi->ops->ring_interrupt_mask)
+		ring->nhi->ops->ring_interrupt_mask(ring, mask);
+	else
+		__ring_interrupt_mask(ring, mask);
+}
+
 /* Both @nhi->lock and @ring->lock should be held */
 static void __ring_interrupt(struct tb_ring *ring)
 {
@@ -399,7 +462,7 @@ static void __ring_interrupt(struct tb_ring *ring)
 		return;
 
 	if (ring->start_poll) {
-		__ring_interrupt_mask(ring, true);
+		nhi_ring_interrupt_mask(ring, true);
 		ring->start_poll(ring->poll_data);
 	} else {
 		schedule_work(&ring->work);
@@ -420,7 +483,7 @@ void tb_ring_poll_complete(struct tb_ring *ring)
 	spin_lock_irqsave(&ring->nhi->lock, flags);
 	spin_lock(&ring->lock);
 	if (ring->start_poll)
-		__ring_interrupt_mask(ring, false);
+		nhi_ring_interrupt_mask(ring, false);
 	spin_unlock(&ring->lock);
 	spin_unlock_irqrestore(&ring->nhi->lock, flags);
 }
@@ -527,6 +590,16 @@ err_unlock:
 	return ret;
 }
 
+static void nhi_free_hop(struct tb_nhi *nhi, struct tb_ring *ring)
+{
+	guard(spinlock_irq)(&nhi->lock);
+
+	if (ring->is_tx)
+		nhi->tx_rings[ring->hop] = NULL;
+	else
+		nhi->rx_rings[ring->hop] = NULL;
+}
+
 static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
 				     bool transmit, unsigned int flags,
 				     int e2e_tx_hop, u16 sof_mask, u16 eof_mask,
@@ -537,6 +610,12 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
 
 	dev_dbg(nhi->dev, "allocating %s ring %d of size %d\n",
 		transmit ? "TX" : "RX", hop, size);
+
+	if ((flags & RING_FLAG_NO_INTERRUPT) && start_poll) {
+		dev_WARN(nhi->dev,
+			 "start_poll() and NO_INTERRUPT cannot be used at the same time\n");
+		return NULL;
+	}
 
 	ring = kzalloc_obj(*ring);
 	if (!ring)
@@ -568,19 +647,18 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
 	if (!ring->descriptors)
 		goto err_free_ring;
 
-	if (nhi->ops->request_ring_irq) {
-		if (nhi->ops->request_ring_irq(ring, flags & RING_FLAG_NO_SUSPEND))
-			goto err_free_descs;
-	}
-
 	if (nhi_alloc_hop(nhi, ring))
-		goto err_release_msix;
+		goto err_free_descs;
+
+	if (!(flags & RING_FLAG_NO_INTERRUPT) && nhi->ops->request_ring_irq) {
+		if (nhi->ops->request_ring_irq(ring, flags & RING_FLAG_NO_SUSPEND))
+			goto err_free_hop;
+	}
 
 	return ring;
 
-err_release_msix:
-	if (nhi->ops->release_ring_irq)
-		nhi->ops->release_ring_irq(ring);
+err_free_hop:
+	nhi_free_hop(nhi, ring);
 err_free_descs:
 	dma_free_coherent(ring->nhi->dev,
 			  ring->size * sizeof(*ring->descriptors),
@@ -641,6 +719,7 @@ EXPORT_SYMBOL_GPL(tb_ring_alloc_rx);
  */
 void tb_ring_start(struct tb_ring *ring)
 {
+	u32 e2e_flags = 0;
 	u16 frame_size;
 	u32 flags;
 
@@ -664,30 +743,13 @@ void tb_ring_start(struct tb_ring *ring)
 		flags = RING_FLAG_ENABLE | RING_FLAG_RAW;
 	}
 
-	ring_iowrite64desc(ring, ring->descriptors_dma, 0);
-	if (ring->is_tx) {
-		ring_iowrite32desc(ring, ring->size, 12);
-		ring_iowrite32options(ring, 0, 4);
-		ring_iowrite32options(ring, flags, 0);
-	} else {
-		u32 sof_eof_mask = ring->sof_mask << 16 | ring->eof_mask;
-
-		ring_iowrite32desc(ring, (frame_size << 16) | ring->size, 12);
-		ring_iowrite32options(ring, sof_eof_mask, 4);
-		ring_iowrite32options(ring, flags, 0);
-	}
-
-	/*
-	 * Now that the ring valid bit is set we can configure E2E if
-	 * enabled for the ring.
-	 */
 	if (ring->flags & RING_FLAG_E2E) {
 		if (!ring->is_tx) {
 			u32 hop;
 
 			hop = ring->e2e_tx_hop << REG_RX_OPTIONS_E2E_HOP_SHIFT;
 			hop &= REG_RX_OPTIONS_E2E_HOP_MASK;
-			flags |= hop;
+			e2e_flags |= hop;
 
 			dev_dbg(ring->nhi->dev,
 				"enabling E2E for %s %d with TX HopID %d\n",
@@ -697,11 +759,18 @@ void tb_ring_start(struct tb_ring *ring)
 				RING_TYPE(ring), ring->hop);
 		}
 
-		flags |= RING_FLAG_E2E_FLOW_CONTROL;
-		ring_iowrite32options(ring, flags, 0);
+		e2e_flags |= RING_FLAG_E2E_FLOW_CONTROL;
 	}
 
-	ring_interrupt_active(ring, true);
+	ring_iowrite64desc(ring, ring->descriptors_dma, 0);
+	if (ring->is_tx)
+		ring_iowrite32desc(ring, ring->size, 12);
+	else
+		ring_iowrite32desc(ring, (frame_size << 16) | ring->size, 12);
+	nhi_ring_configure(ring, flags, e2e_flags);
+
+	if (!(ring->flags & RING_FLAG_NO_INTERRUPT))
+		nhi_ring_interrupt_active(ring, true);
 	ring->running = true;
 err:
 	spin_unlock(&ring->lock);
@@ -761,7 +830,8 @@ void tb_ring_stop(struct tb_ring *ring)
 			 RING_TYPE(ring), ring->hop);
 		goto err;
 	}
-	ring_interrupt_active(ring, false);
+	if (!(ring->flags & RING_FLAG_NO_INTERRUPT))
+		nhi_ring_interrupt_active(ring, false);
 
 	ring_iowrite32options(ring, 0, 0);
 	ring_iowrite64desc(ring, 0, 0);
@@ -1160,6 +1230,32 @@ static void nhi_reset(struct tb_nhi *nhi)
 	dev_warn(nhi->dev, "timeout resetting host router\n");
 }
 
+/**
+ * nhi_reset_interface() - Reset the host interface
+ * @nhi: Host interface to reset
+ *
+ * Brings the registers in the memory BAR back to their default state and
+ * clears the End-to-End Flow Control state. The caller is responsible for
+ * stopping the control channel over the reset because it clears the ring
+ * state as well.
+ */
+void nhi_reset_interface(struct tb_nhi *nhi)
+{
+	u32 val;
+
+	val = ioread32(nhi->iobase + REG_CAPS);
+	/* Only v1 host interfaces implement the reset */
+	if (FIELD_GET(REG_CAPS_VERSION_MASK, val) >= REG_CAPS_VERSION_2)
+		return;
+
+	dev_dbg(nhi->dev, "issuing host interface reset\n");
+
+	iowrite32(REG_HOST_INTERFACE_RESET_RST,
+		  nhi->iobase + REG_HOST_INTERFACE_RESET);
+	/* Wait for tHIReset (10 ms) to complete */
+	usleep_range(10000, 20000);
+}
+
 static struct tb *nhi_select_cm(struct tb_nhi *nhi)
 {
 	struct tb *tb;
@@ -1194,6 +1290,9 @@ int nhi_probe(struct tb_nhi *nhi)
 
 	if (!nhi->ops->init_interrupts)
 		return dev_err_probe(dev, -EINVAL, "missing required NHI ops\n");
+
+	if (!nhi->ring_layout)
+		nhi->ring_layout = &nhi_default_ring_layout;
 
 	nhi->hop_count = ioread32(nhi->iobase + REG_CAPS) & 0x3ff;
 	dev_dbg(dev, "total paths: %d\n", nhi->hop_count);

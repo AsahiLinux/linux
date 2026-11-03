@@ -503,6 +503,8 @@ void tb_service_properties_changed(struct tb_service *svc);
  *	  interrupt_work when dispatching interrupts to individual rings.
  * @dev: Device associated with this NHI instance
  * @ops: NHI specific optional ops
+ * @ring_layout: Layout of the ring registers inside @iobase. If not set
+ *		 the default layout from the USB4 specification is used.
  * @iobase: MMIO space of the NHI
  * @tx_rings: All Tx rings available on this host controller
  * @rx_rings: All Rx rings available on this host controller
@@ -519,6 +521,7 @@ struct tb_nhi {
 	spinlock_t lock;
 	struct device *dev;
 	const struct tb_nhi_ops *ops;
+	const struct tb_nhi_ring_layout *ring_layout;
 	void __iomem *iobase;
 	struct tb_ring **tx_rings;
 	struct tb_ring **rx_rings;
@@ -592,6 +595,8 @@ struct tb_ring {
 #define RING_FLAG_FRAME		BIT(1)
 /* Enable end-to-end flow control */
 #define RING_FLAG_E2E		BIT(2)
+/* Do not enable interrupt for the ring */
+#define RING_FLAG_NO_INTERRUPT	BIT(3)
 
 struct ring_frame;
 typedef void (*ring_cb)(struct tb_ring *, struct ring_frame *, bool canceled);
