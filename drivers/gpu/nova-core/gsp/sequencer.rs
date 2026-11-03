@@ -133,9 +133,9 @@ pub(crate) struct GspSequencer<'a> {
     /// `Bar0` for register access.
     bar: Bar0<'a>,
     /// SEC2 falcon for core operations.
-    sec2_falcon: &'a Falcon<Sec2>,
+    sec2_falcon: &'a Falcon<'a, Sec2>,
     /// GSP falcon for core operations.
-    gsp_falcon: &'a Falcon<Gsp>,
+    gsp_falcon: &'a Falcon<'a, Gsp>,
     /// LibOS DMA handle address.
     libos_dma_handle: u64,
     /// Bootloader application version.
@@ -213,16 +213,16 @@ impl GspSeqCmd {
             GspSeqCmd::DelayUs(cmd) => cmd.run(seq),
             GspSeqCmd::RegStore(cmd) => cmd.run(seq),
             GspSeqCmd::CoreReset => {
-                seq.gsp_falcon.reset(seq.bar)?;
-                seq.gsp_falcon.dma_reset(seq.bar);
+                seq.gsp_falcon.reset()?;
+                seq.gsp_falcon.dma_reset();
                 Ok(())
             }
             GspSeqCmd::CoreStart => {
-                seq.gsp_falcon.start(seq.bar)?;
+                seq.gsp_falcon.start()?;
                 Ok(())
             }
             GspSeqCmd::CoreWaitForHalt => {
-                seq.gsp_falcon.wait_till_halted(seq.bar)?;
+                seq.gsp_falcon.wait_till_halted()?;
                 Ok(())
             }
             GspSeqCmd::CoreResume => {
@@ -231,35 +231,32 @@ impl GspSeqCmd {
                 // sequencer will start both.
 
                 // Reset the GSP to prepare it for resuming.
-                seq.gsp_falcon.reset(seq.bar)?;
+                seq.gsp_falcon.reset()?;
 
                 // Write the libOS DMA handle to GSP mailboxes.
                 seq.gsp_falcon.write_mailboxes(
-                    seq.bar,
                     Some(seq.libos_dma_handle as u32),
                     Some((seq.libos_dma_handle >> 32) as u32),
                 );
 
                 // Start the SEC2 falcon which will trigger GSP-RM to resume on the GSP.
-                seq.sec2_falcon.start(seq.bar)?;
+                seq.sec2_falcon.start()?;
 
                 // Poll until GSP-RM reload/resume has completed (up to 2 seconds).
-                seq.gsp_falcon
-                    .check_reload_completed(seq.bar, Delta::from_secs(2))?;
+                seq.gsp_falcon.check_reload_completed(Delta::from_secs(2))?;
 
                 // Verify SEC2 completed successfully by checking its mailbox for errors.
-                let mbox0 = seq.sec2_falcon.read_mailbox0(seq.bar);
+                let mbox0 = seq.sec2_falcon.read_mailbox0();
                 if mbox0 != 0 {
                     dev_err!(seq.dev, "Sequencer: sec2 errors: {:?}\n", mbox0);
                     return Err(EIO);
                 }
 
                 // Configure GSP with the bootloader version.
-                seq.gsp_falcon
-                    .write_os_version(seq.bar, seq.bootloader_app_version);
+                seq.gsp_falcon.write_os_version(seq.bootloader_app_version);
 
                 // Verify the GSP's RISC-V core is active indicating successful GSP boot.
-                if !seq.gsp_falcon.is_riscv_active(seq.bar) {
+                if !seq.gsp_falcon.is_riscv_active() {
                     dev_err!(seq.dev, "Sequencer: RISC-V core is not active\n");
                     return Err(EIO);
                 }
@@ -345,9 +342,9 @@ pub(crate) struct GspSequencerParams<'a> {
     /// LibOS DMA handle address.
     pub(crate) libos_dma_handle: u64,
     /// GSP falcon for core operations.
-    pub(crate) gsp_falcon: &'a Falcon<Gsp>,
+    pub(crate) gsp_falcon: &'a Falcon<'a, Gsp>,
     /// SEC2 falcon for core operations.
-    pub(crate) sec2_falcon: &'a Falcon<Sec2>,
+    pub(crate) sec2_falcon: &'a Falcon<'a, Sec2>,
     /// Device for logging.
     pub(crate) dev: &'a device::Device,
     /// BAR0 for register access.

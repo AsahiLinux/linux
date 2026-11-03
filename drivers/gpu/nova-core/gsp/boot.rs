@@ -6,7 +6,6 @@ use kernel::{
     device,
     dma::Coherent,
     io::poll::read_poll_timeout,
-    pci,
     prelude::*,
     time::Delta,
     types::ScopeGuard, //
@@ -24,7 +23,6 @@ use crate::{
         gsp::GspFirmware,
         FIRMWARE_VERSION, //
     },
-    gpu::Chipset,
     gsp::{
         cmdq::Cmdq,
         commands,
@@ -39,8 +37,8 @@ pub(super) struct BootUnloadArgs<'a> {
     gsp: &'a super::Gsp,
     dev: &'a device::Device<device::Bound>,
     bar: Bar0<'a>,
-    gsp_falcon: &'a Falcon<Gsp>,
-    sec2_falcon: &'a Falcon<Sec2>,
+    gsp_falcon: &'a Falcon<'a, Gsp>,
+    sec2_falcon: &'a Falcon<'a, Sec2>,
     unload_bundle: Option<super::UnloadBundle>,
 }
 
@@ -58,8 +56,8 @@ impl<'a> BootUnloadGuard<'a> {
         gsp: &'a super::Gsp,
         dev: &'a device::Device<device::Bound>,
         bar: Bar0<'a>,
-        gsp_falcon: &'a Falcon<Gsp>,
-        sec2_falcon: &'a Falcon<Sec2>,
+        gsp_falcon: &'a Falcon<'a, Gsp>,
+        sec2_falcon: &'a Falcon<'a, Sec2>,
         unload_bundle: Option<super::UnloadBundle>,
     ) -> Self {
         Self {
@@ -103,12 +101,12 @@ impl super::Gsp {
     /// [`Self::unload`]) returned.
     pub(crate) fn boot(
         self: Pin<&mut Self>,
-        pdev: &pci::Device<device::Bound>,
-        bar: Bar0<'_>,
-        chipset: Chipset,
-        gsp_falcon: &Falcon<Gsp>,
-        sec2_falcon: &Falcon<Sec2>,
+        ctx: super::GspBootContext<'_>,
     ) -> Result<Option<super::UnloadBundle>> {
+        let pdev = ctx.pdev;
+        let bar = ctx.bar;
+        let chipset = ctx.chipset;
+        let gsp_falcon = ctx.gsp_falcon;
         let dev = pdev.as_ref();
         let hal = super::hal::gsp_hal(chipset);
 
@@ -120,45 +118,29 @@ impl super::Gsp {
         let wpr_meta = Coherent::init(dev, GFP_KERNEL, GspFwWprMeta::new(&gsp_fw, &fb_layout))?;
 
         // Perform the chipset-specific boot sequence, and retrieve the unload bundle.
-        let unload_guard = hal.boot(
-            &self,
-            dev,
-            bar,
-            chipset,
-            &fb_layout,
-            &wpr_meta,
-            gsp_falcon,
-            sec2_falcon,
-        )?;
+        let unload_guard = hal.boot(&self, &ctx, &fb_layout, &wpr_meta)?;
 
-        gsp_falcon.write_os_version(bar, gsp_fw.bootloader.app_version);
+        gsp_falcon.write_os_version(gsp_fw.bootloader.app_version);
 
         // Poll for RISC-V to become active before continuing.
         read_poll_timeout(
-            || Ok(gsp_falcon.is_riscv_active(bar)),
+            || Ok(gsp_falcon.is_riscv_active()),
             |val: &bool| *val,
             Delta::from_millis(10),
             Delta::from_secs(5),
         )?;
 
-        dev_dbg!(pdev, "RISC-V active? {}\n", gsp_falcon.is_riscv_active(bar),);
+        dev_dbg!(pdev, "RISC-V active? {}\n", gsp_falcon.is_riscv_active(),);
 
         self.cmdq
             .send_command_no_wait(bar, commands::SetSystemInfo::new(pdev, chipset))?;
         self.cmdq
             .send_command_no_wait(bar, commands::SetRegistry::new()?)?;
 
-        hal.post_boot(&self, dev, bar, &gsp_fw, gsp_falcon, sec2_falcon)?;
+        hal.post_boot(&self, &ctx, &gsp_fw)?;
 
         // Wait until GSP is fully initialized.
         commands::wait_gsp_init_done(&self.cmdq)?;
-
-        // Obtain and display basic GPU information.
-        let info = self.cmdq.send_command(bar, commands::GetGspStaticInfo)?;
-        match info.gpu_name() {
-            Ok(name) => dev_info!(pdev, "GPU name: {}\n", name),
-            Err(e) => dev_warn!(pdev, "GPU name unavailable: {:?}\n", e),
-        }
 
         Ok(unload_guard.dismiss())
     }
@@ -167,7 +149,7 @@ impl super::Gsp {
     fn shutdown_gsp(
         cmdq: &Cmdq,
         bar: Bar0<'_>,
-        gsp_falcon: &Falcon<Gsp>,
+        gsp_falcon: &Falcon<'_, Gsp>,
         mode: commands::PowerStateLevel,
     ) -> Result {
         // Command to shut the GSP down.
@@ -176,7 +158,7 @@ impl super::Gsp {
         // Wait until GSP signals it is suspended.
         const LIBOS_INTERRUPT_PROCESSOR_SUSPENDED: u32 = bits::bit_u32(31);
         read_poll_timeout(
-            || Ok(gsp_falcon.read_mailbox0(bar)),
+            || Ok(gsp_falcon.read_mailbox0()),
             |&mb0| mb0 & LIBOS_INTERRUPT_PROCESSOR_SUSPENDED != 0,
             Delta::from_millis(10),
             Delta::from_secs(5),
@@ -191,8 +173,8 @@ impl super::Gsp {
         &self,
         dev: &device::Device<device::Bound>,
         bar: Bar0<'_>,
-        gsp_falcon: &Falcon<Gsp>,
-        sec2_falcon: &Falcon<Sec2>,
+        gsp_falcon: &Falcon<'_, Gsp>,
+        sec2_falcon: &Falcon<'_, Sec2>,
         unload_bundle: Option<super::UnloadBundle>,
     ) -> Result {
         // Shut down the GSP. Keep going even in case of error.

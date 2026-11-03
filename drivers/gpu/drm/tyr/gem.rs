@@ -5,10 +5,7 @@
 //! DRM's GEM subsystem with shmem backing.
 
 use kernel::{
-    drm::{
-        gem,
-        DeviceContext, //
-    },
+    drm::gem,
     prelude::*, //
 };
 
@@ -29,15 +26,16 @@ pub(crate) struct BoCreateArgs {
     flags: u32,
 }
 
+#[vtable]
 impl gem::DriverObject for BoData {
     type Driver = TyrDrmDriver;
     type Args = BoCreateArgs;
 
-    fn new<Ctx: DeviceContext>(
-        _dev: &TyrDrmDevice<Ctx>,
-        _size: usize,
-        args: BoCreateArgs,
-    ) -> impl PinInit<Self, Error> {
+    fn new(_dev: &TyrDrmDevice, _size: usize, args: BoCreateArgs) -> impl PinInit<Self, Error> {
         try_pin_init!(Self { flags: args.flags })
+    }
+
+    fn create_imported(_dev: &TyrDrmDevice, _size: usize) -> impl PinInit<Self, Error> {
+        try_pin_init!(Self { flags: 0 })
     }
 }

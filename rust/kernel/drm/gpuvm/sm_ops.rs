@@ -3,7 +3,7 @@
 use super::*;
 
 /// The actual data that gets threaded through the callbacks.
-struct SmData<'a, 'ctx, T: DriverGpuVm> {
+struct SmData<'a, 'ctx, T: DriverGpuVm + 'ctx> {
     gpuvm: &'a mut UniqueRefGpuVm<T>,
     user_context: &'a mut T::SmContext<'ctx>,
 }
@@ -20,17 +20,21 @@ struct SmMapData<'a, 'ctx, T: DriverGpuVm> {
 }
 
 /// The argument for [`UniqueRefGpuVm::sm_map`].
-pub struct OpMapRequest<'a, 'ctx, T: DriverGpuVm> {
+pub struct OpMapRequest<'a, 'ctx, T: DriverGpuVm + 'ctx> {
     /// Address in GPU virtual address space.
     pub addr: u64,
     /// Length of mapping to create.
     pub range: u64,
     /// Offset in GEM object.
     pub gem_offset: u64,
+    /// Length of the mapping in the GEM object.
+    pub gem_range: u32,
     /// The GEM object to map.
     pub vm_bo: &'a GpuVmBo<T>,
     /// The user-provided context type.
     pub context: &'a mut T::SmContext<'ctx>,
+    /// The requested GpuVa flags.
+    pub flags: GpuVaFlags,
 }
 
 impl<'a, 'ctx, T: DriverGpuVm> OpMapRequest<'a, 'ctx, T> {
@@ -44,7 +48,9 @@ impl<'a, 'ctx, T: DriverGpuVm> OpMapRequest<'a, 'ctx, T> {
                 gem: bindings::drm_gpuva_op_map__bindgen_ty_2 {
                     offset: self.gem_offset,
                     obj: self.vm_bo.obj().as_raw(),
+                    range: self.gem_range,
                 },
+                flags: u32::from(self.flags),
             },
         }
     }
@@ -76,6 +82,11 @@ impl<'op, T: DriverGpuVm> OpMap<'op, T> {
     /// The offset within the [`drm_gem_object`](DriverGpuVm::Object).
     pub fn gem_offset(&self) -> u64 {
         self.op.gem.offset
+    }
+
+    /// The flags of this new mapping
+    pub fn flags(&self) -> GpuVaFlags {
+        GpuVaFlags::from(self.op.flags)
     }
 
     /// The [`drm_gem_object`](DriverGpuVm::Object) to map.
@@ -359,6 +370,18 @@ impl<T: DriverGpuVm> UniqueRefGpuVm<T> {
         // * raw_request() creates a valid request.
         // * The private data is a valid SmData.
         to_result(unsafe { bindings::drm_gpuvm_sm_unmap(gpuvm, (&raw mut p).cast(), addr, length) })
+    }
+
+    /// Remove all mappings from the given bo.
+    pub fn bo_unmap(&mut self, context: &mut T::SmContext<'_>, bo: &GpuVmBo<T>) -> Result {
+        let mut p = SmData {
+            gpuvm: self,
+            user_context: context,
+        };
+        // SAFETY:
+        // * GpuVmExec implies the right locks are held.
+        // * The private data is a valid SmData.
+        to_result(unsafe { bindings::drm_gpuvm_bo_unmap(bo.as_raw(), (&raw mut p).cast()) })
     }
 }
 

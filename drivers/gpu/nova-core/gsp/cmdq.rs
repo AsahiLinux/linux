@@ -58,9 +58,10 @@ use crate::{
         GSP_PAGE_SIZE, //
     },
     num,
-    regs,
     sbuffer::SBufferIter, //
 };
+
+use super::regs;
 
 /// Marker type representing the absence of a reply for a command. Commands using this as their
 /// reply type are sent using [`Cmdq::send_command_no_wait`].

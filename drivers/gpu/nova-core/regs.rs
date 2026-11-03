@@ -126,7 +126,7 @@ register! {
     }
 
     /// High bits of the physical system memory address used by the GPU to perform sysmembar
-    /// operations (see [`crate::fb::SysmemFlush`]).
+    /// operations.
     pub(crate) NV_PFB_NISO_FLUSH_SYSMEM_ADDR_HI(u32) @ 0x00100c40 {
         23:0    adr_63_40;
     }
@@ -153,11 +153,6 @@ register! {
 /// The base is provided by the GB10x framebuffer HAL.
 pub(crate) struct Hshub0Base(());
 
-/// Base of the GB20x FBHUB0 register window (`NV_FBHUB0_PRI_BASE` in Open RM).
-///
-/// The base is provided by the GB20x framebuffer HAL.
-pub(crate) struct Fbhub0Base(());
-
 register! {
     // GB10x sysmem flush registers, relative to the HSHUB0 base. GB10x routes sysmembar
     // through a primary and an EG (egress) pair that must both be programmed to the same
@@ -178,16 +173,37 @@ register! {
     pub(crate) NV_PFB_HSHUB_EG_PCIE_FLUSH_SYSMEM_ADDR_HI(u32) @ Hshub0Base + 0x000006c4 {
         19:0    adr;
     }
+}
 
-    // GB20x sysmem flush registers, relative to the FBHUB0 base. Unlike the older
-    // NV_PFB_NISO_FLUSH_SYSMEM_ADDR registers which encode the address with an 8-bit
-    // right-shift, these take the raw address split into lower and upper halves. Hardware
-    // ignores bits 7:0 of the LO register.
-    pub(crate) NV_PFB_FBHUB_PCIE_FLUSH_SYSMEM_ADDR_LO(u32) @ Fbhub0Base + 0x00001d58 {
+register! {
+    // GB20x FBHUB0 sysmem flush registers. Unlike the older
+    // NV_PFB_NISO_FLUSH_SYSMEM_ADDR registers, which encode the address with an
+    // 8-bit right-shift, these take the raw address split into lower and upper
+    // halves. Hardware ignores bits 7:0 of the LO register.
+    pub(crate) NV_PFB_FBHUB0_PCIE_FLUSH_SYSMEM_ADDR_LO(u32) @ 0x008a1d58 {
         31:0    adr => u32;
     }
 
-    pub(crate) NV_PFB_FBHUB_PCIE_FLUSH_SYSMEM_ADDR_HI(u32) @ Fbhub0Base + 0x00001d5c {
+    pub(crate) NV_PFB_FBHUB0_PCIE_FLUSH_SYSMEM_ADDR_HI(u32) @ 0x008a1d5c {
+        19:0    adr;
+    }
+}
+
+register! {
+    /// Low bits of the physical system memory address used by the GPU to perform
+    /// sysmembar operations on Hopper.
+    ///
+    /// Like the GB20x FBHUB0 registers, and unlike the Ampere
+    /// `NV_PFB_NISO_FLUSH_SYSMEM_ADDR` registers (which encode the address with an
+    /// 8-bit right-shift), these take the raw address split into lower and upper
+    /// halves. Hardware ignores bits 7:0 of the LO register.
+    pub(crate) NV_PFB_FBHUB_PCIE_FLUSH_SYSMEM_ADDR_LO(u32) @ 0x00100a34 {
+        31:0    adr => u32;
+    }
+
+    /// High bits of the physical system memory address used by the GPU to perform
+    /// sysmembar operations on Hopper.
+    pub(crate) NV_PFB_FBHUB_PCIE_FLUSH_SYSMEM_ADDR_HI(u32) @ 0x00100a38 {
         19:0    adr;
     }
 }
@@ -224,14 +240,6 @@ impl NV_PFB_PRI_MMU_WPR2_ADDR_HI {
     /// Returns whether the WPR2 region is currently set.
     pub(crate) fn is_wpr2_set(self) -> bool {
         self.hi_val() != 0
-    }
-}
-
-// PGSP
-
-register! {
-    pub(crate) NV_PGSP_QUEUE_HEAD(u32) @ 0x00110c00 {
-        31:0    address;
     }
 }
 
@@ -291,28 +299,6 @@ impl NV_USABLE_FB_SIZE_IN_MB {
     /// Returns the usable framebuffer size, in bytes.
     pub(crate) fn usable_fb_size(self) -> u64 {
         u64::from(self.value()) * u64::SZ_1M
-    }
-}
-
-// PDISP
-
-register! {
-    pub(crate) NV_PDISP_VGA_WORKSPACE_BASE(u32) @ 0x00625f04 {
-        /// VGA workspace base address divided by 0x10000.
-        31:8    addr;
-        /// Set if the `addr` field is valid.
-        3:3     status_valid => bool;
-    }
-}
-
-impl NV_PDISP_VGA_WORKSPACE_BASE {
-    /// Returns the base address of the VGA workspace, or `None` if none exists.
-    pub(crate) fn vga_workspace_addr(self) -> Option<u64> {
-        if self.status_valid() {
-            Some(u64::from(self.addr()) << 16)
-        } else {
-            None
-        }
     }
 }
 

@@ -1,6 +1,29 @@
 // SPDX-License-Identifier: GPL-2.0 OR MIT
 
 use super::*;
+use kernel::impl_flags;
+
+impl_flags!(
+    /// GpuVaFlags to be used for a GpuVa.
+    #[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
+    pub struct GpuVaFlags(u32);
+    /// GpuVaFlag definitions.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum GpuVaFlag {
+        /// The backing GEM is invalidated.
+        INVALIDATED = bindings::drm_gpuva_flags_DRM_GPUVA_INVALIDATED,
+        /// The GpuVa is a sparse mapping.
+        SPARSE = bindings::drm_gpuva_flags_DRM_GPUVA_SPARSE,
+        /// The GpuVa is a repeat mapping.
+        REPEAT = bindings::drm_gpuva_flags_DRM_GPUVA_REPEAT,
+    }
+);
+
+impl ::core::convert::From<u32> for GpuVaFlags {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
 
 /// Represents that a range of a GEM object is mapped in this [`GpuVm`] instance.
 ///
@@ -79,6 +102,11 @@ impl<T: DriverGpuVm> GpuVa<T> {
         unsafe { (*self.as_raw()).gem.offset }
     }
 
+    /// Returns the GpuVa flags of this mapping.
+    pub fn flags(&self) -> GpuVaFlags {
+        GpuVaFlags(unsafe { (*self.as_raw()).flags })
+    }
+
     /// Returns the GEM object.
     #[inline]
     pub fn obj(&self) -> &T::Object {
@@ -103,6 +131,14 @@ impl<T: DriverGpuVm> GpuVa<T> {
 ///
 /// The memory is zeroed.
 pub struct GpuVaAlloc<T: DriverGpuVm>(KBox<MaybeUninit<GpuVa<T>>>);
+
+// SAFETY: A `GpuVaAlloc` is an owned, uninitialised allocation with no live `T::VaData` and no
+// thread-bound state.
+unsafe impl<T: DriverGpuVm> Send for GpuVaAlloc<T> {}
+
+// SAFETY: A `GpuVaAlloc` has no `&self` method that reaches its contents, so a shared
+// `&GpuVaAlloc` cannot access the allocation.
+unsafe impl<T: DriverGpuVm> Sync for GpuVaAlloc<T> {}
 
 impl<T: DriverGpuVm> GpuVaAlloc<T> {
     /// Pre-allocate a [`GpuVa`] object.

@@ -5,7 +5,6 @@
 //! C header: [`include/linux/soc/apple/rtkit.h`](../../../../include/linux/gpio/driver.h)
 
 use crate::{
-    alloc::flags::*,
     bindings,
     device,
     error::{
@@ -16,7 +15,8 @@ use crate::{
     io::{
         register,
         Io,
-        IoSysMap, //
+        IoSysMap,
+        Region, //
     },
     prelude::*,
     str::CStrExt,
@@ -48,7 +48,7 @@ pub trait Buffer {
 
     /// Returns a mutable byte slice of the buffer contents, or an
     /// error if unavailable.
-    fn buf(&mut self) -> Result<IoSysMap<'_, u8>>;
+    fn buf(&mut self) -> Result<IoSysMap<'_, Region>>;
 }
 
 /// Callback operations for an RTKit client.

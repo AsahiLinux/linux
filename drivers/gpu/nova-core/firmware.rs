@@ -88,7 +88,7 @@ pub(crate) struct FalconUCodeDescV2 {
 
 /// Structure used to describe some firmwares, notably FWSEC-FRTS.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, FromBytes)]
 pub(crate) struct FalconUCodeDescV3 {
     /// Header defined by `NV_BIT_FALCON_UCODE_DESC_HEADER_VDESC*` in OpenRM.
     hdr: u32,
@@ -118,10 +118,6 @@ pub(crate) struct FalconUCodeDescV3 {
     pub(crate) signature_versions: u16,
     _reserved: u16,
 }
-
-// SAFETY: all bit patterns are valid for this type, and it doesn't use
-// interior mutability.
-unsafe impl FromBytes for FalconUCodeDescV3 {}
 
 /// Enum wrapping the different versions of Falcon microcode descriptors.
 ///
@@ -424,19 +420,20 @@ impl<const N: usize> ModInfoBuilder<N> {
         let name = chipset.name();
 
         let this = self
-            .make_entry_file(name, "booter_load")
-            .make_entry_file(name, "booter_unload")
             .make_entry_file(name, "bootloader")
             .make_entry_file(name, "gsp");
 
-        let this = if chipset.needs_fwsec_bootloader() {
-            this.make_entry_file(name, "gen_bootloader")
+        // FSP-based chipsets (Hopper, Blackwell and later) boot the GSP via the FMC image loaded by
+        // FSP. Older chipsets use the SEC2 booter instead.
+        let this = if chipset.uses_fsp() {
+            this.make_entry_file(name, "fmc")
         } else {
-            this
+            this.make_entry_file(name, "booter_load")
+                .make_entry_file(name, "booter_unload")
         };
 
-        if chipset.uses_fsp() {
-            this.make_entry_file(name, "fmc")
+        if chipset.needs_fwsec_bootloader() {
+            this.make_entry_file(name, "gen_bootloader")
         } else {
             this
         }
@@ -464,11 +461,9 @@ impl<const N: usize> ModInfoBuilder<N> {
 /// that scheme before nova-core becomes stable, which means this module will eventually be
 /// removed.
 mod elf {
-    use core::mem::size_of;
-
     use kernel::{
         bindings,
-        str::CStr,
+        prelude::*,
         transmute::FromBytes, //
     };
 

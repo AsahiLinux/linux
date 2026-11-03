@@ -11,6 +11,7 @@ use kernel::{
     device,
     dma::Coherent,
     io::poll::read_poll_timeout,
+    num::TryIntoBounded,
     prelude::*,
     ptr::{
         Alignable,
@@ -31,9 +32,12 @@ use crate::{
         Falcon, //
     },
     fb::FbLayout,
-    firmware::fsp::{
-        FmcSignatures,
-        FspFirmware, //
+    firmware::{
+        fsp::{
+            FmcSignatures,
+            FspFirmware, //
+        },
+        FIRMWARE_VERSION, //
     },
     gpu::Chipset,
     gsp::GspFmcBootParams,
@@ -81,16 +85,16 @@ impl FspMessageHeader {
     }
 }
 
-/// Complete FSP response structure with MCTP and NVDM headers.
+/// Common FSP response header with MCTP, NVDM and command response payloads.
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
-struct FspResponse {
+struct FspResponseHeader {
     header: FspMessageHeader,
     response: NvdmPayloadCommandResponse,
 }
 
-// SAFETY: FspResponse is a packed C struct with only integral fields.
-unsafe impl FromBytes for FspResponse {}
+// SAFETY: FspResponseHeader is a packed C struct with only integral fields.
+unsafe impl FromBytes for FspResponseHeader {}
 
 /// Trait implemented by types representing a message to send to FSP.
 ///
@@ -126,32 +130,20 @@ struct FspCotMessage {
 }
 
 impl FspCotMessage {
-    /// Computes the FRTS vidmem offset for the Chain-of-Trust message. It is measured backwards
-    /// from the end of the framebuffer.
-    fn frts_vidmem_offset(hal: &dyn hal::FspHal, fb_layout: &FbLayout) -> Result<u64> {
-        let mut offset = hal.fb_end_reserved_size();
-
-        // As per OpenRM's `kfspPrepareBootCommands_GH100`.
-        if fb_layout.pmu_reserved_size != 0 {
-            offset = (offset + u64::from(fb_layout.pmu_reserved_size))
-                // The 2 MiB alignment is r570-specific.
-                .align_up(Alignment::new::<SZ_2M>())
-                .ok_or(EINVAL)?;
-        }
-
-        Ok(offset)
-    }
-
     /// Returns an in-place initializer for [`FspCotMessage`].
     fn new<'a>(
         fb_layout: &FbLayout,
         fsp_fw: &'a FspFirmware,
         args: &'a FmcBootArgs,
     ) -> Result<impl Init<Self> + 'a> {
-        let hal = hal::fsp_hal(args.chipset).ok_or(ENOTSUPP)?;
-
+        // frts_vidmem_offset is measured from the end of FB, so FRTS sits at
+        // (end of FB) - frts_vidmem_offset.
         let frts_vidmem_offset = if !args.resume {
-            Self::frts_vidmem_offset(hal, fb_layout)?
+            let frts_reserved_size = fb_layout.heap.len() + u64::from(fb_layout.pmu_reserved_size);
+
+            frts_reserved_size
+                .align_up(Alignment::new::<SZ_2M>())
+                .ok_or(EINVAL)?
         } else {
             0
         };
@@ -162,7 +154,7 @@ impl FspCotMessage {
             0
         };
 
-        let version = hal.cot_version();
+        let version = hal::fsp_hal(args.chipset).ok_or(ENOTSUPP)?.cot_version();
         let size = num::usize_into_u16::<{ core::mem::size_of::<NvdmPayloadCot>() }>();
 
         Ok(init!(Self {
@@ -233,28 +225,28 @@ impl FmcBootArgs {
 /// An `Fsp` is produced by [`Fsp::wait_secure_boot`], which only returns once FSP secure boot
 /// has completed. It owns the FSP falcon and the FMC firmware, which are used for the subsequent
 /// Chain of Trust boot.
-pub(crate) struct Fsp {
-    falcon: Falcon<FspEngine>,
+pub(crate) struct Fsp<'a> {
+    falcon: Falcon<'a, FspEngine>,
     fsp_fw: FspFirmware,
 }
 
-impl Fsp {
+impl<'a> Fsp<'a> {
     /// Waits for FSP secure boot completion, then returns the [`Fsp`] interface.
     ///
     /// Polls the thermal scratch register until FSP signals boot completion or the timeout
     /// elapses. Returning an [`Fsp`] only on success guarantees, at the API level, that the
     /// interface is not used before secure boot has completed.
     pub(crate) fn wait_secure_boot(
-        dev: &device::Device<device::Bound>,
-        bar: Bar0<'_>,
+        dev: &'a device::Device<device::Bound>,
+        bar: Bar0<'a>,
         chipset: Chipset,
-        fsp_fw: FspFirmware,
-    ) -> Result<Fsp> {
+    ) -> Result<Fsp<'a>> {
         /// FSP secure boot completion timeout in milliseconds.
         const FSP_SECURE_BOOT_TIMEOUT_MS: i64 = 5000;
 
         let hal = hal::fsp_hal(chipset).ok_or(ENOTSUPP)?;
-        let falcon = Falcon::<FspEngine>::new(dev, chipset)?;
+        let falcon = Falcon::<FspEngine>::new(dev, chipset, bar)?;
+        let fsp_fw = FspFirmware::new(dev, chipset, FIRMWARE_VERSION)?;
 
         read_poll_timeout(
             || Ok(hal.fsp_boot_status(bar)),
@@ -270,20 +262,22 @@ impl Fsp {
     }
 
     /// Sends a message to FSP and waits for the response.
-    fn send_sync_fsp<M>(&mut self, dev: &device::Device, bar: Bar0<'_>, msg: &M) -> Result
+    /// Returns the full response buffer on success.
+    fn send_sync_fsp<M>(&mut self, dev: &device::Device, msg: &M) -> Result<KVec<u8>>
     where
         M: MessageToFsp,
     {
-        self.falcon.send_msg(bar, msg.as_bytes())?;
+        self.falcon.send_msg(msg.as_bytes())?;
 
-        let response_buf = self.falcon.recv_msg(bar).inspect_err(|e| {
+        let response_buf = self.falcon.recv_msg().inspect_err(|e| {
             dev_err!(dev, "FSP response error: {:?}\n", e);
         })?;
 
-        let (response, _) = FspResponse::from_bytes_prefix(&response_buf[..]).ok_or_else(|| {
-            dev_err!(dev, "FSP response too small: {}\n", response_buf.len());
-            EIO
-        })?;
+        let (response, _) =
+            FspResponseHeader::from_bytes_prefix(&response_buf[..]).ok_or_else(|| {
+                dev_err!(dev, "FSP response too small: {}\n", response_buf.len());
+                EIO
+            })?;
 
         let mctp_header = response.header.mctp_header;
         let nvdm_header = response.header.nvdm_header;
@@ -308,7 +302,7 @@ impl Fsp {
             return Err(EIO);
         }
 
-        if command_nvdm_type != u8::from(M::NVDM_TYPE).into() {
+        if command_nvdm_type.try_into_bounded() != Some(M::NVDM_TYPE.into()) {
             dev_err!(
                 dev,
                 "Expected NVDM type {:?} in reply, got {:#x}\n",
@@ -328,7 +322,7 @@ impl Fsp {
             return Err(EIO);
         }
 
-        Ok(())
+        Ok(response_buf)
     }
 
     /// Boots GSP FMC via FSP Chain of Trust.
@@ -338,7 +332,6 @@ impl Fsp {
     pub(crate) fn boot_fmc(
         &mut self,
         dev: &device::Device<device::Bound>,
-        bar: Bar0<'_>,
         fb_layout: &FbLayout,
         args: &FmcBootArgs,
     ) -> Result {
@@ -349,7 +342,7 @@ impl Fsp {
             GFP_KERNEL,
         )?;
 
-        self.send_sync_fsp(dev, bar, &*msg)?;
+        let _response_buf = self.send_sync_fsp(dev, &*msg)?;
 
         dev_dbg!(dev, "FSP Chain of Trust completed successfully\n");
         Ok(())

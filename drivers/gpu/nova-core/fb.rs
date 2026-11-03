@@ -23,11 +23,11 @@ use crate::{
     firmware::gsp::GspFirmware,
     gpu::Chipset,
     gsp,
-    num::FromSafeCast,
-    regs, //
+    num::FromSafeCast, //
 };
 
 mod hal;
+mod regs;
 
 /// Type holding the sysmem flush memory page, a page of memory to be written into the
 /// `NV_PFB_NISO_FLUSH_SYSMEM_ADDR*` registers and used to maintain memory coherency.

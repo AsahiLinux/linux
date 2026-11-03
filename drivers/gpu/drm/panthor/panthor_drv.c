@@ -1782,7 +1782,7 @@ static void panthor_debugfs_init(struct drm_minor *minor)
  */
 static const struct drm_driver panthor_drm_driver = {
 	.driver_features = DRIVER_RENDER | DRIVER_GEM | DRIVER_SYNCOBJ |
-			   DRIVER_SYNCOBJ_TIMELINE | DRIVER_GEM_GPUVA,
+			   DRIVER_SYNCOBJ_TIMELINE,
 	.open = panthor_open,
 	.postclose = panthor_postclose,
 	.show_fdinfo = panthor_show_fdinfo,

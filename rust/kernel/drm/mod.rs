@@ -8,11 +8,16 @@ pub mod file;
 pub mod gem;
 pub mod gpuvm;
 pub mod ioctl;
+pub mod mm;
+pub mod sched;
+pub mod syncobj;
 
 pub use self::device::Device;
 pub use self::device::DeviceContext;
+pub use self::device::Ioctl;
+pub use self::device::Normal;
 pub use self::device::Registered;
-pub use self::device::Uninit;
+pub use self::device::RegistrationGuard;
 pub use self::device::UnregisteredDevice;
 pub use self::driver::Driver;
 pub use self::driver::DriverInfo;

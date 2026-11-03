@@ -4,11 +4,10 @@
 mod gh100;
 mod tu102;
 
-use kernel::prelude::*;
-
 use kernel::{
     device,
-    dma::Coherent, //
+    dma::Coherent,
+    prelude::*, //
 };
 
 use crate::{
@@ -27,6 +26,7 @@ use crate::{
     gsp::{
         boot::BootUnloadGuard,
         Gsp,
+        GspBootContext,
         GspFwWprMeta, //
     },
 };
@@ -42,8 +42,8 @@ pub(super) trait UnloadBundle: Send {
         &self,
         dev: &device::Device<device::Bound>,
         bar: Bar0<'_>,
-        gsp_falcon: &Falcon<GspEngine>,
-        sec2_falcon: &Falcon<Sec2>,
+        gsp_falcon: &Falcon<'_, GspEngine>,
+        sec2_falcon: &Falcon<'_, Sec2>,
     ) -> Result;
 }
 
@@ -53,32 +53,19 @@ pub(super) trait GspHal: Send {
     ///
     /// Upon success, returns a guard that runs the GSP unload sequence if GSP boot does not
     /// complete.
-    #[allow(clippy::too_many_arguments)]
     fn boot<'a>(
         &self,
         gsp: &'a Gsp,
-        dev: &'a device::Device<device::Bound>,
-        bar: Bar0<'a>,
-        chipset: Chipset,
+        ctx: &GspBootContext<'a>,
         fb_layout: &FbLayout,
         wpr_meta: &Coherent<GspFwWprMeta>,
-        gsp_falcon: &'a Falcon<GspEngine>,
-        sec2_falcon: &'a Falcon<Sec2>,
     ) -> Result<BootUnloadGuard<'a>>;
 
     /// Performs HAL-specific post-GSP boot tasks.
     ///
     /// This method is called by the GSP boot code after the GSP is confirmed to be running, and
     /// after the initialization commands have been pushed onto its queue.
-    fn post_boot(
-        &self,
-        _gsp: &Gsp,
-        _dev: &device::Device<device::Bound>,
-        _bar: Bar0<'_>,
-        _gsp_fw: &GspFirmware,
-        _gsp_falcon: &Falcon<GspEngine>,
-        _sec2_falcon: &Falcon<Sec2>,
-    ) -> Result {
+    fn post_boot(&self, _gsp: &Gsp, _ctx: &GspBootContext<'_>, _gsp_fw: &GspFirmware) -> Result {
         Ok(())
     }
 }

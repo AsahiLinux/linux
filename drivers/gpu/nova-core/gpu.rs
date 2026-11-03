@@ -9,7 +9,8 @@ use kernel::{
     io::Io,
     num::Bounded,
     pci,
-    prelude::*, //
+    prelude::*,
+    sizes::SizeConstants, //
 };
 
 use crate::{
@@ -23,7 +24,9 @@ use crate::{
     fb::SysmemFlush,
     gsp::{
         self,
-        Gsp, //
+        commands::GetGspStaticInfoReply,
+        Gsp,
+        GspBootContext, //
     },
     regs,
 };
@@ -262,26 +265,56 @@ impl fmt::Display for Spec {
     }
 }
 
-/// Structure holding the resources required to operate the GPU.
+/// Self-contained resources to operate and drop the GSP.
 #[pin_data(PinnedDrop)]
-pub(crate) struct Gpu<'gpu> {
+struct GspResources<'gpu> {
     /// Device owning the GPU.
     device: &'gpu device::Device<device::Bound>,
-    spec: Spec,
     /// MMIO mapping of PCI BAR 0.
     bar: Bar0<'gpu>,
-    /// System memory page required for flushing all pending GPU-side memory writes done through
-    /// PCIE into system memory, via sysmembar (A GPU-initiated HW memory-barrier operation).
-    sysmem_flush: SysmemFlush<'gpu>,
     /// GSP falcon instance, used for GSP boot up and cleanup.
-    gsp_falcon: Falcon<GspFalcon>,
+    gsp_falcon: Falcon<'gpu, GspFalcon>,
     /// SEC2 falcon instance, used for GSP boot up and cleanup.
-    sec2_falcon: Falcon<Sec2Falcon>,
-    /// GSP runtime data. Temporarily an empty placeholder.
+    sec2_falcon: Falcon<'gpu, Sec2Falcon>,
+    /// GSP runtime data.
     #[pin]
     gsp: Gsp,
     /// GSP unload firmware bundle, if any.
     unload_bundle: Option<gsp::UnloadBundle>,
+}
+
+/// Structure holding the resources required to operate the GPU.
+#[pin_data]
+pub(crate) struct Gpu<'gpu> {
+    spec: Spec,
+    /// Static GPU information as provided by the GSP.
+    gsp_static_info: GetGspStaticInfoReply,
+    /// GSP and its resources.
+    #[pin]
+    gsp_resources: GspResources<'gpu>,
+    /// System memory page required for flushing all pending GPU-side memory writes done through
+    /// PCIE into system memory, via sysmembar (A GPU-initiated HW memory-barrier operation).
+    ///
+    /// Must be kept declared *after* `gsp_resources`, as the latter's `PinnedDrop` implementation
+    /// requires the sysmem flush page to be in place.
+    sysmem_flush: SysmemFlush<'gpu>,
+}
+
+#[pinned_drop]
+impl PinnedDrop for GspResources<'_> {
+    fn drop(self: Pin<&mut Self>) {
+        let this = self.project();
+        let device = *this.device;
+        let bar = *this.bar;
+        let bundle = this.unload_bundle.take();
+
+        let _ = this
+            .gsp
+            .as_ref()
+            .get_ref()
+            .unload(device, bar, &*this.gsp_falcon, &*this.sec2_falcon, bundle)
+            .inspect_err(|e| dev_err!(device, "failed to unload GSP: {:?}\n", e));
+    }
 }
 
 impl<'gpu> Gpu<'gpu> {
@@ -290,7 +323,6 @@ impl<'gpu> Gpu<'gpu> {
         bar: Bar0<'gpu>,
     ) -> impl PinInit<Self, Error> + use<'gpu, 'a> {
         try_pin_init!(Self {
-            device: pdev.as_ref(),
             spec: Spec::new(pdev.as_ref(), bar).inspect(|spec| {
                 dev_info!(pdev,"NVIDIA ({})\n", spec);
             })?,
@@ -308,40 +340,62 @@ impl<'gpu> Gpu<'gpu> {
                     .inspect_err(|_| dev_err!(pdev, "GFW boot did not complete\n"))?;
             },
 
+            // Initialize this early because `gsp_resources` depends on it.
             sysmem_flush: SysmemFlush::register(pdev.as_ref(), bar, spec.chipset)?,
 
-            gsp_falcon: Falcon::new(
-                pdev.as_ref(),
-                spec.chipset,
-            )
-            .inspect(|falcon| falcon.clear_swgen0_intr(bar))?,
+            gsp_resources <- try_pin_init!(GspResources {
+                device: pdev.as_ref(),
 
-            sec2_falcon: Falcon::new(pdev.as_ref(), spec.chipset)?,
+                bar,
 
-            gsp <- Gsp::new(pdev),
+                gsp_falcon: Falcon::new(
+                    pdev.as_ref(),
+                    spec.chipset,
+                    bar
+                )
+                .inspect(|falcon| falcon.clear_swgen0_intr())?,
 
-            // This member must be initialized last, so the `UnloadBundle` can never be dropped from
-            // outside of the constructed `Gpu`, ensuring that the unload sequence is properly run
-            // in case of failure.
-            unload_bundle: gsp.boot(pdev, bar, spec.chipset, gsp_falcon, sec2_falcon)?,
-            bar,
+                sec2_falcon: Falcon::new(pdev.as_ref(), spec.chipset, bar)?,
+
+                gsp <- Gsp::new(pdev),
+
+                // This member must be initialized last, so the `UnloadBundle` can never be dropped
+                // from outside of the constructed `GspResources`, ensuring that the unload sequence
+                // is properly run in case of failure.
+                unload_bundle: gsp.boot(GspBootContext {
+                    pdev,
+                    bar,
+                    chipset: spec.chipset,
+                    gsp_falcon,
+                    sec2_falcon,
+                })?,
+            }),
+
+            gsp_static_info: {
+                // Obtain and display basic GPU information.
+                let info = gsp_resources.gsp.get_static_info(bar)?;
+                match info.gpu_name() {
+                    Ok(name) => dev_info!(pdev, "GPU name: {}\n", name),
+                    Err(e) => dev_warn!(pdev, "GPU name unavailable: {:?}\n", e),
+                }
+
+                if !info.usable_fb_regions.is_empty() {
+                    dev_dbg!(pdev, "Usable FB regions:\n");
+                    for region in &info.usable_fb_regions {
+                        dev_dbg!(pdev, "  - {:#x?}\n", region);
+                    }
+
+                    dev_dbg!(
+                        pdev,
+                        "Total usable VRAM: {} MiB\n",
+                        info.usable_fb_regions.iter().fold(0u64, |res, region| res
+                            .saturating_add(region.end - region.start))
+                            / u64::SZ_1M
+                    );
+                }
+
+                info
+            }
         })
-    }
-}
-
-#[pinned_drop]
-impl PinnedDrop for Gpu<'_> {
-    fn drop(self: Pin<&mut Self>) {
-        let this = self.project();
-        let device = *this.device;
-        let bar = *this.bar;
-        let bundle = this.unload_bundle.take();
-
-        let _ = this
-            .gsp
-            .as_ref()
-            .get_ref()
-            .unload(device, bar, &*this.gsp_falcon, &*this.sec2_falcon, bundle)
-            .inspect_err(|e| dev_err!(device, "failed to unload GSP: {:?}\n", e));
     }
 }

@@ -22,6 +22,7 @@ mod helpers;
 mod kunit;
 mod module;
 mod paste;
+mod versions;
 mod vtable;
 
 use proc_macro::TokenStream;
@@ -139,6 +140,12 @@ pub fn module(input: TokenStream) -> TokenStream {
     module::module(parse_macro_input!(input))
         .unwrap_or_else(|e| e.into_compile_error())
         .into()
+}
+
+/// Declares multiple variants of a structure or impl code
+#[proc_macro_attribute]
+pub fn versions(attr: TokenStream, item: TokenStream) -> TokenStream {
+    versions::versions(attr, item)
 }
 
 /// Declares or implements a vtable trait.

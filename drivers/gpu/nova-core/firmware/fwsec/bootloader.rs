@@ -7,16 +7,12 @@
 //! be loaded using PIO.
 
 use kernel::{
-    alloc::KVec,
     device::{
         self,
         Device, //
     },
     dma::Coherent,
-    io::{
-        register::WithBase, //
-        Io,
-    },
+    io::{register::WithBase, Io},
     prelude::*,
     ptr::{
         Alignable,
@@ -51,7 +47,7 @@ use crate::{
         FIRMWARE_VERSION, //
     },
     gpu::Chipset,
-    num::FromSafeCast,
+    num::FromSafeCast, //
     regs,
 };
 
@@ -279,15 +275,15 @@ impl FwsecFirmwareWithBl {
     pub(crate) fn run(
         &self,
         dev: &Device<device::Bound>,
-        falcon: &Falcon<Gsp>,
+        falcon: &Falcon<'_, Gsp>,
         bar: Bar0<'_>,
     ) -> Result<()> {
         // Reset falcon, load the firmware, and run it.
         falcon
-            .reset(bar)
+            .reset()
             .inspect_err(|e| dev_err!(dev, "Failed to reset GSP falcon: {:?}\n", e))?;
         falcon
-            .pio_load(bar, self)
+            .pio_load(self)
             .inspect_err(|e| dev_err!(dev, "Failed to load FWSEC firmware: {:?}\n", e))?;
 
         // Configure DMA index for the bootloader to fetch the FWSEC firmware from system memory.
@@ -302,7 +298,7 @@ impl FwsecFirmwareWithBl {
         );
 
         let (mbox0, _) = falcon
-            .boot(bar, Some(0), None)
+            .boot(Some(0), None)
             .inspect_err(|e| dev_err!(dev, "Failed to boot FWSEC firmware: {:?}\n", e))?;
         if mbox0 != 0 {
             dev_err!(dev, "FWSEC firmware returned error {}\n", mbox0);

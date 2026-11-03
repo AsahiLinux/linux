@@ -30,5 +30,6 @@ vGPU manager VFIO driver and the nova-drm driver.
    core/todo
    core/vbios
    core/devinit
+   core/fsp
    core/fwsec
    core/falcon

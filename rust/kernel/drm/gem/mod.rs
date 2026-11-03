@@ -6,24 +6,28 @@
 
 use crate::{
     bindings,
+    dma_buf,
     drm::{
         self,
         device::{
             DeviceContext,
-            Registered, //
+            Normal, //
         },
         driver::{
             AllocImpl,
             AllocOps, //
         },
     },
-    error::to_result,
+    error::{
+        from_err_ptr,
+        to_result, //
+    },
     prelude::*,
     sync::aref::{
         ARef,
         AlwaysRefCounted, //
     },
-    types::Opaque,
+    types::Opaque, //
 };
 use core::{
     marker::PhantomData,
@@ -81,11 +85,11 @@ pub type DriverFile<T> = drm::File<<<T as DriverObject>::Driver as drm::Driver>:
 /// A type alias for retrieving the current [`AllocImpl`] for a given [`DriverObject`].
 ///
 /// [`Driver`]: drm::Driver
-pub type DriverAllocImpl<T, Ctx = Registered> =
-    <<T as DriverObject>::Driver as drm::Driver>::Object<Ctx>;
+pub type DriverAllocImpl<T> = <<T as DriverObject>::Driver as drm::Driver>::Object;
 
 /// GEM object functions, which must be implemented by drivers.
-pub trait DriverObject: Sync + Send + Sized {
+#[vtable]
+pub trait DriverObject: Sync + Send + Sized + 'static {
     /// Parent `Driver` for this object.
     type Driver: drm::Driver;
 
@@ -93,11 +97,20 @@ pub trait DriverObject: Sync + Send + Sized {
     type Args;
 
     /// Create a new driver data object for a GEM object of a given size.
-    fn new<Ctx: DeviceContext>(
-        dev: &drm::Device<Self::Driver, Ctx>,
+    fn new(
+        dev: &drm::Device<Self::Driver>,
         size: usize,
         args: Self::Args,
     ) -> impl PinInit<Self, Error>;
+
+    /// Create a new driver data object for a GEM object that is being imported
+    /// from another driver (e.g. via dma-buf).
+    ///
+    /// Imported objects are allocated by the importing helper, which only
+    /// provides the device and size. There is no driver-supplied
+    /// [`DriverObject::Args`], so drivers must initialize the per-object
+    /// state without those arguments.
+    fn create_imported(dev: &drm::Device<Self::Driver>, size: usize) -> impl PinInit<Self, Error>;
 
     /// Open a new handle to an existing object, associated with a File.
     fn open(_obj: &DriverAllocImpl<Self>, _file: &DriverFile<Self>) -> Result {
@@ -106,10 +119,18 @@ pub trait DriverObject: Sync + Send + Sized {
 
     /// Close a handle to an existing object, associated with a File.
     fn close(_obj: &DriverAllocImpl<Self>, _file: &DriverFile<Self>) {}
+
+    /// Optional handle for exporting a gem object.
+    fn export(
+        _obj: &<Self::Driver as drm::Driver>::Object,
+        _flags: u32,
+    ) -> Result<DmaBuf<<Self::Driver as drm::Driver>::Object>> {
+        unimplemented!()
+    }
 }
 
 /// Trait that represents a GEM object subtype
-pub trait IntoGEMObject: Sized + super::private::Sealed + AlwaysRefCounted {
+pub trait IntoGEMObject: Sized + super::private::Sealed {
     /// Returns a reference to the raw `drm_gem_object` structure, which must be valid as long as
     /// this owning object is valid.
     fn as_raw(&self) -> *mut bindings::drm_gem_object;
@@ -118,7 +139,8 @@ pub trait IntoGEMObject: Sized + super::private::Sealed + AlwaysRefCounted {
     ///
     /// # Safety
     ///
-    /// - `self_ptr` must be a valid pointer to `Self`.
+    /// - `self_ptr` must be a valid pointer to the `struct drm_gem_object` embedded in a
+    ///   valid instance of `Self`.
     /// - The caller promises that holding the immutable reference returned by this function does
     ///   not violate rust's data aliasing rules and remains valid throughout the lifetime of `'a`.
     unsafe fn from_raw<'a>(self_ptr: *mut bindings::drm_gem_object) -> &'a Self;
@@ -158,6 +180,21 @@ extern "C" fn close_callback<T: DriverObject>(
     T::close(obj, file);
 }
 
+extern "C" fn export_callback<T: DriverObject>(
+    raw_obj: *mut bindings::drm_gem_object,
+    flags: i32,
+) -> *mut bindings::dma_buf {
+    // SAFETY: `export_callback` is specified in the AllocOps structure for `Object<T>`, ensuring
+    // that `raw_obj` is contained within a `Object<T>`.
+    let obj = unsafe { <<T::Driver as drm::Driver>::Object as IntoGEMObject>::from_raw(raw_obj) };
+
+    match T::export(obj, flags as _) {
+        // DRM takes a hold of the reference
+        Ok(buf) => buf.into_raw(),
+        Err(e) => e.to_ptr(),
+    }
+}
+
 impl<T: DriverObject, Ctx: DeviceContext> IntoGEMObject for Object<T, Ctx> {
     fn as_raw(&self) -> *mut bindings::drm_gem_object {
         self.obj.get()
@@ -178,12 +215,19 @@ pub trait BaseObject: IntoGEMObject {
         unsafe { (*self.as_raw()).size }
     }
 
+    /// Returns whether the object's backing buffer is imported from another
+    /// driver.
+    fn is_imported(&self) -> bool {
+        // SAFETY: `self.as_raw()` is guaranteed to be a pointer to a valid `struct drm_gem_object`.
+        unsafe { bindings::drm_gem_is_imported(self.as_raw()) }
+    }
+
     /// Creates a new handle for the object associated with a given `File`
     /// (or returns an existing one).
     fn create_handle<D, F>(&self, file: &drm::File<F>) -> Result<u32>
     where
         Self: AllocImpl<Driver = D>,
-        D: drm::Driver<Object<Registered> = Self, File = F>,
+        D: drm::Driver<Object = Self, File = F>,
         F: drm::file::DriverFile<Driver = D>,
     {
         let mut handle: u32 = 0;
@@ -197,8 +241,8 @@ pub trait BaseObject: IntoGEMObject {
     /// Looks up an object by its handle for a given `File`.
     fn lookup_handle<D, F>(file: &drm::File<F>, handle: u32) -> Result<ARef<Self>>
     where
-        Self: AllocImpl<Driver = D>,
-        D: drm::Driver<Object<Registered> = Self, File = F>,
+        Self: AllocImpl<Driver = D> + AlwaysRefCounted,
+        D: drm::Driver<Object = Self, File = F>,
         F: drm::file::DriverFile<Driver = D>,
     {
         // SAFETY: The arguments are all valid per the type invariants.
@@ -222,6 +266,28 @@ pub trait BaseObject: IntoGEMObject {
         Ok(unsafe { ARef::from_raw(obj.into()) })
     }
 
+    /// Export a [`DmaBuf`] for this GEM object using the DRM prime helper library.
+    ///
+    /// `flags` should be a set of flags from [`fs::file::flags`](kernel::fs::file::flags).
+    fn prime_export(&self, flags: u32) -> Result<DmaBuf<Self>> {
+        // SAFETY:
+        // - `as_raw()` always returns a valid pointer to a `drm_gem_object`.
+        // - `drm_gem_prime_export()` returns either an error pointer, or a valid pointer to an
+        //   initialized `dma_buf` on success.
+        let dma_ptr =
+            from_err_ptr(unsafe { bindings::drm_gem_prime_export(self.as_raw(), flags as _) })?;
+
+        // SAFETY:
+        // - We checked that dma_ptr is not an error, so it must point to an initialized dma_buf
+        // - We used drm_gem_prime_export(), so `dma_ptr` will remain valid until a call to
+        //   `drm_gem_prime_release()` which we don't call here.
+        let dma_buf = unsafe { dma_buf::DmaBuf::as_ref(dma_ptr) };
+
+        // INVARIANT: We used drm_gem_prime_export() to create this dma_buf, fulfilling the
+        // invariant that this dma_buf came from a GEM object of type `Self`.
+        Ok(DmaBuf(dma_buf.into(), PhantomData))
+    }
+
     /// Creates an mmap offset to map the object from userspace.
     fn create_mmap_offset(&self) -> Result<u64> {
         // SAFETY: The arguments are valid per the type invariant.
@@ -229,6 +295,20 @@ pub trait BaseObject: IntoGEMObject {
 
         // SAFETY: The arguments are valid per the type invariant.
         Ok(unsafe { bindings::drm_vma_node_offset_addr(&raw mut (*self.as_raw()).vma_node) })
+    }
+
+    /// Lock the gpuva lock
+    fn lock_gpuva(&self) {
+        unsafe {
+            bindings::mutex_lock(&raw mut (*self.as_raw()).gpuva.lock);
+        }
+    }
+
+    /// Lock the gpuva lock
+    fn unlock_gpuva(&self) {
+        unsafe {
+            bindings::mutex_unlock(&raw mut (*self.as_raw()).gpuva.lock);
+        }
     }
 }
 
@@ -254,7 +334,7 @@ impl<T: IntoGEMObject> BaseObjectPrivate for T {}
 /// * Any type invariants of `Ctx` apply to the parent DRM device for this GEM object.
 #[repr(C)]
 #[pin_data]
-pub struct Object<T: DriverObject + Send + Sync, Ctx: DeviceContext = Registered> {
+pub struct Object<T: DriverObject + Send + Sync, Ctx: DeviceContext = Normal> {
     obj: Opaque<bindings::drm_gem_object>,
     #[pin]
     data: T,
@@ -267,7 +347,11 @@ impl<T: DriverObject, Ctx: DeviceContext> Object<T, Ctx> {
         open: Some(open_callback::<T>),
         close: Some(close_callback::<T>),
         print_info: None,
-        export: None,
+        export: if T::HAS_EXPORT {
+            Some(export_callback::<T>)
+        } else {
+            None
+        },
         pin: None,
         unpin: None,
         get_sg_table: None,
@@ -279,48 +363,6 @@ impl<T: DriverObject, Ctx: DeviceContext> Object<T, Ctx> {
         evict: None,
         rss: None,
     };
-
-    /// Create a new GEM object.
-    pub fn new(
-        dev: &drm::Device<T::Driver, Ctx>,
-        size: usize,
-        args: T::Args,
-    ) -> Result<ARef<Self>> {
-        let obj: Pin<KBox<Self>> = KBox::pin_init(
-            try_pin_init!(Self {
-                obj: Opaque::new(bindings::drm_gem_object::default()),
-                data <- T::new(dev, size, args),
-                _ctx: PhantomData,
-            }),
-            GFP_KERNEL,
-        )?;
-
-        // SAFETY: `obj.as_raw()` is guaranteed to be valid by the initialization above.
-        unsafe { (*obj.as_raw()).funcs = &Self::OBJECT_FUNCS };
-
-        // INVARIANT: `dev` and the GEM object are in the same state at the moment, and upgrading
-        // the typestate in `dev` will not carry over to the GEM object.
-        if let Err(err) =
-            // SAFETY: The arguments are all valid per the type invariants.
-            to_result(unsafe {
-                bindings::drm_gem_object_init(dev.as_raw(), obj.obj.get(), size)
-            })
-        {
-            // SAFETY: `drm_gem_object_init()` initializes the private GEM object state before
-            // failing, so `drm_gem_private_object_fini()` is the matching cleanup.
-            unsafe { bindings::drm_gem_private_object_fini(obj.obj.get()) };
-            return Err(err);
-        }
-
-        // SAFETY: We will never move out of `Self` as `ARef<Self>` is always treated as pinned.
-        let ptr = KBox::into_raw(unsafe { Pin::into_inner_unchecked(obj) });
-
-        // SAFETY: `ptr` comes from `KBox::into_raw` and hence can't be NULL.
-        let ptr = unsafe { NonNull::new_unchecked(ptr) };
-
-        // SAFETY: We take over the initial reference count from `drm_gem_object_init()`.
-        Ok(unsafe { ARef::from_raw(ptr) })
-    }
 
     /// Returns the `Device` that owns this GEM object.
     pub fn dev(&self) -> &drm::Device<T::Driver, Ctx> {
@@ -356,11 +398,50 @@ impl<T: DriverObject, Ctx: DeviceContext> Object<T, Ctx> {
     }
 }
 
+impl<T: DriverObject> Object<T> {
+    /// Create a new GEM object.
+    pub fn new(dev: &drm::Device<T::Driver>, size: usize, args: T::Args) -> Result<ARef<Self>> {
+        let obj: Pin<KBox<Self>> = KBox::pin_init(
+            try_pin_init!(Self {
+                obj: Opaque::new(bindings::drm_gem_object::default()),
+                data <- T::new(dev, size, args),
+                _ctx: PhantomData,
+            }),
+            GFP_KERNEL,
+        )?;
+
+        // SAFETY: `obj.as_raw()` is guaranteed to be valid by the initialization above.
+        unsafe { (*obj.as_raw()).funcs = &Self::OBJECT_FUNCS };
+
+        // INVARIANT: `dev` and the GEM object are in the same state at the moment, and upgrading
+        // the typestate in `dev` will not carry over to the GEM object.
+        if let Err(err) =
+            // SAFETY: The arguments are all valid per the type invariants.
+            to_result(unsafe {
+                bindings::drm_gem_object_init(dev.as_raw(), obj.obj.get(), size)
+            })
+        {
+            // SAFETY: `drm_gem_object_init()` initializes the private GEM object state before
+            // failing, so `drm_gem_private_object_fini()` is the matching cleanup.
+            unsafe { bindings::drm_gem_private_object_fini(obj.obj.get()) };
+            return Err(err);
+        }
+
+        // SAFETY: We will never move out of `Self` as `ARef<Self>` is always treated as pinned.
+        let ptr = KBox::into_raw(unsafe { Pin::into_inner_unchecked(obj) });
+
+        // SAFETY: `ptr` comes from `KBox::into_raw` and hence can't be NULL.
+        let ptr = unsafe { NonNull::new_unchecked(ptr) };
+
+        // SAFETY: We take over the initial reference count from `drm_gem_object_init()`.
+        Ok(unsafe { ARef::from_raw(ptr) })
+    }
+}
+
 impl_aref_for_gem_obj! {
-    impl<T, C> for Object<T, C>
+    impl<T> for Object<T>
     where
-        T: DriverObject,
-        C: DeviceContext
+        T: DriverObject
 }
 
 impl<T: DriverObject, Ctx: DeviceContext> super::private::Sealed for Object<T, Ctx> {}
@@ -387,8 +468,53 @@ impl<T: DriverObject, Ctx: DeviceContext> AllocImpl for Object<T, Ctx> {
     };
 }
 
+/// A [`dma_buf::DmaBuf`] which has been exported from a GEM object.
+///
+/// The [`dma_buf::DmaBuf`] will be released when this type is dropped.
+///
+/// # Invariants
+///
+/// - `self.0` points to a valid initialized [`dma_buf::DmaBuf`] for the lifetime of this object.
+/// - The GEM object from which this [`dma_buf::DmaBuf`] was exported from is guaranteed to be of
+///   type `T`.
+pub struct DmaBuf<T: IntoGEMObject>(NonNull<dma_buf::DmaBuf>, PhantomData<T>);
+
+impl<T: IntoGEMObject> Deref for DmaBuf<T> {
+    type Target = dma_buf::DmaBuf;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: This pointer is guaranteed to be valid by our type invariants.
+        unsafe { self.0.as_ref() }
+    }
+}
+
+impl<T: IntoGEMObject> Drop for DmaBuf<T> {
+    #[inline]
+    fn drop(&mut self) {
+        // SAFETY:
+        // - `dma_buf::DmaBuf` is guaranteed to have an identical layout to `struct dma_buf`
+        //   by its type invariants.
+        // - We hold the last reference to this `DmaBuf`, making it safe to destroy.
+        unsafe { bindings::drm_gem_dmabuf_release(self.0.cast().as_ptr()) }
+    }
+}
+
+impl<T: IntoGEMObject> DmaBuf<T> {
+    /// Leak the reference for this [`DmaBuf`] and return a raw pointer to it.
+    #[inline]
+    pub(crate) fn into_raw(self) -> *mut bindings::dma_buf {
+        let dma_ptr = self.as_raw();
+
+        core::mem::forget(self);
+        dma_ptr
+    }
+}
+
 pub(super) const fn create_fops() -> bindings::file_operations {
-    let mut fops: bindings::file_operations = pin_init::zeroed();
+    // SAFETY: As by the type invariant, it is safe to initialize `bindings::file_operations`
+    // zeroed.
+    let mut fops: bindings::file_operations = unsafe { core::mem::zeroed() };
 
     fops.owner = core::ptr::null_mut();
     fops.open = Some(bindings::drm_open);

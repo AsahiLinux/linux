@@ -48,17 +48,12 @@ pub(crate) fn read_u64_no_tearing(lo_read: impl Fn() -> u32, hi_read: impl Fn() 
 /// These registers correspond to the GPU_CONTROL register page.
 /// They are involved in GPU configuration and control.
 pub(crate) mod gpu_control {
-    use core::convert::TryFrom;
     use kernel::{
-        error::{
-            code::EINVAL,
-            Error, //
-        },
         num::Bounded,
+        prelude::*,
         register,
         uapi, //
     };
-    use pin_init::Zeroable;
 
     register! {
         /// GPU identification register.
@@ -964,14 +959,9 @@ pub(crate) mod mmu_control {
     ///
     /// This array contains 16 instances of the MMU_AS_CONTROL register page.
     pub(crate) mod mmu_as_control {
-        use core::convert::TryFrom;
-
         use kernel::{
-            error::{
-                code::EINVAL,
-                Error, //
-            },
             num::Bounded,
+            prelude::*,
             register, //
         };
 

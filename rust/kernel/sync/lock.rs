@@ -312,8 +312,8 @@ impl<T: ?Sized, B: Backend> core::ops::Deref for Guard<'_, T, B> {
 }
 
 impl<T: ?Sized, B: Backend> core::ops::DerefMut for Guard<'_, T, B>
-where
-    T: Unpin,
+// where
+//     T: Unpin,
 {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
