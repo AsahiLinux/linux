@@ -13,7 +13,8 @@ if SPMI
 
 config SPMI_APPLE
 	tristate "Apple SoC SPMI Controller platform driver"
-	depends on ARCH_APPLE || COMPILE_TEST
+	select IRQ_DOMAIN_HIERARCHY
+	depends on ARCH_APPLE || (COMPILE_TEST && 64BIT)
 	help
 	  If you say yes to this option, support will be included for the
 	  SPMI controller present on many Apple SoCs, including the

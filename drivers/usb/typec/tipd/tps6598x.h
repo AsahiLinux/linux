@@ -8,6 +8,10 @@
 
 #include <linux/bits.h>
 #include <linux/bitfield.h>
+#include <linux/interrupt.h>
+#include <linux/power_supply.h>
+#include <linux/usb/typec.h>
+#include <linux/usb/typec_mux.h>
 
 #ifndef __TPS6598X_H__
 #define __TPS6598X_H__
@@ -268,5 +272,132 @@
 /* Int Event Register length */
 #define TPS_65981_2_6_INTEVENT_LEN             8
 #define TPS_65987_8_INTEVENT_LEN               11
+
+enum tipd_hw_variant {
+	TIPD_VARIANT_INVALID = 0,
+	TIPD_VARIANT_CD321X,
+	TIPD_VARIANT_TPS6598X,
+	TIPD_VARIANT_TPS25750,
+	TIPD_VARIANT_SN201202X,
+	TIPD_VARIANT_MAX,
+};
+
+struct tps6598x;
+
+struct tipd_data {
+	irq_handler_t irq_handler;
+	u64 irq_mask1;
+	size_t tps_struct_size;
+	void (*remove)(struct tps6598x *tps);
+	int (*register_port)(struct tps6598x *tps, struct fwnode_handle *node);
+	void (*unregister_port)(struct tps6598x *tps);
+	void (*trace_data_status)(u32 status);
+	void (*trace_power_status)(u16 status);
+	void (*trace_status)(u32 status);
+	int (*apply_patch)(struct tps6598x *tps);
+	int (*init)(struct tps6598x *tps);
+	int (*switch_power_state)(struct tps6598x *tps, u8 target_state);
+	bool (*read_data_status)(struct tps6598x *tps);
+	int (*reset)(struct tps6598x *tps);
+	int (*connect)(struct tps6598x *tps, u32 status);
+};
+
+struct tps6598x {
+	struct device *dev;
+	struct regmap *regmap;
+	struct mutex lock; /* device lock */
+	int irq;
+	u8 i2c_protocol:1;
+
+	struct gpio_desc *reset;
+	struct typec_port *port;
+	struct typec_partner *partner;
+	struct usb_pd_identity partner_identity;
+	struct usb_role_switch *role_sw;
+	struct typec_capability typec_cap;
+
+	struct power_supply *psy;
+	struct power_supply_desc psy_desc;
+	enum power_supply_usb_type usb_type;
+
+	int wakeup;
+	u32 status; /* status reg */
+	u32 data_status;
+	u16 pwr_status;
+	struct delayed_work	wq_poll;
+
+	const struct tipd_data *data;
+};
+
+/* TPS_REG_USB4_STATUS */
+struct tps6598x_usb4_status_reg {
+	u8 mode_status;
+	__le32 eudo;
+	__le32 unknown;
+} __packed;
+
+/* TPS_REG_DP_SID_STATUS */
+struct tps6598x_dp_sid_status_reg {
+	u8 mode_status;
+	__le32 status_tx;
+	__le32 status_rx;
+	__le32 configure;
+	__le32 mode_data;
+} __packed;
+
+/* TPS_REG_INTEL_VID_STATUS */
+struct tps6598x_intel_vid_status_reg {
+	u8 mode_status;
+	__le32 attention_vdo;
+	__le16 enter_vdo;
+	__le16 device_mode;
+} __packed;
+
+struct cd321x_status {
+	u32 status;
+	u32 pwr_status;
+	u32 data_status;
+	u32 status_changed;
+	struct usb_pd_identity partner_identity;
+	struct tps6598x_dp_sid_status_reg dp_sid_status;
+	struct tps6598x_intel_vid_status_reg intel_vid_status;
+	struct tps6598x_usb4_status_reg usb4_status;
+};
+
+struct cd321x {
+	struct tps6598x tps;
+
+	struct tps6598x_dp_sid_status_reg dp_sid_status;
+	struct tps6598x_intel_vid_status_reg intel_vid_status;
+	struct tps6598x_usb4_status_reg usb4_status;
+
+	struct typec_altmode *port_altmode_dp;
+	struct typec_altmode *port_altmode_tbt;
+
+	struct typec_mux *mux;
+	struct typec_mux_state state;
+
+	struct typec_thunderbolt_switch *tbt_switch;
+
+	struct cd321x_status update_status;
+	struct delayed_work update_work;
+	struct usb_pd_identity cur_partner_identity;
+};
+
+struct sn201202x {
+	struct cd321x cd;
+	struct completion select_completion;
+	struct completion sleep_completion;
+	struct completion wake_completion;
+	struct spmi_device *sdev;
+};
+
+extern const struct tipd_data *tipd_hw_variants[];
+extern const struct regmap_config tps6598x_regmap_config;
+
+int tipd_init(struct tps6598x *tps);
+void tipd_remove(struct tps6598x *tps);
+int tipd_suspend(struct tps6598x *tps);
+int tipd_resume(struct tps6598x *tps);
 
 #endif /* __TPS6598X_H__ */

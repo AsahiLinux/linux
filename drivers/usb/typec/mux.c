@@ -494,6 +494,207 @@ void *typec_mux_get_drvdata(struct typec_mux_dev *mux_dev)
 }
 EXPORT_SYMBOL_GPL(typec_mux_get_drvdata);
 
+/* ------------------------------------------------------------------------- */
+
+struct typec_thunderbolt_switch {
+	struct typec_thunderbolt_switch_dev *sw_dev;
+};
+
+static int thunderbolt_switch_fwnode_match(struct device *dev,
+					   const void *fwnode)
+{
+	if (!is_typec_thunderbolt_switch_dev(dev))
+		return 0;
+
+	return device_match_fwnode(dev, fwnode);
+}
+
+static void *typec_thunderbolt_switch_match(const struct fwnode_handle *fwnode,
+					    const char *id, void *data)
+{
+	struct device *dev;
+
+	if (id && !fwnode_property_present(fwnode, id))
+		return NULL;
+
+	dev = class_find_device(&typec_mux_class, NULL, fwnode,
+				thunderbolt_switch_fwnode_match);
+
+	return dev ? to_typec_thunderbolt_switch_dev(dev) :
+		     ERR_PTR(-EPROBE_DEFER);
+}
+
+/**
+ * fwnode_typec_thunderbolt_switch_get - Find USB4/Thunderbolt switch
+ * @fwnode: The caller device node
+ *
+ * Finds a USB4/Thunderbolt switch linked with @fwnode. Returns a
+ * reference to the switch on success, NULL if no matching connection
+ * was found, or ERR_PTR(-EPROBE_DEFER) when a connection was found but
+ * the switch has not been enumerated yet.
+ */
+struct typec_thunderbolt_switch *
+fwnode_typec_thunderbolt_switch_get(struct fwnode_handle *fwnode)
+{
+	struct typec_thunderbolt_switch_dev *sw_dev;
+	struct typec_thunderbolt_switch *sw;
+	void *match;
+
+	match = fwnode_connection_find_match(fwnode, "thunderbolt-switch", NULL,
+					     typec_thunderbolt_switch_match);
+	if (!match)
+		return NULL;
+	if (IS_ERR(match))
+		return ERR_CAST(match);
+	sw_dev = match;
+
+	sw = kzalloc_obj(*sw);
+	if (!sw) {
+		put_device(&sw_dev->dev);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	sw->sw_dev = sw_dev;
+	WARN_ON(!try_module_get(sw_dev->dev.parent->driver->owner));
+
+	return sw;
+}
+EXPORT_SYMBOL_GPL(fwnode_typec_thunderbolt_switch_get);
+
+/**
+ * typec_thunderbolt_switch_put - Release handle to USB4/Thunderbolt switch
+ * @sw: USB4/Thunderbolt switch
+ *
+ * Decrements the reference count of @sw and releases the handle.
+ */
+void typec_thunderbolt_switch_put(struct typec_thunderbolt_switch *sw)
+{
+	if (IS_ERR_OR_NULL(sw))
+		return;
+
+	module_put(sw->sw_dev->dev.parent->driver->owner);
+	put_device(&sw->sw_dev->dev);
+	kfree(sw);
+}
+EXPORT_SYMBOL_GPL(typec_thunderbolt_switch_put);
+
+/**
+ * typec_thunderbolt_switch_set - Forward cable details to USB4/Thunderbolt switch
+ * @sw: USB4/Thunderbolt switch
+ * @data: Cable state and details
+ *
+ * Called by the Type-C port driver to forward the cable details
+ * out-of-band to the switch handler whenever a USB4/Thunderbolt
+ * connection comes up or goes away.
+ */
+int typec_thunderbolt_switch_set(struct typec_thunderbolt_switch *sw,
+				 const struct typec_thunderbolt_switch_data *data)
+{
+	if (IS_ERR_OR_NULL(sw))
+		return 0;
+
+	return sw->sw_dev->set(sw->sw_dev, data);
+}
+EXPORT_SYMBOL_GPL(typec_thunderbolt_switch_set);
+
+static void typec_thunderbolt_switch_release(struct device *dev)
+{
+	kfree(to_typec_thunderbolt_switch_dev(dev));
+}
+
+const struct device_type typec_thunderbolt_switch_dev_type = {
+	.name = "thunderbolt_switch",
+	.release = typec_thunderbolt_switch_release,
+};
+
+/**
+ * typec_thunderbolt_switch_register - Register USB4/Thunderbolt switch
+ * @parent: Parent device
+ * @desc: USB4/Thunderbolt switch description
+ *
+ * This function registers a handler for USB4/Thunderbolt mode switching
+ * which Type-C port drivers use to forward the cable details once a
+ * USB4/Thunderbolt connection comes up.
+ */
+struct typec_thunderbolt_switch_dev *
+typec_thunderbolt_switch_register(struct device *parent,
+				  const struct typec_thunderbolt_switch_desc *desc)
+{
+	struct typec_thunderbolt_switch_dev *sw_dev;
+	int ret;
+
+	if (!desc || !desc->set)
+		return ERR_PTR(-EINVAL);
+
+	sw_dev = kzalloc_obj(*sw_dev);
+	if (!sw_dev)
+		return ERR_PTR(-ENOMEM);
+
+	sw_dev->set = desc->set;
+
+	device_initialize(&sw_dev->dev);
+	sw_dev->dev.parent = parent;
+	sw_dev->dev.fwnode = desc->fwnode;
+	sw_dev->dev.class = &typec_mux_class;
+	sw_dev->dev.type = &typec_thunderbolt_switch_dev_type;
+	sw_dev->dev.driver_data = desc->drvdata;
+	ret = dev_set_name(&sw_dev->dev, "%s-thunderbolt-switch",
+			   desc->name ? desc->name : dev_name(parent));
+	if (ret) {
+		put_device(&sw_dev->dev);
+		return ERR_PTR(ret);
+	}
+
+	ret = device_add(&sw_dev->dev);
+	if (ret) {
+		dev_err(parent, "failed to register switch (%d)\n", ret);
+		put_device(&sw_dev->dev);
+		return ERR_PTR(ret);
+	}
+
+	return sw_dev;
+}
+EXPORT_SYMBOL_GPL(typec_thunderbolt_switch_register);
+
+/**
+ * typec_thunderbolt_switch_unregister - Unregister USB4/Thunderbolt switch
+ * @sw_dev: USB4/Thunderbolt switch
+ *
+ * Unregister switch that was registered with
+ * typec_thunderbolt_switch_register().
+ */
+void typec_thunderbolt_switch_unregister(struct typec_thunderbolt_switch_dev *sw_dev)
+{
+	if (!IS_ERR_OR_NULL(sw_dev))
+		device_unregister(&sw_dev->dev);
+}
+EXPORT_SYMBOL_GPL(typec_thunderbolt_switch_unregister);
+
+/**
+ * typec_thunderbolt_switch_set_drvdata - Assign private data to the switch
+ * @sw_dev: USB4/Thunderbolt switch
+ * @data: Private data
+ */
+void typec_thunderbolt_switch_set_drvdata(struct typec_thunderbolt_switch_dev *sw_dev,
+					  void *data)
+{
+	dev_set_drvdata(&sw_dev->dev, data);
+}
+EXPORT_SYMBOL_GPL(typec_thunderbolt_switch_set_drvdata);
+
+/**
+ * typec_thunderbolt_switch_get_drvdata - Get the private data from the switch
+ * @sw_dev: USB4/Thunderbolt switch
+ *
+ * Returns the private data previously assigned with
+ * typec_thunderbolt_switch_set_drvdata().
+ */
+void *typec_thunderbolt_switch_get_drvdata(struct typec_thunderbolt_switch_dev *sw_dev)
+{
+	return dev_get_drvdata(&sw_dev->dev);
+}
+EXPORT_SYMBOL_GPL(typec_thunderbolt_switch_get_drvdata);
+
 const struct class typec_mux_class = {
 	.name = "typec_mux",
 };
