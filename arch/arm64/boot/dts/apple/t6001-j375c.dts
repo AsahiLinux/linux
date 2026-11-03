@@ -24,3 +24,39 @@
 &bluetooth0 {
 	brcm,board-type = "apple,okinawa";
 };
+
+&dpaudio0 {
+	status = "okay";
+};
+
+&sound {
+	compatible = "apple,j375-macaudio", "apple,macaudio";
+	model = "Mac Studio J375";
+};
+
+&pinctrl_ap {
+	usb_hub_oe-hog {
+		gpio-hog;
+		gpios = <230 0>;
+		input;
+		line-name = "usb-hub-oe";
+	};
+
+	usb_hub_rst-hog {
+		gpio-hog;
+		gpios = <231 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "usb-hub-rst";
+	};
+};
+
+&gpu {
+	apple,avg-power-ki-only = <0.6375>;
+	apple,avg-power-kp = <0.58>;
+	apple,avg-power-target-filter-tc = <1>;
+	apple,perf-base-pstate = <3>;
+	apple,ppm-ki = <5.8>;
+	apple,ppm-kp = <0.355>;
+};
+
+#include "hwmon-fan-dual.dtsi"

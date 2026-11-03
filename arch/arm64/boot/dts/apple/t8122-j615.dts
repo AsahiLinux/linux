@@ -10,6 +10,7 @@
 /dts-v1/;
 
 #include "t8122.dtsi"
+#include "t8122-usbpd-spmi.dtsi"
 #include "t8122-jxxx.dtsi"
 #include <dt-bindings/leds/common.h>
 
@@ -30,6 +31,206 @@
 	};
 };
 
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j615", "apple,panel";
+		width-mm = <327>;
+		height-mm = <211>;
+		adj-height-mm = <204>;
+		apple,max-brightness = <500>;
+	};
+};
+
+&aop_mbox {
+	status = "okay";
+};
+
+&aop_dart {
+	status = "okay";
+};
+
+&aop_admac {
+	status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
+&aop_audio {
+	apple,chassis-name = "J615";
+	apple,machine-kind = "MacBook Air";
+};
+
+&wifi0 {
+	brcm,board-type = "apple,tuzla";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,tuzla";
+};
+
+&i2c1 {
+	speaker_left_woof1: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Woofer 1";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+	};
+
+	speaker_left_tweet: codec@39 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x39>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Tweeter";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <8>;
+		ti,vmon-slot-no = <10>;
+	};
+
+	speaker_left_woof2: codec@3a {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3a>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left Woofer 2";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <16>;
+		ti,vmon-slot-no = <18>;
+	};
+};
+
+&i2c3 {
+	speaker_right_woof1: codec@3b {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3b>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Woofer 1";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
+	};
+
+	speaker_right_tweet: codec@3c {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3c>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Tweeter";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <12>;
+		ti,vmon-slot-no = <14>;
+	};
+
+	speaker_right_woof2: codec@3d {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x3d>;
+		shutdown-gpios = <&pinctrl_ap 13 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right Woofer 2";
+		interrupts-extended = <&pinctrl_ap 12 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <20>;
+		ti,vmon-slot-no = <22>;
+	};
+
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 17 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupts-extended = <&pinctrl_ap 173 IRQ_TYPE_LEVEL_LOW>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+/ {
+	sound {
+		compatible = "apple,j615-macaudio", "apple,j415-macaudio", "apple,macaudio";
+		model = "MacBook Air J615";
+
+		dai-link@0 {
+			link-name = "Speakers";
+			dai-tdm-idle-mode-0 = "zero";
+			dai-tdm-idle-mode-3 = "zero";
+			dai-tdm-slot-tx-idle-mask-0 = <0x0f0f0f>;
+			dai-tdm-slot-tx-idle-mask-3 = <0xf0f0f0>;
+
+			cpu {
+				sound-dai = <&mca 0>, <&mca 1>;
+			};
+			codec {
+				sound-dai = <&speaker_left_woof1>, <&speaker_left_tweet>, <&speaker_left_woof2>,
+					    <&speaker_right_woof1>, <&speaker_right_tweet>, <&speaker_right_woof2>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
 &fpwm1 {
 	status = "okay";
 };
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	apple,afe-reset-gpios = <&smc_gpio 8 GPIO_ACTIVE_LOW>;
+	apple,stm-reset-gpios = <&smc_gpio 24 GPIO_ACTIVE_LOW>;
+
+	multi-touch {
+		firmware-name = "apple/tpmtfw-j615.bin";
+	};
+
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+
+	actuator {
+	};
+
+	tp_accel {
+	};
+};
+
+#include "isp-imx558-cfg0.dtsi"
+
+&isp {
+	apple,platform-id = <18>;
+	apple,temporal-filter = <1>;
+};
+
+#include "hwmon-laptop.dtsi"

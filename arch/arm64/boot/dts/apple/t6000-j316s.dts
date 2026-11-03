@@ -24,3 +24,20 @@
 &bluetooth0 {
 	brcm,board-type = "apple,madagascar";
 };
+
+&panel {
+	compatible = "apple,panel-j316", "apple,panel-mini-led", "apple,panel";
+	width-mm = <346>;
+	height-mm = <223>;
+	adj-height-mm = <216>;
+};
+
+&aop_audio {
+	apple,chassis-name = "J316";
+	apple,machine-kind = "MacBook Pro";
+};
+
+&sound {
+	compatible = "apple,j316-macaudio", "apple,macaudio";
+	model = "MacBook Pro J316";
+};

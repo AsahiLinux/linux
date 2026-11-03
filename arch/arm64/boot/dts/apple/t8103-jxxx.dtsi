@@ -12,11 +12,24 @@
 / {
 	aliases {
 		bluetooth0 = &bluetooth0;
+		dcp = &dcp;
+		disp0 = &display;
+		disp0_piodma = &disp0_piodma;
+		disp0-piodma = &disp0_piodma;
 		serial0 = &serial0;
 		serial2 = &serial2;
 		wifi0 = &wifi0;
 		atcphy0 = &atcphy0;
 		atcphy1 = &atcphy1;
+		usb4-0-acio = &usb4_0_acio;
+		usb4-0-nhi = &usb4_0_nhi;
+		usb4-1-acio = &usb4_1_acio;
+		usb4-1-nhi = &usb4_1_nhi;
+
+		usb4_0_rc = &usb4_0_acio;
+		usb4_0_nhi = &usb4_0_nhi;
+		usb4_1_rc = &usb4_1_acio;
+		usb4_1_nhi = &usb4_1_nhi;
 	};
 
 	chosen {
@@ -29,9 +42,17 @@
 		framebuffer0: framebuffer@0 {
 			compatible = "apple,simple-framebuffer", "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
+			power-domains = <&ps_disp0_cpu0>;
 			/* Format properties will be added by loader */
 			status = "disabled";
 		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		/* To be filled by loader */
 	};
 
 	memory@800000000 {
@@ -76,6 +97,13 @@
 						remote-endpoint = <&atcphy0_typec_lanes>;
 					};
 				};
+
+				port@2 {
+					reg = <2>;
+					typec0_con_tbt: endpoint {
+						remote-endpoint = <&usb4_0_acio_tbt>;
+					};
+				};
 			};
 		};
 	};
@@ -105,6 +133,13 @@
 					reg = <1>;
 					typec1_connector_ss: endpoint {
 						remote-endpoint = <&atcphy1_typec_lanes>;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+					typec1_con_tbt: endpoint {
+						remote-endpoint = <&usb4_1_acio_tbt>;
 					};
 				};
 			};
@@ -198,6 +233,49 @@
 	};
 };
 
+/* USB4 */
+&usb4_0_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_0_acio_tbt: endpoint {
+				remote-endpoint = <&typec0_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_1_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_1_acio_tbt: endpoint {
+				remote-endpoint = <&typec1_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
 /*
  * Force the bus number assignments so that we can declare some of the
  * on-board devices and properties that are populated by the bootloader
@@ -205,6 +283,7 @@
  */
 &port00 {
 	bus-range = <1 1>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
 	wifi0: wifi@0,0 {
 		compatible = "pci14e4,4425";
 		reg = <0x10000 0x0 0x0 0x0 0x0>;

@@ -78,4 +78,8 @@
 				<APPLE_PINMUX(2, 1)>,
 				<APPLE_PINMUX(3, 1)>;
 	};
+
+	pcie_ge_pins: pcie-ge-pins {
+		pinmux = <APPLE_PINMUX(8, 1)>;
+	};
 };

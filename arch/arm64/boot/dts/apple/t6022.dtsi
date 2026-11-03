@@ -16,6 +16,13 @@
 
 #include "multi-die-cpp.h"
 
+#ifndef GPU_REPEAT
+# define GPU_REPEAT(x) <x x x x x x x x>
+#endif
+#ifndef GPU_DIE_REPEAT
+# define GPU_DIE_REPEAT(x) <x x>
+#endif
+
 #include "t602x-common.dtsi"
 
 / {
@@ -294,32 +301,30 @@
 
 #define DIE
 #define DIE_NO 0
+#define SOC_NODE die0
 
-&die0 {
-	#include "t602x-die0.dtsi"
-	#include "t602x-dieX.dtsi"
-};
-
+#include "t602x-die0.dtsi"
+#include "t602x-dieX.dtsi"
 #include "t602x-pmgr.dtsi"
 #include "t602x-gpio-pins.dtsi"
 
 #undef DIE
 #undef DIE_NO
+#undef SOC_NODE
 
 #define DIE _die1
 #define DIE_NO 1
+#define SOC_NODE die1
 
-&die1 {
-	#include "t602x-dieX.dtsi"
-	#include "t602x-nvme.dtsi"
-};
-
+#include "t602x-dieX.dtsi"
+#include "t602x-nvme.dtsi"
 #include "t602x-pmgr.dtsi"
 
 /delete-node/ &ps_pmp_die1;
 
 #undef DIE
 #undef DIE_NO
+#undef SOC_NODE
 
 &aic {
 	affinities {
@@ -339,11 +344,60 @@
 	};
 };
 
+&dcpext0_die1 {
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x1240>;
+};
+
+&dcpext1_die1 {
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x1248>;
+};
+
 &ps_gfx {
 	// On t6022, the die0 GPU power domain needs both AFR power domains
 	power-domains = <&ps_afr>, <&ps_afr_die1>;
 };
 
-&gpu {
-	compatible = "apple,agx-g14d", "apple,agx-g14s";
+&pmp_report {
+	pmp_report_dispext0_die1: report@1f {
+		compatible = "apple,t6020-pmp-v2-report-entry",
+			"apple,t6000-pmp-v2-report-entry";
+		reg = <0x1f>;
+		label = "pmp-dispext0_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext0_cpu0_die1>;
+	};
+
+	pmp_report_dispext1_die1: report@20 {
+		compatible = "apple,t6020-pmp-v2-report-entry",
+			"apple,t6000-pmp-v2-report-entry";
+		reg = <0x20>;
+		label = "pmp-dispext1_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+	};
 };
+
+&gpu {
+	compatible = "apple,agx-t6022", "apple,agx-g14x", "apple,agx-g14d", "apple,agx-g14s";
+
+	apple,avg-power-filter-tc-ms = <302>;
+	apple,avg-power-ki-only = <1.0125>;
+	apple,avg-power-kp = <0.15>;
+	apple,fast-die0-integral-gain = <9.6>;
+	apple,fast-die0-proportional-gain = <24.0>;
+	apple,idleoff-standby-timer = <3000>;
+	apple,perf-base-pstate = <5>;
+	apple,perf-boost-ce-step = <100>;
+	apple,perf-boost-min-util = <75>;
+	apple,perf-tgt-utilization = <70>;
+	apple,ppm-ki = <11.0>;
+	apple,ppm-kp = <0.15>;
+};
+
+&pinctrl_ap_die1 {
+	pcie_ge_pins_die1: pcie-ge1-pins {
+		pinmux = <APPLE_PINMUX(8, 1)>;
+	};
+};
+
+#include "hwmon-common.dtsi"

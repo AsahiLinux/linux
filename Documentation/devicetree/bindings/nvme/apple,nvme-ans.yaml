@@ -14,7 +14,9 @@ properties:
     oneOf:
       - const: apple,t8015-nvme-ans2
       - items:
-          - const: apple,t6020-nvme-ans2
+          - enum:
+              - apple,t6020-nvme-ans2
+              - apple,t8122-nvme-ans2
           - const: apple,t8103-nvme-ans2
       - items:
           - enum:

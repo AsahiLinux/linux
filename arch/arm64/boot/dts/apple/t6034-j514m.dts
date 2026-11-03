@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (14-inch, M3 Max, 14 CPU cores, Nov 2023)
+ *
+ * target-type: J514m
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6034.dtsi"
+#include "t603x-j514-j516.dtsi"
+
+/ {
+	compatible = "apple,j514m", "apple,t6034", "apple,arm-platform";
+	model = "Apple MacBook Pro (14-inch, M3 Max, 14 CPU cores, Nov 2023)";
+};
+
+&panel {
+	compatible = "apple,panel-j514m", "apple,panel-mini-led", "apple,panel";
+	width-mm = <302>;
+	height-mm = <196>;
+	adj-height-mm = <189>;
+};
+
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j514m.bin";
+};
+
+&wifi0 {
+	brcm,board-type = "apple,texa";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,texa";
+};
+
+&aop_audio {
+	apple,chassis-name = "J514";
+	apple,machine-kind = "MacBook Pro";
+};
+
+&sound {
+	compatible = "apple,j514-macaudio", "apple,j314-macaudio", "apple,macaudio";
+	model = "MacBook Pro J514";
+};

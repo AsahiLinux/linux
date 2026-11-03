@@ -17,3 +17,83 @@
 	compatible = "apple,j434", "apple,t8122", "apple,arm-platform";
 	model = "Apple iMac (24-inch, 4x USB-C, M3, 2023)";
 };
+
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j434", "apple,panel";
+		width-mm = <522>;
+		height-mm = <294>;
+		apple,max-brightness = <525>;
+	};
+};
+
+&wifi0 {
+	brcm,board-type = "apple,iona";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,iona";
+};
+
+&port01 {
+	bus-range = <2 2>;
+	status = "okay";
+	ethernet0: ethernet@0,0 {
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 00];
+	};
+};
+
+&port02 {
+	bus-range = <3 3>;
+	pwren-gpios = <&smc_gpio 14 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&pcie1_dart {
+	status = "okay";
+};
+
+&pcie2_dart {
+	status = "okay";
+};
+
+&i2c1 {
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 17 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <173 IRQ_TYPE_LEVEL_LOW>;
+		#sound-dai-cells = <0>;
+		cirrus,ts-inv = <1>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+/ {
+	sound {
+		compatible = "apple,j434-macaudio", "apple,macaudio";
+		model = "iMac J434";
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
+#include "isp-imx364.dtsi"
+
+&isp {
+	apple,platform-id = <10>;
+};
+
+#include "hwmon-fan-dual.dtsi"

@@ -18,7 +18,25 @@
 	aliases {
 		atcphy4 = &atcphy0_die1;
 		atcphy5 = &atcphy1_die1;
+		usb4-4-acio = &usb4_0_acio_die1;
+		usb4-4-nhi = &usb4_0_nhi_die1;
+		usb4-5-acio = &usb4_1_acio_die1;
+		usb4-5-nhi = &usb4_1_nhi_die1;
+
+		usb4_4_rc = &usb4_0_acio_die1;
+		usb4_4_nhi = &usb4_0_nhi_die1;
+		usb4_5_rc = &usb4_1_acio_die1;
+		usb4_5_nhi = &usb4_1_nhi_die1;
 	};
+};
+
+&dpaudio0 {
+	status = "okay";
+};
+
+&sound {
+	compatible = "apple,j375-macaudio", "apple,macaudio";
+	model = "Mac Studio J375";
 };
 
 /* USB Type C */
@@ -52,6 +70,13 @@
 						remote-endpoint = <&atcphy4_typec_lanes>;
 					};
 				};
+
+				port@2 {
+					reg = <2>;
+					typec4_con_tbt: endpoint {
+						remote-endpoint = <&usb4_4_acio_tbt>;
+					};
+				};
 			};
 		};
 	};
@@ -83,6 +108,13 @@
 					reg = <1>;
 					typec5_connector_ss: endpoint {
 						remote-endpoint = <&atcphy5_typec_lanes>;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+					typec5_con_tbt: endpoint {
+						remote-endpoint = <&usb4_5_acio_tbt>;
 					};
 				};
 			};
@@ -184,17 +216,68 @@
 	};
 };
 
+/* USB4 on die 1 */
+&usb4_0_acio_die1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_4_acio_tbt: endpoint {
+				remote-endpoint = <&typec4_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_1_acio_die1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_5_acio_tbt: endpoint {
+				remote-endpoint = <&typec5_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
 /* delete unused USB nodes on die 1 */
+
+/delete-node/ &usb4_2_acio_die1;
+/delete-node/ &usb4_2_mbox_die1;
+
+/delete-node/ &usb4_3_acio_die1;
+/delete-node/ &usb4_3_mbox_die1;
 
 /delete-node/ &dwc3_2_dart_0_die1;
 /delete-node/ &dwc3_2_dart_1_die1;
 /delete-node/ &dwc3_2_die1;
 /delete-node/ &atcphy2_die1;
+/delete-node/ &atcphy2_xbar_die1;
 
 /delete-node/ &dwc3_3_dart_0_die1;
 /delete-node/ &dwc3_3_dart_1_die1;
 /delete-node/ &dwc3_3_die1;
 /delete-node/ &atcphy3_die1;
+/delete-node/ &atcphy3_xbar_die1;
 
 /* delete unused always-on power-domains on die 1 */
 
@@ -206,3 +289,14 @@
 
 /delete-node/ &ps_disp0_cpu0_die1;
 /delete-node/ &ps_disp0_fe_die1;
+
+&gpu {
+	apple,avg-power-ki-only = <0.6375>;
+	apple,avg-power-kp = <0.58>;
+	apple,avg-power-target-filter-tc = <1>;
+	apple,perf-base-pstate = <3>;
+	apple,ppm-ki = <5.8>;
+	apple,ppm-kp = <0.355>;
+};
+
+#include "hwmon-fan-dual.dtsi"

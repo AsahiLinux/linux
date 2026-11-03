@@ -16,6 +16,10 @@
 
 #include "multi-die-cpp.h"
 
+#ifndef GPU_REPEAT
+# define GPU_REPEAT(x) <x x x x x x x x>
+#endif
+
 #include "t600x-common.dtsi"
 
 / {
@@ -236,6 +240,8 @@
 			 <0x5 0x80000000 0x5 0x80000000 0x1 0x80000000>,
 			 <0x7 0x0 0x7 0x0 0xf 0x80000000>;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
@@ -247,6 +253,8 @@
 		ranges = <0x2 0x0 0x22 0x0 0x4 0x0>,
 			 <0x7 0x0 0x27 0x0 0xf 0x80000000>;
 		nonposted-mmio;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		// filled via templated includes at the end of the file
 	};
@@ -254,30 +262,28 @@
 
 #define DIE
 #define DIE_NO 0
+#define SOC_NODE die0
 
-&die0 {
-	#include "t600x-die0.dtsi"
-	#include "t600x-dieX.dtsi"
-};
-
+#include "t600x-die0.dtsi"
+#include "t600x-dieX.dtsi"
 #include "t600x-pmgr.dtsi"
 #include "t600x-gpio-pins.dtsi"
 
 #undef DIE
 #undef DIE_NO
+#undef SOC_NODE
 
 #define DIE _die1
 #define DIE_NO 1
+#define SOC_NODE die1
 
-&die1 {
-	#include "t600x-dieX.dtsi"
-	#include "t600x-nvme.dtsi"
-};
-
+#include "t600x-dieX.dtsi"
+#include "t600x-nvme.dtsi"
 #include "t600x-pmgr.dtsi"
 
 #undef DIE
 #undef DIE_NO
+#undef SOC_NODE
 
 &aic {
 	affinities {
@@ -297,11 +303,80 @@
 	};
 };
 
+&dcpext0_die1 {
+	// TODO: verify
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x9c0>;
+};
+
+&dcpext1_die1 {
+	// TODO: verify
+	apple,bw-scratch = <&pmgr_dcp 0 4 0x9c8>;
+};
+
 &ps_gfx {
 	// On t6002, the die0 GPU power domain needs both AFR power domains
 	power-domains = <&ps_afr>, <&ps_afr_die1>;
 };
 
-&gpu {
-	compatible = "apple,agx-g13d", "apple,agx-g13s";
+&pmp {
+	apple,pio-ranges = <0x2 0x82000000 0x0 0x1000000>,
+		<0x3 0x4000000 0x0 0x1000000>,
+		<0x3 0x83000000 0x0 0x1000000>,
+		<0x4 0x2000000 0x0 0x1000000>,
+		<0x2 0x10e70000 0x0 0x90000>,
+		<0x2 0x11e70000 0x0 0x90000>,
+		<0x2 0x12e70000 0x0 0x90000>,
+		<0x4 0x82000000 0x0 0x1000000>,
+		<0x5 0x2000000 0x0 0x1000000>,
+		<0x22 0x82000000 0x0 0x1000000>,
+		<0x23 0x4000000 0x0 0x1000000>,
+		<0x23 0x83000000 0x0 0x1000000>,
+		<0x24 0x2000000 0x0 0x1000000>,
+		<0x24 0x82000000 0x0 0x1000000>,
+		<0x25 0x2000000 0x0 0x1000000>,
+		<0x22 0x10e70000 0x0 0x90000>,
+		<0x22 0x11e70000 0x0 0x90000>,
+		<0x22 0x12e70000 0x0 0x90000>;
 };
+
+&pmp_report {
+	pmp_report_dispext0_die1: report@33 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x33>;
+		label = "pmp-dispext0_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext0_cpu0_die1>;
+	};
+
+	pmp_report_dispext1_die1: report@34 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x34>;
+		label = "pmp-dispext1_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+	};
+
+	pmp_report_dispext2_die1: report@35 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x35>;
+		label = "pmp-dispext2_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+		status = "disabled";
+	};
+
+	pmp_report_dispext3_die1: report@36 {
+		compatible = "apple,t6000-pmp-v2-report-entry";
+		reg = <0x36>;
+		label = "pmp-dispext3_die1";
+		#power-domain-cells = <0>;
+		power-domains = <&ps_dispext1_cpu0_die1>;
+		status = "disabled";
+	};
+};
+
+&gpu {
+	compatible = "apple,agx-t6002", "apple,agx-g13d", "apple,agx-g13s";
+};
+
+#include "hwmon-common.dtsi"

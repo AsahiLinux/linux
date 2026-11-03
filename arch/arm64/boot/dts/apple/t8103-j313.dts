@@ -18,6 +18,10 @@
 	model = "Apple MacBook Air (M1, 2020)";
 	chassis-type = "laptop";
 
+	aliases {
+		sep = &sep;
+	};
+
 	led-controller {
 		compatible = "pwm-leds";
 		led-0 {
@@ -29,6 +33,20 @@
 			default-state = "keep";
 		};
 	};
+};
+
+&dcp {
+	panel: panel {
+		compatible = "apple,panel-j313", "apple,panel";
+		width-mm = <286>;
+		height-mm = <179>;
+		apple,max-brightness = <420>;
+	};
+};
+
+&framebuffer0 {
+	panel = <&panel>;
+	post-init-providers = <&panel>;
 };
 
 &bluetooth0 {
@@ -53,4 +71,125 @@
 
 &typec1 {
 	label = "USB-C Left-front";
+};
+
+&spi3 {
+	status = "okay";
+
+	hid-transport@0 {
+		compatible = "apple,spi-hid-transport";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		/*
+		 * Apple's ADT specifies 20us CS change delays, and the
+		 * SPI HID interface metadata specifies 45us. Using either
+		 * seems not to be reliable, but adding both works, so
+		 * best guess is they are cumulative.
+		 */
+		spi-cs-setup-delay-ns = <65000>;
+		spi-cs-hold-delay-ns = <65000>;
+		spi-cs-inactive-delay-ns = <250000>;
+		spien-gpios = <&pinctrl_ap 195 0>;
+		interrupts-extended = <&pinctrl_nub 13 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&i2c1 {
+	speaker_left: codec@31 {
+		compatible = "ti,tas5770l", "ti,tas2770";
+		reg = <0x31>;
+		shutdown-gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Left";
+		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+	};
+};
+
+&i2c3 {
+	speaker_right: codec@34 {
+		compatible = "ti,tas5770l", "ti,tas2770";
+		reg = <0x34>;
+		shutdown-gpios = <&pinctrl_ap 181 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Right";
+		interrupts-extended = <&pinctrl_ap 182 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
+	};
+
+	jack_codec: codec@48 {
+		compatible = "cirrus,cs42l83";
+		reg = <0x48>;
+		reset-gpios = <&pinctrl_nub 11 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&pinctrl_ap>;
+		interrupts = <183 IRQ_TYPE_LEVEL_LOW>;
+		#sound-dai-cells = <0>;
+		cirrus,ts-inv = <1>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+&aop_mbox {
+       status = "okay";
+};
+
+&aop_dart {
+       status = "okay";
+};
+
+&aop_admac {
+       status = "okay";
+};
+
+&aop {
+	status = "okay";
+};
+
+&sep {
+	status = "okay";
+};
+
+&aop_audio {
+	apple,chassis-name = "J313";
+	apple,machine-kind = "MacBook Air";
+};
+
+/ {
+	sound {
+		compatible = "apple,j313-macaudio", "apple,macaudio";
+		model = "MacBook Air J313";
+
+		dai-link@0 {
+			link-name = "Speakers";
+			dai-tdm-idle-mode-0 = "zero";
+			dai-tdm-idle-mode-1 = "zero";
+
+			cpu {
+				sound-dai = <&mca 0>, <&mca 1>;
+			};
+			codec {
+				sound-dai = <&speaker_left>, <&speaker_right>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
+#include "hwmon-laptop.dtsi"
+#include "isp-imx248.dtsi"
+
+&isp {
+	apple,platform-id = <1>;
 };

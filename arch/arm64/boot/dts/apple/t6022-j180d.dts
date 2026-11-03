@@ -11,6 +11,7 @@
 
 #include "t6022.dtsi"
 #include "t6022-jxxxd.dtsi"
+#include "t6022-pcie-ge.dtsi"
 
 / {
 	compatible = "apple,j180d", "apple,t6022", "apple,arm-platform";
@@ -26,8 +27,46 @@
 		atcphy5 = &atcphy1_die1;
 		atcphy6 = &atcphy2_die1;
 		atcphy7 = &atcphy3_die1;
+		bluetooth0 = &bluetooth0;
+		dcpext0 = &dcpext0;
+		ethernet0 = &ethernet0;
+		ethernet1 = &ethernet1;
 		nvram = &nvram;
 		serial0 = &serial0;
+		usb4-0-acio = &usb4_0_acio;
+		usb4-0-nhi = &usb4_0_nhi;
+		usb4-1-acio = &usb4_1_acio;
+		usb4-1-nhi = &usb4_1_nhi;
+		usb4-2-acio = &usb4_2_acio;
+		usb4-2-nhi = &usb4_2_nhi;
+		usb4-3-acio = &usb4_3_acio;
+		usb4-3-nhi = &usb4_3_nhi;
+		usb4-4-acio = &usb4_0_acio_die1;
+		usb4-4-nhi = &usb4_0_nhi_die1;
+		usb4-5-acio = &usb4_1_acio_die1;
+		usb4-5-nhi = &usb4_1_nhi_die1;
+		usb4-6-acio = &usb4_2_acio_die1;
+		usb4-6-nhi = &usb4_2_nhi_die1;
+		usb4-7-acio = &usb4_3_acio_die1;
+		usb4-7-nhi = &usb4_3_nhi_die1;
+		wifi0 = &wifi0;
+
+		usb4_0_rc = &usb4_0_acio;
+		usb4_0_nhi = &usb4_0_nhi;
+		usb4_1_rc = &usb4_1_acio;
+		usb4_1_nhi = &usb4_1_nhi;
+		usb4_2_rc = &usb4_2_acio;
+		usb4_2_nhi = &usb4_2_nhi;
+		usb4_3_rc = &usb4_3_acio;
+		usb4_3_nhi = &usb4_3_nhi;
+		usb4_4_rc = &usb4_0_acio_die1;
+		usb4_4_nhi = &usb4_0_nhi_die1;
+		usb4_5_rc = &usb4_1_acio_die1;
+		usb4_5_nhi = &usb4_1_nhi_die1;
+		usb4_6_rc = &usb4_2_acio_die1;
+		usb4_6_nhi = &usb4_2_nhi_die1;
+		usb4_7_rc = &usb4_3_acio_die1;
+		usb4_7_nhi = &usb4_3_nhi_die1;
 	};
 
 	chosen {
@@ -46,6 +85,13 @@
 		};
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		/* To be filled by loader */
+	};
+
 	memory@10000000000 {
 		device_type = "memory";
 		reg = <0x100 0 0x2 0>; /* To be filled by loader */
@@ -53,6 +99,47 @@
 };
 
 &serial0 {
+	status = "okay";
+};
+
+&lpdptxphy {
+	status = "okay";
+};
+
+&display {
+	iommus = <&dispext0_dart_die1 0 0x100 0x0 0x10 0x0>,
+		<&dispext0_dart 0 0x100 0x0 0x10 0x0>;
+};
+
+&dispext0_dart {
+	status = "okay";
+};
+
+&dcpext0_dart {
+	status = "okay";
+};
+
+&dcpext0_mbox {
+	status = "okay";
+};
+
+&dcpext0 {
+	status = "okay";
+	apple,connector-type = "HDMI-A";
+
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 25 GPIO_ACTIVE_HIGH>;
+
+	// shared between dp2hdmi-gpio0 / dp2hdmi-gpio1
+	// hdmi-pwren-gpios = <&smc_gpio 23 GPIO_ACTIVE_HIGH>;
+
+	phys = <&lpdptxphy>;
+	phy-names = "dp-phy";
+	apple,dptx-phy = <4>;
+	apple,dptx-die = <0>;
+};
+
+&dpaudio1 {
 	status = "okay";
 };
 
@@ -152,6 +239,13 @@
 						remote-endpoint = <&atcphy6_typec_lanes>;
 					};
 				};
+
+				port@2 {
+					reg = <2>;
+					typec6_con_tbt: endpoint {
+						remote-endpoint = <&usb4_6_acio_tbt>;
+					};
+				};
 			};
 		};
 	};
@@ -182,6 +276,13 @@
 					reg = <1>;
 					typec7_connector_ss: endpoint {
 						remote-endpoint = <&atcphy7_typec_lanes>;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+					typec7_con_tbt: endpoint {
+						remote-endpoint = <&usb4_7_acio_tbt>;
 					};
 				};
 			};
@@ -521,6 +622,429 @@
 	};
 };
 
+/* Audio */
+&i2c1 {
+	status = "okay";
+
+	speaker_tweeter: codec@38 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x38>;
+		shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Tweeter";
+		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <4>;
+		ti,vmon-slot-no = <6>;
+	};
+
+	speaker_woofer: codec@39 {
+		compatible = "ti,sn012776", "ti,tas2764";
+		reg = <0x39>;
+		shutdown-gpios = <&pinctrl_ap 57 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "Woofer";
+		interrupts-extended = <&pinctrl_ap 58 IRQ_TYPE_LEVEL_LOW>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <2>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	jack_codec: codec@4b {
+		compatible = "cirrus,cs42l84";
+		reg = <0x4b>;
+		reset-gpios = <&pinctrl_nub 8 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <0>;
+		interrupts-extended = <&pinctrl_ap 59 IRQ_TYPE_LEVEL_LOW>;
+		sound-name-prefix = "Jack";
+	};
+};
+
+&nco_clkref {
+	clock-frequency = <1068000000>;
+};
+
+/ {
+	sound: sound {
+		compatible = "apple,j180-macaudio", "apple,macaudio";
+		model = "Mac Pro J180";
+
+		dai-link@0 {
+			link-name = "Speakers";
+			/*
+			* DANGER ZONE: You can blow your speakers!
+			*
+			* The drivers are not ready, and unless you are careful
+			* to attenuate the audio stream, you run the risk of
+			* blowing your speakers.
+			*/
+			status = "disabled";
+			cpu {
+				sound-dai = <&mca 0>;
+			};
+			codec {
+				sound-dai = <&speaker_woofer>, <&speaker_tweeter>;
+			};
+		};
+
+		dai-link@1 {
+			link-name = "Headphone Jack";
+
+			cpu {
+				sound-dai = <&mca 2>;
+			};
+			codec {
+				sound-dai = <&jack_codec>;
+			};
+		};
+	};
+};
+
+/* PCIe devices */
+&port_ge00 {
+	bus-range = <0x01 0x09>;
+
+	pci@0,0 {
+		// compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+		device_type = "pci";
+		reg = <0x10000 0x00 0x00 0x00 0x00>;
+		bus-range = <0x02 0x07>;
+
+		#address-cells = <0x03>;
+		#size-cells = <0x02>;
+		ranges = <0x82010000 0x00 0x80000000 0x82010000 0x00 0x80000000 0x00 0x500000>,
+			 <0xc3010000 0x18 0x00000000 0xc3010000 0x18 0x00000000 0x00 0x500000>;
+
+		#interrupt-cells = <0x01>;
+		interrupt-map-mask = <0xffff00 0x00 0x00 0x07>;
+		interrupt-map = <0x20000 0x00 0x00 0x01 &port_ge00 0x00 0x00 0x00 0x00>,
+				<0x20000 0x00 0x00 0x02 &port_ge00 0x00 0x00 0x00 0x01>,
+				<0x20000 0x00 0x00 0x03 &port_ge00 0x00 0x00 0x00 0x02>,
+				<0x20000 0x00 0x00 0x04 &port_ge00 0x00 0x00 0x00 0x03>,
+				<0x20800 0x00 0x00 0x01 &port_ge00 0x00 0x00 0x00 0x01>,
+				<0x20800 0x00 0x00 0x02 &port_ge00 0x00 0x00 0x00 0x02>,
+				<0x20800 0x00 0x00 0x03 &port_ge00 0x00 0x00 0x00 0x03>,
+				<0x20800 0x00 0x00 0x04 &port_ge00 0x00 0x00 0x00 0x00>,
+				<0x21000 0x00 0x00 0x01 &port_ge00 0x00 0x00 0x00 0x02>,
+				<0x21000 0x00 0x00 0x02 &port_ge00 0x00 0x00 0x00 0x03>,
+				<0x21000 0x00 0x00 0x03 &port_ge00 0x00 0x00 0x00 0x00>,
+				<0x21000 0x00 0x00 0x04 &port_ge00 0x00 0x00 0x00 0x01>,
+				<0x21800 0x00 0x00 0x01 &port_ge00 0x00 0x00 0x00 0x03>,
+				<0x21800 0x00 0x00 0x02 &port_ge00 0x00 0x00 0x00 0x00>,
+				<0x21800 0x00 0x00 0x03 &port_ge00 0x00 0x00 0x00 0x01>,
+				<0x21800 0x00 0x00 0x04 &port_ge00 0x00 0x00 0x00 0x02>,
+				<0x22000 0x00 0x00 0x01 &port_ge00 0x00 0x00 0x00 0x00>,
+				<0x22000 0x00 0x00 0x02 &port_ge00 0x00 0x00 0x00 0x01>,
+				<0x22000 0x00 0x00 0x03 &port_ge00 0x00 0x00 0x00 0x02>,
+				<0x22000 0x00 0x00 0x04 &port_ge00 0x00 0x00 0x00 0x03>;
+
+		/* pci-slot1-dsp, PCIe slot-1 */
+		pci@0,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x20000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x03 0x03>;
+
+			#address-cells = <0x03>;
+			#size-cells = <0x02>;
+			ranges;
+		};
+
+		/* pci-slot2-dsp, PCIe slot-2 */
+		pci@1,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x20800 0x00 0x00 0x00 0x00>;
+			bus-range = <0x04 0x04>;
+
+			#address-cells = <0x03>;
+			#size-cells = <0x02>;
+			ranges;
+		};
+
+		/* pci-slot3-dsp, PCIe slot-3 */
+		pci@2,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x21000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x05 0x05>;
+
+			#address-cells = <0x03>;
+			#size-cells = <0x02>;
+			ranges;
+		};
+
+		/* pci-slot4-dsp, PCIe slot-4 */
+		pci@3,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x21800 0x00 0x00 0x00 0x00>;
+			bus-range = <0x06 0x06>;
+
+			#address-cells = <0x03>;
+			#size-cells = <0x02>;
+			ranges;
+		};
+
+		/* pci-slot5-dsp, PCIe slot-5 */
+		pci@4,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x22000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x07 0x07>;
+
+			#address-cells = <0x03>;
+			#size-cells = <0x02>;
+			ranges;
+		};
+
+	};
+};
+
+&port_ge00_die1 {
+	bus-range = <0x01 0x09>;
+
+	/*
+	 * Add mulptiple "reset-gpios" since there is no mechanismen to access
+	 * PERST# for devices behind the PCIe switch.
+	 * The "pwren" GPIO is from the wifi/bt chip which faces the same
+	 * problem without pci-pwrctrl integration.
+	 */
+	reset-gpios = <&pinctrl_ap 4 GPIO_ACTIVE_LOW>,
+		<&pinctrl_ap 6 GPIO_ACTIVE_LOW>,
+		<&pinctrl_ap 7 GPIO_ACTIVE_LOW>,
+		<&pinctrl_ap_die1 9 GPIO_ACTIVE_LOW>;
+	pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
+
+	pci@0,0 {
+		device_type = "pci";
+		reg = <0x10000 0x00 0x00 0x00 0x00>;
+		bus-range = <0x02 0x09>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges;
+
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffff00 0x00 0x00 0x07>;
+		interrupt-map = <0x20000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x20000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+				<0x20000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x20000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x20800 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+				<0x20800 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x20800 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x20800 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x21000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x21000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x21000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x21000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+				<0x21800 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x21800 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x21800 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+				<0x21800 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x22000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x22000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+				<0x22000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x22000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x22800 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+				<0x22800 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x22800 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x22800 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x23000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+				<0x23000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x03>,
+				<0x23000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+				<0x23000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x01>;
+
+		/* pci-usba-dsp, internal USB-A port */
+		pci@0,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x20000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x03 0x03>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0x30000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+					<0x30000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+					<0x30000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x02>;
+
+			/* temporarily handled in the root port */
+			// reset-gpios = <&pinctrl_ap 6 GPIO_ACTIVE_LOW>;
+		};
+
+		/* pci-sata-dsp, internal AHCI controller */
+		pci@1,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x20800 0x00 0x00 0x00 0x00>;
+			bus-range = <0x04 0x04>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0x40000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+					<0x40000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+					<0x40000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x02>;
+		};
+
+		/* pci-bio-dsp, I/O board USB-A ports */
+		pci@2,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x21000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x05 0x05>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0x50000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+					<0x50000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+					<0x50000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x00>;
+
+			/* temporarily handled in the root port */
+			// reset-gpios = <&pinctrl_ap 7 GPIO_ACTIVE_LOW>;
+		};
+
+		/* pci-lan-dsp, Qtion AQC113 10G etherner controller (0) */
+		pci@3,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x21800 0x00 0x00 0x00 0x00>;
+			bus-range = <0x06 0x06>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0x60000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+					<0x60000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+					<0x60000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x01>;
+
+			ethernet0: ethernet@0,0 {
+				reg = <0x60000 0x0 0x0 0x0 0x0>;
+				/* To be filled by the loader */
+				local-mac-address = [00 10 18 00 00 00];
+			};
+		};
+
+		/* pci-lan-b-dsp, Qtion AQC113 10G etherner controller (1) */
+		pci@4,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x22000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x07 0x07>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0x70000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+					<0x70000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+					<0x70000 0x00 0x00 0x04 &port_ge00_die1 0x00 0x00 0x00 0x02>;
+
+			ethernet1: ethernet@0,0 {
+				reg = <0x70000 0x0 0x0 0x0 0x0>;
+				/* To be filled by the loader */
+				local-mac-address = [00 10 18 00 00 00];
+			};
+		};
+
+		/* pci-wifibt-dsp, Broadcom BCM4388 Wlan/BT */
+		pci@5,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x22800 0x00 0x00 0x00 0x00>;
+			bus-range = <0x08 0x08>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0x80000 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+					<0x80000 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+					<0x80000 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x02>,
+					<0x80100 0x00 0x00 0x01 &port_ge00_die1 0x00 0x00 0x00 0x00>,
+					<0x80100 0x00 0x00 0x02 &port_ge00_die1 0x00 0x00 0x00 0x01>,
+					<0x80100 0x00 0x00 0x03 &port_ge00_die1 0x00 0x00 0x00 0x02>;
+
+			/* temporarily handled in the root port */
+			// reset-gpios = <&pinctrl_ap 4 GPIO_ACTIVE_LOW>;
+			// pwren-gpios = <&smc_gpio 13 GPIO_ACTIVE_HIGH>;
+
+			wifi0: wifi@0,0 {
+				reg = <0x80000 0x0 0x0 0x0 0x0>;
+				compatible = "pci14e4,4433";
+				brcm,board-type = "apple,sumatra";
+				apple,antenna-sku = "XX";
+				/* To be filled by the loader */
+				local-mac-address = [00 10 18 00 00 10];
+			};
+
+			bluetooth0: network@0,1 {
+				compatible = "pci14e4,5f71";
+				brcm,board-type = "apple,sumatra";
+				reg = <0x80100 0x0 0x0 0x0 0x0>;
+				/* To be filled by the loader */
+				local-bd-address = [00 00 00 00 00 00];
+			};
+		};
+
+		/* pci-slot6-dsp, PCIe slot-6 */
+		pci@6,0 {
+			compatible = "pci11f8,4000", "pciclass,060400", "pciclass,0604";
+			device_type = "pci";
+			reg = <0x23000 0x00 0x00 0x00 0x00>;
+			bus-range = <0x09 0x09>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+		};
+	};
+};
+
+&pcie_ge {
+	status = "ok";
+};
+
+&pcie_ge_dart {
+	status = "ok";
+};
+
+&pcie_ge_die1 {
+	status = "ok";
+};
+
+&pcie_ge_dart_die1 {
+	status = "ok";
+};
+
 /*
  * Delete unused PCIe nodes, the Mac Pro uses slightly different PCIe
  * controllers with a single port connected to a PM40100 PCIe switch
@@ -533,6 +1057,178 @@
 
 &nco_clkref {
 	clock-frequency = <1068000000>;
+};
+
+/* USB4 on die 1 */
+&usb4_2_acio_die1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_6_acio_tbt: endpoint {
+				remote-endpoint = <&typec6_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_3_acio_die1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_7_acio_tbt: endpoint {
+				remote-endpoint = <&typec7_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&typec0 {
+	ports {
+		port@2 {
+			reg = <2>;
+			typec0_con_tbt: endpoint {
+				remote-endpoint = <&usb4_0_acio_tbt>;
+			};
+		};
+	};
+};
+
+&typec1 {
+	ports {
+		port@2 {
+			reg = <2>;
+			typec1_con_tbt: endpoint {
+				remote-endpoint = <&usb4_1_acio_tbt>;
+			};
+		};
+	};
+};
+
+&typec2 {
+	ports {
+		port@2 {
+			reg = <2>;
+			typec2_con_tbt: endpoint {
+				remote-endpoint = <&usb4_2_acio_tbt>;
+			};
+		};
+	};
+};
+
+&typec3 {
+	ports {
+		port@2 {
+			reg = <2>;
+			typec3_con_tbt: endpoint {
+				remote-endpoint = <&usb4_3_acio_tbt>;
+			};
+		};
+	};
+};
+
+/* USB4 */
+&usb4_0_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_0_acio_tbt: endpoint {
+				remote-endpoint = <&typec0_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_1_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_1_acio_tbt: endpoint {
+				remote-endpoint = <&typec1_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_2_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_2_acio_tbt: endpoint {
+				remote-endpoint = <&typec2_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
+};
+
+&usb4_3_acio {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 1: USB4 port */
+		port@1 {
+			reg = <1>;
+			usb4_3_acio_tbt: endpoint {
+				remote-endpoint = <&typec3_con_tbt>;
+			};
+		};
+
+		/* 2: unused(?) USB4 port */
+		/* 3: PCIe */
+		/* 4: USB3 */
+		/* 5: DP0 */
+		/* 6: DP1 */
+	};
 };
 
 #include "spi1-nvram.dtsi"

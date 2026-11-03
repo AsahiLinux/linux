@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (16-inch, M3 Pro, Nov 2023)
+ *
+ * target-type: J516s
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t6030.dtsi"
+#include "t603x-j514-j516.dtsi"
+
+/ {
+	compatible = "apple,j516s", "apple,t6030", "apple,arm-platform";
+	model = "Apple MacBook Pro (16-inch, M3 Pro, Nov 2023)";
+};
+
+&panel {
+	compatible = "apple,panel-j516s", "apple,panel-mini-led", "apple,panel";
+	width-mm = <346>;
+	height-mm = <223>;
+	adj-height-mm = <216>;
+};
+
+&framebuffer0 {
+	power-domains = <&ps_disp_cpu>;
+};
+
+&mtp_mt {
+	firmware-name = "apple/tpmtfw-j516s.bin";
+};
+
+&wifi0 {
+	brcm,board-type = "apple,jura";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,jura";
+};
+
+&speaker_left_tweet {
+	shutdown-gpios = <&pinctrl_ap 171 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 29 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&speaker_left_woof1 {
+	shutdown-gpios = <&pinctrl_ap 171 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 29 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&speaker_left_woof2 {
+	shutdown-gpios = <&pinctrl_ap 171 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 29 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&speaker_right_tweet {
+	shutdown-gpios = <&pinctrl_ap 171 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 29 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&speaker_right_woof1 {
+	shutdown-gpios = <&pinctrl_ap 171 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 29 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&speaker_right_woof2 {
+	shutdown-gpios = <&pinctrl_ap 171 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 29 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&jack_codec {
+	reset-gpios = <&pinctrl_nub 21 GPIO_ACTIVE_HIGH>;
+	interrupts-extended = <&pinctrl_ap 196 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&aop_audio {
+	apple,chassis-name = "J516";
+	apple,machine-kind = "MacBook Pro";
+};
+
+&sound {
+	compatible = "apple,j516-macaudio", "apple,j316-macaudio", "apple,macaudio";
+	model = "MacBook Pro J516";
+};
+
+&isp {
+	apple,platform-id = <16>;
+};
