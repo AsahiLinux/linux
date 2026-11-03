@@ -276,13 +276,13 @@ impl Device<Bound> {
 
 impl<Ctx: DeviceContext> Device<Ctx> {
     /// Obtain the raw `struct device *`.
-    pub(crate) fn as_raw(&self) -> *mut bindings::device {
+    pub fn as_raw(&self) -> *mut bindings::device {
         self.0.get()
     }
 
     /// Returns a reference to the parent device, if any.
     #[cfg_attr(not(CONFIG_AUXILIARY_BUS), expect(dead_code))]
-    pub(crate) fn parent(&self) -> Option<&Device> {
+    pub fn parent(&self) -> Option<&Device> {
         // SAFETY:
         // - By the type invariant `self.as_raw()` is always valid.
         // - The parent device is only ever set at device creation.
@@ -297,6 +297,13 @@ impl<Ctx: DeviceContext> Device<Ctx> {
             //   reference count of its parent.
             Some(unsafe { Device::from_raw(parent) })
         }
+    }
+
+    /// Returns the driver_data pointer.
+    pub fn get_drvdata<T>(&self) -> *mut T {
+        // SAFETY: dev_get_drvdata returns a field of the device,
+        //   pointer to which is valid by type invariant
+        unsafe { bindings::dev_get_drvdata(self.as_raw()) as *mut T }
     }
 
     /// Convert a raw C `struct device` pointer to a `&'a Device`.

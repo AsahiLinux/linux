@@ -12,6 +12,9 @@
 
 # Packed type cannot transitively contain a `#[repr(align)]` type.
 --opaque-type alt_instr
+--opaque-type snd_codec_options
+--opaque-type snd_codec
+--opaque-type snd_compr_params
 --opaque-type x86_msi_data
 --opaque-type x86_msi_addr_lo
 # s390-only: same packed/align issue as above (E0588).
@@ -21,6 +24,9 @@
 --opaque-type uv_cb.*
 --opaque-type uv_secret.*
 --opaque-type zpci_fib
+
+# Packed types cannot have larger alignment than the maximal natural aligment of menbers
+--opaque-type snd_dec_flac
 
 # If SMP is disabled, `arch_spinlock_t` is defined as a ZST which triggers a Rust
 # warning. We don't need to peek into it anyway.
