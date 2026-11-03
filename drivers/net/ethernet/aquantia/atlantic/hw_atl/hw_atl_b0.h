@@ -69,7 +69,9 @@ int hw_atl_b0_hw_irq_enable(struct aq_hw_s *self, u64 mask);
 int hw_atl_b0_hw_irq_disable(struct aq_hw_s *self, u64 mask);
 int hw_atl_b0_hw_irq_read(struct aq_hw_s *self, u64 *mask);
 
-int hw_atl_b0_hw_packet_filter_set(struct aq_hw_s *self,
-				   unsigned int packet_filter);
+int hw_atl_b0_hw_packet_filter_set_int(struct aq_hw_s *self,
+				       unsigned int base_location,
+				       unsigned int packet_filter);
+
 
 #endif /* HW_ATL_B0_H */

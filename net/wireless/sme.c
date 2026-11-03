@@ -1299,7 +1299,7 @@ void __cfg80211_port_authorized(struct wireless_dev *wdev, const u8 *peer_addr,
 
 	if (wdev->iftype == NL80211_IFTYPE_STATION ||
 		wdev->iftype == NL80211_IFTYPE_P2P_CLIENT) {
-		if (WARN_ON(!wdev->connected) ||
+		if (/*WARN_ON*/(!wdev->connected) ||
 			WARN_ON(!ether_addr_equal(wdev->u.client.connected_addr, peer_addr)))
 			return;
 	}
