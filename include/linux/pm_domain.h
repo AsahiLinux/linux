@@ -121,6 +121,13 @@ struct dev_pm_domain_list {
  *				powered-off until the ->sync_state() callback is
  *				invoked. This flag informs genpd to allow a
  *				power-off without waiting for ->sync_state().
+ * GENPD_FLAG_DEFER_OFF:	Defer powerdown if there are any consumer
+ *				device fwlinks indicating that some consumer
+ *				devices have not yet probed. This is useful
+ *				for power domains which are active at boot and
+ *				must not be shut down until all consumers
+ *				complete their probe sequence.
+
  */
 #define GENPD_FLAG_PM_CLK	 (1U << 0)
 #define GENPD_FLAG_IRQ_SAFE	 (1U << 1)
@@ -133,6 +140,7 @@ struct dev_pm_domain_list {
 #define GENPD_FLAG_DEV_NAME_FW	 (1U << 8)
 #define GENPD_FLAG_NO_SYNC_STATE (1U << 9)
 #define GENPD_FLAG_NO_STAY_ON	 (1U << 10)
+#define GENPD_FLAG_DEFER_OFF	 (1U << 11)
 
 enum gpd_status {
 	GENPD_STATE_ON = 0,	/* PM domain is on */

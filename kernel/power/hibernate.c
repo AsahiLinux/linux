@@ -33,6 +33,7 @@
 #include <linux/ktime.h>
 #include <linux/security.h>
 #include <linux/secretmem.h>
+#include <linux/of.h>
 #include <trace/events/power.h>
 
 #include "power.h"
@@ -110,7 +111,8 @@ bool hibernation_available(void)
 {
 	return nohibernate == 0 &&
 		!security_locked_down(LOCKDOWN_HIBERNATION) &&
-		!secretmem_active() && !cxl_mem_active();
+		!secretmem_active() && !cxl_mem_active() &&
+		!of_machine_is_compatible("apple,arm-platform");
 }
 
 /**

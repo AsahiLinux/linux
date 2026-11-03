@@ -255,5 +255,6 @@ void fwnode_links_purge(struct fwnode_handle *fwnode);
 void fw_devlink_purge_absent_suppliers(struct fwnode_handle *fwnode);
 void fw_devlink_refresh_fwnode(struct fwnode_handle *fwnode);
 bool fw_devlink_is_strict(void);
+int fw_devlink_count_absent_consumers(struct fwnode_handle *fwnode);
 
 #endif
