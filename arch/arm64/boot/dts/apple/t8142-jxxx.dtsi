@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple M5 MacBook Air/Pro (M5, 2026)
+ *
+ * This file contains parts common to all Apple M5 devices using the t8142.
+ *
+ * target-type: J704, J813, J815
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/ {
+	aliases {
+		serial0 = &serial0;
+	};
+
+	chosen {
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		stdout-path = "serial0";
+
+		framebuffer@0 {
+			compatible = "apple,simple-framebuffer",
+			             "simple-framebuffer";
+			reg = <0 0 0 0>; /* To be filled by loader */
+			power-domains = <&ps_disp_fe>;
+			/* Format properties will be added by loader */
+
+			status = "disabled";
+		};
+	};
+
+	memory@800000000 {
+		device_type = "memory";
+		reg = <0x8 0 0x2 0>; /* To be filled by loader */
+	};
+
+	reserved-memory {
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		/* To be filled by loader */
+	};
+};
+
+&serial0 {
+	status = "okay";
+};
