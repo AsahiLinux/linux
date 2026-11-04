@@ -27,6 +27,9 @@ properties:
               - apple,t8132-pinctrl
           - const: apple,t8103-pinctrl
       - items:
+          - const: apple,t8142-pinctrl
+          - const: apple,t8140-pinctrl
+      - items:
           # Do not add additional SoC to this list.
           - enum:
               - apple,s5l8960x-pinctrl
