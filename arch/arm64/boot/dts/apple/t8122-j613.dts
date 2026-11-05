@@ -31,6 +31,14 @@
 	};
 };
 
+&wifi0 {
+	brcm,board-type = "apple,dnieper";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,dnieper";
+};
+
 &fpwm1 {
 	status = "okay";
 };
