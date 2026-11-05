@@ -16,4 +16,42 @@
 / {
 	compatible = "apple,j434", "apple,t8122", "apple,arm-platform";
 	model = "Apple iMac (24-inch, 4x USB-C, M3, 2023)";
+
+	aliases {
+		ethernet0 = &ethernet0;
+	};
+};
+
+&wifi0 {
+	brcm,board-type = "apple,iona";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,iona";
+};
+
+&port01 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	ethernet0: ethernet@0,0 {
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 10 18 00 00 00];
+	};
+};
+
+&port02 {
+	bus-range = <3 3>;
+
+	status = "okay";
+};
+
+&pcie1_dart {
+	status = "okay";
+};
+
+&pcie2_dart {
+	status = "okay";
 };

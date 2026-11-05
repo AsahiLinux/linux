@@ -32,6 +32,32 @@
 	};
 };
 
+&wifi0 {
+	brcm,board-type = "apple,tresco";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,tresco";
+};
+
+&port01 {
+	/* SD card reader */
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	mmc@0,0 {
+		compatible = "pci17a0,9755";
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		cd-inverted;
+		wp-inverted;
+	};
+};
+
+&pcie1_dart {
+	status = "okay";
+};
+
 &fpwm1 {
 	status = "okay";
 };
