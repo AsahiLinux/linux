@@ -5,6 +5,8 @@
  * Copyright The Asahi Linux Contributors
  */
 
+#include <dt-bindings/gpio/gpio.h>
+
 &pinctrl_ap {
 	i2c0_pins: i2c0-pins {
 		pinmux = <APPLE_PINMUX(56, 1)>,
@@ -49,5 +51,12 @@
 	i2c8_pins: i2c8-pins {
 		pinmux = <APPLE_PINMUX(72, 1)>,
 			 <APPLE_PINMUX(73, 1)>;
+	};
+
+	pcie_pins: pcie-pins {
+		pinmux = <APPLE_PINMUX(0, 1)>,
+			 <APPLE_PINMUX(1, 1)>,
+			 <APPLE_PINMUX(2, 1)>,
+			 <APPLE_PINMUX(3, 1)>;
 	};
 };
