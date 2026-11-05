@@ -768,6 +768,7 @@ static int dcp_create_piodma_iommu_dev(struct apple_dcp *dcp)
 	return 0;
 err_destroy_pdev:
 	of_platform_device_destroy(&dcp->piodma->dev, NULL);
+	dcp->piodma = NULL;
 	return ret;
 }
 
@@ -1092,6 +1093,14 @@ static int dcp_comp_bind(struct device *dev, struct device *main, void *data)
 	return ret;
 }
 
+static void destroy_piodma_device(struct apple_dcp *dcp)
+{
+	if (dcp->piodma) {
+		of_platform_device_destroy(&dcp->piodma->dev, NULL);
+		dcp->piodma = NULL;
+	}
+}
+
 /*
  * We need to shutdown DCP before tearing down the display subsystem. Otherwise
  * the DCP will crash and briefly flash a green screen of death.
@@ -1272,8 +1281,8 @@ static int dcp_platform_probe(struct platform_device *pdev)
 		if (!ret) {
 			dcp->xbar = devm_mux_control_get(dev, "dp-xbar");
 			if (IS_ERR(dcp->xbar)) {
-				dev_err(dev, "Failed to get dp-xbar: %ld\n", PTR_ERR(dcp->xbar));
-				return PTR_ERR(dcp->xbar);
+				destroy_piodma_device(dcp);
+				return dev_err_probe(dev, PTR_ERR(dcp->xbar), "Failed to get dp-xbar\n");
 			}
 			ret = mux_control_select(dcp->xbar, mux_index);
 			if (ret)
@@ -1311,8 +1320,7 @@ static void dcp_platform_remove(struct platform_device *pdev)
 
 	component_del(&pdev->dev, &dcp_comp_ops);
 
-	if (dcp->piodma)
-		of_platform_device_destroy(&dcp->piodma->dev, NULL);
+	destroy_piodma_device(dcp);
 }
 
 static void dcp_platform_shutdown(struct platform_device *pdev)
@@ -1321,8 +1329,7 @@ static void dcp_platform_shutdown(struct platform_device *pdev)
 
 	component_del(&pdev->dev, &dcp_comp_ops);
 
-	if (dcp->piodma)
-		of_platform_device_destroy(&dcp->piodma->dev, NULL);
+	destroy_piodma_device(dcp);
 }
 
 static int dcp_platform_suspend(struct device *dev)
