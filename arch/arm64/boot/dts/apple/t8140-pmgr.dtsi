@@ -556,6 +556,7 @@
 		#power-domain-cells = <0>;
 		power-domains = <&ps_apcie_sys_st>, <&ps_apcie_sys_gp>;
 		#reset-cells = <0>;
+		apple,always-on;
 	};
 
 	ps_pmp: power-controller@3d0 {
