@@ -13,8 +13,8 @@
 #include "t8132-jxxx.dtsi"
 
 / {
-	compatible = "apple,j773g", "apple,t8132", "apple,arm-platform";
 	model = "Apple Mac mini (M4, 2024)";
+	compatible = "apple,j773g", "apple,t8132", "apple,arm-platform";
 };
 
 /*
