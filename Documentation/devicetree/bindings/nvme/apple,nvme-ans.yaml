@@ -22,6 +22,9 @@ properties:
           - const: apple,t8103-nvme-ans2
       - const: apple,t8132-nvme-ans2
       - items:
+          - const: apple,t8140-nvme-ans2
+          - const: apple,t8132-nvme-ans2
+      - items:
           - enum:
               # Do not add additional SoC to this list.
               - apple,t8103-nvme-ans2
