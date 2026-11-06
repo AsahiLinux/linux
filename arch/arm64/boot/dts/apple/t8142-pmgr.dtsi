@@ -801,7 +801,7 @@
 		reg = <0x520 4>;
 		label = "apcie_sys_st";
 		#power-domain-cells = <0>;
-		power-domains = <&ps_ans>, <&ps_apcie_st>;
+		power-domains = <&ps_ans>, <&ps_apcie_st>, <&ps_st0_aus5>;
 		#reset-cells = <0>;
 	};
 
@@ -810,8 +810,9 @@
 		reg = <0x560 4>;
 		label = "apcie_phy_sw";
 		#power-domain-cells = <0>;
-		power-domains = <&ps_apcie_sys_st>, <&ps_apcie_sys_gp>;
+		power-domains = <&ps_apcie_sys_gp>;
 		#reset-cells = <0>;
+		apple,always-on;
 	};
 
 	ps_sys_st_ocla: power-controller@568 {
