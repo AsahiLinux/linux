@@ -241,12 +241,12 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 499 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 500 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 501 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 502 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 503 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 504 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 505 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 500 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 501 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 502 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 503 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 504 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 505 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		pmgr_mini: power-management@388280000 {
@@ -278,12 +278,12 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 552 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 553 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 554 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 555 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 556 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 557 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 558 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 553 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 554 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 555 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 556 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 557 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 558 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		pinctrl_aop: pinctrl@390824000 {
@@ -299,12 +299,12 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 423 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 424 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 425 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 426 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 427 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 428 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 429 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 424 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 425 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 426 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 427 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 428 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 429 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		pinctrl_ap: pinctrl@39a000000 {
@@ -321,36 +321,36 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 303 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 304 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 305 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 306 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 307 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 308 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 309 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 304 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 305 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 306 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 307 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 308 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 309 IRQ_TYPE_LEVEL_HIGH>;
 
 			i2c0_pins: i2c0-pins {
 				pinmux = <APPLE_PINMUX(104, 1)>,
-				         <APPLE_PINMUX(103, 1)>;
+					 <APPLE_PINMUX(103, 1)>;
 			};
 
 			i2c1_pins: i2c1-pins {
 				pinmux = <APPLE_PINMUX(106, 1)>,
-				         <APPLE_PINMUX(105, 1)>;
+					 <APPLE_PINMUX(105, 1)>;
 			};
 
 			i2c2_pins: i2c2-pins {
 				pinmux = <APPLE_PINMUX(44, 1)>,
-				         <APPLE_PINMUX(43, 1)>;
+					 <APPLE_PINMUX(43, 1)>;
 			};
 
 			i2c3_pins: i2c3-pins {
 				pinmux = <APPLE_PINMUX(42, 1)>,
-				         <APPLE_PINMUX(41, 1)>;
+					 <APPLE_PINMUX(41, 1)>;
 			};
 
 			i2c4_pins: i2c4-pins {
 				pinmux = <APPLE_PINMUX(108, 1)>,
-				         <APPLE_PINMUX(107, 1)>;
+					 <APPLE_PINMUX(107, 1)>;
 			};
 		};
 
@@ -458,9 +458,9 @@
 		interrupt-parent = <&aic>;
 		interrupt-names = "phys", "virt", "hyp-phys", "hyp-virt";
 		interrupts = <AIC_FIQ AIC_TMR_GUEST_PHYS IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
+			     <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
 
