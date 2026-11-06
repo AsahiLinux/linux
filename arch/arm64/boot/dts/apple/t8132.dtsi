@@ -206,7 +206,8 @@
 		nonposted-mmio;
 
 		pmgr: power-management@380700000 {
-			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr",
+				     "syscon", "simple-mfd";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x3 0x80700000 0 0x14000>;
@@ -225,18 +226,21 @@
 			affinities {
 				e-core-pmu-affinity {
 					apple,fiq-index = <AIC_CPU_PMU_E>;
-					cpus = <&cpu_e0 &cpu_e1 &cpu_e2 &cpu_e3 &cpu_e4 &cpu_e5>;
+					cpus = <&cpu_e0 &cpu_e1 &cpu_e2
+						&cpu_e3 &cpu_e4 &cpu_e5>;
 				};
 
 				p-core-pmu-affinity {
 					apple,fiq-index = <AIC_CPU_PMU_P>;
-					cpus = <&cpu_p0 &cpu_p1 &cpu_p2 &cpu_p3>;
+					cpus = <&cpu_p0 &cpu_p1
+						&cpu_p2 &cpu_p3>;
 				};
 			};
 		};
 
 		pinctrl_nub: pinctrl@3881f0000 {
-			compatible = "apple,t8132-pinctrl", "apple,t8103-pinctrl";
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
 			reg = <0x3 0x881f0000 0x0 0x4000>;
 			power-domains = <&ps_nub_gpio>;
 
@@ -258,7 +262,8 @@
 		};
 
 		pmgr_mini: power-management@388280000 {
-			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr", "syscon", "simple-mfd";
+			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr",
+				     "syscon", "simple-mfd";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x3 0x88280000 0 0x4000>;
@@ -274,7 +279,8 @@
 		};
 
 		pinctrl_smc: pinctrl@38c820000 {
-			compatible = "apple,t8132-pinctrl", "apple,t8103-pinctrl";
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
 			reg = <0x3 0x8c820000 0x0 0x4000>;
 
 			gpio-controller;
@@ -295,7 +301,8 @@
 		};
 
 		pinctrl_aop: pinctrl@390824000 {
-			compatible = "apple,t8132-pinctrl", "apple,t8103-pinctrl";
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
 			reg = <0x3 0x90824000 0x0 0x4000>;
 
 			gpio-controller;
@@ -316,7 +323,8 @@
 		};
 
 		pinctrl_ap: pinctrl@39a000000 {
-			compatible = "apple,t8132-pinctrl", "apple,t8103-pinctrl";
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
 			reg = <0x3 0x9a000000 0x0 0x100000>;
 			power-domains = <&ps_gpio>;
 
