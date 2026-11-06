@@ -24,6 +24,7 @@ properties:
       - items:
           - enum:
               - apple,t8140-nvme-ans2
+              - apple,t8142-nvme-ans2
               - apple,t6041-nvme-ans2
           - const: apple,t8132-nvme-ans2
       - items:
