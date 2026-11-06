@@ -824,6 +824,7 @@
 		#reset-cells = <0>;
 		label = "apcie_phy_sw";
 		power-domains = <&ps_apcie_sys_st>, <&ps_apcie_sys_gp>;
+		apple,always-on;
 	};
 
 	ps_msr: power-controller@560 {
