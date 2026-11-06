@@ -824,6 +824,7 @@
 		#power-domain-cells = <0>;
 		power-domains = <&ps_apcie_sys_st0>, <&ps_apcie_sys_st1>;
 		#reset-cells = <0>;
+		apple,always-on;
 	};
 
 	ps_jpg: power-controller@3a0 {
