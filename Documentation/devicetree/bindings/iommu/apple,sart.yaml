@@ -39,6 +39,7 @@ properties:
               - apple,t8122-sart
               - apple,t8132-sart
               - apple,t8140-sart
+              - apple,t8142-sart
           - const: apple,t6000-sart
       - enum:
           - apple,t6000-sart
