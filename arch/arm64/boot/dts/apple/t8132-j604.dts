@@ -14,11 +14,12 @@
 #include <dt-bindings/leds/common.h>
 
 / {
-	compatible = "apple,j604", "apple,t8132", "apple,arm-platform";
 	model = "Apple MacBook Pro (14-inch, M4, 2024)";
+	compatible = "apple,j604", "apple,t8132", "apple,arm-platform";
 
 	led-controller {
 		compatible = "pwm-leds";
+
 		led-0 {
 			pwms = <&fpwm1 0 40000>;
 			label = "kbd_backlight";
