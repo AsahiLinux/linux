@@ -22,7 +22,9 @@ properties:
           - const: apple,t8103-nvme-ans2
       - const: apple,t8132-nvme-ans2
       - items:
-          - const: apple,t8140-nvme-ans2
+          - enum:
+              - apple,t8140-nvme-ans2
+              - apple,t6041-nvme-ans2
           - const: apple,t8132-nvme-ans2
       - items:
           - enum:
@@ -84,6 +86,7 @@ if:
           - apple,t6000-nvme-ans2
           - apple,t6020-nvme-ans2
           - apple,t6031-nvme-ans2
+          - apple,t6041-nvme-ans2
 then:
   properties:
     power-domains:
