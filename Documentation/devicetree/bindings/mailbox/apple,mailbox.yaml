@@ -32,6 +32,7 @@ properties:
               - apple,t8112-asc-mailbox
               - apple,t8122-asc-mailbox
               - apple,t8132-asc-mailbox
+              - apple,t8140-asc-mailbox
               - apple,t6000-asc-mailbox
               - apple,t6020-asc-mailbox
               - apple,t6030-asc-mailbox
