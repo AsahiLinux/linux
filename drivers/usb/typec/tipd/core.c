@@ -776,8 +776,10 @@ static void cd321x_update_work(struct work_struct *work)
 		desc.usb_pd = is_pd;
 		desc.accessory = TYPEC_ACCESSORY_NONE; /* XXX: handle accessories */
 
-		if (desc.usb_pd)
-			desc.identity = &st.partner_identity;
+		if (desc.usb_pd) {
+			cd321x->cur_partner_identity = st.partner_identity;
+			desc.identity = &cd321x->cur_partner_identity;
+		}
 
 		tps->partner = typec_register_partner(tps->port, &desc);
 		if (IS_ERR(tps->partner)) {
@@ -785,10 +787,8 @@ static void cd321x_update_work(struct work_struct *work)
 			return;
 		}
 
-		if (desc.identity) {
+		if (desc.identity)
 			typec_partner_set_identity(tps->partner);
-			cd321x->cur_partner_identity = st.partner_identity;
-		}
 	}
 
 	/* Update the TypeC MUX/PHY state */
