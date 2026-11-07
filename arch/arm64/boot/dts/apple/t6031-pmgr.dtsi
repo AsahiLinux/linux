@@ -360,8 +360,13 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(disp_fe);
+		/* This power-state dependency is inverted from other devices.
+		 * It might be and error in Apple's device tree. Their "dcp"
+		 * node uses the virtual "DISP-CPU-V" power-state as
+		 * "power-gate" which depends on both ps_disp_fe and
+		 * ps_disp_cpu.
+		 */
 		power-domains = <&DIE_NODE(ps_disp_cpu)>;
-		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_disp_cpu): power-controller@2a0 {
@@ -371,6 +376,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(disp_cpu);
 		power-domains = <&DIE_NODE(ps_disp_sys)>;
+		apple,min-state = <4>;
 	};
 
 	DIE_NODE(ps_spi0): power-controller@2a8 {
@@ -765,6 +771,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca0);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_mca1): power-controller@4f0 {
@@ -774,6 +781,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca1);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_mca2): power-controller@4f8 {
@@ -783,6 +791,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca2);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_mca3): power-controller@500 {
@@ -792,6 +801,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(mca3);
 		power-domains = <&DIE_NODE(ps_audio_p)>, <&DIE_NODE(ps_sio_adma)>;
+		apple,externally-clocked;
 	};
 
 	DIE_NODE(ps_msr1): power-controller@508 {
@@ -1046,6 +1056,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(aic);
+		apple,always-on; /* Core device */
 	};
 
 	DIE_NODE(ps_dwi): power-controller@108 {
@@ -1383,6 +1394,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(afi_d2d_0);
 		apple,always-on;
+
 		status = "disabled";
 	};
 
@@ -1393,6 +1405,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(afi_d2d_1);
 		apple,always-on;
+
 		status = "disabled";
 	};
 
@@ -1403,6 +1416,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(afc_d2d_0);
 		apple,always-on;
+
 		status = "disabled";
 	};
 
@@ -1413,6 +1427,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(afc_d2d_1);
 		apple,always-on;
+
 		status = "disabled";
 	};
 
@@ -1423,6 +1438,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(afr_d2d_0);
 		apple,always-on;
+
 		status = "disabled";
 	};
 
@@ -1433,6 +1449,7 @@
 		#reset-cells = <0>;
 		label = DIE_LABEL(afr_d2d_1);
 		apple,always-on;
+
 		status = "disabled";
 	};
 
@@ -1896,6 +1913,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(pmp);
+		apple,always-on;
 	};
 
 	DIE_NODE(ps_pms_sram): power-controller@560 {
@@ -1904,6 +1922,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = DIE_LABEL(pms_sram);
+		apple,always-on;
 	};
 
 	DIE_NODE(ps_atc0_cio_pcie): power-controller@598 {

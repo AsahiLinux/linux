@@ -50,6 +50,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "aic";
+		apple,always-on; /* Core device */
 	};
 
 	ps_dwi: power-controller@118 {
@@ -552,6 +553,7 @@
 		#reset-cells = <0>;
 		label = "mca0";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_dcs0: power-controller@320 {
@@ -669,6 +671,7 @@
 		#reset-cells = <0>;
 		label = "mca1";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca2: power-controller@390 {
@@ -678,6 +681,7 @@
 		#reset-cells = <0>;
 		label = "mca2";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca3: power-controller@398 {
@@ -687,6 +691,7 @@
 		#reset-cells = <0>;
 		label = "mca3";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_ioa1: power-controller@3a0 {
@@ -770,6 +775,7 @@
 		#reset-cells = <0>;
 		label = "dispext0_cpu";
 		power-domains = <&ps_dispext0_fe>;
+		apple,min-state = <4>;
 	};
 
 	ps_trace_fab: power-controller@3e8 {
@@ -796,6 +802,7 @@
 		#reset-cells = <0>;
 		label = "dispext1_cpu";
 		power-domains = <&ps_dispext1_fe>;
+		apple,min-state = <4>;
 	};
 
 	ps_dptx_phy: power-controller@408 {
@@ -875,6 +882,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "pmp";
+		apple,always-on;
 	};
 
 	ps_pms_sram: power-controller@4d0 {
@@ -883,6 +891,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "pms_sram";
+		apple,always-on;
 	};
 
 	ps_lw31: power-controller@4d8 {
@@ -1434,4 +1443,3 @@
 		power-domains = <&ps_atc3_usb_aon>, <&ps_atc3_common>;
 	};
 };
-

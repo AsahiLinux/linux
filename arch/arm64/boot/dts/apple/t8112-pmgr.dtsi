@@ -176,7 +176,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "sio_cpu";
-		power-domains = <&ps_sio>;
+		power-domains = <&ps_sio &ps_uart_p &ps_spi_p &ps_dpa0>;
 	};
 
 	ps_fpwm0: power-controller@1c8 {
@@ -465,6 +465,7 @@
 		#reset-cells = <0>;
 		label = "mca0";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca1: power-controller@2c8 {
@@ -474,6 +475,7 @@
 		#reset-cells = <0>;
 		label = "mca1";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca2: power-controller@2d0 {
@@ -483,6 +485,7 @@
 		#reset-cells = <0>;
 		label = "mca2";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca3: power-controller@2d8 {
@@ -492,6 +495,7 @@
 		#reset-cells = <0>;
 		label = "mca3";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca4: power-controller@2e0 {
@@ -501,6 +505,7 @@
 		#reset-cells = <0>;
 		label = "mca4";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mca5: power-controller@2e8 {
@@ -510,6 +515,7 @@
 		#reset-cells = <0>;
 		label = "mca5";
 		power-domains = <&ps_sio_adma>, <&ps_audio_p>;
+		apple,externally-clocked;
 	};
 
 	ps_mcc: power-controller@2f0 {
@@ -663,7 +669,6 @@
 		#reset-cells = <0>;
 		label = "disp0_sys";
 		power-domains = <&ps_rmx1>;
-		apple,always-on; /* TODO: figure out if we can enable PM here */
 	};
 
 	ps_disp0_fe: power-controller@378 {
@@ -672,8 +677,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "disp0_fe";
-		power-domains = <&ps_disp0_sys>;
-		apple,always-on; /* TODO: figure out if we can enable PM here */
+		power-domains = <&ps_disp0_sys>, <&ps_pmp>;
 	};
 
 	ps_dispext_sys: power-controller@380 {
@@ -691,7 +695,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "dispext_fe";
-		power-domains = <&ps_dispext_sys>;
+		power-domains = <&ps_dispext_sys>, <&ps_pmp>;
 	};
 
 	ps_dispext_cpu0: power-controller@3c8 {
@@ -773,7 +777,6 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "pmp";
-		apple,always-on;
 	};
 
 	ps_pms_sram: power-controller@418 {
@@ -818,6 +821,7 @@
 		#reset-cells = <0>;
 		label = "isp_sys";
 		power-domains = <&ps_rmx1>;
+		status = "disabled";
 	};
 
 	ps_venc_sys: power-controller@440 {
@@ -964,6 +968,123 @@
 		apple,always-on;
 	};
 
+	/* There is a dependency tree involved with these PDs,
+	 * but we do not express it here since the ISP driver
+	 * is supposed to sequence them in the right order anyway
+	 * (and we do not know the exact tree structure).
+	 *
+	 * This also works around spurious parent PD activation
+	 * on machines with ISP disabled (desktops).
+	 */
+	ps_isp_set0: power-controller@4000 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4000 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set0";
+		apple,force-disable;
+	};
+
+	ps_isp_set1: power-controller@4008 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4008 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set1";
+		apple,force-disable;
+		apple,force-reset;
+	};
+
+	ps_isp_set2: power-controller@4010 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4010 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set2";
+		apple,force-disable;
+		apple,force-reset;
+	};
+
+	ps_isp_fe: power-controller@4018 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4018 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_fe";
+	};
+
+	ps_isp_set4: power-controller@4020 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4020 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set4";
+	};
+
+	ps_isp_set5: power-controller@4028 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4028 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set5";
+	};
+
+	ps_isp_set6: power-controller@4030 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4030 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set6";
+	};
+
+	ps_isp_set7: power-controller@4038 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4038 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set7";
+	};
+
+	ps_isp_set8: power-controller@4040 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4040 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set8";
+	};
+
+	ps_isp_set9: power-controller@4048 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4048 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set9";
+	};
+
+	ps_isp_set12: power-controller@4050 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4050 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set10";
+	};
+
+	ps_isp_set10: power-controller@4058 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4058 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set11";
+	};
+
+	ps_isp_set11: power-controller@4060 {
+		compatible = "apple,t8103-pmgr-pwrstate", "apple,pmgr-pwrstate";
+		reg = <0x4060 4>;
+		#power-domain-cells = <0>;
+		#reset-cells = <0>;
+		label = "isp_set12";
+	};
+
 	ps_venc_dma: power-controller@8000 {
 		compatible = "apple,t8112-pmgr-pwrstate", "apple,pmgr-pwrstate";
 		reg = <0x8000 4>;
@@ -1064,6 +1185,7 @@
 		#power-domain-cells = <0>;
 		#reset-cells = <0>;
 		label = "msg";
+		apple,always-on; /* Core AON device? */
 	};
 
 	ps_nub_gpio: power-controller@80 {

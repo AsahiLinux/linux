@@ -177,6 +177,7 @@ struct data data_insert_at_marker(struct data d, struct marker *m,
 struct data data_merge(struct data d1, struct data d2);
 struct data data_append_cell(struct data d, cell_t word);
 struct data data_append_integer(struct data d, uint64_t word, int bits);
+struct data data_append_float(struct data d, double value, int bits);
 struct data data_append_re(struct data d, uint64_t address, uint64_t size);
 struct data data_append_addr(struct data d, uint64_t addr);
 struct data data_append_byte(struct data d, uint8_t byte);

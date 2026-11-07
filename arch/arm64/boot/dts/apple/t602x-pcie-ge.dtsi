@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * PCIe-GE Nodes present on both dies of a T6022 (M2 Ultra) and M2 Pro/Max but
+ * only used on T6022 in the Mac Pro (2023).
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+&SOC_NODE {
+	DIE_NODE(pcie_ge): pcie@1680000000 {
+		compatible = "apple,t6020-pcie-ge", "apple,t6020-pcie";
+		device_type = "pci";
+
+		reg = <0x16 0x80000000 0x0 0x1000000>,	/* config */
+			<0x16 0x91000000 0x0 0x4000>,	/* rc */
+			<0x16 0x94008000 0x0 0x4000>,	/* port0 */
+			<0x16 0x9e01c000 0x0 0x4000>,	/* phy0 */
+			<0x16 0x9401c000 0x0 0x1000>;	/* ltssm0 */
+		reg-names = "config", "rc", "port0", "phy0", "ltssm0";
+
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1356 IRQ_TYPE_LEVEL_HIGH>;
+
+		msi-controller;
+		msi-parent = <&DIE_NODE(pcie_ge)>;
+		msi-ranges = <&aic AIC_IRQ DIE_NO 1672 IRQ_TYPE_EDGE_RISING 128>;
+
+		iommu-map = <0x000 &DIE_NODE(pcie_ge_dart) 0 0>,
+			    <0x100 &DIE_NODE(pcie_ge_dart) 1 1>,
+			    <0x200 &DIE_NODE(pcie_ge_dart) 2 2>,
+			    <0x300 &DIE_NODE(pcie_ge_dart) 3 3>,
+			    <0x400 &DIE_NODE(pcie_ge_dart) 4 4>,
+			    <0x500 &DIE_NODE(pcie_ge_dart) 5 5>,
+			    <0x600 &DIE_NODE(pcie_ge_dart) 6 6>,
+			    <0x700 &DIE_NODE(pcie_ge_dart) 7 7>,
+			    <0x800 &DIE_NODE(pcie_ge_dart) 8 8>,
+			    <0x900 &DIE_NODE(pcie_ge_dart) 9 9>,
+			    <0xa00 &DIE_NODE(pcie_ge_dart) 10 10>,
+			    <0xb00 &DIE_NODE(pcie_ge_dart) 11 11>,
+			    <0xc00 &DIE_NODE(pcie_ge_dart) 12 12>,
+			    <0xd00 &DIE_NODE(pcie_ge_dart) 13 13>,
+			    <0xe00 &DIE_NODE(pcie_ge_dart) 14 14>,
+			    <0xf00 &DIE_NODE(pcie_ge_dart) 15 15>;
+		iommu-map-mask = <0xff00>;
+
+		bus-range = <0 15>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x43000000 0x18 0x00000000 0x18 0x00000000 0x4 0x00000000>,
+			 <0x02000000 0x00 0x80000000 0x17 0x80000000 0x0 0x80000000>;
+
+		power-domains = <&DIE_NODE(ps_apcie_ge_sys)>;
+		pinctrl-0 = <&DIE_NODE(pcie_ge_pins)>;
+		pinctrl-names = "default";
+
+		dma-coherent;
+
+		status = "disabled";
+
+		DIE_NODE(port_ge00): pci@0,0 {
+			device_type = "pci";
+			reg = <0x0 0x0 0x0 0x0 0x0>;
+			reset-gpios = <&DIE_NODE(pinctrl_ap) 9 GPIO_ACTIVE_LOW>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &DIE_NODE(port_ge00) 0 0 0 0>,
+					<0 0 0 2 &DIE_NODE(port_ge00) 0 0 0 1>,
+					<0 0 0 3 &DIE_NODE(port_ge00) 0 0 0 2>,
+					<0 0 0 4 &DIE_NODE(port_ge00) 0 0 0 3>;
+		};
+	};
+
+	DIE_NODE(pcie_ge_dart): iommu@1694000000 {
+		compatible = "apple,t6020-dart", "apple,t8110-dart";
+		reg = <0x16 0x94000000 0x0 0x4000>;
+		#iommu-cells = <1>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1357 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_apcie_ge_sys)>;
+		status = "disabled";
+	};
+};

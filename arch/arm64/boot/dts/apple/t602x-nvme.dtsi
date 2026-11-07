@@ -5,6 +5,7 @@
  * Copyright The Asahi Linux Contributors
  */
 
+&SOC_NODE {
 	DIE_NODE(ans_mbox): mbox@347408000 {
 		compatible = "apple,t6020-asc-mailbox", "apple,asc-mailbox-v4";
 		reg = <0x3 0x47408000 0x0 0x4000>;
@@ -26,7 +27,7 @@
 	};
 
 	DIE_NODE(nvme): nvme@34bcc0000 {
-		compatible = "apple,t6020-nvme-ans2", "apple,t8103-nvme-ans2";
+		compatible = "apple,t6020-nvme-ans2", "apple,t8103-nvme-ans2", "apple,nvme-ans2";
 		reg = <0x3 0x4bcc0000 0x0 0x40000>, <0x3 0x47400000 0x0 0x4000>;
 		reg-names = "nvme", "ans";
 		interrupt-parent = <&aic>;
@@ -40,3 +41,4 @@
 		power-domain-names = "ans", "apcie0", "apcie1";
 		resets = <&DIE_NODE(ps_ans2)>;
 	};
+};
