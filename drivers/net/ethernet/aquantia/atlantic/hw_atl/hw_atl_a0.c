@@ -944,6 +944,11 @@ static int hw_atl_a0_hw_fl3l4_set(struct aq_hw_s *self,
 	return aq_hw_err_from_flags(self);
 }
 
+static int hw_atl_a0_get_num_multicast_addresses(struct aq_hw_s *self)
+{
+	return AQ_HW_MULTICAST_ADDRESS_MAX;
+}
+
 const struct aq_hw_ops hw_atl_ops_a0 = {
 	.hw_soft_reset        = hw_atl_utils_soft_reset,
 	.hw_prepare           = hw_atl_utils_initfw,
@@ -978,4 +983,6 @@ const struct aq_hw_ops hw_atl_ops_a0 = {
 	.hw_get_regs                 = hw_atl_utils_hw_get_regs,
 	.hw_get_hw_stats             = hw_atl_utils_get_hw_stats,
 	.hw_get_fw_version           = hw_atl_utils_get_fw_version,
+
+	.hw_get_num_multicast_addresses = hw_atl_a0_get_num_multicast_addresses,
 };

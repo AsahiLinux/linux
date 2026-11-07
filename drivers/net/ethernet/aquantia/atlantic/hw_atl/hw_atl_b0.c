@@ -1777,6 +1777,11 @@ out:
 	return err;
 }
 
+static int hw_atl_b0_get_num_multicast_addresses(struct aq_hw_s *self)
+{
+	return AQ_HW_MULTICAST_ADDRESS_MAX;
+}
+
 const struct aq_hw_ops hw_atl_ops_b0 = {
 	.hw_soft_reset        = hw_atl_utils_soft_reset,
 	.hw_prepare           = hw_atl_utils_initfw,
@@ -1836,4 +1841,6 @@ const struct aq_hw_ops hw_atl_ops_b0 = {
 
 	.hw_get_mac_temp         = hw_atl_b0_get_mac_temp,
 	.hw_read_module_eeprom   = hw_atl_b0_read_module_eeprom,
+
+	.hw_get_num_multicast_addresses = hw_atl_b0_get_num_multicast_addresses,
 };
