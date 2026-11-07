@@ -659,6 +659,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_NV42    v4l2_fourcc('N', 'V', '4', '2') /* 24  Y/CrCb 4:4:4  */
 #define V4L2_PIX_FMT_P010    v4l2_fourcc('P', '0', '1', '0') /* 24  Y/CbCr 4:2:0 10-bit per component */
 #define V4L2_PIX_FMT_P012    v4l2_fourcc('P', '0', '1', '2') /* 24  Y/CbCr 4:2:0 12-bit per component */
+#define V4L2_PIX_FMT_P210    v4l2_fourcc('P', '2', '1', '0') /* 32  Y/CbCr 4:2:2 10-bit per component */
 
 /* two non contiguous planes - one Y, one Cr + Cb interleaved  */
 #define V4L2_PIX_FMT_NV12M   v4l2_fourcc('N', 'M', '1', '2') /* 12  Y/CbCr 4:2:0  */
@@ -840,6 +841,14 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_PISP_COMP2_GBRG	v4l2_fourcc('P', 'C', '2', 'g') /* PiSP 8-bit mode 2 compressed GBRG bayer */
 #define V4L2_PIX_FMT_PISP_COMP2_BGGR	v4l2_fourcc('P', 'C', '2', 'B') /* PiSP 8-bit mode 2 compressed BGGR bayer */
 #define V4L2_PIX_FMT_PISP_COMP2_MONO	v4l2_fourcc('P', 'C', '2', 'M') /* PiSP 8-bit mode 2 compressed monochrome */
+
+/* Apple Interchange, compressed and tiled formats */
+#define V4L2_PIX_FMT_APPLE_AX12	v4l2_fourcc('A', 'X', '1', '2') /* Apple Interchange NV12 */
+#define V4L2_PIX_FMT_APPLE_AX16	v4l2_fourcc('A', 'X', '1', '6') /* Apple Interchange NV16 */
+#define V4L2_PIX_FMT_APPLE_AX24	v4l2_fourcc('A', 'X', '2', '4') /* Apple Interchange NV24 */
+#define V4L2_PIX_FMT_APPLE_AX03	v4l2_fourcc('A', 'X', '0', '3') /* Apple Interchange P030 */
+#define V4L2_PIX_FMT_APPLE_AX23	v4l2_fourcc('A', 'X', '2', '3') /* Apple Interchange P230 */
+#define V4L2_PIX_FMT_APPLE_AX43	v4l2_fourcc('A', 'X', '4', '3') /* Apple Interchange P430 */
 
 /* Renesas RZ/V2H CRU packed formats. 64-bit units with contiguous pixels */
 #define V4L2_PIX_FMT_RAW_CRU10	v4l2_fourcc('C', 'R', '1', '0')
