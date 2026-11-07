@@ -23,5 +23,17 @@ extern const struct device_type typec_mux_dev_type;
 
 #define is_typec_switch_dev(dev) ((dev)->type == &typec_switch_dev_type)
 #define is_typec_mux_dev(dev) ((dev)->type == &typec_mux_dev_type)
+#define is_typec_thunderbolt_switch_dev(dev) \
+	((dev)->type == &typec_thunderbolt_switch_dev_type)
+
+struct typec_thunderbolt_switch_dev {
+	struct device dev;
+	typec_thunderbolt_switch_set_fn_t set;
+};
+
+#define to_typec_thunderbolt_switch_dev(_dev_) \
+	container_of(_dev_, struct typec_thunderbolt_switch_dev, dev)
+
+extern const struct device_type typec_thunderbolt_switch_dev_type;
 
 #endif /* __USB_TYPEC_MUX__ */
