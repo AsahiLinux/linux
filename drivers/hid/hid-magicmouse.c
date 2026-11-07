@@ -60,7 +60,13 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 #define MOUSE_REPORT_ID    0x29
 #define MOUSE2_REPORT_ID   0x12
 #define DOUBLE_REPORT_ID   0xf7
+#define SPI_REPORT_ID      0x02
+#define SPI_RESET_REPORT_ID 0x60
+#define MTP_REPORT_ID      0x75
+#define SENSOR_DIMENSIONS_REPORT_ID 0xd9
 #define USB_BATTERY_TIMEOUT_SEC 60
+
+#define MAX_CONTACTS 16
 
 /* These definitions are not precise, but they're close enough.  (Bits
  * 0x03 seem to indicate the aspect ratio of the touch, bits 0x70 seem
@@ -112,30 +118,53 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
 #define TRACKPAD2_RES_Y \
 	((TRACKPAD2_MAX_Y - TRACKPAD2_MIN_Y) / (TRACKPAD2_DIMENSION_Y / 100))
 
+/* These are fallback values, since the real values will be queried from the device. */
+#define J314_TP_DIMENSION_X (float)13000
+#define J314_TP_MIN_X -5900
+#define J314_TP_MAX_X 6500
+#define J314_TP_RES_X \
+	((J314_TP_MAX_X - J314_TP_MIN_X) / (J314_TP_DIMENSION_X / 100))
+#define J314_TP_DIMENSION_Y (float)8100
+#define J314_TP_MIN_Y -200
+#define J314_TP_MAX_Y 7400
+#define J314_TP_RES_Y \
+	((J314_TP_MAX_Y - J314_TP_MIN_Y) / (J314_TP_DIMENSION_Y / 100))
+
+#define J314_TP_MAX_FINGER_ORIENTATION 16384
+
+struct magicmouse_input_ops {
+	int (*raw_event)(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size);
+	int (*setup_input)(struct input_dev *input, struct hid_device *hdev);
+};
+
 /**
  * struct magicmouse_sc - Tracks Magic Mouse-specific data.
  * @input: Input device through which we report events.
  * @quirks: Currently unused.
+ * @query_dimensions: Whether to query and update dimensions on first open
  * @ntouches: Number of touches in most recent touch report.
  * @scroll_accel: Number of consecutive scroll motions.
  * @scroll_jiffies: Time of last scroll motion.
+ * @pos: multi touch position data of the last report.
  * @touches: Most recent data for a touch, indexed by tracking ID.
  * @tracking_ids: Mapping of current touch input data to @touches.
  * @hdev: Pointer to the underlying HID device.
  * @work: Workqueue to handle initialization retry for quirky devices.
  * @battery_timer: Timer for obtaining battery level information.
+ * @input_ops: Input ops based on device type.
  */
 struct magicmouse_sc {
 	struct input_dev *input;
 	unsigned long quirks;
+	bool query_dimensions;
 
 	int ntouches;
 	int scroll_accel;
 	unsigned long scroll_jiffies;
 
+	struct input_mt_pos pos[MAX_CONTACTS];
 	struct {
-		short x;
-		short y;
 		short scroll_x;
 		short scroll_y;
 		short scroll_x_hr;
@@ -143,13 +172,111 @@ struct magicmouse_sc {
 		u8 size;
 		bool scroll_x_active;
 		bool scroll_y_active;
-	} touches[16];
-	int tracking_ids[16];
+	} touches[MAX_CONTACTS];
+	int tracking_ids[MAX_CONTACTS];
 
 	struct hid_device *hdev;
 	struct delayed_work work;
 	struct timer_list battery_timer;
+	struct magicmouse_input_ops input_ops;
 };
+
+static int magicmouse_enable_multitouch(struct hid_device *hdev);
+
+static inline int le16_to_int(__le16 x)
+{
+	return (signed short)le16_to_cpu(x);
+}
+
+static int magicmouse_open(struct input_dev *dev)
+{
+	struct hid_device *hdev = input_get_drvdata(dev);
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+	int ret;
+
+	ret = hid_hw_open(hdev);
+	if (ret)
+		return ret;
+
+	/*
+	 * Some devices repond with 'invalid report id' when feature
+	 * report switching it into multitouch mode is sent to it.
+	 *
+	 * This results in -EIO from the _raw low-level transport callback,
+	 * but there seems to be no other way of switching the mode.
+	 * Thus the super-ugly hacky success check below.
+	 *
+	 * MTP devices do not need this.
+	 */
+	if (hdev->bus != BUS_HOST) {
+		ret = magicmouse_enable_multitouch(hdev);
+		if (ret != -EIO && ret < 0) {
+			hid_err(hdev, "unable to request touch data (%d)\n", ret);
+			return ret;
+		}
+		if (ret == -EIO && (hdev->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2 ||
+				hdev->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2_USBC)) {
+			schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
+		}
+	}
+
+	/*
+	 * For Apple Silicon trackpads, we want to query the dimensions on
+	 * device open. This is because doing so requires the firmware, but
+	 * we don't want to force a firmware load until the device is opened
+	 * for the first time. So do that here and update the input properties
+	 * just in time before userspace queries them.
+	 */
+	if (msc->query_dimensions) {
+		struct input_dev *input = msc->input;
+		u8 buf[32];
+		struct {
+			__le32 width;
+			__le32 height;
+			__le16 min_x;
+			__le16 min_y;
+			__le16 max_x;
+			__le16 max_y;
+		} dim;
+		uint32_t x_span, y_span;
+
+		ret = hid_hw_raw_request(hdev, SENSOR_DIMENSIONS_REPORT_ID, buf, sizeof(buf), HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
+		if (ret < (int)(1 + sizeof(dim))) {
+			hid_err(hdev, "unable to request dimensions (%d)\n", ret);
+			return ret;
+		}
+
+		memcpy(&dim, buf + 1, sizeof(dim));
+
+		/* finger position */
+		input_set_abs_params(input, ABS_MT_POSITION_X,
+				     le16_to_int(dim.min_x), le16_to_int(dim.max_x), 0, 0);
+		/* Y axis is inverted */
+		input_set_abs_params(input, ABS_MT_POSITION_Y,
+				     -le16_to_int(dim.max_y), -le16_to_int(dim.min_y), 0, 0);
+		x_span = le16_to_int(dim.max_x) - le16_to_int(dim.min_x);
+		y_span = le16_to_int(dim.max_y) - le16_to_int(dim.min_y);
+
+		/* X/Y resolution */
+		input_abs_set_res(input, ABS_MT_POSITION_X, 100 * x_span / le32_to_cpu(dim.width) );
+		input_abs_set_res(input, ABS_MT_POSITION_Y, 100 * y_span / le32_to_cpu(dim.height) );
+
+		/* copy info, as input_mt_init_slots() does */
+		dev->absinfo[ABS_X] = dev->absinfo[ABS_MT_POSITION_X];
+		dev->absinfo[ABS_Y] = dev->absinfo[ABS_MT_POSITION_Y];
+
+		msc->query_dimensions = false;
+	}
+
+	return 0;
+}
+
+static void magicmouse_close(struct input_dev *dev)
+{
+	struct hid_device *hdev = input_get_drvdata(dev);
+
+	hid_hw_close(hdev);
+}
 
 static int magicmouse_firm_touch(struct magicmouse_sc *msc)
 {
@@ -192,7 +319,7 @@ static void magicmouse_emit_buttons(struct magicmouse_sc *msc, int state)
 		} else if (last_state != 0) {
 			state = last_state;
 		} else if ((id = magicmouse_firm_touch(msc)) >= 0) {
-			int x = msc->touches[id].x;
+			int x = msc->pos[id].x;
 			if (x < middle_button_start)
 				state = 1;
 			else if (x > middle_button_stop)
@@ -256,8 +383,8 @@ static void magicmouse_emit_touch(struct magicmouse_sc *msc, int raw_id, u8 *tda
 
 	/* Store tracking ID and other fields. */
 	msc->tracking_ids[raw_id] = id;
-	msc->touches[id].x = x;
-	msc->touches[id].y = y;
+	msc->pos[id].x = x;
+	msc->pos[id].y = y;
 	msc->touches[id].size = size;
 
 	/* If requested, emulate a scroll wheel by detecting small
@@ -383,7 +510,7 @@ static void magicmouse_emit_touch(struct magicmouse_sc *msc, int raw_id, u8 *tda
 	}
 }
 
-static int __magicmouse_raw_event(struct hid_device *hdev,
+static int __magicmouse_raw_event_usb(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size, bool nested)
 {
 	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
@@ -515,8 +642,8 @@ static int __magicmouse_raw_event(struct hid_device *hdev,
 			return 0;
 		}
 
-		__magicmouse_raw_event(hdev, report, data + 2, data[1], true);
-		__magicmouse_raw_event(hdev, report, data + 2 + data[1],
+		__magicmouse_raw_event_usb(hdev, report, data + 2, data[1], true);
+		__magicmouse_raw_event_usb(hdev, report, data + 2 + data[1],
 			size - 2 - data[1], true);
 		return 0;
 	default:
@@ -543,10 +670,178 @@ static int __magicmouse_raw_event(struct hid_device *hdev,
 	return 1;
 }
 
-static int magicmouse_raw_event(struct hid_device *hdev,
+static int magicmouse_raw_event_usb(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
-	return __magicmouse_raw_event(hdev, report, data, size, false);
+	return __magicmouse_raw_event_usb(hdev, report, data, size, false);
+}
+
+/**
+ * struct tp_finger - single trackpad finger structure, le16-aligned
+ *
+ * @unknown1:		unknown
+ * @unknown2:		unknown
+ * @abs_x:		absolute x coordinate
+ * @abs_y:		absolute y coordinate
+ * @rel_x:		relative x coordinate
+ * @rel_y:		relative y coordinate
+ * @tool_major:		tool area, major axis
+ * @tool_minor:		tool area, minor axis
+ * @orientation:	16384 when point, else 15 bit angle
+ * @touch_major:	touch area, major axis
+ * @touch_minor:	touch area, minor axis
+ * @unused:		zeros
+ * @pressure:		pressure on forcetouch touchpad
+ * @multi:		one finger: varies, more fingers: constant
+ */
+struct tp_finger {
+	__le16 unknown1;
+	__le16 unknown2;
+	__le16 abs_x;
+	__le16 abs_y;
+	__le16 rel_x;
+	__le16 rel_y;
+	__le16 tool_major;
+	__le16 tool_minor;
+	__le16 orientation;
+	__le16 touch_major;
+	__le16 touch_minor;
+	__le16 unused[2];
+	__le16 pressure;
+	__le16 multi;
+} __attribute__((packed, aligned(2)));
+
+/**
+ * struct vendor trackpad report
+ *
+ * @num_fingers:	the number of fingers being reported in @fingers
+ * @buttons:		same as HID buttons
+ */
+struct tp_header {
+	// HID vendor part, up to 1751 bytes
+	u8 unknown[22];
+	u8 num_fingers;
+	u8 buttons;
+	u8 unknown3[14];
+};
+
+/**
+ * struct standard HID mouse report
+ *
+ * @report_id:		reportid
+ * @buttons:		HID Usage Buttons 3 1-bit reports
+ */
+struct tp_mouse_report {
+	// HID mouse report
+	u8 report_id;
+	u8 buttons;
+	u8 rel_x;
+	u8 rel_y;
+	u8 padding[4];
+};
+
+static void report_finger_data(struct input_dev *input, int slot,
+			       const struct input_mt_pos *pos,
+			       const struct tp_finger *f)
+{
+	input_mt_slot(input, slot);
+	input_mt_report_slot_state(input, MT_TOOL_FINGER, true);
+
+	input_report_abs(input, ABS_MT_TOUCH_MAJOR,
+			 le16_to_int(f->touch_major) << 1);
+	input_report_abs(input, ABS_MT_TOUCH_MINOR,
+			 le16_to_int(f->touch_minor) << 1);
+	input_report_abs(input, ABS_MT_WIDTH_MAJOR,
+			 le16_to_int(f->tool_major) << 1);
+	input_report_abs(input, ABS_MT_WIDTH_MINOR,
+			 le16_to_int(f->tool_minor) << 1);
+	input_report_abs(input, ABS_MT_ORIENTATION,
+			 J314_TP_MAX_FINGER_ORIENTATION - le16_to_int(f->orientation));
+	input_report_abs(input, ABS_MT_PRESSURE, le16_to_int(f->pressure));
+	input_report_abs(input, ABS_MT_POSITION_X, pos->x);
+	input_report_abs(input, ABS_MT_POSITION_Y, pos->y);
+}
+
+static int magicmouse_raw_event_mtp(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size)
+{
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+	struct input_dev *input = msc->input;
+	struct tp_header *tp_hdr;
+	struct tp_finger *f;
+	int i, n;
+	u32 npoints;
+	const size_t hdr_sz = sizeof(struct tp_header);
+	const size_t touch_sz = sizeof(struct tp_finger);
+	u8 map_contacs[MAX_CONTACTS];
+
+	// hid_warn(hdev, "%s\n", __func__);
+	// print_hex_dump_debug("appleft ev: ", DUMP_PREFIX_OFFSET, 16, 1, data,
+	// 		     size, false);
+
+	/* Expect 46 bytes of prefix, and N * 30 bytes of touch data. */
+	if (size < hdr_sz || ((size - hdr_sz) % touch_sz) != 0)
+		return 0;
+
+	tp_hdr = (struct tp_header *)data;
+
+	npoints = (size - hdr_sz) / touch_sz;
+	if (npoints < tp_hdr->num_fingers || npoints > MAX_CONTACTS) {
+		hid_warn(hdev,
+			 "unexpected number of touches (%u) for "
+			 "report\n",
+			 npoints);
+		return 0;
+	}
+
+	n = 0;
+	for (i = 0; i < tp_hdr->num_fingers; i++) {
+		f = (struct tp_finger *)(data + hdr_sz + i * touch_sz);
+		if (le16_to_int(f->touch_major) == 0)
+			continue;
+
+		hid_dbg(hdev, "ev x:%04x y:%04x\n", le16_to_int(f->abs_x),
+			le16_to_int(f->abs_y));
+		msc->pos[n].x = le16_to_int(f->abs_x);
+		msc->pos[n].y = -le16_to_int(f->abs_y);
+		map_contacs[n] = i;
+		n++;
+	}
+
+	input_mt_assign_slots(input, msc->tracking_ids, msc->pos, n, 0);
+
+	for (i = 0; i < n; i++) {
+		int idx = map_contacs[i];
+		f = (struct tp_finger *)(data + hdr_sz + idx * touch_sz);
+		report_finger_data(input, msc->tracking_ids[i], &msc->pos[i], f);
+	}
+
+	input_mt_sync_frame(input);
+	input_report_key(input, BTN_MOUSE, tp_hdr->buttons & 1);
+
+	input_sync(input);
+	return 1;
+}
+
+static int magicmouse_raw_event_spi(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size)
+{
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+	const size_t hdr_sz = sizeof(struct tp_mouse_report);
+
+	if (!size)
+		return 0;
+
+	if (data[0] == SPI_RESET_REPORT_ID) {
+		hid_info(hdev, "Touch controller was reset, re-enabling touch mode\n");
+		schedule_delayed_work(&msc->work, msecs_to_jiffies(10));
+		return 1;
+	}
+
+	if (data[0] != SPI_REPORT_ID || size < hdr_sz)
+		return 0;
+
+	return magicmouse_raw_event_mtp(hdev, report, data + hdr_sz, size - hdr_sz);
 }
 
 static int magicmouse_event(struct hid_device *hdev, struct hid_field *field,
@@ -567,7 +862,24 @@ static int magicmouse_event(struct hid_device *hdev, struct hid_field *field,
 	return 0;
 }
 
-static int magicmouse_setup_input(struct input_dev *input, struct hid_device *hdev)
+static int magicmouse_raw_event(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size)
+{
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+
+	return msc->input_ops.raw_event(hdev, report, data, size);
+}
+
+static int magicmouse_setup_input(struct input_dev *input,
+				  struct hid_device *hdev)
+{
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+
+	return msc->input_ops.setup_input(input, hdev);
+}
+
+static int magicmouse_setup_input_usb(struct input_dev *input,
+				      struct hid_device *hdev)
 {
 	int error;
 	int mt_flags = 0;
@@ -646,7 +958,7 @@ static int magicmouse_setup_input(struct input_dev *input, struct hid_device *hd
 
 	__set_bit(EV_ABS, input->evbit);
 
-	error = input_mt_init_slots(input, 16, mt_flags);
+	error = input_mt_init_slots(input, MAX_CONTACTS, mt_flags);
 	if (error)
 		return error;
 	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 255 << 2,
@@ -726,6 +1038,109 @@ static int magicmouse_setup_input(struct input_dev *input, struct hid_device *hd
 	 */
 	__clear_bit(EV_REP, input->evbit);
 
+	/*
+	 * This isn't strictly speaking needed for USB, but enabling MT on
+	 * device open is probably more robust than only doing it once on probe
+	 * even if USB devices are not known to suffer from the SPI reset issue.
+	 */
+	input->open = magicmouse_open;
+	input->close = magicmouse_close;
+	return 0;
+}
+
+static int magicmouse_setup_input_mtp(struct input_dev *input,
+				      struct hid_device *hdev)
+{
+	int error;
+	int mt_flags = 0;
+	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
+
+	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
+	__clear_bit(BTN_0, input->keybit);
+	__clear_bit(BTN_RIGHT, input->keybit);
+	__clear_bit(BTN_MIDDLE, input->keybit);
+	__clear_bit(EV_REL, input->evbit);
+	__clear_bit(REL_X, input->relbit);
+	__clear_bit(REL_Y, input->relbit);
+
+	mt_flags = INPUT_MT_POINTER | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK;
+
+	/* finger touch area */
+	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 5000, 0, 0);
+	input_set_abs_params(input, ABS_MT_TOUCH_MINOR, 0, 5000, 0, 0);
+
+	/* finger approach area */
+	input_set_abs_params(input, ABS_MT_WIDTH_MAJOR, 0, 5000, 0, 0);
+	input_set_abs_params(input, ABS_MT_WIDTH_MINOR, 0, 5000, 0, 0);
+
+	/* Note: Touch Y position from the device is inverted relative
+	 * to how pointer motion is reported (and relative to how USB
+	 * HID recommends the coordinates work).  This driver keeps
+	 * the origin at the same position, and just uses the additive
+	 * inverse of the reported Y.
+	 */
+
+	input_set_abs_params(input, ABS_MT_PRESSURE, 0, 6000, 0, 0);
+
+	/*
+	 * This makes libinput recognize this as a PressurePad and
+	 * stop trying to use pressure for touch size. Pressure unit
+	 * seems to be ~grams on these touchpads.
+	 */
+	input_abs_set_res(input, ABS_MT_PRESSURE, 1);
+
+	/* finger orientation */
+	input_set_abs_params(input, ABS_MT_ORIENTATION, -J314_TP_MAX_FINGER_ORIENTATION,
+			     J314_TP_MAX_FINGER_ORIENTATION, 0, 0);
+
+	/* finger position */
+	input_set_abs_params(input, ABS_MT_POSITION_X, J314_TP_MIN_X, J314_TP_MAX_X,
+			     0, 0);
+	/* Y axis is inverted */
+	input_set_abs_params(input, ABS_MT_POSITION_Y, -J314_TP_MAX_Y, -J314_TP_MIN_Y,
+			     0, 0);
+
+	/* X/Y resolution */
+	input_abs_set_res(input, ABS_MT_POSITION_X, J314_TP_RES_X);
+	input_abs_set_res(input, ABS_MT_POSITION_Y, J314_TP_RES_Y);
+
+	input_set_events_per_packet(input, 60);
+
+	/* touchpad button */
+	input_set_capability(input, EV_KEY, BTN_MOUSE);
+
+	/*
+	 * hid-input may mark device as using autorepeat, but the trackpad does
+	 * not actually want it.
+	 */
+	__clear_bit(EV_REP, input->evbit);
+
+	error = input_mt_init_slots(input, MAX_CONTACTS, mt_flags);
+	if (error)
+		return error;
+
+	/*
+	 * Override the default input->open function to send the MT
+	 * enable every time the device is opened. This ensures it works
+	 * even if we missed a reset event due to the device being closed.
+	 * input->close is overridden for symmetry.
+	 *
+	 * This also takes care of the dimensions query.
+	 */
+	input->open = magicmouse_open;
+	input->close = magicmouse_close;
+	msc->query_dimensions = true;
+
+	return 0;
+}
+
+static int magicmouse_setup_input_spi(struct input_dev *input,
+				      struct hid_device *hdev)
+{
+	int ret = magicmouse_setup_input_mtp(input, hdev);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -784,6 +1199,10 @@ static int magicmouse_enable_multitouch(struct hid_device *hdev)
 	int feature_size;
 
 	switch (hdev->product) {
+	case SPI_DEVICE_ID_APPLE_MACBOOK_AIR_2020:
+	case SPI_DEVICE_ID_APPLE_MACBOOK_PRO13_2020:
+	case SPI_DEVICE_ID_APPLE_MACBOOK_PRO14_2021:
+	case SPI_DEVICE_ID_APPLE_MACBOOK_PRO16_2021:
 	case USB_DEVICE_ID_APPLE_MAGICTRACKPAD2:
 	case USB_DEVICE_ID_APPLE_MAGICTRACKPAD2_USBC:
 		switch (hdev->vendor) {
@@ -791,7 +1210,7 @@ static int magicmouse_enable_multitouch(struct hid_device *hdev)
 			feature_size = sizeof(feature_mt_trackpad2_bt);
 			feature = feature_mt_trackpad2_bt;
 			break;
-		default: /* USB_VENDOR_ID_APPLE */
+		default:  /* USB_VENDOR_ID_APPLE || SPI_VENDOR_ID_APPLE */
 			feature_size = sizeof(feature_mt_trackpad2_usb);
 			feature = feature_mt_trackpad2_usb;
 		}
@@ -897,10 +1316,27 @@ static int magicmouse_probe(struct hid_device *hdev,
 	struct hid_report *report;
 	int ret;
 
+	if ((id->bus == BUS_SPI || id->bus == BUS_HOST) && id->vendor == SPI_VENDOR_ID_APPLE &&
+	    hdev->type != HID_TYPE_SPI_MOUSE)
+		return -ENODEV;
+
 	msc = devm_kzalloc(&hdev->dev, sizeof(*msc), GFP_KERNEL);
 	if (msc == NULL) {
 		hid_err(hdev, "can't alloc magicmouse descriptor\n");
 		return -ENOMEM;
+	}
+
+	// internal trackpad use a data format use input ops to avoid
+	// conflicts with the report ID.
+	if (id->bus == BUS_HOST) {
+		msc->input_ops.raw_event = magicmouse_raw_event_mtp;
+		msc->input_ops.setup_input = magicmouse_setup_input_mtp;
+	} else if (id->bus == BUS_SPI) {
+		msc->input_ops.raw_event = magicmouse_raw_event_spi;
+		msc->input_ops.setup_input = magicmouse_setup_input_spi;
+	} else {
+		msc->input_ops.raw_event = magicmouse_raw_event_usb;
+		msc->input_ops.setup_input = magicmouse_setup_input_usb;
 	}
 
 	msc->scroll_accel = SCROLL_ACCEL_DEFAULT;
@@ -971,11 +1407,20 @@ static int magicmouse_probe(struct hid_device *hdev,
 				TRACKPAD2_USB_REPORT_ID, 0);
 		}
 		break;
-	default: /* USB_DEVICE_ID_APPLE_MAGICTRACKPAD */
-		report = hid_register_report(hdev, HID_INPUT_REPORT,
-			TRACKPAD_REPORT_ID, 0);
-		report = hid_register_report(hdev, HID_INPUT_REPORT,
-			DOUBLE_REPORT_ID, 0);
+	default:
+		switch (id->bus) {
+		case BUS_HOST:
+			report = hid_register_report(hdev, HID_INPUT_REPORT, MTP_REPORT_ID, 0);
+			break;
+		case BUS_SPI:
+			report = hid_register_report(hdev, HID_INPUT_REPORT, SPI_REPORT_ID, 0);
+			break;
+		default:  /* USB_DEVICE_ID_APPLE_MAGICTRACKPAD */
+			report = hid_register_report(hdev, HID_INPUT_REPORT,
+				TRACKPAD_REPORT_ID, 0);
+			report = hid_register_report(hdev, HID_INPUT_REPORT,
+				DOUBLE_REPORT_ID, 0);
+		}
 	}
 
 	if (!report) {
@@ -985,22 +1430,14 @@ static int magicmouse_probe(struct hid_device *hdev,
 	}
 	report->size = 6;
 
-	/*
-	 * Some devices repond with 'invalid report id' when feature
-	 * report switching it into multitouch mode is sent to it.
-	 *
-	 * This results in -EIO from the _raw low-level transport callback,
-	 * but there seems to be no other way of switching the mode.
-	 * Thus the super-ugly hacky success check below.
-	 */
-	ret = magicmouse_enable_multitouch(hdev);
-	if (ret != -EIO && ret < 0) {
-		hid_err(hdev, "unable to request touch data (%d)\n", ret);
-		goto err_stop_hw;
-	}
-	if (ret == -EIO && (id->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2 ||
-			    id->product == USB_DEVICE_ID_APPLE_MAGICMOUSE2_USBC)) {
-		schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
+	/* MTP devices do not need the MT enable, this is handled by the MTP driver */
+	if (id->bus == BUS_HOST)
+		return 0;
+
+	/* SPI devices need to watch for reset events to re-send the MT enable */
+	if (id->bus == BUS_SPI) {
+		report = hid_register_report(hdev, HID_INPUT_REPORT, SPI_RESET_REPORT_ID, 0);
+		report->size = 2;
 	}
 
 	/*
@@ -1046,7 +1483,7 @@ static int magicmouse_reset_resume(struct hid_device *hdev)
 	 * enable report.  Only the HID_TYPE_USBMOUSE interface accepts it, and
 	 * it must be deferred. Sending it inline here is too early.
 	 */
-	if (msc && hdev->type == HID_TYPE_USBMOUSE)
+	if (msc && (hdev->type == HID_TYPE_USBMOUSE || hdev->bus == BUS_SPI))
 		schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
 
 	return 0;
@@ -1102,6 +1539,10 @@ static const struct hid_device_id magic_mice[] = {
 		USB_DEVICE_ID_APPLE_MAGICTRACKPAD2_USBC), .driver_data = 0 },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE,
 		USB_DEVICE_ID_APPLE_MAGICTRACKPAD2_USBC), .driver_data = 0 },
+	{ HID_SPI_DEVICE(SPI_VENDOR_ID_APPLE, HID_ANY_ID),
+	  .driver_data = 0 },
+	{ HID_DEVICE(BUS_HOST, HID_GROUP_ANY, HOST_VENDOR_ID_APPLE,
+                     HID_ANY_ID), .driver_data = 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, magic_mice);
