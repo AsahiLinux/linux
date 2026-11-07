@@ -57,12 +57,14 @@
 #include "cred.c"
 #include "device.c"
 #include "dma.c"
+#include "dma-fence.c"
 #ifdef CONFIG_DMA_SHARED_BUFFER
 #include "dma-resv.c"
 #include "dma-mapping.c"
 #endif
 #include "drm.c"
 #include "drm_gpuvm.c"
+#include "drm_syncobj.c"
 #include "err.c"
 #include "fs.c"
 #include "fwctl.c"

@@ -5,6 +5,7 @@ use crate::gem::NovaObject;
 use kernel::{
     alloc::flags::*,
     auxiliary,
+    bindings,
     device::Bound,
     drm::{
         self,
@@ -13,7 +14,7 @@ use kernel::{
     },
     pci,
     prelude::*,
-    uapi,
+    uapi, //
 };
 
 pub(crate) struct File;
@@ -21,8 +22,12 @@ pub(crate) struct File;
 impl drm::file::DriverFile for File {
     type Driver = NovaDriver;
 
-    fn open(_dev: &NovaDevice) -> Result<Pin<KBox<Self>>> {
+    fn open(_dev: &drm::Device<NovaDriver, Registered>) -> Result<Pin<KBox<Self>>> {
         Ok(KBox::new(Self, GFP_KERNEL)?.into())
+    }
+
+    fn as_raw(&self) -> *mut bindings::drm_file {
+        todo!()
     }
 }
 

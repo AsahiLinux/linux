@@ -15,9 +15,15 @@ use crate::{
     },
     error::from_err_ptr,
     prelude::*,
-    sync::aref::{
-        ARef,
-        AlwaysRefCounted, //
+    sync::{
+        aref::{
+            ARef,
+            AlwaysRefCounted, //
+        },
+        atomic::{
+            Acquire,
+            Atomic, //
+        }, //
     },
     types::{
         NotThreadSafe,
@@ -158,6 +164,12 @@ impl<T: drm::Driver> UnregisteredDevice<T> {
         if T::FEAT_RENDER {
             features |= drm::driver::FEAT_RENDER;
         }
+        if T::FEAT_SYNCOBJ {
+            features |= drm::driver::FEAT_SYNCOBJ;
+        }
+        if T::FEAT_SYNCOBJ_TIMELINE {
+            features |= drm::driver::FEAT_SYNCOBJ_TIMELINE;
+        }
 
         features
     }
@@ -252,6 +264,9 @@ impl<T: drm::Driver> UnregisteredDevice<T> {
         // SAFETY: `raw_drm` is valid; no concurrent access before registration.
         unsafe { (*raw_drm.as_ptr()).registration_data = UnsafeCell::new(NonNull::dangling()) };
 
+        // SAFETY: `raw_drm` is valid. No concurrent access happens before registration.
+        unsafe { (*raw_drm.as_ptr()).registered = Atomic::new(false) };
+
         // SAFETY: The reference count is one, and now we take ownership of that reference as a
         // `drm::Device`.
         // INVARIANT: We just created the device above, but have yet to call `drm_dev_register`.
@@ -276,6 +291,8 @@ pub struct Device<T: drm::Driver, C: DeviceContext = Normal> {
     dev: Opaque<bindings::drm_device>,
     data: T::Data,
     pub(super) registration_data: UnsafeCell<NonNull<T::RegistrationData<'static>>>,
+    /// Set with release ordering after `drm_dev_register()` succeeds, and never cleared.
+    pub(super) registered: Atomic<bool>,
     _ctx: PhantomData<C>,
 }
 
@@ -341,6 +358,25 @@ impl<T: drm::Driver, C: DeviceContext> Device<T, C> {
     pub(crate) unsafe fn assume_ctx<NewCtx: DeviceContext>(&self) -> &Device<T, NewCtx> {
         // SAFETY: The data layout is identical via our type invariants.
         unsafe { mem::transmute(self) }
+    }
+}
+
+impl<T: drm::Driver> Device<T, Normal> {
+    /// Guard against the device being unregistered or the parent bus device being unbound.
+    ///
+    /// Returns a [`RegistrationGuard`] if the device is registered and has not been unplugged,
+    /// [`None`] otherwise. A [`Normal`] handle carries no proof that registration ever happened,
+    /// so [`None`] also covers a device that is still being probed.
+    #[must_use]
+    pub fn registration_guard(&self) -> Option<RegistrationGuard<'_, T>> {
+        if !self.registered.load(Acquire) {
+            return None;
+        }
+
+        // SAFETY: The load above pairs with the release store `Registration::new()` performs
+        // after a successful `drm_dev_register()`, so the device has been registered and its
+        // registration data is published. The `Ioctl` context invariant holds.
+        unsafe { self.assume_ctx::<Ioctl>() }.registration_guard()
     }
 }
 
