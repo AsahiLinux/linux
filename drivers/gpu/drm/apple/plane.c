@@ -324,6 +324,8 @@ static void apple_plane_atomic_update(struct drm_plane *plane,
 	    fmt->format == DRM_FORMAT_XBGR8888 ||
 	    fmt->format == DRM_FORMAT_XBGR2101010)
 		is_premultiplied = true;
+	else
+		is_premultiplied = new_state->base.pixel_blend_mode == DRM_MODE_BLEND_PREMULTI;
 
 	new_state->src_rect = drm_to_dcp_rect_fp(&base->src);
 	new_state->dst_rect = drm_to_dcp_rect(&base->dst);
@@ -582,6 +584,7 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 				   bool interchange)
 {
 	struct apple_plane *plane;
+	u64 supp_blends;
 	const u32 *fmts;
 	u32 num_fmts;
 
@@ -625,8 +628,11 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 					  DRM_COLOR_YCBCR_BT709,
 					  DRM_COLOR_YCBCR_LIMITED_RANGE);
 
-	// TODO: check if DRM_MODE_BLEND_COVERAGE can be supported
-	drm_plane_create_blend_mode_property(&plane->base, BIT(DRM_MODE_BLEND_PREMULTI));
+	/* DCP supports straight and premultiplied alpha
+	 * TODO: check if DRM_MODE_BLEND_COVERAGE can be supported
+	 */
+	supp_blends = BIT(DRM_MODE_BLEND_PREMULTI) | BIT(DRM_MODE_BLEND_PIXEL_NONE);
+	drm_plane_create_blend_mode_property(&plane->base, supp_blends);
 
 	if (type == DRM_PLANE_TYPE_PRIMARY)
 		drm_plane_helper_add(&plane->base, &apple_primary_plane_helper_funcs);
