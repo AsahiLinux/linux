@@ -28,9 +28,9 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/soc/apple/mailbox.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-#include "mailbox.h"
 
 #define APPLE_ASC_MBOX_CONTROL_FULL BIT(16)
 #define APPLE_ASC_MBOX_CONTROL_EMPTY BIT(17)
