@@ -450,8 +450,10 @@ impl<'drm> Vm<'drm> {
                     addr: pt_upd.region.start,
                     range: pt_upd.region.end - pt_upd.region.start,
                     gem_offset: args.bo_offset,
+                    gem_range: 0,
                     vm_bo: &args.vm_bo,
                     context: &mut pt_upd,
+                    flags: 0.into(),
                 })
                 //PtUpdateContext drops here flushing the page table
             }
