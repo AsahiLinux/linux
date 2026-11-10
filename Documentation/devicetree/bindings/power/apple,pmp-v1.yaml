@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/apple,pmp-v1.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple PMPv1 Power Domains
+
+maintainers:
+  - Didi Nuk <dev@ydnuk.com>
+
+description:
+  Apple PMPv1 power domains are controlled by the Apple Power Management
+  Processor (PMP).
+
+properties:
+  compatible:
+    const: apple,t8103-pmp-v1
+
+  reg:
+    maxItems: 2
+
+  reg-names:
+    items:
+      - const: pmp
+      - const: asc
+
+  mboxes:
+    maxItems: 1
+
+  mbox-names:
+    items:
+      - const: mbox
+
+  iommus:
+    maxItems: 1
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+  power-domains:
+    maxItems: 1
+
+  apple,init-ranges:
+    description:
+      List of PMP memory regions, represented as address and size pairs for
+      initializing PMP.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+
+  apple,init-dva:
+    description:
+      List of device virtual address with count pairs for initializing PMP.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - mboxes
+  - mbox-names
+  - "#address-cells"
+  - "#size-cells"
+  - iommus
+  - apple,init-ranges
+  - apple,init-dva
+
+patternProperties:
+  "^report@[0-9a-f]+$":
+    $ref: apple,pmp-v1-report-entry.yaml#
+
+additionalProperties: false
