@@ -38,7 +38,7 @@ obj-y			:= debug-monitors.o entry.o irq.o fpsimd.o		\
 			   smp.o smp_spin_table.o topology.o smccc-call.o	\
 			   syscall.o proton-pack.o idle.o patching.o pi/	\
 			   cpufeature_impdef.o					\
-			   rsi.o jump_label.o
+			   rsi.o jump_label.o unaligned_atomic.o
 
 obj-$(CONFIG_COMPAT)			+= sys32.o signal32.o			\
 					   sys_compat.o

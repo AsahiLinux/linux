@@ -858,6 +858,15 @@ static int do_alignment_fault(unsigned long far, unsigned long esr,
 	if (IS_ENABLED(CONFIG_COMPAT_ALIGNMENT_FIXUPS) &&
 	    compat_user_mode(regs))
 		return do_compat_alignment_fixup(far, regs);
+
+	if (user_mode(regs) && test_thread_flag(TIF_UNALIGN_ATOMIC_EMULATE)) {
+		u64 page_fault_address;
+		int ret = do_unaligned_atomic_fixup(regs, &page_fault_address);
+		if (!ret)
+			return 0;
+		else if (ret == -EFAULT)
+			return do_translation_fault(page_fault_address, ESR_ELx_FSC_FAULT | ESR_ELx_WNR, regs);
+	}
 	do_bad_area(far, esr, regs);
 	return 0;
 }
