@@ -320,6 +320,66 @@
 		resets = <&DIE_NODE(ps_avd_sys)>;
 	};
 
+	DIE_NODE(msr1): msr@3c7000000 {
+		compatible = "apple,t6031-msr";
+		reg = <0x3 0xc7000000 0x0 0x30000>,
+		      <0x3 0xc7210000 0x0 0x4000>,
+		      <0x3 0xc7204000 0x0 0x4000>;
+		reg-names = "base", "piodma", "dpe";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1297 IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_IRQ DIE_NO 1299 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "base", "piodma";
+		iommus = <&DIE_NODE(msr_dart1) 0>, <&DIE_NODE(msr_dart1) 1>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_msr1)>,
+				<&DIE_NODE(ps_msr1_ase_core)>;
+		#else
+		power-domains = <&DIE_NODE(ps_msr1)>,
+				<&DIE_NODE(ps_msr1_ase_core)>;
+		#endif
+		power-domain-names = "core", "ase-core";
+	};
+
+	DIE_NODE(msr_dart1): iommu@3c7200000 {
+		compatible = "apple,t6031-dart", "apple,t8110-dart";
+		reg = <0x3 0xc7200000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1298 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_msr1)>;
+		#iommu-cells = <1>;
+	};
+
+	msr@407000000 {
+		compatible = "apple,t6031-msr";
+		reg = <0x4 0x7000000 0x0 0x30000>,
+		      <0x4 0x7210000 0x0 0x4000>,
+		      <0x4 0x7204000 0x0 0x4000>;
+		reg-names = "base", "piodma", "dpe";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1291 IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_IRQ DIE_NO 1293 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "base", "piodma";
+		iommus = <&DIE_NODE(msr_dart0) 0>, <&DIE_NODE(msr_dart0) 1>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_msr0)>,
+				<&DIE_NODE(ps_msr0_ase_core)>;
+		#else
+		power-domains = <&DIE_NODE(ps_msr0)>,
+				<&DIE_NODE(ps_msr0_ase_core)>;
+		#endif
+		power-domain-names = "core", "ase-core";
+	};
+
+	DIE_NODE(msr_dart0): iommu@407200000 {
+		compatible = "apple,t6031-dart", "apple,t8110-dart";
+		reg = <0x4 0x7200000 0x0 0x4000>;
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_IRQ DIE_NO 1292 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&DIE_NODE(ps_msr0)>;
+		#iommu-cells = <1>;
+	};
+
 	DIE_NODE(pmgr_gfx): power-management@408e80000 {
 		compatible = "apple,t6031-pmgr", "apple,t8103-pmgr",
 			     "syscon", "simple-mfd";
