@@ -813,7 +813,6 @@
 				label = "pmp-msr";
 				#power-domain-cells = <0>;
 				power-domains = <&ps_msr>;
-				status = "disabled";
 			};
 
 			pmp_report_jpg: report@c {
@@ -1483,6 +1482,33 @@
 					/* }; */
 				};
 			};
+		};
+
+		msr@31d000000 {
+			compatible = "apple,t8122-msr";
+			reg = <0x3 0x1d000000 0x0 0x30000>,
+			      <0x3 0x1d210000 0x0 0x4000>,
+			      <0x3 0x1d204000 0x0 0x4000>;
+			reg-names = "base", "piodma", "dpe";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 751 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 753 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "base", "piodma";
+			iommus = <&msr_dart 0>, <&msr_dart 1>;
+			#if defined(APPLE_USE_PMP)
+			power-domains = <&pmp_report_msr>, <&ps_msr_ase_core>;
+			#else
+			power-domains = <&ps_msr>, <&ps_msr_ase_core>;
+			#endif
+		};
+
+		msr_dart: iommu@31d200000 {
+			compatible = "apple,t8122-dart", "apple,t8110-dart";
+			reg = <0x3 0x1d200000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 752 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_msr>;
 		};
 
 		pcie0: pcie@580000000 {
