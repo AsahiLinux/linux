@@ -124,7 +124,6 @@
 			label = "pmp-msr0";
 			#power-domain-cells = <0>;
 			power-domains = <&ps_msr0>;
-			status = "disabled";
 		};
 
 		pmp_report_jpg: report@13 {
@@ -202,7 +201,6 @@
 			label = "pmp-msr1";
 			#power-domain-cells = <0>;
 			power-domains = <&ps_msr1>;
-			status = "disabled";
 		};
 
 		pmp_report_prores: report@23 {
