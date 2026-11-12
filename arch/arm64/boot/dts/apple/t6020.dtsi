@@ -25,6 +25,8 @@
 /delete-node/ &pmp_report_prores;
 /delete-node/ &pmp_report_afnc4_ioa;
 /delete-node/ &pmp_report_afnc5_ioa;
+/delete-node/ &msr1;
+/delete-node/ &msr_dart1;
 
 &gpu {
 	compatible = "apple,agx-t6020", "apple,agx-g14x", "apple,agx-g14s";
