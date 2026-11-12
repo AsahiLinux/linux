@@ -1164,7 +1164,6 @@
 				label = "pmp-msr";
 				#power-domain-cells = <0>;
 				power-domains = <&ps_msr>;
-				status = "disabled";
 			};
 
 			pmp_report_jpg: report@c {
@@ -1677,6 +1676,34 @@
 				"recv-empty", "recv-not-empty";
 			#mbox-cells = <0>;
 		};
+
+		msr@263000000 {
+			compatible = "apple,t8112-msr";
+			reg = <0x2 0x63000000 0x0 0x28000>,
+			      <0x2 0x63210000 0x0 0x4000>,
+			      <0x2 0x63204000 0x0 0x4000>;
+			reg-names = "base", "piodma", "dpe";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 733 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 735 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "base", "piodma";
+			iommus = <&msr_dart 0>, <&msr_dart 1>;
+			#if defined(APPLE_USE_PMP)
+			power-domains = <&pmp_report_msr>, <&ps_msr_ase_core>;
+			#else
+			power-domains = <&ps_msr>, <&ps_msr_ase_core>;
+			#endif
+		};
+
+		msr_dart: iommu@263200000 {
+			compatible = "apple,t8112-dart", "apple,t8110-dart";
+			reg = <0x2 0x63200000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 734 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_msr>;
+		};
+
 		avd_dart: iommu@269010000 {
 			compatible = "apple,t8110-dart";
 			reg = <0x2 0x69010000 0x0 0x4000>;
