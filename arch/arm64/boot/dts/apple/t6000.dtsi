@@ -25,6 +25,8 @@
 /delete-node/ &pmp_report_prores;
 /delete-node/ &pmp_report_afnc4_ioa;
 /delete-node/ &pmp_report_afnc5_ioa;
+/delete-node/ &msr1;
+/delete-node/ &msr_dart1;
 
 &pmp {
 	apple,pio-ranges = <0x2 0x82000000 0x0 0x1000000>,
