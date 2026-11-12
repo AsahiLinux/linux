@@ -1418,6 +1418,29 @@
 				compatible = "apple,t8103-aop-las", "apple,aop-las";
 			};
 		};
+
+		msr@263000000 {
+			compatible = "apple,t8103-msr";
+			reg = <0x2 0x63000000 0x0 0x28000>,
+			      <0x2 0x63210000 0x0 0x4000>;
+			reg-names = "base", "piodma";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 599 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 601 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "base", "piodma";
+			iommus = <&msr_dart 0>, <&msr_dart 1>;
+			power-domains = <&ps_msr>, <&ps_msr_ase_core>;
+		};
+
+		msr_dart: iommu@263200000 {
+			compatible = "apple,t8103-dart";
+			reg = <0x2 0x63200000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 600 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_msr>;
+		};
+
 		avd_dart: iommu@269010000 {
 			compatible = "apple,t8103-dart";
 			reg = <0x2 0x69010000 0x0 0x4000>;
