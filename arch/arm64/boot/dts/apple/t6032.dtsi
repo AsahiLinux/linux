@@ -415,7 +415,7 @@
 	status = "okay";
 };
 
-&ps_afc_d2d_0_die1{
+&ps_afc_d2d_0_die1 {
 	status = "okay";
 };
 

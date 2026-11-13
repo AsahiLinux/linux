@@ -152,7 +152,7 @@
 
 		pmgr: power-management@300700000 {
 			compatible = "apple,t8140-pmgr", "apple,t8103-pmgr",
-			             "syscon", "simple-mfd";
+				     "syscon", "simple-mfd";
 			reg = <0x3 0x700000 0 0x14000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -182,19 +182,19 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 473 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 474 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 475 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 476 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 477 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 478 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 479 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 474 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 475 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 476 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 477 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 478 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 479 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <30>;
 		};
 
 		pmgr_mini: power-management@308280000 {
 			compatible = "apple,t8140-pmgr", "apple,t8103-pmgr",
-			             "syscon", "simple-mfd";
+				     "syscon", "simple-mfd";
 			reg = <0x3 0x8280000 0 0xc000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -221,12 +221,12 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 572 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 573 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 574 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 575 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 576 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 577 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 578 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 573 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 574 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 575 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 576 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 577 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 578 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <6>;
 		};
@@ -243,12 +243,12 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 380 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 381 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 382 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 383 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 384 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 385 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 386 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 381 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 382 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 383 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 384 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 385 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 386 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <57>;
 		};
@@ -265,12 +265,12 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 1128 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 1129 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 1130 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 1131 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 1132 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 1133 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 1134 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 1129 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1130 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1131 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1132 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1133 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1134 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <10>;
 		};
@@ -289,23 +289,23 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 263 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 264 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 265 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 266 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 267 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 268 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 269 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 264 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 265 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 266 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 267 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 268 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 269 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <216>;
 
 			i2c0_pins: i2c0-pins {
 				pinmux = <APPLE_PINMUX(171, 1)>,
-				         <APPLE_PINMUX(170, 1)>;
+					 <APPLE_PINMUX(170, 1)>;
 			};
 
 			i2c2_pins: i2c2-pins {
 				pinmux = <APPLE_PINMUX(165, 1)>,
-				         <APPLE_PINMUX(164, 1)>;
+					 <APPLE_PINMUX(164, 1)>;
 			};
 		};
 
@@ -357,9 +357,9 @@
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_FIQ AIC_TMR_GUEST_PHYS IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
+			     <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "phys", "virt", "hyp-phys", "hyp-virt";
 	};
 };
