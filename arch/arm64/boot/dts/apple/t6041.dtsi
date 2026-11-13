@@ -323,7 +323,7 @@
 
 		pmgr_gfx: power-management@288e80000 {
 			compatible = "apple,t6041-pmgr", "apple,t8103-pmgr",
-			             "syscon", "simple-mfd";
+				     "syscon", "simple-mfd";
 			reg = <0x2 0x88e80000 0 0x4000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -503,7 +503,7 @@
 
 		pmgr: power-management@502280000 {
 			compatible = "apple,t6041-pmgr", "apple,t8103-pmgr",
-			             "syscon", "simple-mfd";
+				     "syscon", "simple-mfd";
 			reg = <0x5 0x2280000 0 0x14000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -521,15 +521,15 @@
 			affinities {
 				e-core-pmu-affinity {
 					cpus = <&cpu_e0 &cpu_e1
-					        &cpu_e2 &cpu_e3>;
+						&cpu_e2 &cpu_e3>;
 					apple,fiq-index = <AIC_CPU_PMU_E>;
 				};
 
 				p-core-pmu-affinity {
 					cpus = <&cpu_p00 &cpu_p01 &cpu_p02
-					        &cpu_p03 &cpu_p04 &cpu_p05
-					        &cpu_p10 &cpu_p11 &cpu_p12
-					        &cpu_p13 &cpu_p14 &cpu_p15>;
+						&cpu_p03 &cpu_p04 &cpu_p05
+						&cpu_p10 &cpu_p11 &cpu_p12
+						&cpu_p13 &cpu_p14 &cpu_p15>;
 					apple,fiq-index = <AIC_CPU_PMU_P>;
 				};
 			};
@@ -537,7 +537,7 @@
 
 		pmgr1: power-management@502800000 {
 			compatible = "apple,t6041-pmgr", "apple,t8103-pmgr",
-			             "syscon", "simple-mfd";
+				     "syscon", "simple-mfd";
 			reg = <0x5 0x2800000 0 0xc000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -545,7 +545,7 @@
 
 		pinctrl_nub: pinctrl@5081e4000 {
 			compatible = "apple,t6041-pinctrl",
-			             "apple,t8103-pinctrl";
+				     "apple,t8103-pinctrl";
 			reg = <0x5 0x081e4000 0x0 0x4000>;
 			power-domains = <&ps_nub_gpio>;
 
@@ -557,19 +557,19 @@
 			interrupt-controller;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 819 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 820 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 821 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 822 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 823 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 824 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 825 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 820 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 821 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 822 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 823 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 824 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 825 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <61>;
 		};
 
 		pmgr_mini: power-management@508300000 {
 			compatible = "apple,t6041-pmgr", "apple,t8103-pmgr",
-			             "syscon", "simple-mfd";
+				     "syscon", "simple-mfd";
 			reg = <0x5 0x8300000 0 0x4000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -585,7 +585,7 @@
 
 		pinctrl_smc: pinctrl@50c824000 {
 			compatible = "apple,t6041-pinctrl",
-			             "apple,t8103-pinctrl";
+				     "apple,t8103-pinctrl";
 			reg = <0x5 0x0c824000 0x0 0x4000>;
 
 			#gpio-cells = <2>;
@@ -596,19 +596,19 @@
 			interrupt-controller;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 985 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 986 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 987 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 988 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 989 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 990 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 991 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 986 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 987 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 988 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 989 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 990 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 991 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <24>;
 		};
 
 		pinctrl_aop: pinctrl@510824000 {
 			compatible = "apple,t6041-pinctrl",
-			             "apple,t8103-pinctrl";
+				     "apple,t8103-pinctrl";
 			reg = <0x5 0x10824000 0x0 0x4000>;
 
 			#gpio-cells = <2>;
@@ -619,19 +619,19 @@
 			interrupt-controller;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 700 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 701 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 702 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 703 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 704 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 705 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 706 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 701 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 702 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 703 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 704 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 705 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 706 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <85>;
 		};
 
 		pinctrl_ap: pinctrl@51c000000 {
 			compatible = "apple,t6041-pinctrl",
-			             "apple,t8103-pinctrl";
+				     "apple,t8103-pinctrl";
 			reg = <0x5 0x1c000000 0x0 0x100000>;
 			power-domains = <&ps_gpio>;
 
@@ -643,58 +643,58 @@
 			interrupt-controller;
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 478 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 479 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 480 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 481 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 482 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 483 IRQ_TYPE_LEVEL_HIGH>,
-			             <AIC_IRQ 484 IRQ_TYPE_LEVEL_HIGH>;
+				     <AIC_IRQ 479 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 480 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 481 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 482 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 483 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 484 IRQ_TYPE_LEVEL_HIGH>;
 
 			apple,npins = <200>;
 
 			i2c0_pins: i2c0-pins {
 				pinmux = <APPLE_PINMUX(56, 1)>,
-				         <APPLE_PINMUX(57, 1)>;
+					 <APPLE_PINMUX(57, 1)>;
 			};
 
 			i2c1_pins: i2c1-pins {
 				pinmux = <APPLE_PINMUX(58, 1)>,
-				         <APPLE_PINMUX(59, 1)>;
+					 <APPLE_PINMUX(59, 1)>;
 			};
 
 			i2c2_pins: i2c2-pins {
 				pinmux = <APPLE_PINMUX(60, 1)>,
-				         <APPLE_PINMUX(61, 1)>;
+					 <APPLE_PINMUX(61, 1)>;
 			};
 
 			i2c3_pins: i2c3-pins {
 				pinmux = <APPLE_PINMUX(62, 1)>,
-				         <APPLE_PINMUX(63, 1)>;
+					 <APPLE_PINMUX(63, 1)>;
 			};
 
 			i2c4_pins: i2c4-pins {
 				pinmux = <APPLE_PINMUX(64, 1)>,
-				         <APPLE_PINMUX(65, 1)>;
+					 <APPLE_PINMUX(65, 1)>;
 			};
 
 			i2c5_pins: i2c5-pins {
 				pinmux = <APPLE_PINMUX(66, 1)>,
-				         <APPLE_PINMUX(67, 1)>;
+					 <APPLE_PINMUX(67, 1)>;
 			};
 
 			i2c6_pins: i2c6-pins {
 				pinmux = <APPLE_PINMUX(68, 1)>,
-				         <APPLE_PINMUX(69, 1)>;
+					 <APPLE_PINMUX(69, 1)>;
 			};
 
 			i2c7_pins: i2c7-pins {
 				pinmux = <APPLE_PINMUX(70, 1)>,
-				         <APPLE_PINMUX(71, 1)>;
+					 <APPLE_PINMUX(71, 1)>;
 			};
 
 			i2c8_pins: i2c8-pins {
 				pinmux = <APPLE_PINMUX(72, 1)>,
-				         <APPLE_PINMUX(73, 1)>;
+					 <APPLE_PINMUX(73, 1)>;
 			};
 		};
 	};
@@ -703,9 +703,9 @@
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_FIQ AIC_TMR_GUEST_PHYS IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
-		             <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
+			     <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "phys", "virt", "hyp-phys", "hyp-virt";
 	};
 };
