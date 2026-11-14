@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple MacBook Air (15-inch, M5, 2026)
+ *
+ * target-type: J815
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t8142.dtsi"
+#include "t8142-jxxx.dtsi"
+#include <dt-bindings/leds/common.h>
+
+/ {
+	model = "Apple MacBook Air (15-inch, M5, 2026)";
+	compatible = "apple,j815", "apple,t8142", "apple,arm-platform";
+
+	led-controller {
+		compatible = "pwm-leds";
+
+		led-0 {
+			color = <LED_COLOR_ID_WHITE>;
+			default-state = "keep";
+			function = LED_FUNCTION_KBD_BACKLIGHT;
+			label = "kbd_backlight";
+			max-brightness = <255>;
+			pwms = <&fpwm0 0 40000>;
+		};
+	};
+};
+
+&fpwm0 {
+	status = "okay";
+};
