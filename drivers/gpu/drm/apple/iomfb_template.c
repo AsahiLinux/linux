@@ -60,8 +60,8 @@ DCP_THUNK_INOUT(dcp_swap_submit, dcpep_swap_submit,
 		struct DCP_FW_NAME(dcp_swap_submit_req),
 		struct DCP_FW_NAME(dcp_swap_submit_resp));
 
-DCP_THUNK_INOUT(dcp_swap_start, dcpep_swap_start, struct dcp_swap_start_req,
-		struct dcp_swap_start_resp);
+DCP_THUNK_INOUT(dcp_swap_start, dcpep_swap_start, struct DCP_FW_NAME(dcp_swap_start_req),
+		struct DCP_FW_NAME(dcp_swap_start_resp));
 
 DCP_THUNK_INOUT(dcp_set_power_state, dcpep_set_power_state,
 		struct dcp_set_power_state_req,
@@ -761,7 +761,7 @@ static void dcp_swap_cleared(struct apple_dcp *dcp, void *data, void *cookie)
 static void dcp_swap_clear_started(struct apple_dcp *dcp, void *data,
 				   void *cookie)
 {
-	struct dcp_swap_start_resp *resp = data;
+	struct DCP_FW_NAME(dcp_swap_start_resp) *resp = data;
 	DCP_FW_UNION(dcp->swap).swap.swap_id = resp->swap_id;
 
 	if (cookie) {
@@ -895,7 +895,7 @@ void DCP_FW_NAME(iomfb_poweroff)(struct apple_dcp *dcp)
 	};
 	struct dcp_swap_cookie *cookie;
 	struct dcp_wait_cookie *poff_cookie;
-	struct dcp_swap_start_req swap_req = { 0 };
+	struct DCP_FW_NAME(dcp_swap_start_req) swap_req = { 0 };
 	struct DCP_FW_NAME(dcp_swap_submit_req) *swap = &DCP_FW_UNION(dcp->swap);
 
 	cookie = kzalloc(sizeof(*cookie), GFP_KERNEL);
@@ -1176,7 +1176,7 @@ static void dcp_swapped(struct apple_dcp *dcp, void *data, void *cookie)
 
 static void dcp_swap_started(struct apple_dcp *dcp, void *data, void *cookie)
 {
-	struct dcp_swap_start_resp *resp = data;
+	struct DCP_FW_NAME(dcp_swap_start_resp) *resp = data;
 
 	DCP_FW_UNION(dcp->swap).swap.swap_id = resp->swap_id;
 
@@ -1187,7 +1187,7 @@ static void dcp_swap_started(struct apple_dcp *dcp, void *data, void *cookie)
 /* Helpers to modeset and swap, used to flush */
 static void do_swap(struct apple_dcp *dcp, void *data, void *cookie)
 {
-	struct dcp_swap_start_req start_req = { 0 };
+	struct DCP_FW_NAME(dcp_swap_start_req) start_req = { 0 };
 
 	if (dcp->connector && dcp->connector->connected)
 		dcp_swap_start(dcp, false, &start_req, dcp_swap_started, NULL);
