@@ -514,6 +514,26 @@ static const u32 dcp_primary_formats[] = {
 #endif
 };
 
+static const u32 dcp_primary_formats_broken_premult[] = {
+	DRM_FORMAT_ABGR16161616F,
+	DRM_FORMAT_ARGB2101010,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV24,
+	DRM_FORMAT_P010,
+	DRM_FORMAT_P210,
+#if defined(DRM_FORMAT_P410)
+	DRM_FORMAT_P410,
+#endif
+	DRM_FORMAT_P030,
+	DRM_FORMAT_P230,
+#if defined(DRM_FORMAT_P430)
+	DRM_FORMAT_P430,
+#endif
+};
+
 static const u32 dcp_overlay_formats[] = {
 	DRM_FORMAT_ABGR16161616F,
 	DRM_FORMAT_ARGB2101010,
@@ -580,17 +600,21 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 				   unsigned long possible_crtcs,
 				   u32 iomfb_surf,
 				   bool supports_l10r,
+				   bool broken_premult,
 				   enum drm_plane_type type,
 				   bool interchange)
 {
 	struct apple_plane *plane;
-	u64 supp_blends;
+	u64 supp_blends = BIT(DRM_MODE_BLEND_PIXEL_NONE);
 	const u32 *fmts;
 	u32 num_fmts;
 
 	switch (type) {
 	case DRM_PLANE_TYPE_PRIMARY:
-		if (supports_l10r) {
+		if (broken_premult) {
+			fmts = dcp_primary_formats_broken_premult;
+			num_fmts = ARRAY_SIZE(dcp_primary_formats_broken_premult);
+		} else if (supports_l10r) {
 			fmts = dcp_primary_formats;
 			num_fmts = ARRAY_SIZE(dcp_primary_formats);
 		} else {
@@ -631,7 +655,8 @@ struct drm_plane *apple_plane_init(struct drm_device *dev,
 	/* DCP supports straight and premultiplied alpha
 	 * TODO: check if DRM_MODE_BLEND_COVERAGE can be supported
 	 */
-	supp_blends = BIT(DRM_MODE_BLEND_PREMULTI) | BIT(DRM_MODE_BLEND_PIXEL_NONE);
+	if (!broken_premult)
+		supp_blends |= BIT(DRM_MODE_BLEND_PREMULTI);
 	drm_plane_create_blend_mode_property(&plane->base, supp_blends);
 
 	if (type == DRM_PLANE_TYPE_PRIMARY)

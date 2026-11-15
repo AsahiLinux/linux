@@ -48,6 +48,8 @@
 
 struct apple_drm_private {
 	struct drm_device drm;
+
+	bool broken_premult;
 };
 
 DEFINE_DRM_GEM_DMA_FOPS(apple_fops);
@@ -269,6 +271,7 @@ static int apple_probe_per_dcp(struct device *dev,
 			       struct platform_device *dcp,
 			       int num, bool dcp_ext)
 {
+	struct apple_drm_private *apple = dev_get_drvdata(dev);
 	struct apple_crtc *crtc;
 	struct apple_connector *connector;
 	struct apple_encoder *enc;
@@ -281,6 +284,9 @@ static int apple_probe_per_dcp(struct device *dev,
 	bool supports_l10r = !dcp_fw_compat_is_12_x(dcp);
 	enum drm_plane_type plane_type;
 	bool interchange;
+	apple->broken_premult = device_is_compatible(&dcp->dev, "apple,t6030-dcp") ||
+				device_is_compatible(&dcp->dev, "apple,t6031-dcp") ||
+				device_is_compatible(&dcp->dev, "apple,t8122-dcp");
 
 	/*
 	 * BUG:
@@ -296,6 +302,7 @@ static int apple_probe_per_dcp(struct device *dev,
 		interchange = (zpos <= 1 || surf != top_surf);
 
 		planes[zpos] = apple_plane_init(drm, 1U << num, surf, supports_l10r,
+						apple->broken_premult,
 						plane_type, interchange);
 
 		if (IS_ERR(planes[zpos]))
@@ -524,7 +531,10 @@ static int apple_drm_init(struct device *dev)
 	if (ret)
 		goto err_unbind;
 
-	drm_client_setup_with_fourcc(&apple->drm, DRM_FORMAT_XRGB8888);
+	if (apple->broken_premult)
+		drm_client_setup_with_fourcc(&apple->drm, DRM_FORMAT_ARGB8888);
+	else
+		drm_client_setup_with_fourcc(&apple->drm, DRM_FORMAT_XRGB8888);
 
 	return 0;
 
