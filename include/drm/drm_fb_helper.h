@@ -198,6 +198,12 @@ struct drm_fb_helper {
 	 */
 	int preferred_bpp;
 
+	/**
+	 * @preferred_format: Explicit driver-preferred framebuffer format, or
+	 * zero to select a format from @preferred_bpp.
+	 */
+	u32 preferred_format;
+
 #ifdef CONFIG_FB_DEFERRED_IO
 	/**
 	 * @fbdefio:
