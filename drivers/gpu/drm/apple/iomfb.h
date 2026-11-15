@@ -242,20 +242,6 @@ struct dcp_map_physical_resp {
 	u32 mem_desc_id;
 } __packed;
 
-struct dcp_swap_start_req {
-	u32 swap_id;
-	struct dcp_iouserclient client;
-	u8 swap_id_null;
-	u8 client_null;
-	u8 padding[2];
-} __packed;
-
-struct dcp_swap_start_resp {
-	u32 swap_id;
-	struct dcp_iouserclient client;
-	u32 ret;
-} __packed;
-
 struct dcp_get_uint_prop_req {
 	char obj[4];
 	char key[0x40];

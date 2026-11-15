@@ -94,6 +94,28 @@ struct DCP_FW_NAME(dcp_surface) {
 
 /* Prototypes */
 
+struct DCP_FW_NAME(dcp_swap_start_req) {
+	u32 swap_id;
+#if DCP_FW_VER < DCP_FW_VERSION(14, 0, 0)
+	struct dcp_iouserclient client;
+	u8 swap_id_null;
+	u8 client_null;
+	u8 padding[2];
+#else
+	u64 unkAddr;
+	u8 swap_id_null;
+	u8 padding[3];
+#endif
+} __packed;
+
+struct DCP_FW_NAME(dcp_swap_start_resp) {
+	u32 swap_id;
+#if DCP_FW_VER < DCP_FW_VERSION(14, 0, 0)
+	struct dcp_iouserclient client;
+#endif
+	u32 ret;
+} __packed;
+
 struct DCP_FW_NAME(dcp_swap_submit_req) {
 	struct DCP_FW_NAME(dcp_swap) swap;
 	struct DCP_FW_NAME(dcp_surface) surf[SWAP_SURFACES];
