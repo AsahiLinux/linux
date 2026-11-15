@@ -100,8 +100,8 @@ struct DCP_FW_NAME(dcp_swap_submit_req) {
 	u64 surf_iova[SWAP_SURFACES];
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
 	u64 unk_u64_a[SWAP_SURFACES];
-	struct DCP_FW_NAME(dcp_surface) surf2[5];
-	u64 surf2_iova[5];
+	struct DCP_FW_NAME(dcp_surface) surf2[5 + (DCP_FW_VER >= DCP_FW_VERSION(14, 0, 0))];
+	u64 surf2_iova[5 + (DCP_FW_VER >= DCP_FW_VERSION(14, 0, 0))];
 #endif
 	u8 unkbool;
 	u64 unkdouble;
@@ -113,20 +113,19 @@ struct DCP_FW_NAME(dcp_swap_submit_req) {
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
 	u32 unkU32Ptr;
 #endif
-#if DCP_FW_VER >= DCP_FW_VERSION(14, 7, 0)
-	u8 padding_14_7[0x234];
-#endif
 	u8 swap_null;
 	u8 surf_null[SWAP_SURFACES];
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
-	u8 surf2_null[5];
+	u8 surf2_null[5 + (DCP_FW_VER >= DCP_FW_VERSION(14, 0, 0))];
 #endif
 	u8 unkoutbool_null;
 #if DCP_FW_VER >= DCP_FW_VERSION(13, 2, 0)
 	u8 unkU32Ptr_null;
 	u8 unkU32out_null;
 #endif
+#if DCP_FW_VER < DCP_FW_VERSION(14, 0, 0)
 	u8 padding[1];
+#endif
 } __packed;
 
 struct DCP_FW_NAME(dcp_swap_submit_resp) {
