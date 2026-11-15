@@ -719,11 +719,11 @@ impl Queue for Queue::ver {
 
             match header.cmd_type as u32 {
                 uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_RENDER => {
-                    last_compute = nr_commands;
+                    last_render = nr_commands;
                     nr_render += 1;
                 }
                 uapi::drm_asahi_cmd_type_DRM_ASAHI_CMD_COMPUTE => {
-                    last_render = nr_commands;
+                    last_compute = nr_commands;
                     nr_compute += 1;
                 }
                 _ => {}
