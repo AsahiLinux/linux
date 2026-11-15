@@ -943,7 +943,7 @@ static const struct dev_pm_ops msr_pm = {
 };
 
 static const struct of_device_id msr_dev_match[] = {
-	{ .compatible = "apple,t8103-msr", },
+	// { .compatible = "apple,t8103-msr", },
 	{ .compatible = "apple,t8112-msr", },
 	{ .compatible = "apple,t8122-msr", },
 	{ .compatible = "apple,t6000-msr", },
