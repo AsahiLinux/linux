@@ -146,10 +146,13 @@ int drm_fbdev_client_setup(struct drm_device *dev, const struct drm_format_info 
 		case 16:
 			color_mode = format->depth; // could also be 15
 			break;
+		case 32:
+			if (format->depth == 32)
+				fmt = drm_mode_legacy_fb_format(bpp, format->depth);
+			fallthrough;
 		default:
 			color_mode = bpp;
 		}
-		fmt = drm_mode_legacy_fb_format(bpp, format->depth);
 	} else {
 		switch (dev->mode_config.preferred_depth) {
 		case 0:
