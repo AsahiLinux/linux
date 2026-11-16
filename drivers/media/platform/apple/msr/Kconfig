@@ -1,0 +1,12 @@
+config VIDEO_APPLE_MSR
+	tristate "Apple MSR driver"
+	depends on V4L_MEM2MEM_DRIVERS
+	depends on VIDEO_DEV
+	depends on ARCH_APPLE || COMPILE_TEST
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	help
+	  Support for hardware color space conversion and scaling on
+	  Apple Silicon devices using the MSR (???).
+	  To compile this driver as a module, choose M here: the module will
+	  be called apple-msr.

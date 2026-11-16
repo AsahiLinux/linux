@@ -1369,6 +1369,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_NV42:		descr = "Y/VU 4:4:4"; break;
 	case V4L2_PIX_FMT_P010:		descr = "10-bit Y/UV 4:2:0"; break;
 	case V4L2_PIX_FMT_P012:		descr = "12-bit Y/UV 4:2:0"; break;
+	case V4L2_PIX_FMT_P210:		descr = "10-bit Y/UV 4:2:2"; break;
 	case V4L2_PIX_FMT_NV12_4L4:	descr = "Y/UV 4:2:0 (4x4 Linear)"; break;
 	case V4L2_PIX_FMT_NV12_16L16:	descr = "Y/UV 4:2:0 (16x16 Linear)"; break;
 	case V4L2_PIX_FMT_NV12_32L32:   descr = "Y/UV 4:2:0 (32x32 Linear)"; break;
@@ -1560,6 +1561,12 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_PISP_COMP2_GBRG: descr = "PiSP 8b GBGB/RGRG mode2 compr"; break;
 		case V4L2_PIX_FMT_PISP_COMP2_BGGR: descr = "PiSP 8b BGBG/GRGR mode2 compr"; break;
 		case V4L2_PIX_FMT_PISP_COMP2_MONO: descr = "PiSP 8b monochrome mode2 compr"; break;
+		case V4L2_PIX_FMT_APPLE_AX12:	descr = "Apple Interchange NV12"; break;
+		case V4L2_PIX_FMT_APPLE_AX16:	descr = "Apple Interchange NV16"; break;
+		case V4L2_PIX_FMT_APPLE_AX24:	descr = "Apple Interchange NV24"; break;
+		case V4L2_PIX_FMT_APPLE_AX03:	descr = "Apple Interchange P030"; break;
+		case V4L2_PIX_FMT_APPLE_AX23:	descr = "Apple Interchange P230"; break;
+		case V4L2_PIX_FMT_APPLE_AX43:	descr = "Apple Interchange P430"; break;
 		default:
 			if (fmt->description[0])
 				return;

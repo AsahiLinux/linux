@@ -138,6 +138,13 @@ All components are stored with the same number of bits per component.
       - Cb, Cr
       - No
       - Linear
+    * - V4L2_PIX_FMT_P210
+      - 'P210'
+      - 10
+      - 4:2:2
+      - Cb, Cr
+      - Yes
+      - Linear
     * - V4L2_PIX_FMT_NV15
       - 'NV15'
       - 10
@@ -834,12 +841,15 @@ number of lines as the luma plane.
 
 .. _V4L2_PIX_FMT_P010:
 .. _V4L2-PIX-FMT-P010-4L4:
+.. _V4L2-PIX-FMT-P210:
 
-P010 and tiled P010
--------------------
+P010, tiled P010 and P210
+-------------------------
 
 P010 is like NV12 with 10 bits per component, expanded to 16 bits.
 Data in the 10 high bits, zeros in the 6 low bits, arranged in little endian order.
+P210 is the same as P010 but the chroma plane is only subsampled by 2 in the
+horizontal direction.
 
 .. flat-table:: Sample 4x4 P010 Image
     :header-rows:  0
