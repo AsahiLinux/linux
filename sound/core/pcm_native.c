@@ -2512,6 +2512,7 @@ const struct snd_pcm_hw_constraint_list snd_pcm_known_rates = {
 	.count = ARRAY_SIZE(rates),
 	.list = rates,
 };
+EXPORT_SYMBOL_GPL(snd_pcm_known_rates);
 
 static int snd_pcm_hw_rule_rate(struct snd_pcm_hw_params *params,
 				struct snd_pcm_hw_rule *rule)
