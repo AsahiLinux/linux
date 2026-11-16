@@ -374,6 +374,8 @@ struct aq_hw_ops {
 
 	int (*hw_read_module_eeprom)(struct aq_hw_s *self, u8 dev_addr,
 				     u8 reg_start_addr, int len, u8 *data);
+
+	int (*hw_get_num_multicast_addresses)(struct aq_hw_s *self);
 };
 
 struct aq_fw_ops {
