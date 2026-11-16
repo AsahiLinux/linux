@@ -346,7 +346,7 @@ pmc_usb_mux_tbt(struct pmc_usb_port *port, struct typec_mux_state *state)
 	req.mode_data = (port->orientation - 1) << PMC_USB_ALTMODE_ORI_SHIFT;
 	req.mode_data |= (port->role - 1) << PMC_USB_ALTMODE_UFP_SHIFT;
 
-	if (TBT_ADAPTER(data->device_mode) == TBT_ADAPTER_TBT3)
+	if (TBT_ADAPTER(data->device_mode) == TBT_ADAPTER_TYPE_TBT2_LEGACY)
 		req.mode_data |= PMC_USB_ALTMODE_TBT_TYPE;
 
 	if (data->cable_mode & TBT_CABLE_OPTICAL)

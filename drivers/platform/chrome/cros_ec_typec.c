@@ -586,7 +586,7 @@ static int cros_typec_enable_tbt(struct cros_typec_data *typec,
 	data.device_mode = TBT_MODE;
 
 	if (pd_ctrl->control_flags & USB_PD_CTRL_TBT_LEGACY_ADAPTER)
-		data.device_mode = TBT_SET_ADAPTER(TBT_ADAPTER_TBT3);
+		data.device_mode = TBT_SET_ADAPTER(TBT_ADAPTER_TYPE_TBT2_LEGACY);
 
 	/* Cable Discover Mode VDO */
 	data.cable_mode = TBT_MODE;

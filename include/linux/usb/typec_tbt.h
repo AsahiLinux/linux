@@ -27,8 +27,8 @@ struct typec_thunderbolt_data {
 /* TBT3 Device Discover Mode VDO bits */
 #define TBT_MODE			BIT(0)
 #define TBT_ADAPTER(_vdo_)		FIELD_GET(BIT(16), _vdo_)
-#define   TBT_ADAPTER_LEGACY		0
-#define   TBT_ADAPTER_TBT3		1
+#define   TBT_ADAPTER_TYPE_TBT3		0
+#define   TBT_ADAPTER_TYPE_TBT2_LEGACY	1
 #define TBT_INTEL_SPECIFIC_B0		BIT(26)
 #define TBT_VENDOR_SPECIFIC_B0		BIT(30)
 #define TBT_VENDOR_SPECIFIC_B1		BIT(31)
