@@ -435,7 +435,7 @@ apple_dart_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 			iommu_alloc_pages_sz(GFP_KERNEL, DART_GRANULE(data));
 		if (!data->pgd[i])
 			goto out_free_data;
-		cfg->apple_dart_cfg.ttbr[i] = virt_to_phys(data->pgd[i]);
+		cfg->apple_dart_cfg.ttbr[i] = data->pgd[i];
 	}
 
 	return &data->iop;
