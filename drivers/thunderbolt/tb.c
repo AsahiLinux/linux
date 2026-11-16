@@ -6,6 +6,7 @@
  * Copyright (C) 2019, Intel Corporation
  */
 
+#include <linux/export.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
@@ -15,6 +16,7 @@
 #include "tb.h"
 #include "tb_regs.h"
 #include "tunnel.h"
+#include "nhi.h"
 
 #define TB_TIMEOUT		100	/* ms */
 #define TB_RELEASE_BW_TIMEOUT	10000	/* ms */
@@ -89,7 +91,7 @@ static void tb_dp_resource_unavailable(struct tb *tb, struct tb_port *port,
 				       const char *reason);
 static void tb_queue_dp_bandwidth_request(struct tb *tb, u64 route, u8 port,
 					  int retry, unsigned long delay);
-static void tb_dp_tunnel_active(struct tb_tunnel *tunnel, void *data);
+static void tb_dp_tunnel_active(struct tb_tunnel *tunnel);
 
 static void tb_queue_hotplug(struct tb *tb, u64 route, u8 port, bool unplug)
 {
@@ -387,7 +389,7 @@ static void tb_switch_discover_tunnels(struct tb_switch *sw,
 		switch (port->config.type) {
 		case TB_TYPE_DP_HDMI_IN:
 			tunnel = tb_tunnel_discover_dp(tb, port, alloc_hopids,
-						       tb_dp_tunnel_active, tb);
+						       tb_dp_tunnel_active);
 			tb_increase_tmu_accuracy(tunnel);
 			break;
 
@@ -1905,11 +1907,11 @@ static struct tb_port *tb_find_dp_out(struct tb *tb, struct tb_port *in)
 	return NULL;
 }
 
-static void tb_dp_tunnel_active(struct tb_tunnel *tunnel, void *data)
+static void tb_dp_tunnel_active(struct tb_tunnel *tunnel)
 {
 	struct tb_port *in = tunnel->src_port;
 	struct tb_port *out = tunnel->dst_port;
-	struct tb *tb = data;
+	struct tb *tb = tunnel->tb;
 
 	mutex_lock(&tb->lock);
 
@@ -2038,7 +2040,7 @@ static void tb_tunnel_one_dp(struct tb *tb, struct tb_port *in,
 	       available_up, available_down);
 
 	tunnel = tb_tunnel_alloc_dp(tb, in, out, link_nr, available_up,
-				    available_down, tb_dp_tunnel_active, tb);
+				    available_down, tb_dp_tunnel_active);
 	if (!tunnel) {
 		tb_port_dbg(out, "could not allocate DP tunnel\n");
 		goto err_reclaim_usb;
@@ -2967,6 +2969,8 @@ static void tb_stop(struct tb *tb)
 		if (tb_tunnel_is_dma(tunnel) ||
 		    (tb_tunnel_is_dp(tunnel) && !tb_tunnel_is_active(tunnel)))
 			tb_tunnel_deactivate(tunnel);
+		else if (tb_tunnel_is_dp(tunnel) && !tb_tunnel_is_active(tunnel))
+			tb_tunnel_deactivate(tunnel);
 		tb_tunnel_put(tunnel);
 	}
 	/*
@@ -3046,6 +3050,21 @@ static int tb_start(struct tb *tb, bool reset)
 	tb->root_switch->no_nvm_upgrade = !tb_switch_is_usb4(tb->root_switch);
 	/* All USB4 routers support runtime PM */
 	tb->root_switch->rpm = tb_switch_is_usb4(tb->root_switch);
+
+	/*
+	 * Apple Silicon machines have a separate, proprietary mechanism for
+	 * loading and updating firmware. Skip the DMA port initialization on
+	 * these machines.
+	 */
+	tb->root_switch->no_dma_port = tb->nhi->quirks & QUIRK_NO_DMA_PORT;
+
+	/*
+	 * Apple Silicon host routers do not implement the USB3 bandwidth
+	 * allocation registers: the CMR/HCA handshake is never acked and
+	 * times out. Bandwidth for USB3 tunnels is only booked in software
+	 * on these machines.
+	 */
+	tb->root_switch->no_usb3_bw_alloc = tb->nhi->quirks & QUIRK_NO_USB3_BW_ALLOC;
 
 	ret = tb_switch_configure(tb->root_switch);
 	if (ret) {
@@ -3437,3 +3456,4 @@ struct tb *tb_probe(struct tb_nhi *nhi)
 
 	return tb;
 }
+EXPORT_SYMBOL_FOR_MODULES(tb_probe, "thunderbolt_apple");
