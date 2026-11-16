@@ -82,6 +82,10 @@ description: |
   - iPhone 8 Plus
   - iPhone X
 
+  Devices based on the "A18 Pro" SoC:
+
+  - MacBook Neo (A18 Pro, 2026)
+
   Devices based on the "M1" SoC:
 
   - Mac mini (M1, 2020)
@@ -102,6 +106,21 @@ description: |
   - MacBook Air (15-inch, M3, 2024)
   - MacBook Pro (14-inch, M3, 2023)
   - iMac (24-inch, M3, 2023)
+
+  Devices based on the "M4" SoC:
+
+  - MacBook Pro (14-inch, M4, 2024)
+  - iMac (24-inch, 2x USB-C, M4, 2024)
+  - iMac (24-inch, 4x USB-C, M4, 2024)
+  - MacBook Air (13-inch, M4, 2025)
+  - MacBook Air (15-inch, M4, 2025)
+  - Mac mini (M4, 2024)
+
+  Devices based on the "M5" SoC:
+
+  - MacBook Pro (14-inch, M5, 2026)
+  - MacBook Air (13-inch, M5, 2026)
+  - MacBook Air (15-inch, M5, 2026)
 
   Devices based on the "M1 Pro", "M1 Max" and "M1 Ultra" SoCs:
 
@@ -130,6 +149,15 @@ description: |
   - MacBook Pro (16-inch, M3 Pro, 2023)
   - MacBook Pro (16-inch, M3 Max, 2023)
   - Mac Studio (M3 Ultra, 2025)
+
+  Devices based on the "M4 Pro" and "M4 Max" SoCs:
+
+  - MacBook Pro (14-inch, M4 Pro, 2024)
+  - MacBook Pro (14-inch, M4 Max, 2024)
+  - MacBook Pro (16-inch, M4 Pro, 2024)
+  - MacBook Pro (16-inch, M4 Max, 2024)
+  - Mac mini (M4 Pro, 2024)
+  - Mac Studio (M4 Max, 2025)
 
   The compatible property should follow this format:
 
@@ -291,6 +319,13 @@ properties:
           - const: apple,t8015
           - const: apple,arm-platform
 
+      - description: Apple A18 Pro SoC based platforms
+        items:
+          - enum:
+              - apple,j700  # MacBook Neo (A18 Pro, 2026)
+          - const: apple,t8140
+          - const: apple,arm-platform
+
       - description: Apple M1 SoC based platforms
         items:
           - enum:
@@ -321,6 +356,27 @@ properties:
               - apple,j613 # MacBook Air (13-inch, M3, 2024)
               - apple,j615 # MacBook Air (15-inch, M3, 2024)
           - const: apple,t8122
+          - const: apple,arm-platform
+
+      - description: Apple M4 SoC based platforms
+        items:
+          - enum:
+              - apple,j604  # MacBook Pro (14-inch, M4, 2024)
+              - apple,j623  # iMac (24-inch, 2x USB-C, M4, 2024)
+              - apple,j624  # iMac (24-inch, 4x USB-C, M4, 2024)
+              - apple,j713  # MacBook Air (13-inch, M4, 2025)
+              - apple,j715  # MacBook Air (15-inch, M4, 2025)
+              - apple,j773g # Mac mini (M4, 2024)
+          - const: apple,t8132
+          - const: apple,arm-platform
+
+      - description: Apple M5 SoC based platforms
+        items:
+          - enum:
+              - apple,j704  # MacBook Pro (14-inch, M5, 2025)
+              - apple,j813  # MacBook Air (13-inch, M5, 2026)
+              - apple,j815  # MacBook Air (15-inch, M5, 2026)
+          - const: apple,t8142
           - const: apple,arm-platform
 
       - description: Apple M1 Pro SoC based platforms
@@ -400,6 +456,24 @@ properties:
         items:
           - const: apple,j575d  # Mac Studio (M3 Ultra, 2025)
           - const: apple,t6032
+          - const: apple,arm-platform
+
+      - description: Apple M4 Pro SoC based platforms
+        items:
+          - enum:
+              - apple,j614s # MacBook Pro (14-inch, M4 Pro, 2024)
+              - apple,j616s # MacBook Pro (16-inch, M4 Pro, 2024)
+              - apple,j773s # Mac mini (M4 Pro, 2024)
+          - const: apple,t6040
+          - const: apple,arm-platform
+
+      - description: Apple M4 Max SoC based platforms
+        items:
+          - enum:
+              - apple,j614c # MacBook Pro (14-inch, M4 Max, 2024)
+              - apple,j616c # MacBook Pro (16-inch, M4 Max, 2024)
+              - apple,j575c # Mac Studio (M4 Max, 2025)
+          - const: apple,t6041
           - const: apple,arm-platform
 
 additionalProperties: true

@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Include PCIe-GE nodes presen on both dies of T6022 (M2 Ultra) in the
+ * Mac Pro (2023).
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#define DIE
+#define DIE_NO 0
+#define SOC_NODE die0
+
+#include "t602x-pcie-ge.dtsi"
+
+#undef DIE
+#undef DIE_NO
+#undef SOC_NODE
+
+#define DIE _die1
+#define DIE_NO 1
+#define SOC_NODE die1
+
+#include "t602x-pcie-ge.dtsi"
+
+#undef DIE
+#undef DIE_NO
+#undef SOC_NODE

@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple MacBook Pro (14-inch, M4, 2024)
+ *
+ * target-type: J604
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+/dts-v1/;
+
+#include "t8132.dtsi"
+#include "t8132-jxxx.dtsi"
+#include <dt-bindings/leds/common.h>
+
+/ {
+	model = "Apple MacBook Pro (14-inch, M4, 2024)";
+	compatible = "apple,j604", "apple,t8132", "apple,arm-platform";
+
+	aliases {
+		keyboard = &keyboard;
+		atcphy3 = &atcphy3;
+	};
+
+	led-controller {
+		compatible = "pwm-leds";
+
+		led-0 {
+			pwms = <&fpwm1 0 40000>;
+			label = "kbd_backlight";
+			function = LED_FUNCTION_KBD_BACKLIGHT;
+			color = <LED_COLOR_ID_WHITE>;
+			max-brightness = <255>;
+			default-state = "keep";
+		};
+	};
+};
+
+&fpwm1 {
+	status = "okay";
+};
+
+/* PCIe Devices */
+
+&wifi0 {
+	brcm,board-type = "apple,guam";
+};
+
+&bluetooth0 {
+	brcm,board-type = "apple,guam";
+};
+
+&port02 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	mmc@0,0 {
+		compatible = "pci17a0,9755";
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		cd-inverted;
+		wp-inverted;
+	};
+};
+
+&pcie2_dart {
+	status = "okay";
+};
+
+&pcie0 {
+	iommu-map = <0x100 &pcie0_dart 1 1>,
+	            <0x200 &pcie2_dart 1 1>;
+};
+
+/*
+ * Add the additional USB type C port
+ */
+
+&nub_spmi_a1 {
+	usb-pd@c {
+		compatible = "apple,sn201202x";
+		reg = <0xc SPMI_USID>;
+		interrupts = <11 IRQ_TYPE_EDGE_RISING>,
+		             <13 IRQ_TYPE_EDGE_RISING>,
+		             <17 IRQ_TYPE_EDGE_RISING>,
+		             <19 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq", "select", "sleep", "wake";
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C Right";
+			power-role = "dual";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					typec3_connector_hs: endpoint {
+						remote-endpoint = <&dwc3_3_hs>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					typec3_connector_ss: endpoint {
+						remote-endpoint =
+							<&atcphy3_typec_lanes>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&dwc3_3 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dwc3_3_hs: endpoint {
+				remote-endpoint = <&typec3_connector_hs>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dwc3_3_ss: endpoint {
+				remote-endpoint = <&atcphy3_usb3>;
+			};
+		};
+	};
+};
+
+&atcphy3 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			atcphy3_typec_lanes: endpoint {
+				remote-endpoint = <&typec3_connector_ss>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			atcphy3_usb3: endpoint {
+				remote-endpoint = <&dwc3_3_ss>;
+			};
+		};
+	};
+};
+
+/delete-node/ &atcphy2;
+/delete-node/ &dwc3_2;
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+};

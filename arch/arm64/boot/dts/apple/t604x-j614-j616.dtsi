@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * MacBook Pro (14/16-inch, 2024)
+ *
+ * This file contains the parts common to J614 and J616 devices with both
+ * M4 Pro and M4 Max.
+ *
+ * target-type: J614s / J614c / J616s / J616c
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include <dt-bindings/leds/common.h>
+
+/ {
+	chassis-type = "laptop";
+
+	aliases {
+		keyboard = &keyboard;
+		serial0 = &serial0;
+	};
+
+	chosen {
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		stdout-path = "serial0";
+
+		framebuffer0: framebuffer@0 {
+			compatible = "apple,simple-framebuffer",
+			             "simple-framebuffer";
+			reg = <0 0 0 0>; /* To be filled by loader */
+			power-domains = <&ps_disp_fe>;
+			/* Format properties will be added by loader */
+
+			status = "disabled";
+		};
+	};
+
+	led-controller {
+		compatible = "pwm-leds";
+
+		led-0 {
+			color = <LED_COLOR_ID_WHITE>;
+			default-state = "keep";
+			function = LED_FUNCTION_KBD_BACKLIGHT;
+			label = "kbd_backlight";
+			max-brightness = <255>;
+			pwms = <&fpwm0 0 40000>;
+		};
+	};
+
+	memory@10000000000 {
+		device_type = "memory";
+		reg = <0x100 0 0x2 0>; /* To be filled by loader */
+	};
+};
+
+&fpwm0 {
+	status = "okay";
+};
+
+&mtp {
+	status = "okay";
+};
+
+&mtp_mbox {
+	status = "okay";
+};
+
+&mtp_dart {
+	status = "okay";
+};
+
+&mtp_dockchannel {
+	status = "okay";
+};
+
+&mtp_hid {
+	//apple,afe-reset-gpios = <&smc_gpio_low 25 GPIO_ACTIVE_LOW>;
+	//apple,stm-reset-gpios = <&smc_gpio_low 26 GPIO_ACTIVE_LOW>;
+
+	keyboard: keyboard {
+		hid-country-code = <0>;
+		apple,keyboard-layout-id = <0>;
+	};
+
+	stm {
+	};
+};
+
+&serial0 {
+	status = "okay";
+};
+
+/*
+ * Force the bus number assignments so that we can declare some of the
+ * on-board devices and properties that are populated by the bootloader
+ * (such as MAC addresses).
+ */
+&port00 {
+	bus-range = <1 1>;
+
+	wifi0: wifi@0,0 {
+		compatible = "pci14e4,4434";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-mac-address = [00 00 00 00 00 00];
+		apple,antenna-sku = "XX";
+	};
+
+	bluetooth0: bluetooth@0,1 {
+		compatible = "pci14e4,5f72";
+		reg = <0x10100 0x0 0x0 0x0 0x0>;
+		/* To be filled by the loader */
+		local-bd-address = [00 00 00 00 00 00];
+	};
+};
+
+&port01 {
+	bus-range = <2 2>;
+
+	status = "okay";
+
+	mmc@0,0 {
+		compatible = "pci17a0,9755";
+		reg = <0x20000 0x0 0x0 0x0 0x0>;
+		cd-inverted;
+		wp-inverted;
+	};
+};
+
+&pcie0_dart_1 {
+	status = "okay";
+};

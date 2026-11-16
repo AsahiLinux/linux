@@ -1,0 +1,1017 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple T8132 "M4" SoC
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/apple-aic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/apple.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/spmi/spmi.h>
+
+/ {
+	compatible = "apple,t8132", "apple,arm-platform";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	clkref: clock-ref {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "clkref";
+	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_e0>;
+				};
+
+				core1 {
+					cpu = <&cpu_e1>;
+				};
+
+				core2 {
+					cpu = <&cpu_e2>;
+				};
+
+				core3 {
+					cpu = <&cpu_e3>;
+				};
+
+				core4 {
+					cpu = <&cpu_e4>;
+				};
+
+				core5 {
+					cpu = <&cpu_e5>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu_p0>;
+				};
+
+				core1 {
+					cpu = <&cpu_p1>;
+				};
+
+				core2 {
+					cpu = <&cpu_p2>;
+				};
+
+				core3 {
+					cpu = <&cpu_p3>;
+				};
+			};
+		};
+
+		cpu_e0: cpu@0 {
+			device_type = "cpu";
+			compatible = "apple,donan-e";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x20000>;
+			d-cache-size = <0x10000>;
+		};
+
+		cpu_e1: cpu@1 {
+			device_type = "cpu";
+			compatible = "apple,donan-e";
+			reg = <0x0 0x1>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x20000>;
+			d-cache-size = <0x10000>;
+		};
+
+		cpu_e2: cpu@2 {
+			device_type = "cpu";
+			compatible = "apple,donan-e";
+			reg = <0x0 0x2>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x20000>;
+			d-cache-size = <0x10000>;
+		};
+
+		cpu_e3: cpu@3 {
+			device_type = "cpu";
+			compatible = "apple,donan-e";
+			reg = <0x0 0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x20000>;
+			d-cache-size = <0x10000>;
+		};
+
+		cpu_e4: cpu@4 {
+			device_type = "cpu";
+			compatible = "apple,donan-e";
+			reg = <0x0 0x4>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x20000>;
+			d-cache-size = <0x10000>;
+		};
+
+		cpu_e5: cpu@5 {
+			device_type = "cpu";
+			compatible = "apple,donan-e";
+			reg = <0x0 0x5>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x20000>;
+			d-cache-size = <0x10000>;
+		};
+
+		cpu_p0: cpu@10100 {
+			device_type = "cpu";
+			compatible = "apple,donan-p";
+			reg = <0x0 0x10100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+		};
+
+		cpu_p1: cpu@10101 {
+			device_type = "cpu";
+			compatible = "apple,donan-p";
+			reg = <0x0 0x10101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+		};
+
+		cpu_p2: cpu@10102 {
+			device_type = "cpu";
+			compatible = "apple,donan-p";
+			reg = <0x0 0x10102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+		};
+
+		cpu_p3: cpu@10103 {
+			device_type = "cpu";
+			compatible = "apple,donan-p";
+			reg = <0x0 0x10103>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0 0>;
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x30000>;
+			d-cache-size = <0x20000>;
+		};
+
+		l2_cache_0: l2-cache-0 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x400000>;
+		};
+
+		l2_cache_1: l2-cache-1 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x1000000>;
+		};
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+
+		ranges;
+		nonposted-mmio;
+
+		#address-cells = <2>;
+		#size-cells = <2>;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
+
+		pmgr: power-management@380700000 {
+			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr",
+				     "syscon", "simple-mfd";
+			reg = <0x3 0x80700000 0 0x14000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/* child nodes are added in t8132-pmgr.dtsi */
+		};
+
+		aic: interrupt-controller@381000000 {
+			compatible = "apple,t8132-aic3", "apple,t8122-aic3";
+			reg = <0x3 0x81000000 0x0 0x1cc000>,
+			      <0x3 0x81040000 0x0 0x4000>;
+			reg-names = "core", "event";
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			power-domains = <&ps_aic>;
+
+			affinities {
+				e-core-pmu-affinity {
+					cpus = <&cpu_e0 &cpu_e1 &cpu_e2
+						&cpu_e3 &cpu_e4 &cpu_e5>;
+					apple,fiq-index = <AIC_CPU_PMU_E>;
+				};
+
+				p-core-pmu-affinity {
+					cpus = <&cpu_p0 &cpu_p1
+						&cpu_p2 &cpu_p3>;
+					apple,fiq-index = <AIC_CPU_PMU_P>;
+				};
+			};
+		};
+
+		pinctrl_nub: pinctrl@3881f0000 {
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
+			reg = <0x3 0x881f0000 0x0 0x4000>;
+			power-domains = <&ps_nub_gpio>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_nub 0 0 32>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 499 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 500 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 501 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 502 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 503 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 504 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 505 IRQ_TYPE_LEVEL_HIGH>;
+
+			apple,npins = <32>;
+		};
+
+		pmgr_mini: power-management@388280000 {
+			compatible = "apple,t8132-pmgr", "apple,t8103-pmgr",
+				     "syscon", "simple-mfd";
+			reg = <0x3 0x88280000 0 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/* child nodes are added in t8132-pmgr.dtsi */
+		};
+
+		wdt: watchdog@3882b0000 {
+			compatible = "apple,t8132-wdt", "apple,t8103-wdt";
+			reg = <0x3 0x882b0000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 507 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		nub_spmi_a0: spmi@388908000 {
+			compatible = "apple,t8132-spmi",
+				     "apple,t8103-spmi";
+			reg = <0x3 0x88908000 0x0 0x100>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 520 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_nub_spmi_a0>;
+		};
+
+		nub_spmi_a1: spmi@388a08000 {
+			compatible = "apple,t8132-spmi",
+			             "apple,t8103-spmi";
+			reg = <0x3 0x88a08000 0x0 0x100>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 522 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_nub_spmi_a1>;
+		};
+
+		pinctrl_smc: pinctrl@38c820000 {
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
+			reg = <0x3 0x8c820000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_smc 0 0 18>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 552 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 553 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 554 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 555 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 556 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 557 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 558 IRQ_TYPE_LEVEL_HIGH>;
+
+			apple,npins = <18>;
+		};
+
+		pinctrl_aop: pinctrl@390824000 {
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
+			reg = <0x3 0x90824000 0x0 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_aop 0 0 57>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 423 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 424 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 425 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 426 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 427 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 428 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 429 IRQ_TYPE_LEVEL_HIGH>;
+
+			apple,npins = <57>;
+		};
+
+		mtp: mtp@394600000 {
+			compatible = "apple,t8132-mtp",
+			             "apple,t8132-rtk-helper-asc4",
+			             "apple,mtp",
+			             "apple,rtk-helper-asc4";
+			reg = <0x3 0x94600000 0x0 0x4000>,
+			      <0x3 0x946c0000 0x0 0x100000>;
+			reg-names = "asc", "sram";
+
+			mboxes = <&mtp_mbox>;
+			iommus = <&mtp_dart 0>;
+			#helper-cells = <0>;
+
+			status = "disabled";
+		};
+
+		mtp_mbox: mbox@394608000 {
+			compatible = "apple,t8132-asc-mailbox",
+			             "apple,asc-mailbox-v4";
+			reg = <0x3 0x94608000 0x0 0x4000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1113 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 1114 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 1115 IRQ_TYPE_LEVEL_HIGH>,
+			             <AIC_IRQ 1116 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+			                  "recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+
+			status = "disabled";
+		};
+
+		mtp_dart: iommu@394800000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x3 0x94800000 0x0 0x4000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1091 IRQ_TYPE_LEVEL_HIGH>;
+
+			#iommu-cells = <1>;
+
+			status = "disabled";
+		};
+
+		mtp_dockchannel: fifo@394b14000 {
+			compatible = "apple,t8132-dockchannel", "apple,dockchannel";
+			reg = <0x3 0x94b14000 0x0 0x4000>;
+			reg-names = "irq";
+			ranges = <0 0x3 0x94b28000 0x20000>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1093 IRQ_TYPE_LEVEL_HIGH>;
+
+			nonposted-mmio;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			status = "disabled";
+
+			mtp_hid: input@0 {
+				compatible = "apple,dockchannel-hid";
+				reg = <0x0000 0x1000>,
+				      <0x4000 0x1000>,
+				      <0x8000 0x1000>,
+				      <0xc000 0x1000>;
+				reg-names = "rmt-config", "rmt-data", "config", "data";
+
+				iommus = <&mtp_dart 0>;
+
+				interrupt-parent = <&mtp_dockchannel>;
+				interrupts = <2 IRQ_TYPE_LEVEL_HIGH>,
+				             <3 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "tx", "rx";
+
+				apple,fifo-size = <0x800>;
+				apple,helper-cpu = <&mtp>;
+			};
+		};
+
+		pinctrl_ap: pinctrl@39a000000 {
+			compatible = "apple,t8132-pinctrl",
+				     "apple,t8103-pinctrl";
+			reg = <0x3 0x9a000000 0x0 0x100000>;
+			power-domains = <&ps_gpio>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl_ap 0 0 224>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 303 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 304 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 305 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 306 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 307 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 308 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 309 IRQ_TYPE_LEVEL_HIGH>;
+
+			apple,npins = <224>;
+
+			i2c0_pins: i2c0-pins {
+				pinmux = <APPLE_PINMUX(104, 1)>,
+					 <APPLE_PINMUX(103, 1)>;
+			};
+
+			i2c1_pins: i2c1-pins {
+				pinmux = <APPLE_PINMUX(106, 1)>,
+					 <APPLE_PINMUX(105, 1)>;
+			};
+
+			i2c2_pins: i2c2-pins {
+				pinmux = <APPLE_PINMUX(44, 1)>,
+					 <APPLE_PINMUX(43, 1)>;
+			};
+
+			i2c3_pins: i2c3-pins {
+				pinmux = <APPLE_PINMUX(42, 1)>,
+					 <APPLE_PINMUX(41, 1)>;
+			};
+
+			i2c4_pins: i2c4-pins {
+				pinmux = <APPLE_PINMUX(108, 1)>,
+					 <APPLE_PINMUX(107, 1)>;
+			};
+
+			pcie_pins: pcie-pins {
+				// clkreq pins
+				pinmux = <APPLE_PINMUX(160, 1)>,
+				         <APPLE_PINMUX(161, 1)>,
+				         <APPLE_PINMUX(162, 1)>;
+			};
+		};
+
+		i2c0: i2c@3ad010000 {
+			compatible = "apple,t8132-i2c", "apple,t8103-i2c";
+			reg = <0x3 0xad010000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1062 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c0_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c0>;
+
+			status = "disabled";
+		};
+
+		i2c1: i2c@3ad014000 {
+			compatible = "apple,t8132-i2c", "apple,t8103-i2c";
+			reg = <0x3 0xad014000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1063 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c1_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c1>;
+
+			status = "disabled";
+		};
+
+		i2c2: i2c@3ad018000 {
+			compatible = "apple,t8132-i2c", "apple,t8103-i2c";
+			reg = <0x3 0xad018000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1064 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c2_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c2>;
+
+			status = "disabled";
+		};
+
+		i2c3: i2c@3ad01c000 {
+			compatible = "apple,t8132-i2c", "apple,t8103-i2c";
+			reg = <0x3 0xad01c000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1065 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c3_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c3>;
+
+			status = "disabled";
+		};
+
+		i2c4: i2c@3ad020000 {
+			compatible = "apple,t8132-i2c", "apple,t8103-i2c";
+			reg = <0x3 0xad020000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1066 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c4_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c4>;
+
+			status = "disabled";
+		};
+
+		fpwm1: pwm@3ad044000 {
+			compatible = "apple,t8132-fpwm", "apple,s5l-fpwm";
+			reg = <0x3 0xad044000 0x0 0x4000>;
+			power-domains = <&ps_fpwm1>;
+			clocks = <&clkref>;
+			#pwm-cells = <2>;
+
+			status = "disabled";
+		};
+
+		serial0: serial@3ad200000 {
+			compatible = "apple,s5l-uart";
+			reg = <0x3 0xad200000 0x0 0x1000>;
+			reg-io-width = <4>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1046 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkref>, <&clkref>;
+			clock-names = "uart", "clk_uart_baud0";
+			power-domains = <&ps_uart0>;
+
+			status = "disabled";
+		};
+
+		dwc3_0: usb@402280000 {
+			compatible = "apple,t8132-dwc3",
+			             "apple,t8103-dwc3";
+			reg = <0x4 0x02280000 0x0 0xcd00>,
+			      <0x4 0x0228cd00 0x0 0x3200>;
+			reg-names = "dwc3-core",
+			            "dwc3-apple";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1279 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "otg";
+			usb-role-switch;
+			role-switch-default-mode = "host";
+			iommus = <&dwc3_0_dart_0 0>,
+			         <&dwc3_0_dart_1 1>;
+			power-domains = <&ps_atc0_usb>;
+			resets = <&atcphy0>;
+			phys = <&atcphy0 PHY_TYPE_USB2>,
+			       <&atcphy0 PHY_TYPE_USB3>;
+			phy-names = "usb2-phy", "usb3-phy";
+		};
+
+		dwc3_0_dart_0: iommu@402f00000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x02f00000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1283 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc0_usb>;
+			#iommu-cells = <1>;
+		};
+
+		dwc3_0_dart_1: iommu@402f80000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x02f80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1283 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc0_usb>;
+			#iommu-cells = <1>;
+		};
+
+		atcphy0: phy@403000000 {
+			compatible = "apple,t8132-atcphy", "apple,t8122-atcphy";
+			reg = <0x4 0x03000000 0x0 0x4c000>,
+			      <0x4 0x03050000 0x0 0x8000>,
+			      <0x4 0x00000000 0x0 0x8000>,
+			      <0x4 0x02a90000 0x0 0x4000>,
+			      <0x4 0x02a84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+			            "pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc0_usb>;
+		};
+
+		dwc3_1: usb@40a280000 {
+			compatible = "apple,t8132-dwc3", "apple,t8103-dwc3";
+			reg = <0x4 0x0a280000 0x0 0xcd00>,
+			      <0x4 0x0a28cd00 0x0 0x3200>;
+			reg-names = "dwc3-core", "dwc3-apple";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1341 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "otg";
+			usb-role-switch;
+			role-switch-default-mode = "host";
+			iommus = <&dwc3_1_dart_0 0>,
+			         <&dwc3_1_dart_1 1>;
+			power-domains = <&ps_atc1_usb>;
+			resets = <&atcphy1>;
+			phys = <&atcphy1 PHY_TYPE_USB2>,
+			       <&atcphy1 PHY_TYPE_USB3>;
+			phy-names = "usb2-phy", "usb3-phy";
+		};
+
+		dwc3_1_dart_0: iommu@40af00000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x0af00000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1345 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc1_usb>;
+			#iommu-cells = <1>;
+		};
+
+		dwc3_1_dart_1: iommu@40af80000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x0af80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1345 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc1_usb>;
+			#iommu-cells = <1>;
+		};
+
+		atcphy1: phy@40b000000 {
+			compatible = "apple,t8132-atcphy", "apple,t8122-atcphy";
+			reg = <0x4 0x0b000000 0x0 0x4c000>,
+			      <0x4 0x0b050000 0x0 0x8000>,
+			      <0x4 0x08000000 0x0 0x8000>,
+			      <0x4 0x0aa90000 0x0 0x4000>,
+			      <0x4 0x0aa84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+			            "pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc1_usb>;
+		};
+
+		dwc3_2: usb@412280000 {
+			compatible = "apple,t8132-dwc3", "apple,t8103-dwc3";
+			reg = <0x4 0x12280000 0x0 0xcd00>,
+			      <0x4 0x1228cd00 0x0 0x3200>;
+			reg-names = "dwc3-core", "dwc3-apple";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 387 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "otg";
+			usb-role-switch;
+			role-switch-default-mode = "host";
+			iommus = <&dwc3_2_dart_0 0>,
+			         <&dwc3_2_dart_1 1>;
+			power-domains = <&ps_atc2_usb>;
+			resets = <&atcphy2>;
+			phys = <&atcphy2 PHY_TYPE_USB2>,
+			       <&atcphy2 PHY_TYPE_USB3>;
+			phy-names = "usb2-phy", "usb3-phy";
+		};
+
+		dwc3_2_dart_0: iommu@412f00000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x12f00000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1407 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc2_usb>;
+			#iommu-cells = <1>;
+		};
+
+		dwc3_2_dart_1: iommu@412f80000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x12f80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1407 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc2_usb>;
+			#iommu-cells = <1>;
+		};
+
+		atcphy2: phy@413000000 {
+			compatible = "apple,t8132-atcphy", "apple,t8122-atcphy";
+			reg = <0x4 0x13000000 0x0 0x4c000>,
+			      <0x4 0x13050000 0x0 0x8000>,
+			      <0x4 0x10000000 0x0 0x8000>,
+			      <0x4 0x12a90000 0x0 0x4000>,
+			      <0x4 0x12a84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+			            "pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc2_usb>;
+		};
+
+		dwc3_3: usb@41a280000 {
+			compatible = "apple,t8132-dwc3", "apple,t8103-dwc3";
+			reg = <0x4 0x1a280000 0x0 0xcd00>,
+			      <0x4 0x1a28cd00 0x0 0x3200>;
+			reg-names = "dwc3-core", "dwc3-apple";
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1465 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "otg";
+			usb-role-switch;
+			role-switch-default-mode = "host";
+			iommus = <&dwc3_3_dart_0 0>,
+			         <&dwc3_3_dart_1 1>;
+			power-domains = <&ps_atc3_usb>;
+			resets = <&atcphy3>;
+			phys = <&atcphy3 PHY_TYPE_USB2>,
+			       <&atcphy3 PHY_TYPE_USB3>;
+			phy-names = "usb2-phy", "usb3-phy";
+		};
+
+		dwc3_3_dart_0: iommu@41af00000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x1af00000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1469 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc3_usb>;
+			#iommu-cells = <1>;
+		};
+
+		dwc3_3_dart_1: iommu@41af80000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x1af80000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1469 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_atc3_usb>;
+			#iommu-cells = <1>;
+		};
+
+		atcphy3: phy@41b000000 {
+			compatible = "apple,t8132-atcphy", "apple,t8122-atcphy";
+			reg = <0x4 0x1b000000 0x0 0x4c000>,
+			      <0x4 0x1b050000 0x0 0x8000>,
+			      <0x4 0x18000000 0x0 0x8000>,
+			      <0x4 0x1aa90000 0x0 0x4000>,
+			      <0x4 0x1aa84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+			            "pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc3_usb>;
+		};
+
+		ans_mbox: mbox@481608000 {
+			compatible = "apple,t8132-asc-mailbox",
+				     "apple,asc-mailbox-v4";
+			reg = <0x4 0x81608000 0x0 0x4000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1003 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1004 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1005 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1006 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+					  "recv-empty", "recv-not-empty";
+
+			#mbox-cells = <0>;
+			power-domains = <&ps_ans>;
+		};
+
+		sart: sart@485c50000 {
+			compatible = "apple,t8132-sart", "apple,t6000-sart";
+			reg = <0x4 0x85c50000 0x0 0x10000>;
+			power-domains = <&ps_ans>;
+		};
+
+		pcie0_dart: iommu@490000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x90000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1232 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+		};
+
+		pcie1_dart: iommu@491000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x91000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1236 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+
+			status = "disabled";
+		};
+
+		pcie2_dart: iommu@492000000 {
+			compatible = "apple,t8132-dart", "apple,t8110-dart";
+			reg = <0x4 0x92000000 0x0 0x4000>;
+			#iommu-cells = <1>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1250 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&ps_apcie_gp>;
+
+			status = "disabled";
+		};
+
+		nvme: nvme@4c5cc0000 {
+			compatible = "apple,t8132-nvme-ans2";
+			reg = <0x4 0xc5cc0000 0x0 0x60000>,
+			      <0x4 0x81600000 0x0 0x4000>;
+			reg-names = "nvme", "ans";
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1018 IRQ_TYPE_LEVEL_HIGH>;
+
+			mboxes = <&ans_mbox>;
+
+			power-domains = <&ps_ans>, <&ps_apcie_sys_st>;
+			power-domain-names = "ans", "apcie0";
+			resets = <&ps_ans>;
+
+			apple,sart = <&sart>;
+		};
+
+		pcie0: pcie@1cb0000000 {
+			device_type = "pci";
+			compatible = "apple,t8132-pcie", "apple,t6020-pcie";
+
+			reg = <0x1c 0xb0000000 0x0 0x1000000>,	/* config */
+			      <0x4 0x94000000 0x0 0x4000>,	/* rc */
+			      <0x4 0x90028000 0x0 0x4000>,	/* port0 */
+			      <0x4 0x91028000 0x0 0x4000>,	/* port1 */
+			      <0x4 0x92028000 0x0 0x4000>,	/* port2 */
+			      <0x4 0x97020000 0x0 0x4000>,	/* phy0 */
+			      <0x4 0x97024000 0x0 0x4000>,	/* phy1 */
+			      <0x4 0x97028000 0x0 0x4000>;	/* phy2 */
+			reg-names = "config", "rc", "port0", "port1", "port2",
+			            "phy0", "phy1", "phy2";
+
+			ranges = <0x43000000
+			          0xb 0xc0000000
+				  0xb 0xc0000000
+				  0x0 0x20000000>,
+				 <0x02000000
+				  0x0 0x80000000
+				  0xb 0x80000000
+				  0x0 0x40000000>;
+
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 1231 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1240 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 1249 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			msi-parent = <&pcie0>;
+			msi-ranges = <&aic AIC_IRQ 1506 IRQ_TYPE_EDGE_RISING
+			              32>;
+
+			iommu-map = <0x100 &pcie0_dart 0 1>,
+			            <0x200 &pcie1_dart 1 1>,
+			            <0x300 &pcie2_dart 1 1>;
+			iommu-map-mask = <0xff00>;
+
+			bus-range = <0 3>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			power-domains = <&ps_apcie_gp>;
+			pinctrl-0 = <&pcie_pins>;
+			pinctrl-names = "default";
+
+			port00: pci@0,0 {
+				device_type = "pci";
+				reg = <0x0 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 163 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port00 0 0 0 0>,
+						<0 0 0 2 &port00 0 0 0 1>,
+						<0 0 0 3 &port00 0 0 0 2>,
+						<0 0 0 4 &port00 0 0 0 3>;
+			};
+
+			port01: pci@1,0 {
+				device_type = "pci";
+				reg = <0x800 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 164 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port01 0 0 0 0>,
+						<0 0 0 2 &port01 0 0 0 1>,
+						<0 0 0 3 &port01 0 0 0 2>,
+						<0 0 0 4 &port01 0 0 0 3>;
+
+				status = "disabled";
+			};
+
+			port02: pci@2,0 {
+				device_type = "pci";
+				reg = <0x1000 0x0 0x0 0x0 0x0>;
+				ranges;
+
+				// perst
+				reset-gpios = <&pinctrl_ap 165 GPIO_ACTIVE_LOW>;
+
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0 0 0 1 &port02 0 0 0 0>,
+						<0 0 0 2 &port02 0 0 0 1>,
+						<0 0 0 3 &port02 0 0 0 2>,
+						<0 0 0 4 &port02 0 0 0 3>;
+
+				status = "disabled";
+			};
+		};
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupt-parent = <&aic>;
+		interrupts = <AIC_FIQ AIC_TMR_GUEST_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_GUEST_VIRT IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_PHYS IRQ_TYPE_LEVEL_HIGH>,
+			     <AIC_FIQ AIC_TMR_HV_VIRT IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "phys", "virt", "hyp-phys", "hyp-virt";
+	};
+};
+
+#include "t8132-pmgr.dtsi"
