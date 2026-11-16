@@ -42,7 +42,11 @@
 #define APPLE_ANS_ACQ_DB  0x1004
 #define APPLE_ANS_IOCQ_DB 0x100c
 
-#define APPLE_ANS_MAX_PEND_CMDS_CTRL 0x1210
+#define APPLE_ANS_T8132_IOQ_CMDS 0x1200
+#define APPLE_ANS_T8132_IOQ_CQES 0x1208
+#define APPLE_ANS_T8132_IOQ_SIZE 0x1210
+
+#define APPLE_ANS_T8103_MAX_PEND_CMDS_CTRL 0x1210
 
 #define APPLE_ANS_BOOT_STATUS	 0x1300
 #define APPLE_ANS_BOOT_STATUS_OK 0xde71ce55
@@ -184,6 +188,7 @@ struct apple_nvme_iod {
 
 struct apple_nvme_hw {
 	bool has_lsq_nvmmu;
+	bool needs_ioq_register;
 	u32 max_queue_depth;
 };
 
@@ -217,7 +222,19 @@ struct apple_nvme {
 
 	int irq;
 	spinlock_t lock;
+
+	/*
+	 * Delayed cache flush handling state
+	 */
+	struct nvme_ns *flush_ns;
+	unsigned long flush_interval;
+	unsigned long last_flush;
+	struct delayed_work flush_dwork;
 };
+
+unsigned int flush_interval = 1000;
+module_param(flush_interval, uint, 0644);
+MODULE_PARM_DESC(flush_interval, "Grace period in msecs between flushes");
 
 static_assert(sizeof(struct nvme_command) == 64);
 static_assert(sizeof(struct apple_nvmmu_tcb) == 128);
@@ -778,6 +795,26 @@ static int apple_nvme_remove_sq(struct apple_nvme *anv)
 	return nvme_submit_sync_cmd(anv->ctrl.admin_q, &c, NULL, 0);
 }
 
+static bool apple_nvme_delayed_flush(struct apple_nvme *anv, struct nvme_ns *ns,
+				     struct request *req)
+{
+	if (!anv->flush_interval || req_op(req) != REQ_OP_FLUSH)
+		return false;
+	if (delayed_work_pending(&anv->flush_dwork))
+		return true;
+	if (time_before(jiffies, anv->last_flush + anv->flush_interval)) {
+		kblockd_mod_delayed_work_on(WORK_CPU_UNBOUND, &anv->flush_dwork,
+						anv->flush_interval);
+		if (WARN_ON_ONCE(anv->flush_ns && anv->flush_ns != ns))
+			goto out;
+		anv->flush_ns = ns;
+		return true;
+	}
+out:
+	anv->last_flush = jiffies;
+	return false;
+}
+
 static blk_status_t apple_nvme_queue_rq(struct blk_mq_hw_ctx *hctx,
 					const struct blk_mq_queue_data *bd)
 {
@@ -813,6 +850,11 @@ static blk_status_t apple_nvme_queue_rq(struct blk_mq_hw_ctx *hctx,
 	}
 
 	nvme_start_request(req);
+
+	if (apple_nvme_delayed_flush(anv, ns, req)) {
+                blk_mq_complete_request(req);
+                return BLK_STS_OK;
+        }
 
 	if (anv->hw->has_lsq_nvmmu)
 		apple_nvme_submit_cmd_t8103(q, cmnd);
@@ -1133,9 +1175,16 @@ static void apple_nvme_reset_work(struct work_struct *work)
 			anv->mmio_nvme + APPLE_ANS_LINEAR_SQ_CTRL);
 
 		/* Allow as many pending command as possible for both queues */
-		writel(anv->hw->max_queue_depth
-			| (anv->hw->max_queue_depth << 16), anv->mmio_nvme
-			+ APPLE_ANS_MAX_PEND_CMDS_CTRL);
+		if (!anv->hw->needs_ioq_register) {
+			/*
+			 * Since T8132, this is replaced by IOQ_SIZE which is
+			 * located at the same offset and is handled with the
+			 * IO queue setup further below.
+			 */
+			writel(anv->hw->max_queue_depth
+				| (anv->hw->max_queue_depth << 16), anv->mmio_nvme
+				+ APPLE_ANS_T8103_MAX_PEND_CMDS_CTRL);
+		}
 
 		/* Setup the NVMMU for the maximum admin and IO queue depth */
 		writel(anv->hw->max_queue_depth - 1,
@@ -1189,6 +1238,16 @@ static void apple_nvme_reset_work(struct work_struct *work)
 	ret = apple_nvme_create_sq(anv);
 	if (ret)
 		goto out_remove_cq;
+
+	if (anv->hw->needs_ioq_register) {
+		writeq(anv->ioq.cq_dma_addr,
+			anv->mmio_nvme + APPLE_ANS_T8132_IOQ_CQES);
+		writeq(anv->ioq.sq_dma_addr,
+			anv->mmio_nvme + APPLE_ANS_T8132_IOQ_CMDS);
+		writel((anv->hw->max_queue_depth - 1)
+			| ((anv->hw->max_queue_depth - 1) << 16), anv->mmio_nvme
+			+ APPLE_ANS_T8132_IOQ_SIZE);
+	}
 
 	apple_nvme_init_queue(&anv->ioq);
 	nr_io_queues = 1;
@@ -1450,6 +1509,28 @@ static void devm_apple_nvme_mempool_destroy(void *data)
 	mempool_destroy(data);
 }
 
+static void apple_nvme_flush_work(struct work_struct *work)
+{
+	struct nvme_command c = { };
+	struct apple_nvme *anv;
+	struct nvme_ns *ns;
+	int err;
+
+	anv = container_of(work, struct apple_nvme, flush_dwork.work);
+	ns = anv->flush_ns;
+	if (WARN_ON_ONCE(!ns))
+		return;
+
+	c.common.opcode = nvme_cmd_flush;
+	c.common.nsid = cpu_to_le32(anv->flush_ns->head->ns_id);
+	err = nvme_submit_sync_cmd(ns->queue, &c, NULL, 0);
+	if (err) {
+		dev_err(anv->dev, "Deferred flush failed: %d\n", err);
+	} else {
+		anv->last_flush = jiffies;
+	}
+}
+
 static struct apple_nvme *apple_nvme_alloc(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1617,6 +1698,14 @@ static int apple_nvme_probe(struct platform_device *pdev)
 		goto out_uninit_ctrl;
 	}
 
+	if (flush_interval) {
+		anv->flush_interval = msecs_to_jiffies(flush_interval);
+		anv->flush_ns = NULL;
+		anv->last_flush = jiffies - anv->flush_interval;
+	}
+
+	INIT_DELAYED_WORK(&anv->flush_dwork, apple_nvme_flush_work);
+
 	nvme_reset_ctrl(&anv->ctrl);
 	async_schedule(apple_nvme_async_probe, anv);
 
@@ -1663,6 +1752,7 @@ static void apple_nvme_shutdown(struct platform_device *pdev)
 {
 	struct apple_nvme *anv = platform_get_drvdata(pdev);
 
+	flush_delayed_work(&anv->flush_dwork);
 	apple_nvme_disable(anv, true);
 	if (apple_rtkit_is_running(anv->rtk)) {
 		apple_rtkit_shutdown(anv->rtk);
@@ -1699,17 +1789,26 @@ static DEFINE_SIMPLE_DEV_PM_OPS(apple_nvme_pm_ops, apple_nvme_suspend,
 
 static const struct apple_nvme_hw apple_nvme_t8015_hw = {
 	.has_lsq_nvmmu = false,
+	.needs_ioq_register = false,
 	.max_queue_depth = 16,
 };
 
 static const struct apple_nvme_hw apple_nvme_t8103_hw = {
 	.has_lsq_nvmmu = true,
+	.needs_ioq_register = false,
+	.max_queue_depth = 64,
+};
+
+static const struct apple_nvme_hw apple_nvme_t8132_hw = {
+	.has_lsq_nvmmu = true,
+	.needs_ioq_register = true,
 	.max_queue_depth = 64,
 };
 
 static const struct of_device_id apple_nvme_of_match[] = {
 	{ .compatible = "apple,t8015-nvme-ans2", .data = &apple_nvme_t8015_hw },
 	{ .compatible = "apple,t8103-nvme-ans2", .data = &apple_nvme_t8103_hw },
+	{ .compatible = "apple,t8132-nvme-ans2", .data = &apple_nvme_t8132_hw },
 	{ .compatible = "apple,nvme-ans2", .data = &apple_nvme_t8103_hw },
 	{},
 };
