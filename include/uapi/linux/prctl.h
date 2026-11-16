@@ -6,6 +6,11 @@
 
 /* Values to pass as first argument to prctl() */
 
+#define PR_GET_MEM_MODEL	0x6d4d444c
+#define PR_SET_MEM_MODEL	0x4d4d444c
+# define PR_SET_MEM_MODEL_DEFAULT	0
+# define PR_SET_MEM_MODEL_TSO		1
+
 #define PR_SET_PDEATHSIG  1  /* Second arg is a signal */
 #define PR_GET_PDEATHSIG  2  /* Second arg is a ptr to return the signal */
 
