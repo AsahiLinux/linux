@@ -19,6 +19,8 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 
+#include "piodma.h"
+
 struct msr_fmt;
 
 enum msr_frm_type {
@@ -70,6 +72,7 @@ struct msr_dev {
 	struct video_device *vfd;
 	struct device *dev;
 	void __iomem *base;
+	struct piodma_ctx *piodma;
 	u32 version;
 	/* vfd lock */
 	struct mutex mutex;

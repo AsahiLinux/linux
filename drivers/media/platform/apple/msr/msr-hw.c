@@ -18,6 +18,7 @@
 
 #include "msr-hw.h"
 #include "msr.h"
+#include "piodma.h"
 
 enum msr_scaling_dir {
 	MSR_VERTICAL,
@@ -38,13 +39,20 @@ static const struct msr_clip defclip = {
 static void msr_write(struct msr_ctx *ctx, size_t off, const void *src,
 		      size_t count)
 {
-	void __iomem *dst = ctx->msr->base + off;
+	if (ctx->msr->piodma) {
+		int ret = piodma_add_packet(ctx->msr->piodma, off, src, count);
+		if (ret) {
+			dev_err(ctx->msr->dev, "piodma_add_packet: %d\n", ret);
+		}
+	} else {
+		void __iomem *dst = ctx->msr->base + off;
 
 #ifdef CONFIG_ARM64
-	__iowrite32_copy(dst, src, count);
+		__iowrite32_copy(dst, src, count);
 #else
-	memcpy_toio(dst, src, count * 4);
+		memcpy_toio(dst, src, count * 4);
 #endif
+	}
 }
 
 #define msr_writel(ctx, val, off) do { \
@@ -406,6 +414,9 @@ static void msr_hw_start(struct msr_ctx *ctx,
 	writel(1, msr->base + 0x4);
 	writel(0, msr->base + 0x4);
 
+	if (ctx->msr->piodma)
+		piodma_start_packet(ctx->msr->piodma);
+
 	msr_writel(ctx, 0xffffffff, 0x18); /* enable irq */
 
 	/* transform config */
@@ -453,6 +464,9 @@ static void msr_hw_start(struct msr_ctx *ctx,
 	msr_writel(ctx, MSR_TIMEOUT_MILLIS(500), 0x98);
 	/* mode/start */
 	msr_writel(ctx, 1, 0x80);
+
+	if (ctx->msr->piodma)
+		piodma_submit_packet(ctx->msr->piodma);
 }
 
 #define MSR_IRQ_DBG(v, ev)	(((v) & MSR_IRQ_##ev) ? #ev " " : "")

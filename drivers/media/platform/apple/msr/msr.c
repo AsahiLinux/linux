@@ -35,6 +35,9 @@
 int debug;
 module_param(debug, int, 0644);
 
+bool nopiodma;
+module_param(nopiodma, bool, 0644);
+
 static void device_run(void *prv)
 {
 	struct msr_ctx *ctx = prv;
@@ -81,6 +84,19 @@ static irqreturn_t msr_irq_handler(int irq, void *prv)
 	end_job(ctx, state);
 
 	return IRQ_HANDLED;
+}
+
+static void piodma_cb(void *prv, enum piodma_completion_status status)
+{
+	struct msr_dev *msr = prv;
+	struct msr_ctx *ctx = NULL;
+
+	ctx = v4l2_m2m_get_curr_priv(msr->m2m_dev);
+	if (!ctx)
+		return;
+
+	if (ctx && status != PIODMA_OK)
+		end_job(ctx, VB2_BUF_STATE_ERROR);
 }
 
 static const struct v4l2_m2m_ops msr_m2m_ops = {
@@ -886,17 +902,30 @@ static int msr_probe(struct platform_device *pdev)
 
 	v4l2_info(&msr->v4l2_dev, "HW Version: %x\n", msr->version);
 
-	pm_runtime_put(msr->dev);
-
 	ret = video_register_device(vfd, VFL_TYPE_VIDEO, -1);
 	if (ret) {
 		v4l2_err(&msr->v4l2_dev, "Failed to register video device\n");
 		goto rel_m2m;
 	}
 
+	if (!nopiodma) {
+		struct resource *base =
+			platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						     "base");
+
+		msr->piodma = piodma_init(pdev, base, piodma_cb, msr);
+		if (IS_ERR(msr->piodma)) {
+			ret = PTR_ERR(msr->piodma);
+			goto rel_m2m;
+		}
+		msr_dbg(1, msr, "Registered piodma\n");
+	}
+
 	v4l2_info(&msr->v4l2_dev, "Registered %s as /dev/%s\n",
 		  vfd->name, video_device_node_name(vfd));
 	msr_dbg(1, msr, "Debug: %#x\n", debug);
+
+	pm_runtime_put(msr->dev);
 
 	return 0;
 
@@ -921,6 +950,9 @@ static void msr_remove(struct platform_device *pdev)
 	v4l2_m2m_release(msr->m2m_dev);
 	video_unregister_device(msr->vfd);
 	v4l2_device_unregister(&msr->v4l2_dev);
+
+	if (msr->piodma)
+		piodma_free(msr->piodma);
 
 	pm_runtime_disable(msr->dev);
 }
