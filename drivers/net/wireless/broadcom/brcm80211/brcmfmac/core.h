@@ -97,6 +97,68 @@ struct brcmf_rev_info {
 	u32 nvramrev;
 };
 
+struct brcmf_pno_info;
+enum nl80211_band;
+/**
+ * struct pno_struct_handler
+ */
+struct pno_struct_handler {
+	u8 version;
+	int (*pno_config)(struct brcmf_if *ifp, u32 scan_freq, u32 mscan,
+			  u32 bestn);
+	u32 (*get_min_data_len)(void);
+	u32 (*get_result_count)(void *data);
+	u32 (*get_result_status)(void *data);
+	int (*validate_pfn_results)(void *data, u32 event_datalen);
+	u32 (*get_bucket_map)(void *data, int idx, struct brcmf_pno_info *pi);
+	int (*get_result_info)(void *data, int result_idx,
+			       u8 (*ssid)[IEEE80211_MAX_SSID_LEN], u8 *ssid_len,
+			       u8 *channel, enum nl80211_band *band);
+};
+
+struct cfg80211_scan_request;
+struct scan_param_struct_handler {
+	u8 version;
+	void *(*get_struct_for_request)(struct brcmf_cfg80211_info *cfg,
+					u32 *struct_size,
+					struct cfg80211_scan_request *request);
+};
+
+struct cfg80211_ibss_params;
+struct cfg80211_connect_params;
+
+/**
+ * struct join_param_struct_handler - Handler for different join parameter versions
+ *
+ * There are a number of different, incompatible structures and interface versions for join/extended join parameters
+ * We abstract away the actual structures used, so that code does not have to worry about filling in structs properly.
+ *
+ * This interface deliberately takes and returns opaque structures.
+ *
+ * @version - Interface version the firmware supports/uses
+ * @get_struct_for_ibss - Return a join parameter structure for a set of IBSS parameters.
+ * This structure can be used to join the passed BSS.
+ * @get_struct_for_connect - Return an extended join parameter structure for a set of connect
+ * parameters.  This structure can be used to join the SSID specified in the parameters.
+ * @get_join_from_ext_join - When an extended join does not work, we fall back to a regular join.
+ * This function produces a join parameter struture from an extended join one.
+ */
+struct join_param_struct_handler {
+	u8 version;
+	/* This returns a join_param type struct */
+	void *(*get_struct_for_ibss)(struct brcmf_cfg80211_info *cfg,
+				     u32 *struct_size,
+				     struct cfg80211_ibss_params *params);
+	/* This returns an ext_join_param type struct */
+	void *(*get_struct_for_connect)(struct brcmf_cfg80211_info *cfg,
+					u32 *struct_size,
+					struct cfg80211_connect_params *params);
+	/* This returns the join param portion of an ext_join_param type struct.
+	 * The memory returned is separately allocated from the passed-in struct.
+	 */
+	void *(*get_join_from_ext_join)(void *ext_join_param, u32 *struct_size);
+};
+
 /* Common structure for module and instance linkage */
 struct brcmf_pub {
 	/* Linkage ponters */
@@ -145,6 +207,10 @@ struct brcmf_pub {
 	u8 sta_mac_idx;
 	const struct brcmf_fwvid_ops *vops;
 	void *vdata;
+	u16 cnt_ver;
+	struct pno_struct_handler pno_handler;
+	struct scan_param_struct_handler scan_param_handler;
+	struct join_param_struct_handler join_param_handler;
 };
 
 /* forward declarations */
