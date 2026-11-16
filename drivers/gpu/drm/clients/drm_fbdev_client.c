@@ -133,6 +133,7 @@ static const struct drm_client_funcs drm_fbdev_client_funcs = {
  */
 int drm_fbdev_client_setup(struct drm_device *dev, const struct drm_format_info *format)
 {
+	uint32_t fmt = DRM_FORMAT_INVALID;
 	struct drm_fb_helper *fb_helper;
 	unsigned int color_mode;
 	int ret;
@@ -148,6 +149,7 @@ int drm_fbdev_client_setup(struct drm_device *dev, const struct drm_format_info 
 		default:
 			color_mode = bpp;
 		}
+		fmt = drm_mode_legacy_fb_format(bpp, format->depth);
 	} else {
 		switch (dev->mode_config.preferred_depth) {
 		case 0:
@@ -166,6 +168,11 @@ int drm_fbdev_client_setup(struct drm_device *dev, const struct drm_format_info 
 	if (!fb_helper)
 		return -ENOMEM;
 	drm_fb_helper_prepare(dev, fb_helper, color_mode, NULL);
+
+	/* Save the format as preferred if it is a legacy FB format with
+	 * depth != 0.
+	 */
+	fb_helper->preferred_format = fmt;
 
 	ret = drm_client_init(dev, &fb_helper->client, "fbdev", &drm_fbdev_client_funcs);
 	if (ret) {
