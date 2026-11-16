@@ -11,3 +11,13 @@ config PHY_APPLE_ATC
 	  USB3, USB4, Thunderbolt, and DisplayPort.
 
 	  If M is selected the module will be called 'phy-apple-atc'.
+
+config PHY_APPLE_DPTX
+	tristate "Apple DPTX PHY"
+	depends on ARCH_APPLE || COMPILE_TEST
+	select GENERIC_PHY
+	help
+	  Enable this to add support for the Apple DPTX PHY found on Apple SoCs
+	  such as the M2.
+	  This driver provides support for DisplayPort and is used on the
+	  Mac mini (M2 and M2 Pro, 2023).
