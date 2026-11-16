@@ -67,8 +67,11 @@
 #include <linux/fwctl.h>
 #include <linux/fs.h>
 #include <linux/i2c.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/types.h>
 #include <linux/interrupt.h>
 #include <linux/io-pgtable.h>
+#include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/iosys-map.h>
 #include <linux/jiffies.h>
@@ -95,6 +98,7 @@
 #include <linux/security.h>
 #include <linux/serdev.h>
 #include <linux/slab.h>
+#include <linux/soc/apple/mailbox.h>
 #include <linux/soc/apple/rtkit.h>
 #include <linux/sys_soc.h>
 #include <linux/task_work.h>
@@ -105,6 +109,9 @@
 #include <linux/xarray.h>
 #include <net/genetlink.h>
 #include <net/netlink.h>
+#include <sound/core.h>
+#include <sound/dmaengine_pcm.h>
+#include <sound/pcm.h>
 #include <trace/events/rust_sample.h>
 
 /*
@@ -132,6 +139,13 @@ const gfp_t RUST_CONST_HELPER___GFP_HIGHMEM = ___GFP_HIGHMEM;
 const gfp_t RUST_CONST_HELPER___GFP_NOWARN = ___GFP_NOWARN;
 const blk_features_t RUST_CONST_HELPER_BLK_FEAT_ROTATIONAL = BLK_FEAT_ROTATIONAL;
 const fop_flags_t RUST_CONST_HELPER_FOP_UNSIGNED_OFFSET = FOP_UNSIGNED_OFFSET;
+
+const u64 BINDINGS_SNDRV_PCM_FMTBIT_FLOAT_LE = SNDRV_PCM_FMTBIT_FLOAT_LE;
+
+const u32 BINDINGS_IIO_CHAN_INFO_RAW = IIO_CHAN_INFO_RAW;
+const u32 BINDINGS_IIO_CHAN_INFO_PROCESSED = IIO_CHAN_INFO_PROCESSED;
+const u32 BINDINGS_IIO_ANGL = IIO_ANGL;
+const u32 BINDINGS_IIO_LIGHT = IIO_LIGHT;
 
 const xa_mark_t RUST_CONST_HELPER_XA_PRESENT = XA_PRESENT;
 
