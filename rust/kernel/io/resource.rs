@@ -79,6 +79,18 @@ unsafe impl Sync for Region {}
 pub struct Resource(Opaque<bindings::resource>);
 
 impl Resource {
+    /// Create a new zeroed [`Resource`]
+    pub(crate) fn zeroed() -> Self {
+        Resource {
+            0: Opaque::<bindings::resource>::zeroed(),
+        }
+    }
+
+    /// Gets the raw pointer to the wrapped `bindings::resource`.
+    pub(crate) fn as_raw(&self) -> *mut bindings::resource {
+        self.0.get()
+    }
+
     /// Creates a reference to a [`Resource`] from a valid pointer.
     ///
     /// # Safety

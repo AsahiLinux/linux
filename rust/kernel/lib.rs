@@ -25,6 +25,20 @@
 // Expected to become stable.
 #![feature(arbitrary_self_types)]
 #![feature(derive_coerce_pointee)]
+// ============ start asahi downstream features ===========
+#![feature(associated_type_defaults)]
+//
+#![feature(cfg_version)]
+//
+// Stable since Rust 1.87.0.
+#![feature(ptr_sub_ptr)]
+//
+#![feature(sized_type_properties)]
+//
+#![feature(slice_range)]
+//
+#![cfg_attr(CONFIG_RUSTC_HAS_COERCE_POINTEE, feature(pin_coerce_unsized_trait))]
+// ============ end asahi dowanstream features ============
 //
 // To be determined.
 #![feature(used_with_arg)]
@@ -129,7 +143,6 @@ pub mod seq_file;
 #[cfg(CONFIG_RUST_SERIAL_DEV_BUS_ABSTRACTIONS)]
 pub mod serdev;
 pub mod sizes;
-#[cfg(CONFIG_SOC_BUS)]
 pub mod soc;
 #[doc(hidden)]
 pub mod std_vendor;
