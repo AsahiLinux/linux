@@ -210,7 +210,7 @@ impl SepData {
                 self.dev.as_raw(),
                 self.region_params.addr,
                 self.region_params.size,
-                bindings::dma_data_direction_DMA_TO_DEVICE,
+                bindings::dma_data_direction::DMA_TO_DEVICE,
                 0,
             );
             if bindings::dma_mapping_error(self.dev.as_raw(), res) != 0 {
@@ -289,7 +289,7 @@ impl SepData {
                     self.dev.as_raw(),
                     self.region_params.addr,
                     self.region_params.size,
-                    bindings::dma_data_direction_DMA_TO_DEVICE,
+                    bindings::dma_data_direction::DMA_TO_DEVICE,
                     0,
                 );
             }
