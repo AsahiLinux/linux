@@ -1707,7 +1707,7 @@
 
 
 		ane: ane@26a000000 {
-			compatible = "apple,t8112-ane";
+			compatible = "apple,t8112-ane","apple,t8020-ane";
 			iommus = <&ane_dart0 0>, <&ane_dart1 0>, <&ane_dart2 0>;
 			#ifndef APPLE_USE_PMP
 			status = "disabled";
