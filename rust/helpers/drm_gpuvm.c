@@ -23,4 +23,10 @@ bool rust_helper_drm_gpuvm_is_extobj(struct drm_gpuvm *gpuvm,
 	return drm_gpuvm_is_extobj(gpuvm, obj);
 }
 
+__rust_helper
+void rust_helper_drm_gpuvm_exec_unlock(struct drm_gpuvm_exec *vm_exec)
+{
+	drm_gpuvm_exec_unlock(vm_exec);
+}
+
 #endif // CONFIG_RUST_DRM_GPUVM

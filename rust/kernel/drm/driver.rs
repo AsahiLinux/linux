@@ -10,7 +10,10 @@ use crate::{
     drm,
     error::to_result,
     prelude::*,
-    sync::aref::ARef, //
+    sync::{
+        aref::ARef,
+        atomic::Release, //
+    }, //
 };
 use core::ptr::NonNull;
 
@@ -18,6 +21,11 @@ use core::ptr::NonNull;
 pub(crate) const FEAT_GEM: u32 = bindings::drm_driver_feature_DRIVER_GEM;
 /// Driver supports render nodes, i.e.: /dev/dri/renderDXX devices.
 pub(crate) const FEAT_RENDER: u32 = bindings::drm_driver_feature_DRIVER_RENDER;
+/// Driver supports DRM sync objects for explicit synchronization of command submission.
+pub const FEAT_SYNCOBJ: u32 = bindings::drm_driver_feature_DRIVER_SYNCOBJ;
+/// Driver supports the timeline flavor of DRM sync objects for explicit synchronization of command
+/// submission.
+pub const FEAT_SYNCOBJ_TIMELINE: u32 = bindings::drm_driver_feature_DRIVER_SYNCOBJ_TIMELINE;
 
 /// Information data for a DRM Driver.
 pub struct DriverInfo {
@@ -138,6 +146,10 @@ pub trait Driver {
     /// usable from the render node (i.e. marked DRM_RENDER_ALLOW), whereas
     /// userspace processes using the master node can invoke any ioctl.
     const FEAT_RENDER: bool = false;
+    /// Sets the `DRIVER_SYNCOBJ` feature for this driver.
+    const FEAT_SYNCOBJ: bool = false;
+    /// Sets the `DRIVER_SYNCOBJ_TIMELINE` feature for this driver.
+    const FEAT_SYNCOBJ_TIMELINE: bool = false;
 }
 
 /// The registration type of a `drm::Device`.
@@ -188,6 +200,11 @@ impl<'a, T: Driver> Registration<'a, T> {
             unsafe { *drm.registration_data.get() = NonNull::dangling() };
             return Err(e);
         }
+
+        // Tell holders of a `Normal` device handle that the device reached registration. The
+        // release pairs with the acquire in `Device::<T, Normal>::registration_guard()` and
+        // publishes the registration data stored above.
+        drm.registered.store(true, Release);
 
         Ok(Self {
             drm: (&*drm).into(),

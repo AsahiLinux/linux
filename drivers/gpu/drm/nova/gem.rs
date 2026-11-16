@@ -20,11 +20,16 @@ use crate::{
 #[pin_data]
 pub(crate) struct NovaObject {}
 
+#[vtable]
 impl gem::DriverObject for NovaObject {
     type Driver = NovaDriver;
     type Args = ();
 
     fn new(_dev: &NovaDevice, _size: usize, _args: Self::Args) -> impl PinInit<Self, Error> {
+        try_pin_init!(NovaObject {})
+    }
+
+    fn create_imported(_dev: &NovaDevice, _size: usize) -> impl PinInit<Self, Error> {
         try_pin_init!(NovaObject {})
     }
 }

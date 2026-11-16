@@ -100,6 +100,12 @@ impl<'a, T: DriverObject> Default for ObjectConfig<'a, T> {
 #[repr(C)]
 #[pin_data]
 pub struct Object<T: DriverObject> {
+    /// Embedded `drm_gem_shmem_object`.
+    ///
+    /// Must remain the first field so the allocation address coincides with the embedded
+    /// `drm_gem_shmem_object`. The DRM shmem helper's `__drm_gem_shmem_create()` error path calls
+    /// `kfree()` on the returned `drm_gem_object` pointer, which is only sound when it points at
+    /// the start of the allocation.
     #[pin]
     obj: Opaque<bindings::drm_gem_shmem_object>,
     /// Parent object that owns this object's DMA reservation object.
@@ -132,7 +138,11 @@ impl<T: DriverObject> Object<T> {
         open: Some(super::open_callback::<T>),
         close: Some(super::close_callback::<T>),
         print_info: Some(bindings::drm_gem_shmem_object_print_info),
-        export: None,
+        export: if T::HAS_EXPORT {
+            Some(super::export_callback::<T>)
+        } else {
+            None
+        },
         pin: Some(bindings::drm_gem_shmem_object_pin),
         unpin: Some(bindings::drm_gem_shmem_object_unpin),
         get_sg_table: Some(bindings::drm_gem_shmem_object_get_sg_table),
@@ -343,6 +353,49 @@ impl<T: DriverObject> Object<T> {
         Ok(obj)
     }
 
+    /// Allocates the full [`Object<T>`] wrapper and zero-initializes the embedded shmem object.
+    /// The helper's `__drm_gem_shmem_init` fills it in after we return.
+    extern "C" fn gem_create_object_callback(
+        raw_dev: *mut bindings::drm_device,
+        size: usize,
+    ) -> *mut bindings::drm_gem_object {
+        const_assert!(
+            core::mem::offset_of!(Self, obj) == 0,
+            "Object<T>::obj must be at offset 0 so drm_gem_shmem_helper's kfree(obj) error path \
+             frees the wrapper allocation, not the middle of it"
+        );
+
+        // SAFETY: The DRM shmem helper only invokes this callback for a registered DRM device of
+        // type `T::Driver`, which is `Self`'s driver per the `AllocImpl` impl below.
+        let dev: &Device<T::Driver> = unsafe { Device::from_raw(raw_dev) };
+
+        let new: Pin<KBox<Self>> = match KBox::try_pin_init(
+            try_pin_init!(Self {
+                obj <- Opaque::init_zeroed(),
+                parent_resv_obj: None,
+                sgt_res: ManuallyDrop::new(SetOnce::new()),
+                sgt_lock <- new_mutex!(()),
+                inner <- T::create_imported(dev, size),
+            }),
+            GFP_KERNEL,
+        ) {
+            Ok(new) => new,
+            Err(e) => return e.to_ptr(),
+        };
+
+        // SAFETY: `new.as_raw()` is guaranteed to be valid by the initialization above.
+        unsafe { (*new.as_raw()).funcs = &Self::VTABLE };
+
+        // SAFETY: We never move out of `self`. Ownership of the allocation is transferred to the
+        // C side, which will run `__drm_gem_shmem_init()` next and later free us via
+        // `free_callback` (or `kfree()` on the `__drm_gem_shmem_init()` error path, matching the
+        // C kzalloc fallback contract).
+        let new = KBox::into_raw(unsafe { Pin::into_inner_unchecked(new) });
+
+        // SAFETY: `new` was just produced by `KBox::into_raw` and so is a valid pointer to an
+        // initialized `Self`. `obj.base` is the embedded `drm_gem_object` the caller expects.
+        unsafe { &raw mut (*(*new).obj.get()).base }
+    }
     /// Creates and returns an owned reference to a virtual kernel memory mapping for this object.
     #[inline]
     pub fn owned_vmap<const SIZE: usize>(&self) -> Result<VMapOwned<T, SIZE>> {
@@ -389,7 +442,7 @@ impl<T: DriverObject> driver::AllocImpl for Object<T> {
     type Driver = T::Driver;
 
     const ALLOC_OPS: driver::AllocOps = driver::AllocOps {
-        gem_create_object: None,
+        gem_create_object: Some(Self::gem_create_object_callback),
         prime_handle_to_fd: None,
         prime_fd_to_handle: None,
         gem_prime_import: None,
@@ -435,7 +488,8 @@ where
     D: DriverObject,
     R: Deref<Target = Object<D>>,
 {
-    addr: *mut c_void,
+    /// FIXME: Should not be public!
+    pub addr: *mut c_void,
     owner: R,
 }
 
@@ -547,10 +601,12 @@ impl<T: DriverObject> Drop for SGTableMap<T> {
     fn drop(&mut self) {
         // SAFETY: `obj` is always valid via our type invariants
         let obj = unsafe { self.obj.as_ref() };
-        let _lock = DmaResvGuard::new(obj);
+        if !obj.is_imported() {
+            let _lock = DmaResvGuard::new(obj);
 
-        // SAFETY: We acquired the lock needed for calling this function above
-        unsafe { bindings::__drm_gem_shmem_free_sgt_locked(obj.as_raw_shmem()) };
+            // SAFETY: We acquired the lock needed for calling this function above
+            unsafe { bindings::__drm_gem_shmem_free_sgt_locked(obj.as_raw_shmem()) };
+        }
     }
 }
 
@@ -620,6 +676,13 @@ mod tests {
             _dev: &drm::Device<KunitDriver>,
             _size: usize,
             _args: Self::Args,
+        ) -> impl PinInit<Self, Error> {
+            try_pin_init!(KunitObject {})
+        }
+
+        fn create_imported(
+            _dev: &drm::Device<KunitDriver>,
+            _size: usize,
         ) -> impl PinInit<Self, Error> {
             try_pin_init!(KunitObject {})
         }
