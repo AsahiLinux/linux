@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Apple T6040 "M4 Pro" SoC
+ *
+ * This chip is just a cut down version of t6041, so
+ * include it and disable the missing parts.
+ *
+ * Copyright The Asahi Linux Contributors
+ */
+
+#include "t6041.dtsi"
+
+/ {
+	compatible = "apple,t6040", "apple,arm-platform";
+};
+
+// Memory channels not present on M4 Pro
+/delete-node/ &ps_amcc16;
+/delete-node/ &ps_dcs_16;
+/delete-node/ &ps_amcc17;
+/delete-node/ &ps_dcs_17;
+/delete-node/ &ps_amcc18;
+/delete-node/ &ps_dcs_18;
+/delete-node/ &ps_amcc19;
+/delete-node/ &ps_dcs_19;
+/delete-node/ &ps_amcc20;
+/delete-node/ &ps_dcs_20;
+/delete-node/ &ps_amcc21;
+/delete-node/ &ps_dcs_21;
+/delete-node/ &ps_amcc22;
+/delete-node/ &ps_dcs_22;
+/delete-node/ &ps_amcc23;
+/delete-node/ &ps_dcs_23;
+/delete-node/ &ps_amcc24;
+/delete-node/ &ps_dcs_24;
+/delete-node/ &ps_amcc25;
+/delete-node/ &ps_dcs_25;
+/delete-node/ &ps_amcc26;
+/delete-node/ &ps_dcs_26;
+/delete-node/ &ps_amcc27;
+/delete-node/ &ps_dcs_27;
+/delete-node/ &ps_amcc28;
+/delete-node/ &ps_dcs_28;
+/delete-node/ &ps_amcc29;
+/delete-node/ &ps_dcs_29;
+/delete-node/ &ps_amcc30;
+/delete-node/ &ps_dcs_30;
+/delete-node/ &ps_amcc31;
+/delete-node/ &ps_dcs_31;
+
+/*
+ * Depending on the model (Mac mini or MacBook), disp or dispext2 is used for
+ * the third supported monitor
+ */
+/delete-node/ &ps_dispext3_cpu;
+/delete-node/ &ps_dispext3_fe;
+/delete-node/ &ps_dispext3_sys;
+/delete-node/ &ps_msr1;
+/delete-node/ &ps_msr1_ase_core;
+/delete-node/ &ps_venc1_dma;
+/delete-node/ &ps_venc1_me0;
+/delete-node/ &ps_venc1_me1;
+/delete-node/ &ps_venc1_pipe4;
+/delete-node/ &ps_venc1_pipe5;
+/delete-node/ &ps_venc1_sys;

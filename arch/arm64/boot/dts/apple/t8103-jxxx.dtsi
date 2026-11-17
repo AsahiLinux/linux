@@ -15,8 +15,6 @@
 		serial0 = &serial0;
 		serial2 = &serial2;
 		wifi0 = &wifi0;
-		atcphy0 = &atcphy0;
-		atcphy1 = &atcphy1;
 	};
 
 	chosen {

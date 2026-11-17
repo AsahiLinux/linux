@@ -362,6 +362,7 @@
 #define SOC_NODE die1
 
 #include "t6031-dieX.dtsi"
+#include "t6031-nvme.dtsi"
 #include "t6031-pmgr.dtsi"
 
 /delete-node/ &ps_pmp_die1;
@@ -414,7 +415,7 @@
 	status = "okay";
 };
 
-&ps_afc_d2d_0_die1{
+&ps_afc_d2d_0_die1 {
 	status = "okay";
 };
 

@@ -12,8 +12,8 @@
 #include "t8140.dtsi"
 
 / {
-	compatible = "apple,j700", "apple,t8140", "apple,arm-platform";
 	model = "Apple MacBook Neo (A18 Pro, 2026)";
+	compatible = "apple,j700", "apple,t8140", "apple,arm-platform";
 
 	aliases {
 		serial0 = &serial0;
@@ -28,7 +28,7 @@
 
 		framebuffer@0 {
 			compatible = "apple,simple-framebuffer",
-			             "simple-framebuffer";
+				     "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
 
