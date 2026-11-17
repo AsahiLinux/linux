@@ -18,14 +18,6 @@
 	model = "Apple MacBook Pro (13-inch, M1, 2020)";
 	chassis-type = "laptop";
 
-	/*
-	 * All of those are used by the bootloader to pass calibration
-	 * blobs and other device-specific properties
-	 */
-	aliases {
-		touchbar0 = &touchbar0;
-	};
-
 	led-controller {
 		compatible = "pwm-leds";
 		led-0 {

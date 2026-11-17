@@ -24,7 +24,6 @@
 	 */
 	aliases {
 		bluetooth0 = &bluetooth0;
-		touchbar0 = &touchbar0;
 		wifi0 = &wifi0;
 	};
 

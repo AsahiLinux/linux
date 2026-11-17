@@ -17,10 +17,6 @@
 	compatible = "apple,j475d", "apple,t6022", "apple,arm-platform";
 	model = "Apple Mac Studio (M2 Ultra, 2023)";
 
-	aliases {
-		atcphy4 = &atcphy0_die1;
-		atcphy5 = &atcphy1_die1;
-	};
 };
 
 &framebuffer0 {

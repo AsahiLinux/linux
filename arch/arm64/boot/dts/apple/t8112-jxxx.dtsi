@@ -11,8 +11,6 @@
 
 / {
 	aliases {
-		atcphy0 = &atcphy0;
-		atcphy1 = &atcphy1;
 		serial0 = &serial0;
 		serial2 = &serial2;
 	};

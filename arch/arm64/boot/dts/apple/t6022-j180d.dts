@@ -18,14 +18,6 @@
 	chassis-type = "server";
 
 	aliases {
-		atcphy0 = &atcphy0;
-		atcphy1 = &atcphy1;
-		atcphy2 = &atcphy2;
-		atcphy3 = &atcphy3;
-		atcphy4 = &atcphy0_die1;
-		atcphy5 = &atcphy1_die1;
-		atcphy6 = &atcphy2_die1;
-		atcphy7 = &atcphy3_die1;
 		nvram = &nvram;
 		serial0 = &serial0;
 	};
