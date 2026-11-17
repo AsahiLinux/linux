@@ -61,6 +61,18 @@
 
 #define APPLE_SART3_FLAGS_ALLOW 0xff
 
+/* SARTv4 registers */
+#define APPLE_SART4_CONFIG(idx) (0x00 + 4 * (idx))
+
+#define APPLE_SART4_PADDR(idx)	(0x60 + 4 * (idx))
+#define APPLE_SART4_PADDR_SHIFT 12
+
+#define APPLE_SART4_SIZE(idx)  (0xc0 + 4 * (idx))
+#define APPLE_SART4_SIZE_SHIFT 12
+#define APPLE_SART4_SIZE_MAX   GENMASK(29, 0)
+
+#define APPLE_SART4_FLAGS_ALLOW 0xff
+
 struct apple_sart_ops {
 	void (*get_entry)(struct apple_sart *sart, int index, u8 *flags,
 			  phys_addr_t *paddr, size_t *size);
@@ -177,6 +189,35 @@ static struct apple_sart_ops sart_ops_v3 = {
 	.size_max = APPLE_SART3_SIZE_MAX,
 };
 
+static void sart4_get_entry(struct apple_sart *sart, int index, u8 *flags,
+			    phys_addr_t *paddr, size_t *size)
+{
+	phys_addr_t paddr_ = readl(sart->regs + APPLE_SART4_PADDR(index));
+	size_t size_ = readl(sart->regs + APPLE_SART4_SIZE(index));
+
+	*flags = readl(sart->regs + APPLE_SART4_CONFIG(index));
+	*size = size_ << APPLE_SART4_SIZE_SHIFT;
+	*paddr = paddr_ << APPLE_SART4_PADDR_SHIFT;
+}
+
+static void sart4_set_entry(struct apple_sart *sart, int index, u8 flags,
+			    phys_addr_t paddr_shifted, size_t size_shifted)
+{
+	writel(paddr_shifted, sart->regs + APPLE_SART4_PADDR(index));
+	writel(size_shifted, sart->regs + APPLE_SART4_SIZE(index));
+	writel(flags, sart->regs + APPLE_SART4_CONFIG(index));
+}
+
+static struct apple_sart_ops sart_ops_v4 = {
+	.get_entry = sart4_get_entry,
+	.set_entry = sart4_set_entry,
+	.flags_allow = APPLE_SART4_FLAGS_ALLOW,
+	.size_shift = APPLE_SART4_SIZE_SHIFT,
+	.paddr_shift = APPLE_SART4_PADDR_SHIFT,
+	.size_max = APPLE_SART4_SIZE_MAX,
+};
+
+
 static int apple_sart_probe(struct platform_device *pdev)
 {
 	int i;
@@ -258,8 +299,8 @@ static int sart_set_entry(struct apple_sart *sart, int index, u8 flags,
 	if (paddr & ((1 << sart->ops->paddr_shift) - 1))
 		return -EINVAL;
 
-	paddr >>= sart->ops->size_shift;
-	size >>= sart->ops->paddr_shift;
+	paddr >>= sart->ops->paddr_shift;
+	size >>= sart->ops->size_shift;
 
 	if (size > sart->ops->size_max)
 		return -EINVAL;
@@ -352,6 +393,10 @@ static void apple_sart_shutdown(struct platform_device *pdev)
 }
 
 static const struct of_device_id apple_sart_of_match[] = {
+	{
+		.compatible = "apple,t6050-sart",
+		.data = &sart_ops_v4,
+	},
 	{
 		.compatible = "apple,t6000-sart",
 		.data = &sart_ops_v3,
