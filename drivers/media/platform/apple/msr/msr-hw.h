@@ -94,9 +94,20 @@ enum subsampling {
 	SUBSAMPLING_NONE = 0,
 	SUBSAMPLING_444 = 0,
 	SUBSAMPLING_422 = 1,
-	SUBSAMPLING_421 = 2, /* not tested */
 	SUBSAMPLING_420 = 3,
 };
+
+enum chroma_siting {
+	CHROMA_SITING_CENTER = 0, /* interstitially sited */
+	/* co-sited */
+	CHROMA_SITING_TOP = 1,
+	CHROMA_SITING_LEFT = 1,
+	CHROMA_SITING_BOTTOM = 2,
+	CHROMA_SITING_RIGHT = 2,
+};
+
+#define MSR_CHR_SITING_H(v)	FIELD_PREP(GENMASK(9, 8), v)
+#define MSR_CHR_SITING_V(v)	FIELD_PREP(GENMASK(17, 16), v)
 
 enum msr_mat {
 	MAT_PRE_SCALER = 0,
