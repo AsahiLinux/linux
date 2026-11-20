@@ -404,6 +404,33 @@ configure:
 		readl_relaxed(msr->base + 0x3800));
 }
 
+static void configure_background_fill(struct msr_ctx *ctx)
+{
+	int i;
+	u32 config = 0;
+
+	if (!ctx->fill_color)
+		goto configure;
+
+	/* TODO: only correct for rgb formats (fill_color is RGB24) */
+	for (i = 0; i < MSR_COMPONENTS - 1; i++)
+		msr_writel(ctx, /* red, green, blue */
+			   (ctx->fill_color & GENMASK(i * 8 + 7, i * 8)) <<
+				(16 - ctx->dst.fmt->comp_bits[i]),
+			   0x3038 + i * 4);
+
+	for (int i = 0; i < MSR_MAX_PLANES; i++) {
+		/* keep src pixels from (0,0) to ... */
+		msr_writel(ctx, ctx->dst.pix.width, 0x3044 + i * 4);
+		msr_writel(ctx, ctx->dst.pix.height, 0x3048 + i * 4);
+	}
+
+	config |= MSR_BG_EN;
+
+configure:
+	msr_writel(ctx, config, 0x3034);
+}
+
 static void fill_run(struct msr_frame *frm)
 {
 	frm->run.w = frm->crop.width ? frm->crop.width : frm->pix.width;
@@ -449,6 +476,8 @@ static void msr_hw_start(struct msr_ctx *ctx,
 	msr_writel(ctx, 0, 0xe8);
 
 	configure_colors(ctx);
+
+	configure_background_fill(ctx);
 
 	msr_writel(ctx, MSR_ALPHA_WRITE_EN(dstf->alpha && !srcf->alpha) |
 			MSR_ALPHA_WRITE(0xffff), 0x8c);

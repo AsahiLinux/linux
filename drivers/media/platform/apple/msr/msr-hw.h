@@ -90,6 +90,8 @@ enum msr_modifier {
 #define MSR_ALPHA_WRITE_EN(v)	FIELD_PREP(BIT(31), !!(v))
 #define MSR_ALPHA_WRITE(v)	FIELD_PREP(GENMASK(15, 0), v)
 
+#define MSR_BG_EN		BIT(0)
+
 enum subsampling {
 	SUBSAMPLING_NONE = 0,
 	SUBSAMPLING_444 = 0,
