@@ -249,7 +249,7 @@ static void configure_chroma_sampling(struct msr_ctx *ctx)
 	enabled = !!src->subsampling;
 	msr_writel(ctx, frac | enabled, reg);
 
-	/* some kinda chroma upsampling filter */
+	/* input chroma siting */
 	msr_writel(ctx, 0, reg + 4);
 	msr_writel(ctx, DIV_FIXED(1, 2, frac), reg + 8);
 	msr_writel(ctx, DIV_FIXED(1, 2, frac), reg + 12);
@@ -261,7 +261,10 @@ static void configure_chroma_sampling(struct msr_ctx *ctx)
 	msr_writel(ctx, 0, reg + 32);
 
 	/* chroma downsampling */
-	msr_writel(ctx, dst->subsampling | (1 << 4) | (1 << 16), reg + 0x100);
+	msr_writel(ctx, dst->subsampling |
+			MSR_CHR_SITING_H(CHROMA_SITING_CENTER) |
+			MSR_CHR_SITING_V(CHROMA_SITING_CENTER),
+		   reg + 0x100);
 }
 
 static void configure_ase(struct msr_ctx *ctx)
