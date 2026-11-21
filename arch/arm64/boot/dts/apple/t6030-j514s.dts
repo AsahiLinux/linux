@@ -88,3 +88,8 @@
 &isp {
 	apple,platform-id = <16>;
 };
+
+&dcpext0 {
+	/*  HDMI HPD gpio, used as interrupt*/
+	hdmi-hpd-gpios = <&pinctrl_aop 47 GPIO_ACTIVE_HIGH>;
+};
