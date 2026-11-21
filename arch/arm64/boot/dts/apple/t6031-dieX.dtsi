@@ -168,7 +168,11 @@
 		      <0x2 0xc9320000 0x0 0x4000>,
 		      <0x2 0xc9344000 0x0 0x4000>,
 		      <0x2 0xca800000 0x0 0x800000>;
-		power-domains = <&DIE_NODE(ps_dispext3_cpu)>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_dispext3>;
+		#else
+		power-domains = <&ps_dispext3_fe>;
+		#endif
 		resets = <&DIE_NODE(ps_dispext3_cpu)>;
 		clocks = <&DIE_NODE(clk_dispext3)>;
 		phandle = <&DIE_NODE(dcpext3)>;
@@ -233,7 +237,11 @@
 		      <0x3 0x5320000 0x0 0x4000>,
 		      <0x3 0x5344000 0x0 0x4000>,
 		      <0x3 0x6800000 0x0 0x800000>;
-		power-domains = <&DIE_NODE(ps_dispext0_cpu)>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_dispext0>;
+		#else
+		power-domains = <&ps_dispext0_fe>;
+		#endif
 		resets = <&DIE_NODE(ps_dispext0_cpu)>;
 		clocks = <&DIE_NODE(clk_dispext0)>;
 		phandle = <&DIE_NODE(dcpext0)>;
@@ -434,7 +442,11 @@
 		      <0x4 0x49320000 0x0 0x4000>,
 		      <0x4 0x49344000 0x0 0x4000>,
 		      <0x4 0x4a800000 0x0 0x800000>;
-		power-domains = <&DIE_NODE(ps_dispext1_cpu)>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_dispext1>;
+		#else
+		power-domains = <&ps_dispext1_fe>;
+		#endif
 		resets = <&DIE_NODE(ps_dispext1_cpu)>;
 		clocks = <&DIE_NODE(clk_dispext1)>;
 		phandle = <&DIE_NODE(dcpext1)>;
@@ -499,7 +511,11 @@
 		      <0x4 0x4d320000 0x0 0x4000>,
 		      <0x4 0x4d344000 0x0 0x4000>,
 		      <0x4 0x4e800000 0x0 0x800000>;
-		power-domains = <&DIE_NODE(ps_dispext2_cpu)>;
+		#if defined(APPLE_USE_PMP)
+		power-domains = <&DIE_NODE(pmp_report_dispext2>;
+		#else
+		power-domains = <&ps_dispext2_fe>;
+		#endif
 		resets = <&DIE_NODE(ps_dispext2_cpu)>;
 		clocks = <&DIE_NODE(clk_dispext2)>;
 		phandle = <&DIE_NODE(dcpext2)>;
