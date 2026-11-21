@@ -2377,6 +2377,32 @@
 			status = "disabled";
 		};
 
+		atcphy3: phy@1303000000 {
+			compatible = "apple,t6030-atcphy", "apple,t8122-atcphy";
+			reg = <0x13 0x03000000 0x0 0x4c000>,
+				<0x13 0x03050000 0x0 0x8000>,
+				<0x13 0x00000000 0x0 0x8000>,
+				<0x13 0x02a90000 0x0 0x4000>,
+				<0x13 0x02a84000 0x0 0x4000>;
+			reg-names = "core", "lpdptx", "axi2af", "usb2phy",
+				"pipehandler";
+
+			#phy-cells = <1>;
+			#reset-cells = <0>;
+
+			orientation-switch;
+			mode-switch;
+			power-domains = <&ps_atc3_usb>;
+		};
+
+		atcphy3_xbar: mux@130304c000 {
+			compatible = "apple,t6030-display-crossbar",
+				"apple,t6020-display-crossbar";
+			reg = <0x13 0x0304c000 0x0 0x4000>;
+			#mux-control-cells = <1>;
+			power-domains = <&ps_atc3_usb>;
+			status = "disabled";
+		};
 	};
 
 	timer {
