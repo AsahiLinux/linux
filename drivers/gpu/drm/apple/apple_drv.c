@@ -285,8 +285,11 @@ static int apple_probe_per_dcp(struct device *dev,
 	enum drm_plane_type plane_type;
 	bool interchange;
 	apple->broken_premult = device_is_compatible(&dcp->dev, "apple,t6030-dcp") ||
+				device_is_compatible(&dcp->dev, "apple,t6030-dcpext") ||
 				device_is_compatible(&dcp->dev, "apple,t6031-dcp") ||
-				device_is_compatible(&dcp->dev, "apple,t8122-dcp");
+				device_is_compatible(&dcp->dev, "apple,t6031-dcpext") ||
+				device_is_compatible(&dcp->dev, "apple,t8122-dcp") ||
+				device_is_compatible(&dcp->dev, "apple,t8122-dcpext");
 
 	/*
 	 * BUG:
