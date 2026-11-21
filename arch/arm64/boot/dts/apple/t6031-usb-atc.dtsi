@@ -173,6 +173,14 @@
 		power-domains = <&DIE_NODE(ps_atc0_usb)>;
 	};
 
+	DIE_NODE(atcphy0_xbar): mux@70304c000 {
+		compatible = "apple,t6031-display-crossbar", "apple,t6020-display-crossbar";
+		reg = <0x7 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc0_usb)>;
+		status = "disabled";
+	};
+
 	DIE_NODE(usb4_1_mbox): mailbox@b01108000 {
 		compatible = "apple,t6031-asc-mailbox",
 			"apple,asc-mailbox-v4";
@@ -340,6 +348,14 @@
 		power-domains = <&DIE_NODE(ps_atc1_usb)>;
 	};
 
+	DIE_NODE(atcphy1_xbar): mux@b0304c000 {
+		compatible = "apple,t6031-display-crossbar", "apple,t6020-display-crossbar";
+		reg = <0xb 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc1_usb)>;
+		status = "disabled";
+	};
+
 	DIE_NODE(usb4_2_mbox): mailbox@f01108000 {
 		compatible = "apple,t6031-asc-mailbox",
 			"apple,asc-mailbox-v4";
@@ -505,5 +521,13 @@
 		orientation-switch;
 		mode-switch;
 		power-domains = <&DIE_NODE(ps_atc2_usb)>;
+	};
+
+	DIE_NODE(atcphy2_xbar): mux@f0304c000 {
+		compatible = "apple,t6031-display-crossbar", "apple,t6020-display-crossbar";
+		reg = <0xf 0x0304c000 0x0 0x4000>;
+		#mux-control-cells = <1>;
+		power-domains = <&DIE_NODE(ps_atc2_usb)>;
+		status = "disabled";
 	};
 };
