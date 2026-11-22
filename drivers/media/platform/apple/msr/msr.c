@@ -862,48 +862,6 @@ static const struct video_device msr_videodev = {
 	.device_caps = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING,
 };
 
-/*
- * The kernel is currently missing support for multi-core handling. Exposing
- * separate devices for each core to userspace is bad, since that does not
- * allow scheduling tasks properly (and creates ABI). With this workaround the
- * driver will only probe for the first core and early exit for the other
- * cores. Once the driver gains multi-core support, the same technique for
- * detecting the main core can be used to cluster all cores together.
- */
-static int msr_disable_multicore(struct device *dev)
-{
-	struct device_node *node = NULL;
-	const char *compatible;
-	bool is_main_core;
-	int ret;
-
-	/* Intentionally ignores the fallback strings */
-	ret = of_property_read_string(dev->of_node, "compatible", &compatible);
-	if (ret)
-		return ret;
-
-	/* The first compatible and available node found is considered the main core */
-	do {
-		node = of_find_compatible_node(node, NULL, compatible);
-		if (of_device_is_available(node))
-			break;
-	} while (node);
-
-	if (!node)
-		return -EINVAL;
-
-	is_main_core = (dev->of_node == node);
-
-	of_node_put(node);
-
-	if (!is_main_core) {
-		dev_info(dev, "missing multi-core support, ignoring this instance\n");
-		return -ENODEV;
-	}
-
-	return 0;
-}
-
 static int msr_probe(struct platform_device *pdev)
 {
 	struct msr_dev *msr;
@@ -913,10 +871,6 @@ static int msr_probe(struct platform_device *pdev)
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
-
-	ret = msr_disable_multicore(&pdev->dev);
-	if (ret)
-		return ret;
 
 	msr = devm_kzalloc(&pdev->dev, sizeof(*msr), GFP_KERNEL);
 	if (!msr)
