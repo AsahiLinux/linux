@@ -64,11 +64,11 @@ static void configure_scaling(struct msr_ctx *ctx, enum msr_scaling_dir dir)
 
 	/* Runs before rotating */
 	if (dir == MSR_VERTICAL) {
-		srcdim = ctx->src.pix.height;
-		dstdim = ctx->dst.pix.height;
+		srcdim = ctx->src.run.h;
+		dstdim = ctx->dst.run.h;
 	} else {
-		srcdim = ctx->src.pix.width;
-		dstdim = ctx->dst.pix.width;
+		srcdim = ctx->src.run.w;
+		dstdim = ctx->dst.run.w;
 	}
 
 	if (srcdim == dstdim)
@@ -163,8 +163,12 @@ static void configure_fmt(struct msr_ctx *ctx, struct msr_vb_buffer *vb,
 	for (i = 0; i < MSR_MAX_PLANES; i++)
 		msr_writel(ctx, vb->stride[i], reg + i * 4);
 
-	/* offsets? */
+	/* per plane offsets */
 	reg = IS_SRC(frm) ? 0x1e8 : 0x2cc;
+	msr_writel(ctx, frm->crop.top << 16 | frm->crop.left, reg);
+	msr_writel(ctx, frm->crop.top / frm->info->vdiv << 16 |
+			frm->crop.left / frm->info->hdiv, reg + 4);
+	msr_writel(ctx, frm->crop.top << 16 | frm->crop.left, reg + 8);
 
 	/* component order, so hw can normalize */
 	reg = IS_SRC(frm) ? 0x1f8 : 0x2d8;
@@ -173,8 +177,8 @@ static void configure_fmt(struct msr_ctx *ctx, struct msr_vb_buffer *vb,
 			MSR_FMT_COMP2(fmt->comp_order[2]) |
 			MSR_FMT_COMP3(fmt->comp_order[3]), reg);
 
-	msr_writel(ctx, frm->pix.width, reg + 4);
-	msr_writel(ctx, frm->pix.height, reg + 8);
+	msr_writel(ctx, frm->run.w, reg + 4);
+	msr_writel(ctx, frm->run.h, reg + 8);
 
 	/* plane sizes */
 	reg = IS_SRC(frm) ? 0x234 : 0x308;
@@ -397,11 +401,20 @@ configure:
 		readl_relaxed(msr->base + 0x3800));
 }
 
+static void fill_run(struct msr_frame *frm)
+{
+	frm->run.w = frm->crop.width ? frm->crop.width : frm->pix.width;
+	frm->run.h = frm->crop.height ? frm->crop.height : frm->pix.height;
+}
+
 static void msr_hw_start(struct msr_ctx *ctx,
 			 struct msr_vb_buffer *src, struct msr_vb_buffer *dst)
 {
 	struct msr_dev *msr = ctx->msr;
 	const struct msr_fmt *dstf = ctx->dst.fmt, *srcf = ctx->src.fmt;
+
+	fill_run(&ctx->dst);
+	fill_run(&ctx->src);
 
 	/* reset */
 	writel(1, msr->base + 0x4);
