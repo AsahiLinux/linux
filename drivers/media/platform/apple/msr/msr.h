@@ -29,6 +29,7 @@ enum msr_frm_type {
 struct msr_frame {
 	enum msr_frm_type type;
 	bool yuv;
+	bool comp;
 	const struct msr_fmt *fmt;
 	const struct v4l2_format_info *info;
 	struct v4l2_pix_format_mplane pix;
@@ -104,9 +105,8 @@ struct msr_hw {
 		      struct msr_vb_buffer *src, struct msr_vb_buffer *dst);
 	bool (*handle_irq)(struct msr_dev *msr);
 	void (*get_version)(struct msr_dev *msr);
-	void *(*adjust_and_map_format)(struct msr_ctx *ctx,
-				       struct v4l2_pix_format_mplane *format,
-				       bool is_output);
+	void *(*map_format)(struct msr_ctx *ctx,
+			    const struct v4l2_pix_format_mplane *format);
 	int (*enum_format)(struct v4l2_fmtdesc *f);
 };
 

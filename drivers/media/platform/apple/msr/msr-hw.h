@@ -42,16 +42,31 @@
 /* 1C14B16 hangs */
 #define MSR_STORAGE_1C16B16		0x05
 #define MSR_STORAGE_2C8B16		0x06
+#define MSR_STORAGE_1C10B32		0x10 /* Packed 3 per block */
 #define MSR_STORAGE_2C10B32		0x12
 #define MSR_STORAGE_2C12B32		0x13
 #define MSR_STORAGE_2C16B32		0x15
 #define MSR_STORAGE_4C2101010B32	0x19
 #define MSR_STORAGE_4C8B32		0x1e
+#define MSR_STORAGE_2C10B64		0x21 /* Packed 3 per block */
+
+/*
+ * Only for luma? Why??
+ */
+#define MSR_STORAGE_AX_1C8B8		0x38
+#define MSR_STORAGE_AX_1C10B32		0x3c
+
+enum msr_modifier {
+	MSR_MOD_NONE = 0,
+	MSR_MOD_AX = 1, /* with metadata buffers */
+	MSR_MOD_UNK = 2, /* without metadata, much smaller? */
+};
 
 #define MSR_DMA_SUBSAMPLING(v)	FIELD_PREP(GENMASK(3, 2), v)
 #define MSR_DMA_ALPHA(v)	FIELD_PREP(BIT(0), !!(v))
 
 #define MSR_DMA_STORAGE(v)	FIELD_PREP(GENMASK(7, 0), v)
+#define MSR_DMA_MOD(v)		FIELD_PREP(GENMASK(9, 8), v)
 
 #define MSR_FMT_COMP0(v)	FIELD_PREP(GENMASK(1, 0), v)
 #define MSR_FMT_COMP1(v)	FIELD_PREP(GENMASK(9, 8), v)
@@ -99,11 +114,11 @@ struct msr_fmt {
 	u32 fourcc;
 	bool alpha;
 	enum subsampling subsampling;
-	u8 planes;
-	u8 storage[MSR_MAX_PLANES];
 	u8 comp_order[MSR_COMPONENTS];
-	/* after changing order? */
+	/* after changing order */
 	u8 comp_bits[MSR_COMPONENTS];
+	u8 storage[MSR_MAX_PLANES];
+	enum msr_modifier mod[MSR_MAX_PLANES];
 };
 
 struct msr_matrix {

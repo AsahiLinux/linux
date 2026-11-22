@@ -137,7 +137,8 @@ static void configure_fmt(struct msr_ctx *ctx, struct msr_vb_buffer *vb,
 		readl_relaxed(base + reg));
 
 	for (i = 0; i < MSR_MAX_PLANES; i++) {
-		msr_writel(ctx, MSR_DMA_STORAGE(fmt->storage[i]),
+		msr_writel(ctx, MSR_DMA_STORAGE(fmt->storage[i]) |
+				MSR_DMA_MOD(fmt->mod[i]),
 			   reg + 4 + (i * 4));
 		msr_dbg(2, ctx->msr, "%s[%d]: %05x\n", FRM_STR(frm), i,
 			readl_relaxed(base + reg + 4 + (i * 4)));
@@ -575,6 +576,40 @@ static struct msr_fmt formats[] = {
 		},
 	},
 #endif
+#ifdef V4L2_PIX_FMT_P030
+	{
+		.fourcc = V4L2_PIX_FMT_P030,
+		.subsampling = SUBSAMPLING_420,
+		.comp_order = YCbCr_ORDER,
+		.comp_bits = {10, 10, 10},
+		.storage = {
+			MSR_STORAGE_1C10B32,
+			MSR_STORAGE_2C10B64
+		},
+	},
+#endif
+	{
+		.fourcc = V4L2_PIX_FMT_APPLE_AX12,
+		.subsampling = SUBSAMPLING_420,
+		.comp_order = YCbCr_ORDER,
+		.comp_bits  = {8, 8, 8},
+		.storage = {
+			MSR_STORAGE_AX_1C8B8,
+			MSR_STORAGE_2C8B16
+		},
+		.mod = {MSR_MOD_AX, MSR_MOD_AX},
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_APPLE_AX03,
+		.subsampling = SUBSAMPLING_420,
+		.comp_order = YCbCr_ORDER,
+		.comp_bits  = {10, 10, 10},
+		.storage = {
+			MSR_STORAGE_AX_1C10B32,
+			MSR_STORAGE_2C10B64
+		},
+		.mod = {MSR_MOD_AX, MSR_MOD_AX},
+	},
 	{
 		.fourcc = V4L2_PIX_FMT_RGBX32,
 		.comp_order = COMP_ORDER(R, G, B, A),
@@ -626,9 +661,8 @@ static int msr_enum_format(struct v4l2_fmtdesc *f)
 	return 0;
 }
 
-static void *msr_adjust_and_map_format(struct msr_ctx *ctx,
-				       struct v4l2_pix_format_mplane *format,
-				       bool is_output)
+static void *msr_map_format(struct msr_ctx *ctx,
+			    const struct v4l2_pix_format_mplane *format)
 {
 	unsigned int i;
 
@@ -640,8 +674,7 @@ static void *msr_adjust_and_map_format(struct msr_ctx *ctx,
 			return &formats[i];
 	}
 
-	format->pixelformat = formats[0].fourcc;
-	return &formats[0];
+	return NULL;
 }
 
 const struct msr_hw msr_hw = {
@@ -655,5 +688,5 @@ const struct msr_hw msr_hw = {
 	.handle_irq = msr_handle_irq,
 	.get_version = msr_get_version,
 	.enum_format = msr_enum_format,
-	.adjust_and_map_format = msr_adjust_and_map_format,
+	.map_format = msr_map_format,
 };
