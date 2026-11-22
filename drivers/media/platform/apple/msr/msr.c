@@ -130,6 +130,47 @@ msr_queue_setup(struct vb2_queue *vq,
 	return 0;
 }
 
+static bool is_ax_format(u32 pixfmt)
+{
+	return pixfmt == V4L2_PIX_FMT_APPLE_AX12 ||
+		pixfmt == V4L2_PIX_FMT_APPLE_AX16 ||
+		pixfmt == V4L2_PIX_FMT_APPLE_AX24 ||
+		pixfmt == V4L2_PIX_FMT_APPLE_AX03 ||
+		pixfmt == V4L2_PIX_FMT_APPLE_AX23 ||
+		pixfmt == V4L2_PIX_FMT_APPLE_AX43;
+}
+
+static inline u8 v4l2_format_info_bpp(const struct v4l2_format_info *info,
+				      int plane)
+{
+	return 8 * info->bpp[plane] / info->bpp_div[plane];
+}
+
+static int ax_get_plane_size(const struct v4l2_format_info *info, int plane,
+			     const struct v4l2_pix_format_mplane *pix,
+			     bool meta)
+{
+	u8 bpp = v4l2_format_info_bpp(info, plane);
+	u8 tile_dim = plane ? 16 : 32;
+	u8 meta_hdr_bytes = plane ? 8 : 32;
+	unsigned int hdiv = plane ? info->hdiv : 1;
+	unsigned int vdiv = plane ? info->vdiv : 1;
+	unsigned int tw = DIV_ROUND_UP(pix->height / vdiv, tile_dim);
+	unsigned int th = DIV_ROUND_UP(pix->width / hdiv, tile_dim);
+
+	if (meta) {
+		unsigned int meta_tw, meta_th;
+
+		meta_tw = roundup_pow_of_two(tw);
+		meta_th = roundup_pow_of_two(th);
+		return ALIGN(meta_tw * meta_th * meta_hdr_bytes, 16);
+	} else {
+		unsigned int tile_bytes =
+			DIV_ROUND_UP(tile_dim * tile_dim * bpp, 8);
+
+		return ALIGN(tw * th * tile_bytes, 16);
+	}
+}
 
 static inline unsigned int v4l2_format_block_width(const struct v4l2_format_info *info, int plane)
 {
@@ -185,6 +226,34 @@ static int get_plane_offset(struct msr_frame *f,
 	return -EINVAL;
 }
 
+static int msr_buf_fill_ax(struct msr_frame *f, struct msr_vb_buffer *rbuf,
+			   struct vb2_buffer *vb)
+{
+	int i;
+	const struct v4l2_format_info *info =
+		v4l2_format_info(f->pix.pixelformat);
+
+	WARN_ON_ONCE(vb->num_planes != 1 ||  info->mem_planes != 1);
+
+	vb2_set_plane_payload(vb, 0, f->pix.plane_fmt[0].sizeimage);
+	rbuf->dma_addrs[0] = vb2_dma_contig_plane_dma_addr(vb, 0);
+	rbuf->dma_meta_addrs[0] = rbuf->dma_addrs[0] +
+		ax_get_plane_size(info, 0, &f->pix, false);
+
+
+	for (i = 1; i < info->comp_planes; i++) {
+		rbuf->dma_addrs[i] = rbuf->dma_meta_addrs[i - 1] +
+			ax_get_plane_size(info, i - 1, &f->pix, true);
+		rbuf->dma_meta_addrs[i] = rbuf->dma_addrs[i] +
+			ax_get_plane_size(info, i, &f->pix, false);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(rbuf->stride); i++)
+		rbuf->stride[i] = v4l2_format_plane_stride(info, i, f->pix.width, 2);
+
+	return 0;
+}
+
 static int msr_buf_prepare(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
@@ -193,7 +262,6 @@ static int msr_buf_prepare(struct vb2_buffer *vb)
 	struct msr_frame *f = msr_get_frame(ctx, vb->vb2_queue->type);
 	int i;
 	const struct v4l2_format_info *info;
-	dma_addr_t dma_addrs[VIDEO_MAX_PLANES] = {};
 
 	if (IS_ERR(f))
 		return PTR_ERR(f);
@@ -205,18 +273,21 @@ static int msr_buf_prepare(struct vb2_buffer *vb)
 			return -EINVAL;
 	}
 
+	if (WARN_ON_ONCE(vb->num_planes > ARRAY_SIZE(rbuf->dma_addrs)))
+		return -EINVAL;
+
+	if (f->comp)
+		return msr_buf_fill_ax(f, rbuf, vb);
+
 	for (i = 0; i < vb->num_planes; i++) {
 		vb2_set_plane_payload(vb, i, f->pix.plane_fmt[i].sizeimage);
-		dma_addrs[i] = vb2_dma_contig_plane_dma_addr(vb, i);
+		rbuf->dma_addrs[i] = vb2_dma_contig_plane_dma_addr(vb, i);
 	}
 
 	/* Fill the remaining planes */
 	info = v4l2_format_info(f->pix.pixelformat);
 	for (i = info->mem_planes; i < info->comp_planes; i++)
-		dma_addrs[i] = dma_addrs[0] + get_plane_offset(f, info, i);
-
-	for (i = 0; i < ARRAY_SIZE(rbuf->dma_addrs); i++)
-		rbuf->dma_addrs[i] = dma_addrs[i];
+		rbuf->dma_addrs[i] = rbuf->dma_addrs[0] + get_plane_offset(f, info, i);
 
 	for (i = 0; i < ARRAY_SIZE(rbuf->stride); i++)
 		rbuf->stride[i] = v4l2_format_plane_stride(info, i, f->pix.width, 2);
@@ -381,10 +452,51 @@ static int msr_setup_ctrls(struct msr_ctx *ctx)
 	return 0;
 }
 
-static void msr_fill_frame(struct msr_frame *f)
+static void msr_fill_frame(struct msr_ctx *ctx, struct msr_frame *f)
 {
+	struct msr_dev *msr = ctx->msr;
+
+	f->fmt = msr->hw->map_format(ctx, &f->pix);
 	f->info = v4l2_format_info(f->pix.pixelformat);
 	f->yuv = v4l2_is_format_yuv(f->info);
+	f->comp = is_ax_format(f->pix.pixelformat);
+}
+
+static void msr_fill_pixfmt(struct msr_ctx *ctx,
+			    struct v4l2_pix_format_mplane *pix_fmt)
+{
+	const struct msr_hw *hw = ctx->msr->hw;
+	const struct v4l2_format_info *info =
+		v4l2_format_info(pix_fmt->pixelformat);
+	struct v4l2_frmsize_stepwise frmsize = {
+		.min_width = hw->min_width,
+		.max_width = hw->max_width,
+		.min_height = hw->min_height,
+		.max_height = hw->max_height,
+		.step_width = 1,
+		.step_height = 1,
+	};
+
+	if (v4l2_is_format_yuv(info)) {
+		frmsize.step_width = 2;
+		frmsize.step_height = 2;
+	}
+
+	v4l2_apply_frmsize_constraints(&pix_fmt->width, &pix_fmt->height, &frmsize);
+	v4l2_fill_pixfmt_mp_aligned(pix_fmt, pix_fmt->pixelformat,
+				    pix_fmt->width, pix_fmt->height, hw->stride_alignment);
+	pix_fmt->field = V4L2_FIELD_NONE;
+
+	if (is_ax_format(pix_fmt->pixelformat)) {
+		WARN_ON_ONCE(info->mem_planes != 1);
+		pix_fmt->plane_fmt[0].sizeimage = 0;
+		for (int i = 0; i < info->comp_planes; i++) {
+			pix_fmt->plane_fmt[0].sizeimage +=
+				ax_get_plane_size(info, i, pix_fmt, false);
+			pix_fmt->plane_fmt[0].sizeimage +=
+				ax_get_plane_size(info, i, pix_fmt, true);
+		}
+	}
 }
 
 static int msr_open(struct file *file)
@@ -402,16 +514,16 @@ static int msr_open(struct file *file)
 	ctx->src = (struct msr_frame){ .type = MSR_SRC, };
 	ctx->dst = (struct msr_frame){ .type = MSR_DST, };
 
-	ctx->src.fmt = msr->hw->adjust_and_map_format(ctx, &ctx->src.pix, true);
+	ctx->src.fmt = msr->hw->map_format(ctx, &ctx->src.pix);
 	v4l2_fill_pixfmt_mp_aligned(&ctx->src.pix, ctx->src.pix.pixelformat,
 				    128, 128, msr->hw->stride_alignment);
 	ctx->dst.fmt =
-		msr->hw->adjust_and_map_format(ctx, &ctx->dst.pix, false);
+		msr->hw->map_format(ctx, &ctx->dst.pix);
 	v4l2_fill_pixfmt_mp_aligned(&ctx->dst.pix, ctx->dst.pix.pixelformat,
 				    128, 128, msr->hw->stride_alignment);
 
-	msr_fill_frame(&ctx->src);
-	msr_fill_frame(&ctx->dst);
+	msr_fill_frame(ctx, &ctx->src);
+	msr_fill_frame(ctx, &ctx->dst);
 
 	if (mutex_lock_interruptible(&msr->mutex)) {
 		ret = -ERESTARTSYS;
@@ -524,20 +636,6 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix_fmt = &f->fmt.pix_mp;
 	struct msr_ctx *ctx = file_to_msr_ctx(file);
-	const struct msr_hw *hw = ctx->msr->hw;
-	struct v4l2_frmsize_stepwise frmsize = {
-		.min_width = hw->min_width,
-		.max_width = hw->max_width,
-		.min_height = hw->min_height,
-		.max_height = hw->max_height,
-		.step_width = 1,
-		.step_height = 1,
-	};
-
-	if (v4l2_is_format_yuv(v4l2_format_info(pix_fmt->pixelformat))) {
-		frmsize.step_width = 2;
-		frmsize.step_height = 2;
-	}
 
 	if (V4L2_TYPE_IS_CAPTURE(f->type)) {
 		const struct msr_frame *frm;
@@ -555,12 +653,7 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		}
 	}
 
-	hw->adjust_and_map_format(ctx, pix_fmt, V4L2_TYPE_IS_OUTPUT(f->type));
-
-	v4l2_apply_frmsize_constraints(&pix_fmt->width, &pix_fmt->height, &frmsize);
-	v4l2_fill_pixfmt_mp_aligned(pix_fmt, pix_fmt->pixelformat,
-				    pix_fmt->width, pix_fmt->height, hw->stride_alignment);
-	pix_fmt->field = V4L2_FIELD_NONE;
+	msr_fill_pixfmt(ctx, pix_fmt);
 
 	return 0;
 }
@@ -589,8 +682,6 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	frm = msr_get_frame(ctx, f->type);
 	if (IS_ERR(frm))
 		return PTR_ERR(frm);
-	frm->fmt = msr->hw->adjust_and_map_format(ctx, pix_fmt,
-						  V4L2_TYPE_IS_OUTPUT(f->type));
 
 	/*
 	 * Copy colorimetry from output to capture as required by the
@@ -604,7 +695,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	}
 
 	frm->pix = *pix_fmt;
-	msr_fill_frame(frm);
+	msr_fill_frame(ctx, frm);
 
 	msr_dbg(1, msr, "%s: fmt - %p4cc %dx%d (stride %d)\n",
 		FRM_STR(frm), &pix_fmt->pixelformat, pix_fmt->width,
