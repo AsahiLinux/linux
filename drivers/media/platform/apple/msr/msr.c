@@ -9,6 +9,7 @@
  *
  */
 
+#include <linux/scatterlist.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -27,7 +28,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-mem2mem.h>
-#include <media/videobuf2-dma-contig.h>
+#include <media/videobuf2-dma-sg.h>
 #include <media/videobuf2-v4l2.h>
 
 #include "msr.h"
@@ -232,11 +233,15 @@ static int msr_buf_fill_ax(struct msr_frame *f, struct msr_vb_buffer *rbuf,
 	int i;
 	const struct v4l2_format_info *info =
 		v4l2_format_info(f->pix.pixelformat);
+	struct sg_table *sgt;
 
 	WARN_ON_ONCE(vb->num_planes != 1 ||  info->mem_planes != 1);
 
 	vb2_set_plane_payload(vb, 0, f->pix.plane_fmt[0].sizeimage);
-	rbuf->dma_addrs[0] = vb2_dma_contig_plane_dma_addr(vb, 0);
+	sgt = vb2_dma_sg_plane_desc(vb, 0);
+	if (!sgt)
+		return -EFAULT;
+	rbuf->dma_addrs[0] = sg_dma_address(sgt->sgl);
 	rbuf->dma_meta_addrs[0] = rbuf->dma_addrs[0] +
 		ax_get_plane_size(info, 0, &f->pix, false);
 
@@ -262,6 +267,7 @@ static int msr_buf_prepare(struct vb2_buffer *vb)
 	struct msr_frame *f = msr_get_frame(ctx, vb->vb2_queue->type);
 	int i;
 	const struct v4l2_format_info *info;
+	struct sg_table *sgt;
 
 	if (IS_ERR(f))
 		return PTR_ERR(f);
@@ -281,7 +287,10 @@ static int msr_buf_prepare(struct vb2_buffer *vb)
 
 	for (i = 0; i < vb->num_planes; i++) {
 		vb2_set_plane_payload(vb, i, f->pix.plane_fmt[i].sizeimage);
-		rbuf->dma_addrs[i] = vb2_dma_contig_plane_dma_addr(vb, i);
+		sgt = vb2_dma_sg_plane_desc(vb, i);
+		if (!sgt)
+			return -EFAULT;
+		rbuf->dma_addrs[i] = sg_dma_address(sgt->sgl);
 	}
 
 	/* Fill the remaining planes */
@@ -370,7 +379,7 @@ queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *dst_vq)
 	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	src_vq->drv_priv = ctx;
 	src_vq->ops = &msr_qops;
-	src_vq->mem_ops = &vb2_dma_contig_memops;
+	src_vq->mem_ops = &vb2_dma_sg_memops;
 	src_vq->buf_struct_size = sizeof(struct msr_vb_buffer);
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock = &ctx->msr->mutex;
@@ -384,7 +393,7 @@ queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *dst_vq)
 	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	dst_vq->drv_priv = ctx;
 	dst_vq->ops = &msr_qops;
-	dst_vq->mem_ops = &vb2_dma_contig_memops;
+	dst_vq->mem_ops = &vb2_dma_sg_memops;
 	dst_vq->buf_struct_size = sizeof(struct msr_vb_buffer);
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &ctx->msr->mutex;
