@@ -90,6 +90,7 @@
 			label = "pmp-dispext1";
 			#power-domain-cells = <0>;
 			power-domains = <&ps_dispext1_cpu0>;
+			apple,always-on;
 		};
 
 		pmp_report_venc_sys: report@10 {
