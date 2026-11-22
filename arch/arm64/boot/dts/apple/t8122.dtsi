@@ -1500,6 +1500,7 @@
 			#else
 			power-domains = <&ps_msr>, <&ps_msr_ase_core>;
 			#endif
+			power-domain-names = "core", "ase-core";
 		};
 
 		msr_dart: iommu@31d200000 {
