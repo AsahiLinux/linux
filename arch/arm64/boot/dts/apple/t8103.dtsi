@@ -1430,6 +1430,7 @@
 			interrupt-names = "base", "piodma";
 			iommus = <&msr_dart 0>, <&msr_dart 1>;
 			power-domains = <&ps_msr>, <&ps_msr_ase_core>;
+			power-domain-names = "core", "ase-core";
 		};
 
 		msr_dart: iommu@263200000 {
