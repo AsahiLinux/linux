@@ -485,6 +485,7 @@
 		power-domains = <&DIE_NODE(ps_msr0)>,
 				<&DIE_NODE(ps_msr0_ase_core)>;
 		#endif
+		power-domain-names = "core", "ase-core";
 	};
 
 	DIE_NODE(msr_dart0): iommu@40b200000 {
@@ -514,6 +515,7 @@
 		power-domains = <&DIE_NODE(ps_msr1)>,
 				<&DIE_NODE(ps_msr1_ase_core)>;
 		#endif
+		power-domain-names = "core", "ase-core";
 	};
 
 	DIE_NODE(msr_dart1): iommu@505200000 {
