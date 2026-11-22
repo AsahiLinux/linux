@@ -34,6 +34,10 @@ struct msr_frame {
 	const struct v4l2_format_info *info;
 	struct v4l2_pix_format_mplane pix;
 	struct v4l2_rect crop;
+	/* state while preparing jobs */
+	struct {
+		u32 w, h;
+	} run;
 };
 
 #define IS_SRC(f)	((f)->type == MSR_SRC)
