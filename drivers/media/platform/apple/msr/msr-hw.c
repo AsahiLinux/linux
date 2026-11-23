@@ -118,45 +118,39 @@ static void configure_scaling(struct msr_ctx *ctx, enum msr_scaling_dir dir)
 configure:
 	msr_writel(ctx, config, base);
 	msr_dbg(2, ctx->msr, "SCALE: %c mode %8x\n",
-		dir == MSR_VERTICAL ? 'V' : 'H',
-		readl_relaxed(ctx->msr->base + base));
+		dir == MSR_VERTICAL ? 'V' : 'H', config);
 }
 
 static void configure_fmt(struct msr_ctx *ctx, struct msr_vb_buffer *vb,
 			  struct msr_frame *frm)
 {
 	const struct msr_fmt *fmt = frm->fmt;
-	void __iomem *base = ctx->msr->base;
 	size_t reg = 0;
 	int i;
 
 	reg = IS_SRC(frm) ? 0x180 : 0x280;
 	msr_writel(ctx, MSR_DMA_ALPHA(fmt->alpha) |
 		   MSR_DMA_SUBSAMPLING(fmt->subsampling), reg);
-	msr_dbg(2, ctx->msr, "%s: %x\n", FRM_STR(frm),
-		readl_relaxed(base + reg));
 
 	for (i = 0; i < MSR_MAX_PLANES; i++) {
 		msr_writel(ctx, MSR_DMA_STORAGE(fmt->storage[i]) |
 				MSR_DMA_MOD(fmt->mod[i]),
 			   reg + 4 + (i * 4));
-		msr_dbg(2, ctx->msr, "%s[%d]: %05x\n", FRM_STR(frm), i,
-			readl_relaxed(base + reg + 4 + (i * 4)));
 	}
 
 	/* XXX: can src have 4 planes? */
 	reg = IS_SRC(frm) ? 0x198 : 0x290;
 	for (i = 0; i < MSR_MAX_PLANES; i++) {
 		msr_writeq(ctx, vb->dma_addrs[i], reg + i * 8);
-		msr_dbg(2, ctx->msr, "%s[%d] dma:  %12llx\n", FRM_STR(frm), i,
-			readq_relaxed(base + reg + i * 8));
+		msr_dbg(2, ctx->msr, "%s[%d] dma:  %12llx\n",
+			FRM_STR(frm), i, vb->dma_addrs[i]);
 	}
 
 	reg = IS_SRC(frm) ? 0x1b8 : 0x2a8;
 	for (i = 0; i < MSR_MAX_PLANES; i++) {
 		msr_writeq(ctx, vb->dma_meta_addrs[i], reg + i * 8);
-		msr_dbg(2, ctx->msr, "%s[%d] meta: %12llx\n", FRM_STR(frm), i,
-			readq_relaxed(base + reg + i * 8));
+		msr_dbg(2, ctx->msr, "%s[%d] meta: %12llx\n",
+			FRM_STR(frm), i, vb->dma_meta_addrs[i]);
 	}
 
 	reg = IS_SRC(frm) ? 0x1d8 : 0x2c0;
@@ -400,8 +394,7 @@ static void configure_colors(struct msr_ctx *ctx)
 
 configure:
 	msr_writel(ctx, config, 0x3800);
-	msr_dbg(2, msr, "CM: config %8x\n",
-		readl_relaxed(msr->base + 0x3800));
+	msr_dbg(2, msr, "CM: config %8x\n", config);
 }
 
 static void configure_background_fill(struct msr_ctx *ctx)
