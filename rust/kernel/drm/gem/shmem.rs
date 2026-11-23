@@ -398,7 +398,7 @@ impl<T: DriverObject> driver::AllocImpl for Object<T> {
         prime_fd_to_handle: None,
         gem_prime_import: None,
         gem_prime_import_sg_table: Some(bindings::drm_gem_shmem_prime_import_sg_table),
-        dumb_create: Some(bindings::drm_gem_shmem_dumb_create),
+        dumb_create: None,
         dumb_map_offset: None,
     };
 }
