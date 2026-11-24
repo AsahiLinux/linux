@@ -324,7 +324,9 @@ impl<T: DriverObject> Object<T> {
         unsafe { (*new.as_raw()).funcs = &Self::VTABLE };
 
         // SAFETY: The arguments are all valid via the type invariants.
-        to_result(unsafe { bindings::drm_gem_shmem_init(dev.as_raw(), new.as_raw_shmem(), size) })?;
+        to_result(unsafe {
+            bindings::drm_gem_shmem_init(dev.as_raw(), new.as_raw_shmem(), size, false)
+        })?;
 
         // SAFETY: We never move out of `self`.
         let new = KBox::into_raw(unsafe { Pin::into_inner_unchecked(new) });
