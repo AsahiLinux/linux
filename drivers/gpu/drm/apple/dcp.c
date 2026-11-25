@@ -414,6 +414,7 @@ static void disconnected_hpd_event(struct apple_connector *con)
 		con->connected = 0;
 		drm_edid_free(con->drm_edid);
 		con->drm_edid = NULL;
+		drm_edid_connector_update(&con->base, con->drm_edid);
 		drm_kms_helper_connector_hotplug_event(&con->base);
 	}
 }

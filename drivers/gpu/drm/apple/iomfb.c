@@ -245,6 +245,7 @@ void dcp_hotplug(struct work_struct *work)
 	if (!connector->connected) {
 		drm_edid_free(connector->drm_edid);
 		connector->drm_edid = NULL;
+		drm_edid_connector_update(&connector->base, connector->drm_edid);
 	}
 
 	/*
