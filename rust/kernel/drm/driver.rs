@@ -123,7 +123,7 @@ pub trait Driver {
     type RegistrationData<'a>: Send + Sync + 'a;
 
     /// The type used to manage memory for this driver.
-    type Object: AllocImpl;
+    type Object: AllocImpl<Driver = Self>;
 
     /// The type used to represent a DRM File (client)
     type File: drm::file::DriverFile;
