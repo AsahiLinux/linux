@@ -170,15 +170,12 @@ const struct drm_edid *dcpavserv_copy_edid(struct apple_epic_service *service)
 		return ERR_PTR(-ENOMEM);
 
 	ret = afk_service_call(service, 1, 7, &cmd, sizeof(cmd), EDID_BUF_SIZE, resp,
-			       sizeof(resp) + EDID_BUF_SIZE, 0);
+			       sizeof(*resp) + EDID_BUF_SIZE, 0);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
 	if (le64_to_cpu(resp->max_size) != EDID_BUF_SIZE)
 		return ERR_PTR(-EIO);
-
-	// print_hex_dump(KERN_DEBUG, "dpavserv EDID cmd: ", DUMP_PREFIX_NONE,
-	// 	       16, 1, resp, 192, true);
 
 	data_size = le64_to_cpu(resp->used_size);
 	if (data_size < EDID_LEADING_DATA_SIZE + EDID_BLOCK_SIZE)
