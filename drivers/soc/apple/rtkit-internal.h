@@ -39,12 +39,15 @@ struct apple_rtkit {
 	unsigned int iop_power_state;
 	unsigned int ap_power_state;
 	bool crashed;
+	bool sync_syslog_ack;
 
 	DECLARE_BITMAP(endpoints, APPLE_RTKIT_MAX_ENDPOINTS);
 
 	struct apple_rtkit_shmem ioreport_buffer;
 	struct apple_rtkit_shmem crashlog_buffer;
 	struct apple_rtkit_shmem oslog_buffer;
+	struct apple_rtkit_shmem kdebug_buffer0;
+	struct apple_rtkit_shmem kdebug_buffer1;
 
 	struct apple_rtkit_shmem syslog_buffer;
 	char *syslog_msg_buffer;
