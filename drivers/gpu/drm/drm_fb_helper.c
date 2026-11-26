@@ -401,6 +401,7 @@ void drm_fb_helper_prepare(struct drm_device *dev, struct drm_fb_helper *helper,
 	helper->funcs = funcs;
 	helper->dev = dev;
 	helper->preferred_bpp = preferred_bpp;
+	helper->preferred_format = DRM_FORMAT_INVALID;
 }
 EXPORT_SYMBOL(drm_fb_helper_prepare);
 
@@ -1414,6 +1415,14 @@ static int __drm_fb_helper_find_sizes(struct drm_fb_helper *fb_helper,
 
 		if (surface_format != DRM_FORMAT_INVALID)
 			break; /* found supported format */
+
+		/* Preserve an explicit format instead of reducing it to a color mode. */
+		if (fb_helper->preferred_format &&
+		    drm_plane_has_format(plane, fb_helper->preferred_format,
+					 DRM_FORMAT_MOD_LINEAR)) {
+			surface_format = fb_helper->preferred_format;
+			break;
+		}
 
 		/* try preferred color mode */
 		surface_format = drm_fb_helper_find_format(fb_helper,
