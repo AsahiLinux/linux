@@ -32,6 +32,7 @@ use crate::{
         SysMem,
         SysMemBackend, //
     },
+    page::page_align,
     prelude::*,
     scatterlist,
     sync::{
@@ -132,7 +133,11 @@ impl<T: DriverObject> Object<T> {
         open: Some(super::open_callback::<T>),
         close: Some(super::close_callback::<T>),
         print_info: Some(bindings::drm_gem_shmem_object_print_info),
-        export: None,
+        export: if T::HAS_EXPORT {
+            Some(super::export_callback::<T>)
+        } else {
+            None
+        },
         pin: Some(bindings::drm_gem_shmem_object_pin),
         unpin: Some(bindings::drm_gem_shmem_object_unpin),
         get_sg_table: Some(bindings::drm_gem_shmem_object_get_sg_table),
@@ -320,7 +325,9 @@ impl<T: DriverObject> Object<T> {
         unsafe { (*new.as_raw()).funcs = &Self::VTABLE };
 
         // SAFETY: The arguments are all valid via the type invariants.
-        to_result(unsafe { bindings::drm_gem_shmem_init(dev.as_raw(), new.as_raw_shmem(), size) })?;
+        to_result(unsafe {
+            bindings::drm_gem_shmem_init(dev.as_raw(), new.as_raw_shmem(), size, false)
+        })?;
 
         // SAFETY: We never move out of `self`.
         let new = KBox::into_raw(unsafe { Pin::into_inner_unchecked(new) });
@@ -341,6 +348,67 @@ impl<T: DriverObject> Object<T> {
         shmem.set_map_wc(config.map_wc);
 
         Ok(obj)
+    }
+
+    /// Create a new shmem GEM object from another driver's scatter/gather table of pinned pages.
+    ///
+    /// This is a Rust re-implemetation of `drm_gem_shmem_prime_import_sg_table()` to avoid
+    /// creating and destroying `Self` in C code.
+    /// This function imports a scatter/gather table exported via DMA-BUF by another driver.
+    /// It should be only called via the &drm_driver.gem_prime_import_sg_table callback.
+    extern "C" fn prime_import_sg_table_callback(
+        raw_dev: *mut bindings::drm_device,
+        raw_attach: *mut bindings::dma_buf_attachment,
+        raw_sgt: *mut bindings::sg_table,
+    ) -> *mut bindings::drm_gem_object {
+        // SAFETY: raw_attach is a valid pointer to `bindings::dma_buf_attachment` created
+        // by `dma_buf_attach` in `drm_gem_prime_import_dev` the only caller of this
+        // callback.
+        let size = match page_align(unsafe { (*(*raw_attach).dmabuf).size }) {
+            Some(size) => size,
+            None => return EINVAL.to_ptr(),
+        };
+
+        // SAFETY: The DRM shmem helper only invokes this callback for a registered DRM device of
+        // type `T::Driver`, which is `Self`'s driver per the `AllocImpl` impl below.
+        let dev: &Device<T::Driver> = unsafe { Device::from_raw(raw_dev) };
+
+        let new: Pin<KBox<Self>> = match KBox::try_pin_init(
+            try_pin_init!(Self {
+                obj <- Opaque::init_zeroed(),
+                parent_resv_obj: None,
+                sgt_res: ManuallyDrop::new(SetOnce::new()),
+                sgt_lock <- new_mutex!(()),
+                inner <- T::create_imported(dev, size),
+            }),
+            GFP_KERNEL,
+        ) {
+            Ok(new) => new,
+            Err(e) => return e.to_ptr(),
+        };
+
+        // SAFETY: `new.as_raw()` is guaranteed to be valid by the initialization above.
+        unsafe { (*new.as_raw()).funcs = &Self::VTABLE };
+
+        // SAFETY: The arguments are all valid via the type invariants.
+        if let Err(e) = to_result(unsafe {
+            bindings::drm_gem_shmem_init(dev.as_raw(), new.as_raw_shmem(), size, true)
+        }) {
+            return e.to_ptr();
+        };
+
+        // SAFETY: `new` is an initialized `Self` never moved outside of this function so it is
+        // safe to initialized `drm_gem_shmem_object::sgt` with `raw_sgt` as expected by the caller
+        // of this function.
+        unsafe { (*new.as_raw_shmem()).sgt = raw_sgt };
+
+        // SAFETY: We never move out of `self`. Ownership of the allocation is transferred to the
+        // C side.
+        let new = KBox::into_raw(unsafe { Pin::into_inner_unchecked(new) });
+
+        // SAFETY: `new` was just produced by `KBox::into_raw` and so is a valid pointer to an
+        // initialized `Self`. `obj.base` is the embedded `drm_gem_object` the caller expects.
+        unsafe { &raw mut (*(*new).obj.get()).base }
     }
 
     /// Creates and returns an owned reference to a virtual kernel memory mapping for this object.
@@ -393,8 +461,8 @@ impl<T: DriverObject> driver::AllocImpl for Object<T> {
         prime_handle_to_fd: None,
         prime_fd_to_handle: None,
         gem_prime_import: None,
-        gem_prime_import_sg_table: Some(bindings::drm_gem_shmem_prime_import_sg_table),
-        dumb_create: Some(bindings::drm_gem_shmem_dumb_create),
+        gem_prime_import_sg_table: Some(Object::<T>::prime_import_sg_table_callback),
+        dumb_create: None,
         dumb_map_offset: None,
     };
 }
@@ -435,7 +503,8 @@ where
     D: DriverObject,
     R: Deref<Target = Object<D>>,
 {
-    addr: *mut c_void,
+    /// FIXME: Should not be public!
+    pub addr: *mut c_void,
     owner: R,
 }
 
@@ -547,9 +616,13 @@ impl<T: DriverObject> Drop for SGTableMap<T> {
     fn drop(&mut self) {
         // SAFETY: `obj` is always valid via our type invariants
         let obj = unsafe { self.obj.as_ref() };
+        if obj.is_imported() {
+            return;
+        }
         let _lock = DmaResvGuard::new(obj);
 
         // SAFETY: We acquired the lock needed for calling this function above
+        // and the GEM object is not imported.
         unsafe { bindings::__drm_gem_shmem_free_sgt_locked(obj.as_raw_shmem()) };
     }
 }
@@ -620,6 +693,13 @@ mod tests {
             _dev: &drm::Device<KunitDriver>,
             _size: usize,
             _args: Self::Args,
+        ) -> impl PinInit<Self, Error> {
+            try_pin_init!(KunitObject {})
+        }
+
+        fn create_imported(
+            _dev: &drm::Device<KunitDriver>,
+            _size: usize,
         ) -> impl PinInit<Self, Error> {
             try_pin_init!(KunitObject {})
         }

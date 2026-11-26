@@ -58,6 +58,7 @@ extern crate self as kernel;
 pub use ffi;
 
 pub mod acpi;
+pub mod addr;
 pub mod alloc;
 #[cfg(CONFIG_AUXILIARY_BUS)]
 pub mod auxiliary;
@@ -81,6 +82,9 @@ pub mod device;
 pub mod device_id;
 pub mod devres;
 pub mod dma;
+pub mod dma_buf;
+#[cfg(CONFIG_DMA_SHARED_BUFFER)]
+pub mod dma_fence;
 pub mod driver;
 #[cfg(CONFIG_DRM = "y")]
 pub mod drm;

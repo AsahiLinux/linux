@@ -51,8 +51,20 @@ static const struct drm_gem_object_funcs drm_gem_shmem_funcs = {
 	.vm_ops = &drm_gem_shmem_vm_ops,
 };
 
-static int __drm_gem_shmem_init(struct drm_device *dev, struct drm_gem_shmem_object *shmem,
-				size_t size, bool private)
+/**
+ * drm_gem_shmem_init - Initialize an allocated object.
+ * @dev: DRM device
+ * @shmem: shmem GEM object to initialize
+ * @size: Buffer size in bytes
+ * @private: Object w/o GEM backing store if true, for example dma-buf
+ *
+ * This function initializes an allocated shmem GEM object.
+ *
+ * Returns:
+ * 0 on success, or a negative error code on failure.
+ */
+int drm_gem_shmem_init(struct drm_device *dev, struct drm_gem_shmem_object *shmem,
+		       size_t size, bool private)
 {
 	struct drm_gem_object *obj = &shmem->base;
 	int ret = 0;
@@ -94,22 +106,6 @@ err_release:
 	drm_gem_object_release(obj);
 	return ret;
 }
-
-/**
- * drm_gem_shmem_init - Initialize an allocated object.
- * @dev: DRM device
- * @shmem: shmem GEM object to initialize
- * @size: Buffer size in bytes
- *
- * This function initializes an allocated shmem GEM object.
- *
- * Returns:
- * 0 on success, or a negative error code on failure.
- */
-int drm_gem_shmem_init(struct drm_device *dev, struct drm_gem_shmem_object *shmem, size_t size)
-{
-	return __drm_gem_shmem_init(dev, shmem, size, false);
-}
 EXPORT_SYMBOL_GPL(drm_gem_shmem_init);
 
 static struct drm_gem_shmem_object *
@@ -133,7 +129,7 @@ __drm_gem_shmem_create(struct drm_device *dev, size_t size, bool private)
 		obj = &shmem->base;
 	}
 
-	ret = __drm_gem_shmem_init(dev, shmem, size, private);
+	ret = drm_gem_shmem_init(dev, shmem, size, private);
 	if (ret) {
 		kfree(obj);
 		return ERR_PTR(ret);
