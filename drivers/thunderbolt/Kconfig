@@ -75,4 +75,17 @@ config USB4_STREAM
 	  To compile this driver a module, choose M here. The module will be
 	  called thunderbolt_stream.
 
+config USB4_APPLE_SOC
+	tristate "Apple Silicon USB4/Thunderbolt Support"
+	depends on ARCH_APPLE || COMPILE_TEST
+	depends on OF && APPLE_RTKIT
+	depends on TYPEC
+	select APPLE_TUNABLE
+	help
+	  Say Y here to add support for the USB4 and Thunderbolt host
+	  routers found on Apple Silicon machines starting with the M1.
+
+	  To compile the driver as a module, choose M here. The module
+	  will be called thunderbolt_apple.
+
 endif # USB4
