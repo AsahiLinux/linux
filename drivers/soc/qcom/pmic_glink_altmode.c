@@ -216,7 +216,7 @@ static void pmic_glink_altmode_enable_tbt(struct pmic_glink_altmode *altmode,
 
 	/* Device Discover Mode VDO */
 	tbt_data.device_mode = TBT_MODE;
-	tbt_data.device_mode |= TBT_SET_ADAPTER(TBT_ADAPTER_TBT3);
+	tbt_data.device_mode |= TBT_SET_ADAPTER(TBT_ADAPTER_TYPE_TBT2_LEGACY);
 
 	/* Cable Discover Mode VDO */
 	tbt_data.cable_mode = TBT_MODE;
