@@ -29,6 +29,7 @@ obj-$(CONFIG_HID_ACCUTOUCH)	+= hid-accutouch.o
 obj-$(CONFIG_HID_ALPS)		+= hid-alps.o
 obj-$(CONFIG_HID_ACRUX)		+= hid-axff.o
 obj-$(CONFIG_HID_APPLE)		+= hid-apple.o
+obj-$(CONFIG_HID_APPLE_ACTUATOR)	+= hid-apple-actuator.o
 obj-$(CONFIG_HID_APPLEIR)	+= hid-appleir.o
 obj-$(CONFIG_HID_APPLETB_BL)	+= hid-appletb-bl.o
 obj-$(CONFIG_HID_APPLETB_KBD)	+= hid-appletb-kbd.o
@@ -180,6 +181,12 @@ obj-$(CONFIG_I2C_HID_CORE)	+= i2c-hid/
 obj-$(CONFIG_INTEL_ISH_HID)	+= intel-ish-hid/
 
 obj-$(CONFIG_AMD_SFH_HID)       += amd-sfh-hid/
+
+obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
+
+obj-$(CONFIG_SPI_HID_APPLE_CORE)	+= spi-hid/
+
+obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
 
 obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
 
