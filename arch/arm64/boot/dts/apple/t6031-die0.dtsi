@@ -604,6 +604,7 @@
 		iommus = <&disp0_dart 0 0x100 0x0 0x1 0x0>;
 		/* generate phandle explicitly for use in loader */
 		phandle = <&display>;
+		dma-coherent;
 	};
 
 	isp_dart0: iommu@38e4a8000 {
