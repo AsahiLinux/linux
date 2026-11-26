@@ -8,10 +8,10 @@
 #ifdef CONFIG_BRCMFMAC_PROTO_MSGBUF
 
 #define BRCMF_H2D_MSGRING_CONTROL_SUBMIT_MAX_ITEM	64
-#define BRCMF_H2D_MSGRING_RXPOST_SUBMIT_MAX_ITEM	1024
+#define BRCMF_H2D_MSGRING_RXPOST_SUBMIT_MAX_ITEM	2048
 #define BRCMF_D2H_MSGRING_CONTROL_COMPLETE_MAX_ITEM	64
 #define BRCMF_D2H_MSGRING_TX_COMPLETE_MAX_ITEM		1024
-#define BRCMF_D2H_MSGRING_RX_COMPLETE_MAX_ITEM		1024
+#define BRCMF_D2H_MSGRING_RX_COMPLETE_MAX_ITEM		2048
 #define BRCMF_H2D_TXFLOWRING_MAX_ITEM			512
 
 #define BRCMF_H2D_MSGRING_CONTROL_SUBMIT_ITEMSIZE	40
@@ -32,6 +32,7 @@ int brcmf_proto_msgbuf_rx_trigger(struct device *dev);
 void brcmf_msgbuf_delete_flowring(struct brcmf_pub *drvr, u16 flowid);
 int brcmf_proto_msgbuf_attach(struct brcmf_pub *drvr);
 void brcmf_proto_msgbuf_detach(struct brcmf_pub *drvr);
+int brcmf_msgbuf_h2d_mb_write(struct brcmf_pub *drvr, u32 data);
 #else
 static inline int brcmf_proto_msgbuf_attach(struct brcmf_pub *drvr)
 {
