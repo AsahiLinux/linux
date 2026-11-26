@@ -117,6 +117,7 @@ static const char * const iommu_group_resv_type_string[] = {
 	[IOMMU_RESV_RESERVED]			= "reserved",
 	[IOMMU_RESV_MSI]			= "msi",
 	[IOMMU_RESV_SW_MSI]			= "msi",
+	[IOMMU_RESV_TRANSLATED]			= "translated",
 };
 
 #define IOMMU_CMD_LINE_DMA_API		BIT(0)
@@ -160,8 +161,8 @@ static void __iommu_group_set_domain_nofail(struct iommu_group *group,
 
 static int iommu_setup_default_domain(struct iommu_group *group,
 				      int target_type);
-static int iommu_create_device_direct_mappings(struct iommu_domain *domain,
-					       struct device *dev);
+static int iommu_create_device_fw_mappings(struct iommu_domain *domain,
+					   struct device *dev);
 static ssize_t iommu_group_store_type(struct iommu_group *group,
 				      const char *buf, size_t count);
 static struct group_device *iommu_group_alloc_device(struct iommu_group *group,
@@ -668,7 +669,7 @@ static int __iommu_probe_device(struct device *dev, struct list_head *group_list
 	list_add_tail(&gdev->list, &group->devices);
 	WARN_ON(group->default_domain && !group->domain);
 	if (group->default_domain)
-		iommu_create_device_direct_mappings(group->default_domain, dev);
+		iommu_create_device_fw_mappings(group->default_domain, dev);
 	if (group->domain) {
 		ret = __iommu_device_set_domain(group, dev, group->domain, NULL,
 						0);
@@ -1197,8 +1198,8 @@ int iommu_group_set_name(struct iommu_group *group, const char *name)
 }
 EXPORT_SYMBOL_GPL(iommu_group_set_name);
 
-static int iommu_create_device_direct_mappings(struct iommu_domain *domain,
-					       struct device *dev)
+static int iommu_create_device_fw_mappings(struct iommu_domain *domain,
+					   struct device *dev)
 {
 	struct iommu_resv_region *entry;
 	LIST_HEAD(mappings);
@@ -1214,21 +1215,29 @@ static int iommu_create_device_direct_mappings(struct iommu_domain *domain,
 
 	/* We need to consider overlapping regions for different devices */
 	list_for_each_entry(entry, &mappings, list) {
-		dma_addr_t start, end, addr;
+		dma_addr_t start, end, addr, iova;
 		size_t map_size = 0;
 
 		if (entry->type == IOMMU_RESV_DIRECT)
 			dev->iommu->require_direct = 1;
+		if (entry->type == IOMMU_RESV_TRANSLATED)
+			dev->iommu->require_translated = 1;
 
 		if ((entry->type != IOMMU_RESV_DIRECT &&
-		     entry->type != IOMMU_RESV_DIRECT_RELAXABLE) ||
+		     entry->type != IOMMU_RESV_DIRECT_RELAXABLE &&
+		     entry->type != IOMMU_RESV_TRANSLATED) ||
 		    !iommu_is_dma_domain(domain))
 			continue;
 
 		start = ALIGN(entry->start, pg_size);
 		end   = ALIGN(entry->start + entry->length, pg_size);
 
-		for (addr = start; addr <= end; addr += pg_size) {
+		if (entry->type == IOMMU_RESV_TRANSLATED)
+			iova = ALIGN(entry->dva, pg_size);
+		else
+			iova = start;
+
+		for (addr = start; addr <= end; addr += pg_size, iova += pg_size) {
 			phys_addr_t phys_addr;
 
 			if (addr == end)
@@ -1238,7 +1247,7 @@ static int iommu_create_device_direct_mappings(struct iommu_domain *domain,
 			 * Return address by iommu_iova_to_phys for 0 is
 			 * ambiguous. Offset to address 1 if addr is 0.
 			 */
-			phys_addr = iommu_iova_to_phys(domain, addr ? addr : 1);
+			phys_addr = iommu_iova_to_phys(domain, iova ? iova : 1);
 			if (!phys_addr) {
 				map_size += pg_size;
 				continue;
@@ -1246,7 +1255,7 @@ static int iommu_create_device_direct_mappings(struct iommu_domain *domain,
 
 map_end:
 			if (map_size) {
-				ret = iommu_map(domain, addr - map_size,
+				ret = iommu_map(domain, iova - map_size,
 						addr - map_size, map_size,
 						entry->prot, GFP_KERNEL);
 				if (ret)
@@ -2415,6 +2424,19 @@ static int __iommu_device_set_domain(struct iommu_group *group,
 			 "Firmware has requested this device have a 1:1 IOMMU mapping, rejecting configuring the device without a 1:1 mapping. Contact your platform vendor.\n");
 		return -EINVAL;
 	}
+	/*
+	 * If the device requires IOMMU_RESV_TRANSLATED then we cannot allow
+	 * the identy or blocking domain to be attached as it does not contain
+	 * the required translated mapping.
+	 */
+	if (dev->iommu->require_translated &&
+	    (new_domain->type == IOMMU_DOMAIN_IDENTITY ||
+	     new_domain->type == IOMMU_DOMAIN_BLOCKED ||
+	     new_domain == group->blocking_domain)) {
+		dev_warn(dev,
+			 "Firmware has requested this device have a translated IOMMU mapping, rejecting configuring the device without a translated mapping. Contact your platform vendor.\n");
+		return -EINVAL;
+	}
 
 	if (dev->iommu->attach_deferred) {
 		if (new_domain == group->default_domain)
@@ -3009,10 +3031,11 @@ void iommu_put_resv_regions(struct device *dev, struct list_head *list)
 }
 EXPORT_SYMBOL(iommu_put_resv_regions);
 
-struct iommu_resv_region *iommu_alloc_resv_region(phys_addr_t start,
-						  size_t length, int prot,
-						  enum iommu_resv_type type,
-						  gfp_t gfp)
+struct iommu_resv_region *iommu_alloc_resv_region_tr(phys_addr_t start,
+						     dma_addr_t dva_start,
+						     size_t length, int prot,
+						     enum iommu_resv_type type,
+						     gfp_t gfp)
 {
 	struct iommu_resv_region *region;
 
@@ -3022,10 +3045,24 @@ struct iommu_resv_region *iommu_alloc_resv_region(phys_addr_t start,
 
 	INIT_LIST_HEAD(&region->list);
 	region->start = start;
+	if (type == IOMMU_RESV_TRANSLATED)
+		region->dva = dva_start;
 	region->length = length;
 	region->prot = prot;
 	region->type = type;
 	return region;
+}
+EXPORT_SYMBOL_GPL(iommu_alloc_resv_region_tr);
+
+struct iommu_resv_region *iommu_alloc_resv_region(phys_addr_t start,
+						  size_t length, int prot,
+						  enum iommu_resv_type type,
+						  gfp_t gfp)
+{
+	if (type == IOMMU_RESV_TRANSLATED)
+		return NULL;
+
+	return iommu_alloc_resv_region_tr(start, 0, length, prot, type, gfp);
 }
 EXPORT_SYMBOL_GPL(iommu_alloc_resv_region);
 
@@ -3151,7 +3188,7 @@ static int iommu_setup_default_domain(struct iommu_group *group,
 	struct iommu_domain *old_dom = group->default_domain;
 	struct group_device *gdev;
 	struct iommu_domain *dom;
-	bool direct_failed;
+	bool fw_failed;
 	int req_type;
 	int ret;
 
@@ -3181,10 +3218,10 @@ static int iommu_setup_default_domain(struct iommu_group *group,
 	 * mapped before their device is attached, in order to guarantee
 	 * continuity with any FW activity
 	 */
-	direct_failed = false;
+	fw_failed = false;
 	for_each_group_device(group, gdev) {
-		if (iommu_create_device_direct_mappings(dom, gdev->dev)) {
-			direct_failed = true;
+		if (iommu_create_device_fw_mappings(dom, gdev->dev)) {
+			fw_failed = true;
 			dev_warn_once(
 				gdev->dev->iommu->iommu_dev->dev,
 				"IOMMU driver was not able to establish FW requested direct mapping.");
@@ -3216,9 +3253,9 @@ static int iommu_setup_default_domain(struct iommu_group *group,
 	 * trying again after attaching. If this happens it means the device
 	 * will not continuously have the IOMMU_RESV_DIRECT map.
 	 */
-	if (direct_failed) {
+	if (fw_failed) {
 		for_each_group_device(group, gdev) {
-			ret = iommu_create_device_direct_mappings(dom, gdev->dev);
+			ret = iommu_create_device_fw_mappings(dom, gdev->dev);
 			if (ret)
 				goto err_restore_domain;
 		}
