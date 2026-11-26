@@ -33,6 +33,10 @@
 
 #include "pci-host-common.h"
 
+static int link_up_timeout = 500;
+module_param(link_up_timeout, int, 0644);
+MODULE_PARM_DESC(link_up_timeout, "PCIe link training timeout in milliseconds");
+
 /* T8103 (original M1) and related SoCs */
 #define CORE_RC_PHYIF_CTL		0x00024
 #define   CORE_RC_PHYIF_CTL_RUN		BIT(0)
@@ -550,21 +554,104 @@ static u32 apple_pcie_rid2sid_write(struct apple_pcie_port *port,
 	return readl_relaxed(port_rid2sid_addr(port, idx));
 }
 
+static int apple_pcie_setup_link(struct apple_pcie *pcie,
+				 struct apple_pcie_port *port,
+				 struct device_node *np)
+{
+#define MAX_AUX_PERST 3
+	struct gpio_desc *aux_reset[MAX_AUX_PERST] = { NULL };
+	u32 num_aux_resets = 0;
+	struct gpio_desc *reset, *pwren = NULL;
+	u32 stat;
+	int ret;
+
+	/*
+	 * Assert PERST# and configure the pin as output.
+	 * The Aquantia AQC113 10GB nic used desktop macs is sensitive to
+	 * deasserting it without prior clock setup.
+	 * Observed on M1 Max/Ultra Mac Studios under m1n1's hypervisor.
+	 */
+	reset = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "reset",
+				      GPIOD_OUT_HIGH, "PERST#");
+	if (IS_ERR(reset))
+		return PTR_ERR(reset);
+	// HACK: use additional "reset-gpios" until pci-pwrctrl gains PERST# support.
+	for (u32 idx = 0; idx < MAX_AUX_PERST; idx++) {
+		aux_reset[idx] = devm_fwnode_gpiod_get_index(pcie->dev,
+							     of_fwnode_handle(np),
+							     "reset", idx + 1,
+							     GPIOD_OUT_HIGH,
+							     "PERST#");
+		if (IS_ERR(aux_reset[idx])) {
+			if (PTR_ERR(aux_reset[idx]) == -ENOENT)
+				break;
+			else
+				return PTR_ERR(aux_reset[idx]);
+		}
+		num_aux_resets++;
+	}
+	dev_info(pcie->dev, "Using %u auxiliary PERST#\n", num_aux_resets);
+
+	pwren = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "pwren",
+					    GPIOD_ASIS, "PWREN");
+	if (IS_ERR(pwren)) {
+		if (PTR_ERR(pwren) == -ENOENT)
+			pwren = NULL;
+		else
+			return PTR_ERR(pwren);
+	}
+
+	rmw_set(PORT_APPCLK_EN, port->base + PORT_APPCLK);
+
+	/* Assert PERST# before setting up the clock */
+	gpiod_set_value_cansleep(reset, 1);
+	for (u32 idx = 0; idx < num_aux_resets; idx++)
+		gpiod_set_value_cansleep(aux_reset[idx], 1);
+
+	/* Power on the device if required */
+	gpiod_set_value_cansleep(pwren, 1);
+
+	ret = apple_pcie_setup_refclk(pcie, port);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * The minimal Tperst-clk value is 100us (PCIe CEM r5.0, 2.9.2)
+	 * If powering up, the minimal Tpvperl is 100ms
+	 */
+	if (pwren)
+		msleep(100);
+	else
+		usleep_range(100, 200);
+
+	/* Deassert PERST# */
+	rmw_set(PORT_PERST_OFF, port->base + pcie->hw->port_perst);
+	gpiod_set_value_cansleep(reset, 0);
+	for (u32 idx = 0; idx < num_aux_resets; idx++)
+		gpiod_set_value_cansleep(aux_reset[idx], 0);
+
+	/* Wait for 100ms after PERST# deassertion (PCIe r5.0, 6.6.1) */
+	msleep(100);
+
+	ret = readl_relaxed_poll_timeout(port->base + PORT_STATUS, stat,
+					 stat & PORT_STATUS_READY, 100, 250000);
+	if (ret < 0) {
+		dev_err(pcie->dev, "port %pOF ready wait timeout\n", np);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int apple_pcie_setup_port(struct apple_pcie *pcie,
 				 struct device_node *np)
 {
 	struct platform_device *platform = to_platform_device(pcie->dev);
 	struct apple_pcie_port *port;
-	struct gpio_desc *reset;
 	struct resource *res;
 	char name[16];
-	u32 stat, idx;
+	u32 link_stat, idx;
 	int ret, i;
-
-	reset = devm_fwnode_gpiod_get(pcie->dev, of_fwnode_handle(np), "reset",
-				      GPIOD_OUT_LOW, "PERST#");
-	if (IS_ERR(reset))
-		return PTR_ERR(reset);
 
 	port = devm_kzalloc(pcie->dev, sizeof(*port), GFP_KERNEL);
 	if (!port)
@@ -601,30 +688,12 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 	else
 		port->phy = pcie->base + CORE_PHY_DEFAULT_BASE(port->idx);
 
-	rmw_set(PORT_APPCLK_EN, port->base + PORT_APPCLK);
-
-	/* Assert PERST# before setting up the clock */
-	gpiod_set_value_cansleep(reset, 1);
-
-	ret = apple_pcie_setup_refclk(pcie, port);
-	if (ret < 0)
-		return ret;
-
-	/* The minimal Tperst-clk value is 100us (PCIe CEM r5.0, 2.9.2) */
-	usleep_range(100, 200);
-
-	/* Deassert PERST# */
-	rmw_set(PORT_PERST_OFF, port->base + pcie->hw->port_perst);
-	gpiod_set_value_cansleep(reset, 0);
-
-	/* Wait for 100ms after PERST# deassertion (PCIe r5.0, 6.6.1) */
-	msleep(100);
-
-	ret = readl_relaxed_poll_timeout(port->base + PORT_STATUS, stat,
-					 stat & PORT_STATUS_READY, 100, 250000);
-	if (ret < 0) {
-		dev_err(pcie->dev, "port %pOF ready wait timeout\n", np);
-		return ret;
+	/* link might be already brought up by u-boot, skip setup then */
+	link_stat = readl_relaxed(port->base + PORT_LINKSTS);
+	if (!(link_stat & PORT_LINKSTS_UP)) {
+		ret = apple_pcie_setup_link(pcie, port, np);
+		if (ret)
+			return ret;
 	}
 
 	if (pcie->hw->port_refclk)
@@ -658,10 +727,21 @@ static int apple_pcie_setup_port(struct apple_pcie *pcie,
 	ret = apple_pcie_port_register_irqs(port);
 	WARN_ON(ret);
 
-	writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
+	link_stat = readl_relaxed(port->base + PORT_LINKSTS);
+	if (!(link_stat & PORT_LINKSTS_UP)) {
+		unsigned long timeout, left;
+		/* start link training */
+		writel_relaxed(PORT_LTSSMCTL_START, port->base + PORT_LTSSMCTL);
 
-	if (!wait_for_completion_timeout(&pcie->event, HZ / 10))
-		dev_warn(pcie->dev, "%pOF link didn't come up\n", np);
+		timeout = link_up_timeout * HZ / 1000;
+		left = wait_for_completion_timeout(&pcie->event, timeout);
+		if (!left)
+			dev_warn(pcie->dev, "%pOF link didn't come up\n", np);
+		else
+			dev_info(pcie->dev, "%pOF link up after %ldms\n", np,
+				 (timeout - left) * 1000 / HZ);
+
+	}
 
 	return 0;
 }
@@ -847,12 +927,46 @@ static const struct pci_ecam_ops apple_pcie_cfg_ecam_ops = {
 	}
 };
 
+static int apple_pcie_probe_port(struct device_node *np)
+{
+	struct gpio_desc *gd;
+
+	/* check whether the GPPIO pin exists but leave it as is */
+	gd = fwnode_gpiod_get_index(of_fwnode_handle(np), "reset", 0,
+				    GPIOD_ASIS, "PERST#");
+	if (IS_ERR(gd))
+		return PTR_ERR(gd);
+
+	gpiod_put(gd);
+
+	gd = fwnode_gpiod_get_index(of_fwnode_handle(np), "pwren", 0,
+				    GPIOD_ASIS, "PWREN");
+	if (IS_ERR(gd)) {
+		if (PTR_ERR(gd) != -ENOENT)
+			return PTR_ERR(gd);
+	} else {
+		gpiod_put(gd);
+	}
+
+	return 0;
+}
+
 static int apple_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct pci_host_bridge *bridge;
+	struct device_node *of_port;
 	struct apple_pcie *pcie;
 	int ret;
+
+	/* Check for probe dependencies for all ports first */
+	for_each_available_child_of_node(dev->of_node, of_port) {
+		ret = apple_pcie_probe_port(of_port);
+		if (ret) {
+			of_node_put(of_port);
+			return dev_err_probe(dev, ret, "Port %pOF probe fail\n", of_port);
+		}
+	}
 
 	bridge = devm_pci_alloc_host_bridge(dev, sizeof(*pcie));
 	if (!bridge)
