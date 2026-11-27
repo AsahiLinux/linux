@@ -1323,6 +1323,8 @@ cd321x_unregister_port(struct tps6598x *tps)
 	cd321x->port_altmode_dp = NULL;
 	typec_unregister_altmode(cd321x->port_altmode_tbt);
 	cd321x->port_altmode_tbt = NULL;
+	fwnode_handle_put(cd321x->connector_fwnode);
+	cd321x->connector_fwnode = NULL;
 	typec_unregister_port(tps->port);
 }
 
